@@ -10,6 +10,7 @@
 import type { MERCGame, RebelPlayer } from './game.js';
 import { MercCard, Equipment, Sector, TacticsCard } from './elements.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
+import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 
 // =============================================================================
 // Rebel Phase - Day 1
@@ -192,6 +193,10 @@ export function placeInitialMilitia(game: MERCGame): number {
  * Hire the dictator's first MERC.
  * The dictator draws 1 random MERC (no choice).
  * The MERC is placed at a sector the Dictator controls.
+ *
+ * IMPORTANT: Per rules (04-day-one-the-landing.md):
+ * "The Dictator does not get free starting equipment for this MERC."
+ * This function intentionally does NOT call equipStartingEquipment().
  */
 export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
   const merc = game.drawMerc();
@@ -222,18 +227,8 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
  * Some dictators have abilities that trigger during setup.
  */
 export function applyDictatorSetupAbility(game: MERCGame): void {
-  const dictator = game.dictatorPlayer.dictator;
-  if (!dictator) return;
-
-  // Check the ability text for setup triggers
-  const ability = dictator.ability.toLowerCase();
-
-  // Example abilities that might trigger during setup:
-  // - "Start with X extra militia"
-  // - "Begin with equipment"
-  // These would be implemented based on specific dictator cards
-
-  game.message(`Dictator ability: ${dictator.ability}`);
+  // Use the new dictator abilities module
+  applyDictatorSetupAbilities(game);
 }
 
 /**

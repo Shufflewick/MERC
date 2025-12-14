@@ -150,6 +150,24 @@ export {
   type SetupOptions,
 } from './setup.js';
 
+// Dictator Abilities
+export {
+  applyDictatorSetupAbilities,
+  applyDictatorTurnAbilities,
+  applyCastroTurnAbility,
+  applyKimTurnAbility,
+  applyKimSetupAbility,
+  type DictatorAbilityType,
+  type DictatorAbilityResult,
+} from './dictator-abilities.js';
+
+// Tactics Card Effects
+export {
+  executeTacticsEffect,
+  applyConscriptsEffect,
+  type TacticsEffectResult,
+} from './tactics-effects.js';
+
 // Game definition for BoardSmith
 import { MERCGame } from './game.js';
 

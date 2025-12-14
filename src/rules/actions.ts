@@ -9,6 +9,7 @@ import {
   equipStartingEquipment,
 } from './day-one.js';
 import { executeCombat, hasEnemies } from './combat.js';
+import { executeTacticsEffect } from './tactics-effects.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -214,6 +215,20 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         if (accessory) {
           sector.addToStash(accessory);
           drawnEquipment.push(accessory);
+        }
+      }
+
+      // Industry sectors provide extra equipment from exploration
+      // Per rules (01-game-elements-and-components.md): "Extra equipment from exploration"
+      if (sector.isIndustry) {
+        // Draw one additional random equipment type
+        const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        const bonusEquipment = game.drawEquipment(randomType);
+        if (bonusEquipment) {
+          sector.addToStash(bonusEquipment);
+          drawnEquipment.push(bonusEquipment);
+          game.message(`Industry bonus: found ${bonusEquipment.equipmentName}!`);
         }
       }
 
@@ -826,14 +841,18 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
     .execute((args) => {
       const card = args.card as TacticsCard;
       game.message(`Dictator plays: ${card.tacticsName}`);
-      game.message(`Effect: ${card.description}`);
 
       // Move card to discard
       card.putInto(game.dictatorPlayer.tacticsDiscard);
 
-      // TODO: Implement specific card effects based on card.tacticsId
+      // Execute the card's effect
+      const result = executeTacticsEffect(game, card);
 
-      return { success: true, message: `Played ${card.tacticsName}` };
+      return {
+        success: result.success,
+        message: `Played ${card.tacticsName}: ${result.message}`,
+        data: result.data,
+      };
     });
 }
 

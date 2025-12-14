@@ -595,8 +595,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   getControlledSectors(player: MERCPlayer): Sector[] {
     return this.gameMap.getAllSectors().filter(sector => {
       if (player instanceof DictatorPlayer) {
-        // Dictator controls if they have more militia than all rebels combined
-        return sector.dictatorMilitia > sector.getTotalRebelMilitia();
+        // Dictator controls if they have equal or more militia than all rebels combined
+        // Per rules: "Dictator wins all ties" (02-game-constants-and-configuration.md)
+        return sector.dictatorMilitia >= sector.getTotalRebelMilitia() && sector.dictatorMilitia > 0;
       } else {
         // Rebel controls if they have more militia/mercs than dictator and other rebels
         const rebel = player as RebelPlayer;

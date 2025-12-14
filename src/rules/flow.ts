@@ -8,7 +8,9 @@ import {
   type FlowDefinition,
 } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from './game.js';
-import { executeDictatorDay1, getDay1Summary } from './day-one.js';
+import { executeDictatorDay1, getDay1Summary, drawTacticsHand } from './day-one.js';
+import { applyDictatorTurnAbilities } from './dictator-abilities.js';
+import { applyConscriptsEffect } from './tactics-effects.js';
 
 /**
  * MERC Game Flow
@@ -151,9 +153,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // Dictator turn
           phase('dictator-turn', {
             do: sequence(
-              // Draw tactics cards
+              // Draw tactics cards to fill hand
               execute(() => {
-                game.message('Dictator draws tactics cards...');
+                game.message('--- Dictator Turn ---');
+                drawTacticsHand(game);
+              }),
+
+              // Apply per-turn dictator ability (Castro draws MERCs, Kim places militia)
+              execute(() => {
+                applyDictatorTurnAbilities(game);
               }),
 
               // Play a tactics card or reinforce
@@ -168,6 +176,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 name: 'dictator-militia-movement',
                 actions: ['moveMilitia', 'skipMilitiaMove'],
                 skipIf: () => game.isFinished(),
+              }),
+
+              // Apply end-of-turn effects (Conscripts)
+              execute(() => {
+                applyConscriptsEffect(game);
               }),
             ),
           }),
