@@ -15,6 +15,11 @@ import { executeTacticsEffect } from './tactics-effects.js';
 // Action Cost Constants
 // =============================================================================
 
+// Helper to capitalize first letter
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 const ACTION_COSTS = {
   MOVE: 1,
   EXPLORE: 1,
@@ -103,7 +108,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         const canHire = teamLimit - currentSize;
 
         const choices = drawnMercs.map(m => ({
-          label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+          label: capitalize(m.mercName),
           value: m.mercName,
         }));
 
@@ -916,7 +921,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
           return [{ label: 'No MERCs available', value: '' }];
         }
         return available.map((m) => ({
-          label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+          label: capitalize(m.mercName),
           value: m.mercId,
         }));
       },
@@ -935,7 +940,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
             return [{ label: 'No MERCs available', value: '' }];
           }
           return available.map((m) => ({
-            label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+            label: capitalize(m.mercName),
             value: m.mercId,
           }));
         }
@@ -947,7 +952,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
           return [{ label: 'No MERCs available', value: '' }];
         }
         return remaining.map((m) => ({
-          label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+          label: capitalize(m.mercName),
           value: m.mercId,
         }));
       },
