@@ -82,6 +82,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC spends the actions?',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -287,6 +288,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC explores?',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -446,6 +448,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to train militia',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -500,6 +503,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to equip',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -535,6 +539,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('tradePartner', {
       prompt: 'Select teammate to give equipment to',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -655,6 +660,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to heal',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -696,6 +702,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC visits the dealer?',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -743,6 +750,7 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to split off into secondary squad',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -812,6 +820,7 @@ export function createFireMercAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to fire',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -1003,6 +1012,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to equip',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
@@ -1277,6 +1287,7 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to move',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element) => {
         const merc = element as unknown as MercCard;
         const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -1332,6 +1343,7 @@ export function createDictatorExploreAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to explore',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element) => {
         const merc = element as unknown as MercCard;
         const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -1396,6 +1408,7 @@ export function createDictatorTrainAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to train',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element) => {
         const merc = element as unknown as MercCard;
         const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -1441,6 +1454,7 @@ export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to re-equip',
       elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
       filter: (element) => {
         const merc = element as unknown as MercCard;
         const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
