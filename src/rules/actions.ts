@@ -107,10 +107,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         const currentSize = player.teamSize;
         const canHire = teamLimit - currentSize;
 
-        const choices = drawnMercs.map(m => ({
-          label: capitalize(m.mercName),
-          value: m.mercName,
-        }));
+        const choices = drawnMercs.map(m => capitalize(m.mercName));
 
         // Add note about team limit
         if (canHire < drawnMercs.length) {
@@ -143,7 +140,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       const hired: string[] = [];
 
       for (const merc of drawnMercs) {
-        if (selectedNames.includes(merc.mercName) && currentSize < teamLimit) {
+        if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
           merc.putInto(player.primarySquad);
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
@@ -918,12 +915,9 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
-          return [{ label: 'No MERCs available', value: '' }];
+          return ['No MERCs available'];
         }
-        return available.map((m) => ({
-          label: capitalize(m.mercName),
-          value: m.mercId,
-        }));
+        return available.map((m) => capitalize(m.mercName));
       },
     })
     .chooseFrom<string>('secondMerc', {
@@ -932,29 +926,25 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
         const available = drawnMercsCache.get(playerId) || [];
-        const firstMercId = ctx.args?.firstMerc as string | undefined;
+        const firstName = ctx.args?.firstMerc as string | undefined;
 
         // Safety check - if firstMerc not yet selected, show all available
-        if (!firstMercId) {
+        if (!firstName) {
           if (available.length === 0) {
-            return [{ label: 'No MERCs available', value: '' }];
+            return ['No MERCs available'];
           }
-          return available.map((m) => ({
-            label: capitalize(m.mercName),
-            value: m.mercId,
-          }));
+          return available.map((m) => capitalize(m.mercName));
         }
 
-        // Filter out the first selected MERC
-        const remaining = available.filter(m => m.mercId !== firstMercId);
+        // Filter out the first selected MERC (case-insensitive match)
+        const remaining = available.filter(m =>
+          capitalize(m.mercName) !== firstName
+        );
 
         if (remaining.length === 0) {
-          return [{ label: 'No MERCs available', value: '' }];
+          return ['No MERCs available'];
         }
-        return remaining.map((m) => ({
-          label: capitalize(m.mercName),
-          value: m.mercId,
-        }));
+        return remaining.map((m) => capitalize(m.mercName));
       },
     })
     .execute((args, ctx) => {
@@ -966,15 +956,16 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const firstMercId = args.firstMerc as string;
-      const secondMercId = args.secondMerc as string;
+      const firstName = args.firstMerc as string;
+      const secondName = args.secondMerc as string;
 
-      if (!firstMercId || !secondMercId) {
+      if (!firstName || !secondName || firstName === 'No MERCs available' || secondName === 'No MERCs available') {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const firstMerc = available.find(m => m.mercId === firstMercId);
-      const secondMerc = available.find(m => m.mercId === secondMercId);
+      // Find MERCs by capitalized name
+      const firstMerc = available.find(m => capitalize(m.mercName) === firstName);
+      const secondMerc = available.find(m => capitalize(m.mercName) === secondName);
 
       if (!firstMerc || !secondMerc) {
         return { success: false, message: 'Invalid selection' };
