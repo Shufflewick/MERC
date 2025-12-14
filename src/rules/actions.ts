@@ -22,11 +22,10 @@ const ACTION_COSTS = {
   ATTACK: 1,
   HOSPITAL: 1,
   ARMS_DEALER: 1,
-  HIRE_MERC: 1,
-  RE_EQUIP: 0, // Free action
+  HIRE_MERC: 2, // Per rules: "Hire MERCs (2 actions)"
+  RE_EQUIP: 1, // Per rules: "Re-Equip (1 action)"
   SPLIT_SQUAD: 0, // Free action
   MERGE_SQUADS: 0, // Free action
-  GIFT_MILITIA: 0, // Free action
 } as const;
 
 // =============================================================================
@@ -147,6 +146,22 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
 
       squad.sectorId = destination.sectorId;
       game.message(`${player.name} moved ${mercs.length} MERC(s) to ${destination.sectorName}`);
+
+      // Per rules: "Combat triggers when: A squad moves into an enemy-occupied sector"
+      // Check for enemies and auto-trigger combat
+      if (hasEnemies(game, destination, player)) {
+        game.message(`Enemies detected at ${destination.sectorName} - combat begins!`);
+        const outcome = executeCombat(game, destination, player);
+        return {
+          success: true,
+          message: `Moved to ${destination.sectorName} and engaged in combat`,
+          data: {
+            combatTriggered: true,
+            rebelVictory: outcome.rebelVictory,
+            dictatorVictory: outcome.dictatorVictory,
+          },
+        };
+      }
 
       return { success: true, message: `Moved to ${destination.sectorName}` };
     });
@@ -579,76 +594,6 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
     });
 }
 
-/**
- * Gift militia to another rebel
- * Cost: Free action
- */
-export function createGiftMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('giftMilitia')
-    .prompt('Gift militia')
-    .condition((ctx) => {
-      const player = ctx.player as RebelPlayer;
-      const squad = player.primarySquad;
-      if (!squad?.sectorId) return false;
-      const sector = game.getSector(squad.sectorId);
-      if (!sector) return false;
-      // Must have militia to gift
-      const myMilitia = sector.getRebelMilitia(`${player.position}`);
-      if (myMilitia === 0) return false;
-      // Must be another rebel in same sector
-      return game.rebelPlayers.some(r =>
-        r !== player &&
-        (r.primarySquad.sectorId === sector.sectorId || r.secondarySquad.sectorId === sector.sectorId)
-      );
-    })
-    .chooseFrom<string>('recipient', {
-      prompt: 'Gift militia to which rebel?',
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        const squad = player.primarySquad;
-        const sector = game.getSector(squad.sectorId!);
-        if (!sector) return [];
-        return game.rebelPlayers
-          .filter(r => r !== player &&
-            (r.primarySquad.sectorId === sector.sectorId || r.secondarySquad.sectorId === sector.sectorId))
-          .map(r => r.name);
-      },
-    })
-    .chooseFrom<string>('count', {
-      prompt: 'How many militia to gift?',
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        const squad = player.primarySquad;
-        const sector = game.getSector(squad.sectorId!);
-        if (!sector) return ['1'];
-        const myMilitia = sector.getRebelMilitia(`${player.position}`);
-        return Array.from({ length: myMilitia }, (_, i) => String(i + 1));
-      },
-    })
-    .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
-      const recipientName = args.recipient as string;
-      const count = parseInt(args.count as string, 10);
-      const squad = player.primarySquad;
-      const sector = game.getSector(squad.sectorId!);
-
-      if (!sector) {
-        return { success: false, message: 'No sector found' };
-      }
-
-      const recipient = game.rebelPlayers.find(r => r.name === recipientName);
-      if (!recipient) {
-        return { success: false, message: 'Recipient not found' };
-      }
-
-      // Transfer militia
-      const removed = sector.removeRebelMilitia(`${player.position}`, count);
-      const added = sector.addRebelMilitia(`${recipient.position}`, removed);
-
-      game.message(`${player.name} gifted ${added} militia to ${recipient.name}`);
-      return { success: true, message: `Gifted ${added} militia` };
-    });
-}
 
 /**
  * End the current turn
@@ -973,6 +918,242 @@ export function createSkipMilitiaMoveAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
+// Dictator MERC Actions
+// =============================================================================
+
+/**
+ * Dictator MERC move action
+ */
+export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorMove')
+    .prompt('Move Dictator MERC')
+    .condition(() => {
+      // Check if any dictator MERC has actions
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+      return mercs.some(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to move',
+      elementClass: MercCard,
+      filter: (element) => {
+        const merc = element as unknown as MercCard;
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+        return dictatorMercs.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.MOVE;
+      },
+    })
+    .chooseElement<Sector>('destination', {
+      prompt: 'Select destination sector',
+      elementClass: Sector,
+      filter: (element, ctx) => {
+        const sector = element as unknown as Sector;
+        const merc = ctx.args.merc as MercCard;
+        // Find current sector (dictator MERCs at base or controlled sectors)
+        const baseSectorId = game.dictatorPlayer?.baseSectorId;
+        if (!baseSectorId) return false;
+        const currentSector = game.getSector(baseSectorId);
+        if (!currentSector) return false;
+        const adjacent = game.getAdjacentSectors(currentSector);
+        return adjacent.some(s => s.sectorId === sector.sectorId);
+      },
+    })
+    .execute((args) => {
+      const merc = args.merc as MercCard;
+      const destination = args.destination as Sector;
+
+      merc.useAction(ACTION_COSTS.MOVE);
+      game.message(`Dictator MERC ${merc.mercName} moved to ${destination.sectorName}`);
+
+      return { success: true, message: `Moved to ${destination.sectorName}` };
+    });
+}
+
+/**
+ * Dictator MERC explore action
+ */
+export function createDictatorExploreAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorExplore')
+    .prompt('Explore with Dictator MERC')
+    .condition(() => {
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+      if (!mercs.some(m => m.actionsRemaining >= ACTION_COSTS.EXPLORE)) return false;
+      // Check if base sector is unexplored
+      const baseSectorId = game.dictatorPlayer?.baseSectorId;
+      if (!baseSectorId) return false;
+      const sector = game.getSector(baseSectorId);
+      return sector && !sector.explored;
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to explore',
+      elementClass: MercCard,
+      filter: (element) => {
+        const merc = element as unknown as MercCard;
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+        return dictatorMercs.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.EXPLORE;
+      },
+    })
+    .execute((args) => {
+      const merc = args.merc as MercCard;
+      const baseSectorId = game.dictatorPlayer?.baseSectorId;
+      const sector = game.getSector(baseSectorId!);
+
+      if (!sector || sector.explored) {
+        return { success: false, message: 'Cannot explore' };
+      }
+
+      merc.useAction(ACTION_COSTS.EXPLORE);
+      sector.explore();
+
+      // Draw equipment based on loot icons
+      const drawnEquipment: Equipment[] = [];
+      for (let i = 0; i < sector.weaponLoot; i++) {
+        const weapon = game.drawEquipment('Weapon');
+        if (weapon) {
+          sector.addToStash(weapon);
+          drawnEquipment.push(weapon);
+        }
+      }
+      for (let i = 0; i < sector.armorLoot; i++) {
+        const armor = game.drawEquipment('Armor');
+        if (armor) {
+          sector.addToStash(armor);
+          drawnEquipment.push(armor);
+        }
+      }
+      for (let i = 0; i < sector.accessoryLoot; i++) {
+        const accessory = game.drawEquipment('Accessory');
+        if (accessory) {
+          sector.addToStash(accessory);
+          drawnEquipment.push(accessory);
+        }
+      }
+
+      game.message(`Dictator MERC ${merc.mercName} explored ${sector.sectorName}, found ${drawnEquipment.length} equipment`);
+      return { success: true, message: `Explored ${sector.sectorName}` };
+    });
+}
+
+/**
+ * Dictator MERC train militia action
+ */
+export function createDictatorTrainAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorTrain')
+    .prompt('Train militia with Dictator MERC')
+    .condition(() => {
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+      return mercs.some(m => m.training > 0 && m.actionsRemaining >= ACTION_COSTS.TRAIN);
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to train',
+      elementClass: MercCard,
+      filter: (element) => {
+        const merc = element as unknown as MercCard;
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+        return dictatorMercs.includes(merc) &&
+          merc.training > 0 &&
+          merc.actionsRemaining >= ACTION_COSTS.TRAIN;
+      },
+    })
+    .execute((args) => {
+      const merc = args.merc as MercCard;
+      const baseSectorId = game.dictatorPlayer?.baseSectorId;
+      const sector = game.getSector(baseSectorId!);
+
+      if (!sector) {
+        return { success: false, message: 'No sector found' };
+      }
+
+      merc.useAction(ACTION_COSTS.TRAIN);
+      const trained = sector.addDictatorMilitia(merc.training);
+      game.message(`Dictator MERC ${merc.mercName} trained ${trained} militia`);
+
+      return { success: true, message: `Trained ${trained} militia` };
+    });
+}
+
+/**
+ * Dictator MERC re-equip action
+ */
+export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorReEquip')
+    .prompt('Re-equip Dictator MERC')
+    .condition(() => {
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+      if (!mercs.some(m => m.actionsRemaining >= ACTION_COSTS.RE_EQUIP)) return false;
+      // Check if base sector has equipment in stash
+      const baseSectorId = game.dictatorPlayer?.baseSectorId;
+      if (!baseSectorId) return false;
+      const sector = game.getSector(baseSectorId);
+      return sector && sector.stash.length > 0;
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to re-equip',
+      elementClass: MercCard,
+      filter: (element) => {
+        const merc = element as unknown as MercCard;
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+        return dictatorMercs.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
+      },
+    })
+    .chooseElement<Equipment>('equipment', {
+      prompt: 'Select equipment from stash',
+      elementClass: Equipment,
+      filter: (element) => {
+        const equipment = element as unknown as Equipment;
+        const baseSectorId = game.dictatorPlayer?.baseSectorId;
+        if (!baseSectorId) return false;
+        const sector = game.getSector(baseSectorId);
+        return sector?.stash.includes(equipment) ?? false;
+      },
+    })
+    .execute((args) => {
+      const merc = args.merc as MercCard;
+      const equipment = args.equipment as Equipment;
+      const baseSectorId = game.dictatorPlayer?.baseSectorId;
+      const sector = game.getSector(baseSectorId!);
+
+      if (!sector) {
+        return { success: false, message: 'No sector found' };
+      }
+
+      merc.useAction(ACTION_COSTS.RE_EQUIP);
+
+      // Unequip current item of same type if any
+      const currentEquipment = merc.getEquipmentOfType(equipment.equipmentType);
+      if (currentEquipment) {
+        merc.unequip(currentEquipment);
+        sector.addToStash(currentEquipment);
+      }
+
+      // Equip new item
+      sector.removeFromStash(equipment);
+      merc.equip(equipment);
+
+      game.message(`Dictator MERC ${merc.mercName} equipped ${equipment.equipmentName}`);
+      return { success: true, message: `Equipped ${equipment.equipmentName}` };
+    });
+}
+
+/**
+ * End dictator MERC actions
+ */
+export function createDictatorEndMercActionsAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorEndMercActions')
+    .prompt('End MERC actions')
+    .execute(() => {
+      // Clear all remaining actions from dictator MERCs
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+      for (const merc of mercs) {
+        merc.actionsRemaining = 0;
+      }
+      if (game.dictatorPlayer?.dictator?.inPlay) {
+        game.dictatorPlayer.dictator.actionsRemaining = 0;
+      }
+      game.message('Dictator ends MERC actions');
+      return { success: true, message: 'MERC actions ended' };
+    });
+}
+
+// =============================================================================
 // Action Registration Helper
 // =============================================================================
 
@@ -989,7 +1170,6 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createSplitSquadAction(game));
   game.registerAction(createMergeSquadsAction(game));
-  game.registerAction(createGiftMilitiaAction(game));
   game.registerAction(createEndTurnAction(game));
 
   // Day 1 specific actions
@@ -1001,4 +1181,11 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createReinforceAction(game));
   game.registerAction(createMoveMilitiaAction(game));
   game.registerAction(createSkipMilitiaMoveAction(game));
+
+  // Dictator MERC actions
+  game.registerAction(createDictatorMoveAction(game));
+  game.registerAction(createDictatorExploreAction(game));
+  game.registerAction(createDictatorTrainAction(game));
+  game.registerAction(createDictatorReEquipAction(game));
+  game.registerAction(createDictatorEndMercActionsAction(game));
 }

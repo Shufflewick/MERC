@@ -64,11 +64,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             name: 'rebel-landing',
             filter: (player) => game.isRebelPlayer(player as any), // Only rebels, skip dictator
             do: sequence(
-              // Step 1: Hire starting MERCs (draw 3, pick 1-3, first 2 free)
+              // Step 1: Hire starting MERCs (draw 3, pick 2, first 2 are free)
               actionStep({
                 name: 'hire-first-merc',
                 actions: ['hireStartingMercs'],
-                prompt: 'Draw 3 MERCs and choose which to hire (first 2 are free)',
+                prompt: 'Draw 3 MERCs and choose your first MERC to hire',
+              }),
+              actionStep({
+                name: 'hire-second-merc',
+                actions: ['hireStartingMercs'],
+                prompt: 'Choose your second MERC to hire (from the same 3 drawn)',
               }),
 
               // Step 2: Choose landing sector
@@ -142,7 +147,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'armsDealer',
                   'splitSquad',
                   'mergeSquads',
-                  'giftMilitia',
                   'endTurn',
                 ],
                 skipIf: () => game.isFinished(),
@@ -151,36 +155,69 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           }),
 
           // Dictator turn
+          // Per rules (05-main-game-loop.md):
+          // Step 1: Play Tactics card OR Reinforce
+          // Step 2: Each Dictator MERC takes 2 actions
+          // Step 3: Use Special Ability (if applicable)
+          // Step 4: Refill hand to 3 cards
           phase('dictator-turn', {
             do: sequence(
-              // Draw tactics cards to fill hand
               execute(() => {
                 game.message('--- Dictator Turn ---');
-                drawTacticsHand(game);
               }),
 
-              // Apply per-turn dictator ability (Castro draws MERCs, Kim places militia)
-              execute(() => {
-                applyDictatorTurnAbilities(game);
-              }),
-
-              // Play a tactics card or reinforce
+              // Step 1: Play a tactics card or reinforce
               actionStep({
                 name: 'dictator-play-tactics',
                 actions: ['playTactics', 'reinforce'],
                 skipIf: () => game.isFinished(),
               }),
 
-              // Move militia
+              // Step 2: Dictator MERC actions (if any MERCs)
+              loop({
+                name: 'dictator-merc-actions',
+                while: () => {
+                  // Continue while any dictator MERC has actions
+                  const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+                  const dictator = game.dictatorPlayer?.dictator;
+                  const hasActionsLeft = dictatorMercs.some(m => m.actionsRemaining > 0) ||
+                    (dictator?.inPlay && dictator.actionsRemaining > 0);
+                  return hasActionsLeft && !game.isFinished();
+                },
+                maxIterations: 20,
+                do: actionStep({
+                  name: 'dictator-merc-action',
+                  actions: [
+                    'dictatorMove',
+                    'dictatorExplore',
+                    'dictatorTrain',
+                    'dictatorReEquip',
+                    'dictatorEndMercActions',
+                  ],
+                  skipIf: () => game.isFinished(),
+                }),
+              }),
+
+              // Move militia (free action)
               actionStep({
                 name: 'dictator-militia-movement',
                 actions: ['moveMilitia', 'skipMilitiaMove'],
                 skipIf: () => game.isFinished(),
               }),
 
+              // Step 3: Apply per-turn dictator special ability
+              execute(() => {
+                applyDictatorTurnAbilities(game);
+              }),
+
               // Apply end-of-turn effects (Conscripts)
               execute(() => {
                 applyConscriptsEffect(game);
+              }),
+
+              // Step 4: Refill hand to 3 cards
+              execute(() => {
+                drawTacticsHand(game);
               }),
             ),
           }),

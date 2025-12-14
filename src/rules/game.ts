@@ -641,10 +641,16 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   override isFinished(): boolean {
     // Game ends when:
     // 1. Dictator is defeated (base revealed and dictator killed)
-    // 2. Dictator tactics deck and hand are empty
-    // 3. All rebels are eliminated
+    // 2. Rebels capture the Dictator's base (base revealed and rebels control sector)
+    // 3. Dictator tactics deck and hand are empty
+    // 4. All rebels are eliminated
 
     if (this.dictatorPlayer?.isDefeated) {
+      return true;
+    }
+
+    // Check if rebels captured the base
+    if (this.isBaseCaptured()) {
       return true;
     }
 
@@ -661,11 +667,46 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return false;
   }
 
+  /**
+   * Check if rebels have captured the dictator's base.
+   * Base is captured when: base is revealed AND rebels control the sector
+   * (no dictator militia/MERCs AND at least one rebel unit present)
+   */
+  isBaseCaptured(): boolean {
+    if (!this.dictatorPlayer?.baseRevealed || !this.dictatorPlayer?.baseSectorId) {
+      return false;
+    }
+
+    const baseSector = this.getSector(this.dictatorPlayer.baseSectorId);
+    if (!baseSector) return false;
+
+    // Base is captured if no dictator units AND rebels have units there
+    const hasDictatorUnits = baseSector.dictatorMilitia > 0 ||
+      (this.dictatorPlayer.dictator && !this.dictatorPlayer.dictator.isDead);
+
+    if (hasDictatorUnits) return false;
+
+    // Check if any rebel has units at the base
+    const hasRebelUnits = this.rebelPlayers.some(rebel => {
+      const hasSquad = rebel.primarySquad.sectorId === baseSector.sectorId ||
+        rebel.secondarySquad.sectorId === baseSector.sectorId;
+      const hasMilitia = baseSector.getRebelMilitia(`${rebel.position}`) > 0;
+      return hasSquad || hasMilitia;
+    });
+
+    return hasRebelUnits;
+  }
+
   override getWinners(): MERCPlayer[] {
     if (!this.isFinished()) return [];
 
     // If dictator is defeated, rebels win
     if (this.dictatorPlayer?.isDefeated) {
+      return [...this.rebelPlayers];
+    }
+
+    // If rebels captured the base, rebels win
+    if (this.isBaseCaptured()) {
       return [...this.rebelPlayers];
     }
 
@@ -759,11 +800,21 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   advanceDay(): void {
     this.currentDay++;
 
-    // Reset all MERC actions
+    // Reset all rebel MERC actions
     for (const rebel of this.rebelPlayers) {
       for (const merc of rebel.team) {
         merc.resetActions();
       }
+    }
+
+    // Reset dictator MERC actions
+    for (const merc of this.dictatorPlayer.hiredMercs) {
+      merc.resetActions();
+    }
+
+    // Reset dictator card actions if in play
+    if (this.dictatorPlayer.dictator?.inPlay) {
+      this.dictatorPlayer.dictator.actionsRemaining = 2;
     }
   }
 

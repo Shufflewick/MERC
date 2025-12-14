@@ -48,7 +48,6 @@ export {
   createArmsDealerAction,
   createSplitSquadAction,
   createMergeSquadsAction,
-  createGiftMilitiaAction,
   createEndTurnAction,
   createPlayTacticsAction,
   createReinforceAction,
@@ -58,6 +57,12 @@ export {
   createHireStartingMercsAction,
   createEquipStartingAction,
   createPlaceLandingDay1Action,
+  // Dictator MERC actions
+  createDictatorMoveAction,
+  createDictatorExploreAction,
+  createDictatorTrainAction,
+  createDictatorReEquipAction,
+  createDictatorEndMercActionsAction,
   registerAllActions,
 } from './actions.js';
 
