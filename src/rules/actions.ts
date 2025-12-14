@@ -924,7 +924,16 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
         const available = drawnMercsCache.get(playerId) || [];
-        const firstChoice = ctx.args.firstMerc as string;
+        const firstChoice = ctx.args?.firstMerc as string | undefined;
+
+        // Safety check - if firstMerc not yet selected, show all available
+        if (!firstChoice || firstChoice === 'No MERCs available') {
+          if (available.length === 0) {
+            return ['No MERCs available'];
+          }
+          return available.map((m) => `${m.mercId}: ${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`);
+        }
+
         const firstMercId = firstChoice.split(':')[0];
 
         // Filter out the first selected MERC
