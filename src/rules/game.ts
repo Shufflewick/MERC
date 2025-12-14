@@ -593,6 +593,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Get sectors controlled by a specific player
   // Per rules (11-victory-and-game-end.md): Units = MERCs + Militia, Dictator wins ties
+  // MERC-eqe: For rebel vs rebel ties, lower position (earlier in turn order) wins
   getControlledSectors(player: MERCPlayer): Sector[] {
     return this.gameMap.getAllSectors().filter(sector => {
       const dictatorUnits = this.getDictatorUnitsInSector(sector);
@@ -610,11 +611,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         // Must have more units than dictator (dictator wins ties)
         if (dictatorUnits >= rebelUnits) return false;
 
-        // Must have more units than any other rebel (first rebel wins ties between rebels)
+        // MERC-eqe: Check against other rebels with tie-breaker
+        // Lower position (earlier in turn order) wins ties between rebels
         for (const otherRebel of this.rebelPlayers) {
           if (otherRebel === rebel) continue;
           const otherUnits = this.getRebelUnitsInSector(sector, otherRebel);
-          if (otherUnits >= rebelUnits) return false;
+          // Other rebel has strictly more units - they win
+          if (otherUnits > rebelUnits) return false;
+          // Tied units: lower position wins
+          if (otherUnits === rebelUnits && otherRebel.position < rebel.position) return false;
         }
 
         return rebelUnits > 0;

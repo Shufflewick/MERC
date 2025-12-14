@@ -40,6 +40,7 @@ export {
   createHireMercAction,
   createPlaceLandingAction,
   createMoveAction,
+  createCoordinatedAttackAction, // MERC-wrq: Coordinated attacks
   createExploreAction,
   createTrainAction,
   // createAttackAction removed - combat triggers via movement only
@@ -49,6 +50,7 @@ export {
   createSplitSquadAction,
   createMergeSquadsAction,
   createEndTurnAction,
+  createFireMercAction, // Can also be done during hire (MERC-yi7)
   createPlayTacticsAction,
   createReinforceAction,
   createMoveMilitiaAction,

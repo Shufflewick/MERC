@@ -141,15 +141,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               do: actionStep({
                 name: 'rebel-action',
                 // Per rules (05-main-game-loop.md): Combat triggers via movement, not as separate action
+                // MERC-wrq: Added coordinatedAttack for multi-squad attacks
+                // MERC-ttx: splitSquad is free action, available anytime including combat
                 actions: [
                   'move',
+                  'coordinatedAttack', // MERC-wrq
                   'explore',
                   'train',
                   'hireMerc',
                   'reEquip',
                   'hospital',
                   'armsDealer',
-                  'splitSquad',
+                  'splitSquad', // MERC-ttx: Free action available anytime
                   'mergeSquads',
                   'fireMerc',
                   'endTurn',

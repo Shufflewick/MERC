@@ -66,6 +66,8 @@ function useAction(merc: MercCard, cost: number): boolean {
  * Hire MERCs from the deck
  * Cost: 2 actions
  * Per rules (06-merc-actions.md): Draw 3, choose 0-3 to hire (within team limit)
+ * MERC-yi7: Can also fire a MERC during this action
+ * MERC-l1q: New MERCs join existing squad
  */
 export function createHireMercAction(game: MERCGame): ActionDefinition {
   // Cache drawn mercs per player during action
@@ -89,6 +91,23 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.HIRE_MERC;
       },
     })
+    // MERC-yi7: Optional fire a MERC during hire action
+    .chooseFrom<string>('fireFirst', {
+      prompt: 'Fire a MERC first? (frees team slot)',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const choices: { label: string; value: string }[] = [
+          { label: 'No, continue hiring', value: 'none' },
+        ];
+        // Only show fire option if player has multiple MERCs
+        if (player.teamSize >= 2) {
+          for (const merc of player.team) {
+            choices.push({ label: `Fire ${merc.mercName}`, value: merc.mercName });
+          }
+        }
+        return choices;
+      },
+    })
     // Draw 3 MERCs and let player select which to hire
     .chooseFrom<string>('selectedMercs', {
       prompt: 'Select MERCs to hire (multi-select)',
@@ -104,8 +123,12 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         }
 
         const drawnMercs = drawnMercsCache.get(cacheKey) || [];
+
+        // Account for potential firing when calculating team limit
+        const fireChoice = ctx.data?.fireFirst as string;
+        const willFire = fireChoice && fireChoice !== 'none';
         const teamLimit = player.getTeamLimit(game);
-        const currentSize = player.teamSize;
+        const currentSize = player.teamSize - (willFire ? 1 : 0);
         const canHire = teamLimit - currentSize;
 
         const choices = drawnMercs.map(m => capitalize(m.mercName));
@@ -124,6 +147,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       const cacheKey = `${player.position}`;
       const drawnMercs = drawnMercsCache.get(cacheKey) || [];
       const selectedNames = (args.selectedMercs as string[]) || [];
+      const fireChoice = args.fireFirst as string;
 
       // Spend action
       if (!useAction(actingMerc, ACTION_COSTS.HIRE_MERC)) {
@@ -135,14 +159,64 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Not enough actions' };
       }
 
+      // MERC-yi7: Fire a MERC first if requested
+      if (fireChoice && fireChoice !== 'none') {
+        const mercToFire = player.team.find(m => m.mercName === fireChoice);
+        if (mercToFire && mercToFire !== actingMerc) {
+          // Find current sector for equipment drop
+          const firedSquad = player.primarySquad.getMercs().includes(mercToFire)
+            ? player.primarySquad : player.secondarySquad;
+          const sector = firedSquad?.sectorId ? game.getSector(firedSquad.sectorId) : null;
+
+          // Drop equipment to stash
+          const droppedEquipment: string[] = [];
+          if (mercToFire.weaponSlot) {
+            const weapon = mercToFire.unequip('Weapon');
+            if (weapon && sector) {
+              sector.addToStash(weapon);
+              droppedEquipment.push(weapon.equipmentName);
+            }
+          }
+          if (mercToFire.armorSlot) {
+            const armor = mercToFire.unequip('Armor');
+            if (armor && sector) {
+              sector.addToStash(armor);
+              droppedEquipment.push(armor.equipmentName);
+            }
+          }
+          if (mercToFire.accessorySlot) {
+            const accessory = mercToFire.unequip('Accessory');
+            if (accessory && sector) {
+              sector.addToStash(accessory);
+              droppedEquipment.push(accessory.equipmentName);
+            }
+          }
+
+          mercToFire.putInto(game.mercDiscard);
+          if (droppedEquipment.length > 0) {
+            game.message(`Fired ${mercToFire.mercName}, dropped ${droppedEquipment.join(', ')} to stash`);
+          } else {
+            game.message(`Fired ${mercToFire.mercName}`);
+          }
+        }
+      }
+
       // Calculate how many can be hired (team limit)
       const teamLimit = player.getTeamLimit(game);
       let currentSize = player.teamSize;
       const hired: string[] = [];
 
+      // MERC-l1q: Determine which squad to place new MERCs in
+      // Per rules: "If squads exist: new MERC must join an existing squad"
+      // Use primary squad if it has MERCs, otherwise secondary if it exists
+      let targetSquad = player.primarySquad;
+      if (player.primarySquad.mercCount === 0 && player.secondarySquad.mercCount > 0) {
+        targetSquad = player.secondarySquad;
+      }
+
       for (const merc of drawnMercs) {
         if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
-          merc.putInto(player.primarySquad);
+          merc.putInto(targetSquad);
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
 
@@ -166,8 +240,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             const replaced = merc.equip(freeEquipment);
             if (replaced) {
               // Put replaced equipment in sector stash
-              const squad = player.primarySquad;
-              const sector = squad?.sectorId ? game.getSector(squad.sectorId) : null;
+              const sector = targetSquad?.sectorId ? game.getSector(targetSquad.sectorId) : null;
               if (sector) {
                 sector.addToStash(replaced);
               } else {
@@ -267,9 +340,104 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
 }
 
 /**
+ * MERC-wrq: Coordinated Attack - Move both squads to attack the same sector
+ * Per rules (06-merc-actions.md): Two or more squads may attack the same sector simultaneously
+ * Cost: 1 action per MERC in both squads
+ */
+export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('coordinatedAttack')
+    .prompt('Coordinated attack (both squads)')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Need both squads with MERCs and they must be in different but adjacent sectors
+      // that share a common adjacent target
+      if (player.primarySquad.mercCount === 0 || player.secondarySquad.mercCount === 0) return false;
+      if (!player.primarySquad.sectorId || !player.secondarySquad.sectorId) return false;
+
+      // All MERCs in both squads must have actions
+      const primaryMercs = player.primarySquad.getMercs();
+      const secondaryMercs = player.secondarySquad.getMercs();
+      if (!primaryMercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+      if (!secondaryMercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+
+      // Check if there's a common adjacent sector they can both reach
+      const primarySector = game.getSector(player.primarySquad.sectorId);
+      const secondarySector = game.getSector(player.secondarySquad.sectorId);
+      if (!primarySector || !secondarySector) return false;
+
+      const primaryAdjacent = game.getAdjacentSectors(primarySector);
+      const secondaryAdjacent = game.getAdjacentSectors(secondarySector);
+
+      // Find common targets (sectors adjacent to both squads)
+      const commonTargets = primaryAdjacent.filter(s =>
+        secondaryAdjacent.some(s2 => s2.sectorId === s.sectorId)
+      );
+
+      return commonTargets.length > 0;
+    })
+    .chooseElement<Sector>('target', {
+      prompt: 'Select target sector for coordinated attack',
+      elementClass: Sector,
+      filter: (element, ctx) => {
+        const sector = element as unknown as Sector;
+        const player = ctx.player as RebelPlayer;
+
+        const primarySector = game.getSector(player.primarySquad.sectorId!);
+        const secondarySector = game.getSector(player.secondarySquad.sectorId!);
+        if (!primarySector || !secondarySector) return false;
+
+        const primaryAdjacent = game.getAdjacentSectors(primarySector);
+        const secondaryAdjacent = game.getAdjacentSectors(secondarySector);
+
+        // Must be adjacent to both squads
+        return primaryAdjacent.some(s => s.sectorId === sector.sectorId) &&
+          secondaryAdjacent.some(s => s.sectorId === sector.sectorId);
+      },
+      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const target = args.target as Sector;
+
+      // Spend action from all MERCs in both squads
+      const primaryMercs = player.primarySquad.getMercs();
+      const secondaryMercs = player.secondarySquad.getMercs();
+      for (const merc of [...primaryMercs, ...secondaryMercs]) {
+        useAction(merc, ACTION_COSTS.MOVE);
+      }
+
+      // Move both squads to target
+      player.primarySquad.sectorId = target.sectorId;
+      player.secondarySquad.sectorId = target.sectorId;
+
+      const totalMercs = primaryMercs.length + secondaryMercs.length;
+      game.message(`${player.name} launches coordinated attack with ${totalMercs} MERC(s) on ${target.sectorName}!`);
+
+      // Check for enemies and trigger combat with combined force
+      if (hasEnemies(game, target, player)) {
+        game.message(`Combat begins with coordinated rebel forces!`);
+        const outcome = executeCombat(game, target, player);
+        return {
+          success: true,
+          message: `Coordinated attack on ${target.sectorName}`,
+          data: {
+            combatTriggered: true,
+            coordinatedAttack: true,
+            rebelVictory: outcome.rebelVictory,
+            dictatorVictory: outcome.dictatorVictory,
+          },
+        };
+      }
+
+      return { success: true, message: `Both squads moved to ${target.sectorName}` };
+    });
+}
+
+/**
  * Explore an unexplored sector
  * Cost: 1 action
  * Per rules (06-merc-actions.md): After exploring, perform a free Re-Equip
+ * MERC-gjw: Free re-equip allows equipping multiple items to multiple MERCs
  */
 export function createExploreAction(game: MERCGame): ActionDefinition {
   // Cache drawn equipment for free re-equip selection
@@ -295,14 +463,15 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.EXPLORE;
       },
     })
-    // Free Re-Equip: Choose first equipment to equip (optional)
-    .chooseFrom<string>('equipChoice1', {
-      prompt: 'Free Re-Equip: Select equipment to equip (or skip)',
+    // MERC-gjw: Free Re-Equip - select multiple equipment items
+    .chooseFrom<string>('equipChoices', {
+      prompt: 'Free Re-Equip: Select equipment to distribute (multi-select)',
+      multiSelect: true,
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const squad = player.primarySquad;
         const sector = game.getSector(squad.sectorId!);
-        if (!sector) return [{ label: 'Skip', value: 'skip' }];
+        if (!sector) return [];
 
         // If not explored yet, draw the equipment now
         if (!sector.explored) {
@@ -351,33 +520,33 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           explorationCache.set(`${player.position}`, { sector, equipment: drawnEquipment });
         }
 
-        // Build choices from stash
-        const choices: { label: string; value: string }[] = [];
-        for (const equip of sector.stash) {
-          choices.push({
-            label: `${equip.equipmentName} (${equip.equipmentType})`,
-            value: equip.equipmentName,
-          });
+        // Build choices from stash with indices for unique identification
+        const choices: string[] = [];
+        for (let i = 0; i < sector.stash.length; i++) {
+          const equip = sector.stash[i];
+          choices.push(`${i + 1}. ${equip.equipmentName} (${equip.equipmentType})`);
         }
-        choices.push({ label: 'Skip Re-Equip', value: 'skip' });
         return choices;
       },
     })
-    // If they chose equipment, select which MERC equips it
-    .chooseFrom<string>('equipMerc1', {
-      prompt: 'Which MERC should equip this item?',
+    // For each selected equipment, player assigns to a MERC
+    // Using a single assignment field that maps equipment to MERCs
+    .chooseFrom<string>('equipAssignments', {
+      prompt: 'Assign selected equipment to MERCs (format: MERC name for each item)',
+      multiSelect: true,
       choices: (ctx) => {
-        const choice1 = ctx.data?.equipChoice1 as string;
-        if (choice1 === 'skip') {
-          return [{ label: 'None', value: 'none' }];
-        }
         const player = ctx.player as RebelPlayer;
-        return player.team.map(m => ({
-          label: `${m.mercName}`,
-          value: m.mercName,
-        }));
+        const equipChoices = (ctx.data?.equipChoices as string[]) || [];
+        if (equipChoices.length === 0) {
+          return ['Skip'];
+        }
+        // Return MERC names as options - user selects one per equipment
+        return player.team.map(m => m.mercName);
       },
-      skipIf: (ctx) => ctx.data?.equipChoice1 === 'skip',
+      skipIf: (ctx) => {
+        const equipChoices = (ctx.data?.equipChoices as string[]) || [];
+        return equipChoices.length === 0;
+      },
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
@@ -392,26 +561,40 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       // Spend action
       useAction(actingMerc, ACTION_COSTS.EXPLORE);
 
-      // Handle free re-equip selection
-      const equipChoice1 = args.equipChoice1 as string;
-      const equipMerc1 = args.equipMerc1 as string;
+      // MERC-gjw: Handle multi-select free re-equip
+      const equipChoices = (args.equipChoices as string[]) || [];
+      const equipAssignments = (args.equipAssignments as string[]) || [];
 
-      if (equipChoice1 !== 'skip' && equipMerc1 && equipMerc1 !== 'none') {
-        const equipment = sector.stash.find(e => e.equipmentName === equipChoice1);
-        const merc = player.team.find(m => m.mercName === equipMerc1);
+      // Process each selected equipment item
+      const equipped: string[] = [];
+      for (let i = 0; i < equipChoices.length; i++) {
+        const choice = equipChoices[i];
+        const mercName = equipAssignments[i] || equipAssignments[0]; // Use first MERC if not enough assignments
+
+        if (!mercName || mercName === 'Skip') continue;
+
+        // Parse equipment index from choice (format: "1. EquipName (Type)")
+        const equipIndex = parseInt(choice.split('.')[0], 10) - 1;
+        if (equipIndex < 0 || equipIndex >= sector.stash.length) continue;
+
+        const equipment = sector.stash[equipIndex];
+        const merc = player.team.find(m => m.mercName === mercName);
 
         if (equipment && merc) {
-          // Remove from stash
-          const idx = sector.stash.indexOf(equipment);
-          if (idx >= 0) sector.stash.splice(idx, 1);
+          // Remove from stash (adjust for already-removed items)
+          const currentIdx = sector.stash.indexOf(equipment);
+          if (currentIdx >= 0) {
+            sector.stash.splice(currentIdx, 1);
 
-          // Equip (may replace existing)
-          const replaced = merc.equip(equipment);
-          if (replaced) {
-            sector.addToStash(replaced);
-            game.message(`${merc.mercName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
-          } else {
-            game.message(`${merc.mercName} equipped ${equipment.equipmentName}`);
+            // Equip (may replace existing)
+            const replaced = merc.equip(equipment);
+            if (replaced) {
+              sector.addToStash(replaced);
+              game.message(`${merc.mercName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
+            } else {
+              game.message(`${merc.mercName} equipped ${equipment.equipmentName}`);
+            }
+            equipped.push(`${merc.mercName}: ${equipment.equipmentName}`);
           }
         }
       }
@@ -422,7 +605,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       return {
         success: true,
         message: `Explored ${sector.sectorName}`,
-        data: { stashRemaining: sector.stash.length },
+        data: { stashRemaining: sector.stash.length, equipped },
       };
     });
 }
@@ -485,6 +668,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
  * Re-equip from sector stash, swap between MERCs, or trade with teammate
  * Cost: 1 action (per rules: "Re-Equip (1 action)")
  * Per rules (06-merc-actions.md): Trade = Exchange equipment with another MERC in same sector
+ * MERC-gu5: Trading requires both MERCs to spend an action
  */
 export function createReEquipAction(game: MERCGame): ActionDefinition {
   return Action.create('reEquip')
@@ -522,12 +706,14 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
           choices.push('Take from stash');
         }
 
-        // Trade option: can give equipment to another MERC in same sector
+        // MERC-gu5: Trade option requires another MERC with actions available
         const selectedMerc = ctx.args?.merc as MercCard;
         const hasEquipment = selectedMerc && (selectedMerc.weaponSlot || selectedMerc.armorSlot || selectedMerc.accessorySlot);
-        const hasTeammates = player.team.length > 1;
-        if (hasEquipment && hasTeammates) {
-          choices.push('Trade with teammate');
+        const hasTradeableTeammate = player.team.some(m =>
+          m !== selectedMerc && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP
+        );
+        if (hasEquipment && hasTradeableTeammate) {
+          choices.push('Trade with teammate (both spend action)');
         }
 
         choices.push('Unequip to stash');
@@ -535,18 +721,21 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         return choices;
       },
     })
-    // Select trade partner if trading
+    // MERC-gu5: Select trade partner - must have actions remaining
     .chooseElement<MercCard>('tradePartner', {
-      prompt: 'Select teammate to give equipment to',
+      prompt: 'Select teammate to trade with (will also spend their action)',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         const selectedMerc = ctx.args?.merc as MercCard;
-        return player.team.includes(merc) && merc !== selectedMerc;
+        // MERC-gu5: Trade partner must also have actions to spend
+        return player.team.includes(merc) &&
+          merc !== selectedMerc &&
+          merc.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
       },
-      skipIf: (ctx) => ctx.data?.action !== 'Trade with teammate',
+      skipIf: (ctx) => !ctx.data?.action?.startsWith('Trade with teammate'),
     })
     // Select which equipment to trade
     .chooseFrom<string>('tradeEquipment', {
@@ -559,7 +748,32 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (selectedMerc?.accessorySlot) choices.push(`Accessory: ${selectedMerc.accessorySlot.equipmentName}`);
         return choices;
       },
-      skipIf: (ctx) => ctx.data?.action !== 'Trade with teammate',
+      skipIf: (ctx) => !ctx.data?.action?.startsWith('Trade with teammate'),
+    })
+    // MERC-05l: Select which equipment to take from stash
+    .chooseFrom<string>('stashEquipment', {
+      prompt: 'Select equipment from stash',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const squad = player.primarySquad;
+        const sector = game.getSector(squad.sectorId!);
+        if (!sector) return [];
+        return sector.stash.map((e, i) => `${i + 1}. ${e.equipmentName} (${e.equipmentType})`);
+      },
+      skipIf: (ctx) => ctx.data?.action !== 'Take from stash',
+    })
+    // MERC-5f7: Select which slot to unequip
+    .chooseFrom<string>('unequipSlot', {
+      prompt: 'Which equipment slot to unequip?',
+      choices: (ctx) => {
+        const selectedMerc = ctx.args?.merc as MercCard;
+        const choices: string[] = [];
+        if (selectedMerc?.weaponSlot) choices.push(`Weapon: ${selectedMerc.weaponSlot.equipmentName}`);
+        if (selectedMerc?.armorSlot) choices.push(`Armor: ${selectedMerc.armorSlot.equipmentName}`);
+        if (selectedMerc?.accessorySlot) choices.push(`Accessory: ${selectedMerc.accessorySlot.equipmentName}`);
+        return choices;
+      },
+      skipIf: (ctx) => ctx.data?.action !== 'Unequip to stash',
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
@@ -576,8 +790,10 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       useAction(merc, ACTION_COSTS.RE_EQUIP);
 
       if (action === 'Take from stash' && sector.stash.length > 0) {
-        // Take first equipment from stash and equip
-        const equipment = sector.takeFromStash(0);
+        // MERC-05l: Use selected equipment from stash
+        const stashChoice = args.stashEquipment as string;
+        const stashIndex = stashChoice ? parseInt(stashChoice.split('.')[0], 10) - 1 : 0;
+        const equipment = sector.takeFromStash(stashIndex);
         if (equipment) {
           const replaced = merc.equip(equipment);
           if (replaced) {
@@ -588,11 +804,15 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
           }
           return { success: true, message: `Equipped ${equipment.equipmentName}` };
         }
-      } else if (action === 'Trade with teammate') {
+      } else if (action?.startsWith('Trade with teammate')) {
+        // MERC-gu5: Both MERCs spend actions for trading
         const tradePartner = args.tradePartner as MercCard;
         const tradeEquipmentStr = args.tradeEquipment as string;
 
         if (tradePartner && tradeEquipmentStr) {
+          // MERC-gu5: Trade partner also spends their action
+          useAction(tradePartner, ACTION_COSTS.RE_EQUIP);
+
           // Determine which slot to trade
           let equipmentToTrade: Equipment | undefined;
           let slot: 'Weapon' | 'Armor' | 'Accessory';
@@ -617,23 +837,29 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
             if (replaced) {
               // Receiver's old equipment goes to stash
               sector.addToStash(replaced);
-              game.message(`${merc.mercName} gave ${equipmentToTrade.equipmentName} to ${tradePartner.mercName}, ${replaced.equipmentName} added to stash`);
+              game.message(`${merc.mercName} traded ${equipmentToTrade.equipmentName} to ${tradePartner.mercName}, ${replaced.equipmentName} added to stash (both spent action)`);
             } else {
-              game.message(`${merc.mercName} gave ${equipmentToTrade.equipmentName} to ${tradePartner.mercName}`);
+              game.message(`${merc.mercName} traded ${equipmentToTrade.equipmentName} to ${tradePartner.mercName} (both spent action)`);
             }
 
             return { success: true, message: `Traded ${equipmentToTrade.equipmentName}` };
           }
         }
       } else if (action === 'Unequip to stash') {
-        // Unequip weapon (could be extended to choose slot)
-        if (merc.weaponSlot) {
-          const unequipped = merc.unequip('Weapon');
-          if (unequipped) {
-            sector.addToStash(unequipped);
-            game.message(`${merc.mercName} unequipped ${unequipped.equipmentName}`);
-            return { success: true, message: `Unequipped ${unequipped.equipmentName}` };
-          }
+        // MERC-5f7: Use selected slot to unequip
+        const unequipChoice = args.unequipSlot as string;
+        let slot: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+        if (unequipChoice?.startsWith('Armor:')) {
+          slot = 'Armor';
+        } else if (unequipChoice?.startsWith('Accessory:')) {
+          slot = 'Accessory';
+        }
+
+        const unequipped = merc.unequip(slot);
+        if (unequipped) {
+          sector.addToStash(unequipped);
+          game.message(`${merc.mercName} unequipped ${unequipped.equipmentName}`);
+          return { success: true, message: `Unequipped ${unequipped.equipmentName}` };
         }
       }
 
@@ -687,8 +913,12 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
 /**
  * Use arms dealer in a city sector
  * Cost: 1 action, draw equipment
+ * MERC-dh5: Includes free re-equip option per rules
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
+  // Cache drawn equipment for the free re-equip choice
+  const drawnEquipmentCache = new Map<string, Equipment>();
+
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
     .condition((ctx) => {
@@ -713,19 +943,63 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       prompt: 'What type of equipment?',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
+    // MERC-dh5: Free re-equip - choose MERC to equip the purchased item
+    .chooseFrom<string>('equipMerc', {
+      prompt: 'Free Re-Equip: Which MERC should equip this item? (or skip)',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const equipmentType = ctx.data?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+        const cacheKey = `${player.position}`;
+
+        // Draw equipment now so we can show what was bought
+        if (!drawnEquipmentCache.has(cacheKey)) {
+          const equipment = game.drawEquipment(equipmentType);
+          if (equipment) {
+            drawnEquipmentCache.set(cacheKey, equipment);
+            game.message(`Drew ${equipment.equipmentName} from ${equipmentType} deck`);
+          }
+        }
+
+        const choices = player.team.map(m => ({
+          label: `${m.mercName}`,
+          value: m.mercName,
+        }));
+        choices.push({ label: 'Skip (add to stash)', value: 'skip' });
+        return choices;
+      },
+    })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
-      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const cacheKey = `${player.position}`;
       const squad = player.primarySquad;
       const sector = game.getSector(squad.sectorId!);
 
       // Spend action
       useAction(actingMerc, ACTION_COSTS.ARMS_DEALER);
 
-      const equipment = game.drawEquipment(equipmentType);
+      const equipment = drawnEquipmentCache.get(cacheKey);
+      drawnEquipmentCache.delete(cacheKey);
+
       if (equipment && sector) {
-        // Add to sector stash
+        const equipMercName = args.equipMerc as string;
+
+        if (equipMercName && equipMercName !== 'skip') {
+          // Free re-equip: equip the purchased item directly
+          const targetMerc = player.team.find(m => m.mercName === equipMercName);
+          if (targetMerc) {
+            const replaced = targetMerc.equip(equipment);
+            if (replaced) {
+              sector.addToStash(replaced);
+              game.message(`${targetMerc.mercName} equipped ${equipment.equipmentName}, ${replaced.equipmentName} added to stash`);
+            } else {
+              game.message(`${targetMerc.mercName} equipped ${equipment.equipmentName}`);
+            }
+            return { success: true, message: `Bought and equipped ${equipment.equipmentName}` };
+          }
+        }
+
+        // Add to sector stash if not equipped
         sector.addToStash(equipment);
         game.message(`${actingMerc.mercName} bought ${equipment.equipmentName} (added to stash)`);
         return { success: true, message: `Bought ${equipment.equipmentName}` };
@@ -1545,6 +1819,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createHireMercAction(game));
   game.registerAction(createPlaceLandingAction(game));
   game.registerAction(createMoveAction(game));
+  game.registerAction(createCoordinatedAttackAction(game)); // MERC-wrq
   game.registerAction(createExploreAction(game));
   game.registerAction(createTrainAction(game));
   // Attack removed - per rules, combat triggers via movement only
