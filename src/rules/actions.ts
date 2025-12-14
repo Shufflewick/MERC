@@ -921,7 +921,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
       },
     })
     .chooseFrom<string>('secondMerc', {
-      prompt: 'Select your SECOND MERC to hire (pick a different one)',
+      prompt: 'Select your SECOND MERC to hire',
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
