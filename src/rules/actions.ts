@@ -926,7 +926,8 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
         const available = drawnMercsCache.get(playerId) || [];
-        const firstName = ctx.args?.firstMerc as string | undefined;
+        // Try both ctx.data and ctx.args for the first selection
+        const firstName = (ctx.data?.firstMerc ?? ctx.args?.firstMerc) as string | undefined;
 
         // Safety check - if firstMerc not yet selected, show all available
         if (!firstName) {
@@ -936,7 +937,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
           return available.map((m) => capitalize(m.mercName));
         }
 
-        // Filter out the first selected MERC (case-insensitive match)
+        // Filter out the first selected MERC
         const remaining = available.filter(m =>
           capitalize(m.mercName) !== firstName
         );
