@@ -902,9 +902,8 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
       const player = ctx.player as RebelPlayer;
       return player.teamSize === 0; // Only show if player hasn't hired yet
     })
-    .chooseFrom<string>('selectedMercs', {
-      prompt: 'Select 2 MERCs to hire',
-      multiSelect: true,
+    .chooseFrom<string>('firstMerc', {
+      prompt: 'Select your FIRST MERC to hire',
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
@@ -921,6 +920,20 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return available.map((m) => capitalize(m.mercName));
       },
     })
+    .chooseFrom<string>('secondMerc', {
+      prompt: 'Select your SECOND MERC to hire (pick a different one)',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const playerId = `${player.position}`;
+        const available = drawnMercsCache.get(playerId) || [];
+
+        if (available.length === 0) {
+          return ['No MERCs available'];
+        }
+        // Show all choices - validation happens in execute
+        return available.map((m) => capitalize(m.mercName));
+      },
+    })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const playerId = `${player.position}`;
@@ -930,22 +943,24 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const selectedNames = args.selectedMercs as string[];
+      const firstName = args.firstMerc as string;
+      const secondName = args.secondMerc as string;
 
-      if (!selectedNames || selectedNames.length !== 2) {
-        return { success: false, message: 'Please select exactly 2 MERCs' };
+      if (!firstName || !secondName || firstName === 'No MERCs available' || secondName === 'No MERCs available') {
+        return { success: false, message: 'No MERCs available in deck' };
+      }
+
+      // Validate different MERCs selected
+      if (firstName === secondName) {
+        return { success: false, message: 'Please select two different MERCs' };
       }
 
       // Find MERCs by capitalized name
-      const firstMerc = available.find(m => capitalize(m.mercName) === selectedNames[0]);
-      const secondMerc = available.find(m => capitalize(m.mercName) === selectedNames[1]);
+      const firstMerc = available.find(m => capitalize(m.mercName) === firstName);
+      const secondMerc = available.find(m => capitalize(m.mercName) === secondName);
 
       if (!firstMerc || !secondMerc) {
         return { success: false, message: 'Invalid selection' };
-      }
-
-      if (firstMerc === secondMerc) {
-        return { success: false, message: 'Please select two different MERCs' };
       }
 
       // Hire both selected MERCs
