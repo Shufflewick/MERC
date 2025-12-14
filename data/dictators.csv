@@ -1,0 +1,3 @@
+quantity,name,ability,bio,image,initiative,combat,training
+1,Castro,"Once per turn, draw 3 random MERCs and hire 1.","President, Cuba, 1959-2008",https://s3.amazonaws.com/files.component.studio/0C4FEE44-A001-11EC-AAF0-7BAAC3E846F2/castro.png,2,2,2
+1,Kim,"Your base starts revealed with 5 militia per Rebel (max 20). Once per turn, count the number of Rebel controlled sectors, and place that many militia on any sector.","Supreme Leader, North Korea, 1948-1994",https://s3.amazonaws.com/files.component.studio/58D21B64-A021-11EC-A2D8-C4D604252F8C/kim.png,2,1,3

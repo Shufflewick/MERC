@@ -1,0 +1,24 @@
+[
+  {
+    "id": "castro",
+    "name": "Castro",
+    "quantity": 1,
+    "initiative": 2,
+    "combat": 2,
+    "training": 2,
+    "ability": "Once per turn, draw 3 random MERCs and hire 1.",
+    "bio": "President, Cuba, 1959-2008",
+    "image": "https://s3.amazonaws.com/files.component.studio/0C4FEE44-A001-11EC-AAF0-7BAAC3E846F2/castro.png"
+  },
+  {
+    "id": "kim",
+    "name": "Kim",
+    "quantity": 1,
+    "initiative": 2,
+    "combat": 1,
+    "training": 3,
+    "ability": "Your base starts revealed with 5 militia per Rebel (max 20). Once per turn, count the number of Rebel controlled sectors, and place that many militia on any sector.",
+    "bio": "Supreme Leader, North Korea, 1948-1994",
+    "image": "https://s3.amazonaws.com/files.component.studio/58D21B64-A021-11EC-A2D8-C4D604252F8C/kim.png"
+  }
+]

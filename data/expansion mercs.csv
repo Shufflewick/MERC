@@ -1,0 +1,6 @@
+quantity,name,ability,bio,training,combat,initiative,image
+1,Adelheid,Each hit targeting militia can convert the militia to her side rather than killing it.,"""Everyone loves their mom.""",2,1,2,https://s3.amazonaws.com/files.component.studio/58367A54-9EED-11EC-8D0A-B1D6611F9854/adelheid.png
+1,Dutch,"If he has no weapon add +1 to his combat and initiative, as he always carries his sword.",Is a world-class sword fighting instructor.,2,2,1,https://s3.amazonaws.com/files.component.studio/5EB40D38-9EED-11EC-81BE-853E05252F8C/dutch.png
+1,golem,May attack any 1 target before the first round of combat.,"""I am a sneaky bastard. Sir!""",2,3,3,https://s3.amazonaws.com/files.component.studio/0D2A6FBC-10DE-11E8-B185-E78BE261B13A/golem.png
+1,hagness,"Spend 1 action to draw 3 pieces of equipment, choose 1 and give it to any member of his squad.",He's a natural negotiator.,2,2,2,https://s3.amazonaws.com/files.component.studio/192888BC-10DE-11E8-B185-E78BE261B13A/hagness.png
+1,moe,+1 target when using a SMAW.,"""Been there. Done that. Let's do it again.""",3,2,3,https://s3.amazonaws.com/files.component.studio/25B86142-10DE-11E8-B185-E78BE261B13A/moe.png

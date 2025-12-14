@@ -1,0 +1,9 @@
+quantity,name,type,description,file,expansion,combat,armor,initiative
+1,Chopper,Accessory,For 1 action move 2 spaces a squad of up to 4 MERCs/militia. Movement may be diagonal.,https://s3.amazonaws.com/files.component.studio/1A7B5448-89D8-11EC-8D24-D816C1E58150/helicopter.png,A,+1,1,0
+1,Detonator,Accessory,If you also have the Explosives you win! Each Rebel may not have more than 1.,https://s3.amazonaws.com/files.component.studio/7CD50E20-89EE-11EC-B666-4BF238A650D8/circuit-board.png,B,,,
+1,Deuce,Accessory,For 1 action move 1 space a squad of up to 10 MERCs/militia.,https://s3.amazonaws.com/files.component.studio/11DF3BBA-89D8-11EC-8D24-7316C1E58150/deuce.png,A,0,1,0
+1,Explosives,Accessory,"If you also have a Detonator, you win! Each Rebel may not have more than 1.",https://s3.amazonaws.com/files.component.studio/7CE98792-89EE-11EC-8D24-3312C1E58150/barrel.png,B,,,
+1,Humvee,Accessory,For 1 action move 2 spaces a squad of up to 4 MERCs/militia.,https://s3.amazonaws.com/files.component.studio/1D9DF6F8-89D8-11EC-8D24-F216C1E58150/humvee.png,A,+1,3,0
+1,Jeep,Accessory,For 1 action move 2 spaces a squad of up to 4 MERCs/militia.,https://s3.amazonaws.com/files.component.studio/20C70A68-89D8-11EC-8D24-1816C1E58150/jeep.png,A,0,1,0
+1,Tank,Accessory,For 2 actions move 1 space a squad of up to 4 MERCs/militia.,https://s3.amazonaws.com/files.component.studio/254F2E4E-89D8-11EC-8D24-9416C1E58150/tank.png,A,+3,6,-1
+1,Untitled,,,,,,,

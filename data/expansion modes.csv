@@ -1,0 +1,52 @@
+quantity,name,expansion,description
+1,Dictator AI (part 1),E,"If no one wants to play the Dictator then you may play with an Artificial Intelligence. 
+
+The Dictator sets up as normal, but has no ""hand"" of cards. He will play his cards in the order they are shuffled. He will hire 1 random MERC each day rather than picking from a group of 3.
+
+On his MERC actions the Dictator will Explore / Re-equip MERCs in an unexplored Map sector if he doesn't have fully equipped MERCs. He will then seek out enemies to destroy. And will train militia if there are no enemies he can get to with his fully equipped MERCs.
+
+Continued on part 2."
+1,Dictator AI (part 2),E,"The Dictator will target, with his MERC squad, the rebel in range with the most total initiative across his/her MERCs.
+
+If his base is revealed he will form a second squad composed of 1 MERC that will move toward and stay at his base. The MERC chosen will have the lowest initiative.
+
+In combat his targeting priorities will always be the following: The MERC with the least Armor + Health; then the MERC with the most targets; then the MERC with the highest initiative."
+1,"I, Dictator",F,"You want to be the next Dictator. To do it you need a super weapon which is composed of an explosive and a detonator. 
+
+Set up the map with at least 2 cities. Take an action at an arms dealer to gain a detonator, and another action at another arms dealer to gain an explosive.
+
+If the MERC holding the detonator or explosive dies, the card is immediately available at a new arms dealer. 
+
+You may play this with the normal game mode, or in Versus mode."
+1,Solo Rescue (part 1),D,"This mission is for a single player.
+
+You must rescue Red Cross worker Teresa. All that matters is that she is alive at the end.
+
+Take Teresa from the MERC deck. Then draw 6 random MERCs and hire 3. That's your squad for the game. Each MERC starts with a random weapon and a random piece of armor.
+
+Create a line of 6 wilderness map cards pick a starting space on one end where you will place your Squad Pawn.
+
+Continued on part 2."
+1,Solo Rescue (part 2),D,"Create a deck of 5 accessories, where 2 of them are Land Mines and, shuffle them, and lay them face down next to each map card except the starting one. 
+
+As you move into a map card flip over the item card next to it. If it is a Land Mine place a number of random MERCs to that location equal to your current squad size, but they get no equipment. If it is not a land mine, place a number of Dictator militia there equal to your current squad size.
+
+Continued on part 3."
+1,Solo Rescue (part 3),D,"Enemies will always target the MERC with the highest initiative first. If there is a tie, you pick.
+
+You may use all of your actions as normal. When all your MERCs are out of actions add 1 Dictator militia to the last map card.
+
+You win if Teresa makes it to the last map card and no enemies are present."
+1,Untitled,,
+1,Vehicles,A,"Shuffle the 5 vehicle cards into the Accessories deck.
+
+Vehicles are attached to the squad rather than a MERC. All the attributes of the vehicle are applied to all members of the squad. Militia can be moved via a vehicle and count as members of the squad when in the vehicle.
+
+The armor on the vehicle is also its health, and damage goes to the vehicle before MERCs, militia, or body armor. When the armor is gone the vehicle is destroyed."
+1,Versus,B,"Instead of fighting the dictator, you can fight a team of MERCs for control of the island.
+
+This mode works well in 1v1, 1v1v1,  2v2, or 3v3. It doesn't work so well in any other fashion. 
+
+Set up the map as normal, but instead of turns flipping back and forth between Rebels and the Dictator, turns flip back and forth between Rebel teams. Ties are resolved in favor of the the player with the fewest map points, then fewest MERCs, then a dice roll.
+
+Play for a set number of rounds (recommend 5) or until one player is eliminated. Whoever has the most points wins."

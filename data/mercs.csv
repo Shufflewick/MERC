@@ -1,0 +1,49 @@
+quantity,name,ability,bio,training,combat,initiative,image
+1,apeiron,Won't use grenades or mortars.,His brother died in an explosion.,2,2,1,https://s3.amazonaws.com/files.component.studio/022D242E-10DE-11E8-B185-E78BE261B13A/apeiron.png
+1,badger,Always has initiative over militia.,Was a wrestler for Wisconsin.,1,3,1,https://s3.amazonaws.com/files.component.studio/0DD032DA-10DE-11E8-B185-E78BE261B13A/badger.png
+1,basic,May reroll all dice once per combat.,Repeated basic training 4 times.,1,2,2,https://s3.amazonaws.com/files.component.studio/02665276-10DE-11E8-B38E-C69BE261B13A/basic.png
+1,borris,Will not work with Squirrel.,Often requests assignments with Natasha.,1,2,2,https://s3.amazonaws.com/files.component.studio/08B59BC8-10DE-11E8-B185-E78BE261B13A/borris.png
+1,bouba,+1 combat when using a handgun.,Wants desperately to be a good MERC.,0,1,4,https://s3.amazonaws.com/files.component.studio/0792F114-10DE-11E8-B38E-C69BE261B13A/bouba.png
+1,buzzkill,Always attacks enemy MERCs instead of militia when possible.,Killed his cellmate for using an electric razor.,1,2,2,https://s3.amazonaws.com/files.component.studio/07C074FE-10DE-11E8-B38E-C69BE261B13A/buzzkill.png
+1,doc,Heals all MERCs in his squad as a free action outside of combat.,"""Put pressure here.""",2,1,2,https://s3.amazonaws.com/files.component.studio/0BDA66B2-10DE-11E8-B185-E78BE261B13A/doc.png
+1,ewok,+1 action.,She often spouts Star Wars trivia.,1,2,2,https://s3.amazonaws.com/files.component.studio/09B25B38-10DE-11E8-B185-E78BE261B13A/ewok.png
+1,faustina,"+1 action, for training only.","""Attitude goes further than fortitude.""",3,2,3,https://s3.amazonaws.com/files.component.studio/164FEC2A-10DE-11E8-B185-E78BE261B13A/faustina.png
+1,feedback,Spend 1 action to take 1 piece of equipment from the discard pile.,"""If it sparks, I can fix it.""",2,2,1,https://s3.amazonaws.com/files.component.studio/0BC484BE-10DE-11E8-B38E-C69BE261B13A/feedback.png
+1,genesis,May carry an extra weapon in his accessory slot instead of an accessory.,Jack of all trades.,2,2,2,https://s3.amazonaws.com/files.component.studio/10840966-10DE-11E8-B185-E78BE261B13A/genesis.png
+1,gunther,He can use all equipment slots to carry accessories.,"""There's no problem that's too big.""",2,2,1,https://s3.amazonaws.com/files.component.studio/1073C1F0-10DE-11E8-B38E-C69BE261B13A/gunther.png
+1,haarg,+1 to any skill that anyone in his squad has higher than him.,"""It's been done before, but I can do it better.""",1,3,1,https://s3.amazonaws.com/files.component.studio/12CDDD3C-10DE-11E8-B185-E78BE261B13A/haarg.png
+1,juicer,+2 health.,Don't hire if you do drug screening.,1,2,2,https://s3.amazonaws.com/files.component.studio/12C3C658-10DE-11E8-B185-E78BE261B13A/juicer.png
+1,kastern,Always goes first in combat.,Likes to sing nursery rhymes while in combat.,3,2,0,https://s3.amazonaws.com/files.component.studio/143C9C80-10DE-11E8-B38E-C69BE261B13A/kastern.png
+1,khenn,Rolls a D6 at the beginning of combat. That is his initiative for this combat.,He's a cheap bastard.,3,2,0,https://s3.amazonaws.com/files.component.studio/1B9010CA-10DE-11E8-B38E-C69BE261B13A/khenn.png
+1,lucid,Hits on a 3+.,"Hates it when people call him a ""contractor.""",2,2,2,https://s3.amazonaws.com/files.component.studio/15E341E2-10DE-11E8-B38E-C69BE261B13A/lucid.png
+1,max,Opposing MERCs have -1 to all skills when attacking his squad.,"After 25 years of service, founded MERC.",4,2,2,https://s3.amazonaws.com/files.component.studio/20E7B05A-10DE-11E8-B185-E78BE261B13A/max.png
+1,mayhem,+2 combat when using an Uzi.,Became a MERC because his neighborhood was too violent.,1,2,2,https://s3.amazonaws.com/files.component.studio/1A09037E-10DE-11E8-B38E-C69BE261B13A/mayhem.png
+1,meatbop,Will not fight without an accessory equipped.,Has a habit of 'misplacing' his gun.,3,2,0,https://s3.amazonaws.com/files.component.studio/2A439100-10DE-11E8-B38E-C69BE261B13A/meatbop.png
+1,moose,Will not work with Borris.,Grew up on the same street as Squirrel.,1,2,2,https://s3.amazonaws.com/files.component.studio/1E7070A0-10DE-11E8-B38E-C69BE261B13A/moose.png
+1,natasha,Will not work with Moose.,Kinda has a thing for Squirrel.,2,3,3,https://s3.amazonaws.com/files.component.studio/1CCADF38-10DE-11E8-B38E-C69BE261B13A/natasha.png
+1,preaction,Automatically restores 1 health each day until fully healed.,Prefers to work at night.,0,2,5,https://s3.amazonaws.com/files.component.studio/2204E610-10DE-11E8-B185-E78BE261B13A/preaction.png
+1,ra,+1 target with any weapon.,Always brings the beer.,2,2,1,https://s3.amazonaws.com/files.component.studio/21D399FC-10DE-11E8-B38E-C69BE261B13A/ra.png
+1,rizen,"Regardless of weapon used, each hit counts as a new target when attacking militia.","""F\*\*\* the f\*\*\*ing f\*\*\*ers!""",3,2,3,https://s3.amazonaws.com/files.component.studio/2223493E-10DE-11E8-B38E-C69BE261B13A/rizen.png
+1,rozeske,+1 combat while wearing armor.,He's a MERC because he likes to travel.,2,2,1,https://s3.amazonaws.com/files.component.studio/26C96E28-10DE-11E8-B185-E78BE261B13A/rozeske.png
+1,runde,Is always the last MERC targeted.,This grainy photo is the only known image of him.,3,2,2,https://s3.amazonaws.com/files.component.studio/25C781B8-10DE-11E8-B38E-C69BE261B13A/runde.png
+1,sarge,+1 to all skills when his initiative is highest in the squad.,"""OohRah!""",2,1,3,https://s3.amazonaws.com/files.component.studio/33722D90-10DE-11E8-B185-E78BE261B13A/sarge.png
+1,shadkaam,Immune to attack dogs.,"""With me you will be triumphant.""",1,3,2,https://s3.amazonaws.com/files.component.studio/2EDCE126-10DE-11E8-B185-E78BE261B13A/shadkaam.png
+1,shooter,Is an extremely good shot.,Volunteered for two tours in a hot zone.,0,6,1,https://s3.amazonaws.com/files.component.studio/28E35E30-10DE-11E8-B185-E78BE261B13A/shooter.png
+1,snake,+1 to all skills when working alone.,"Named himself after his hero ""Snake Pliskin.""",0,3,2,https://s3.amazonaws.com/files.component.studio/31939D9C-10DE-11E8-B185-E78BE261B13A/snake.png
+1,sonia,She can bring up to 2 militia with her when she moves.,She's also an Olympic gymnastics champion.,4,2,4,https://s3.amazonaws.com/files.component.studio/3986487E-10DE-11E8-B38E-C69BE261B13A/sonia.png
+1,squidhead,Disarms enemy land mines when he enters a sector. May re-arm them for himself.,"""Live hard.""",2,2,1,https://s3.amazonaws.com/files.component.studio/2B31B2EA-10DE-11E8-B185-E78BE261B13A/squidhead.png
+1,squirrel,Will not work with Natasha.,Thinks Borris has a weirdly shaped head.,2,2,3,https://s3.amazonaws.com/files.component.studio/370739D2-10DE-11E8-B185-E78BE261B13A/squirrel.png
+1,stumpy,+1 combat with grenades and mortars.,Wants to follow in his grandfather's footsteps.,0,2,3,https://s3.amazonaws.com/files.component.studio/2E92C01E-10DE-11E8-B38E-C69BE261B13A/stumpy.png
+1,surgeon,May discard 1 combat die before he fires to restore 1 health to anyone in his squad.,Got a medical discharge for injuring his foot in Iraq.,3,3,2,https://s3.amazonaws.com/files.component.studio/3072BC36-10DE-11E8-B185-E78BE261B13A/surgeon.png
+1,tack,+2 initiative to her squad when she has the highest initiative.,Is a tactical driving instructor for the LAPD.,1,2,3,https://s3.amazonaws.com/files.component.studio/3615B5BC-10DE-11E8-B38E-C69BE261B13A/tack.png
+1,tao,Will not harm dogs.,He's also a french-trained pastry chef.,1,3,1,https://s3.amazonaws.com/files.component.studio/3431A92C-10DE-11E8-B185-E78BE261B13A/tao.png
+1,tavisto,+1 to all skills when a woman is in his squad.,"""Don't pee in my Cheerios!""",3,2,2,https://s3.amazonaws.com/files.component.studio/4295ED5C-10DE-11E8-B185-E78BE261B13A/tavisto.png
+1,teresa,Doesn't count toward team limit.,Was working for Red Cross when the Rebels invaded.,0,0,0,https://s3.amazonaws.com/files.component.studio/3A159948-10DE-11E8-B38E-C69BE261B13A/teresa.png
+1,Untitled,,,,,,
+1,valkyrie,Gives +1 initiative to all other MERCs in her squad.,She's also a classicly trained opera singer.,2,3,4,https://s3.amazonaws.com/files.component.studio/37899DDC-10DE-11E8-B185-E78BE261B13A/valkyrie.png
+1,vandal,Fires a second shot at the end of each round of combat.,"Freelance hitman, before joining MERC.",1,3,1,https://s3.amazonaws.com/files.component.studio/41502750-10DE-11E8-B38E-C69BE261B13A/vandal.png
+1,vandradi,+1 combat when using a weapon that adds 1 or more targets.,"""Hell comes with me.""",2,2,3,https://s3.amazonaws.com/files.component.studio/3AA7A50E-10DE-11E8-B185-E78BE261B13A/vandradi.png
+1,vrbansk,"When he's hired, give him the top card from the accessories deck.","""This ain't no f\*\*\* around operation.""",2,2,3,https://s3.amazonaws.com/files.component.studio/40B67A24-10DE-11E8-B38E-C69BE261B13A/vrbansk.png
+1,vulture,Ignores initiative penalties from equipment.,Has a degree in architecture.,1,2,3,https://s3.amazonaws.com/files.component.studio/41465AAE-10DE-11E8-B185-E78BE261B13A/vulture.png
+1,walter,+2 Initiative to his militia when he's present.,He's very proud of his grandson.,7,2,0,https://s3.amazonaws.com/files.component.studio/40554B0A-10DE-11E8-B185-E78BE261B13A/walter.png
+1,wolverine,Any 6s rolled during combat may be used on targets other than his declared target.,"""Semper Fi, motherf\*\*\*er.""",4,2,4,https://s3.amazonaws.com/files.component.studio/4203CA76-10DE-11E8-B38E-C69BE261B13A/wolverine.png

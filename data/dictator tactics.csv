@@ -1,0 +1,22 @@
+quantity,name,story,description
+1,Artillery Barrage,You use a stockpile of mortars to weaken enemy lines.,"Attack sectors adjacent to sectors you control. The max number of sectors you can attack is equal to the number of rebel players. Roll a D6 for each of these sectors, that's how many targets are hit. Each take 1 damage. Rebels can choose whether to apply the hits to MERCs or militia."
+1,Better Weapons,You decide to stop being cheap and upgrade your militia's guns.,"Reveal your base if you have not already done so. 
+
+For the remainder of the game all dictator militia hit on a 3+."
+1,Family Threat,You threaten to round up and kill the children who cannot show 2 parents when your militia come to the house.,Your threats are working. Each rebel sector loses 2 militia as they run home to their families.
+1,Fodder,So what if you lose some militia? Maybe it will distract the rebels long enough for you to form a better plan.,Look for the sectors containing the most militia for each rebel player. Divide the number of their militia in half (round up). Send that many of your militia to those sectors. Resolve combat immediately.
+1,Generalisimo,"It's time to bring out the big guns. ","Reveal your base if you have not already done so.
+
+You may add one MERC now to either of your squads. When doing so, draw 6 cards and pick one from that group."
+1,Lockdown,It's time to prepare for the assault.,"Reveal your base if you have not already done so.
+
+You now have 5 extra militia per rebel. You may place them on your base or in any sector adjacent to your base. If you cannot legally place them all, you forfeit the ones you cannot legally place."
+1,Reinforcements,"Sending your palace guards to assist in the fight, may break the backs of the rebels. ","Count the number of rebel players, and add that many of your militia to every Industry you control."
+1,"Seizure ","You order your rural residents to turn over all their firearms and supplies. ","X = the number of rebel players.
+
+Flip over X wilderness sectors to their explored side. Add X - 1 of your militia to each of the sectors you flipped over."
+1,Sentry,"In an effort to slow movement, put pressure on your citizens, and increase intelligence and attrition, you populate the country-side with your militia.",Count half the number of rebel players (round up). Add that many of your militia to every sector that is not controlled by anybody.
+1,Untitled,,
+1,Veteran Militia,You train better militia by using your elite guards to train them.,"Reveal your base if you have not already done so.
+
+For the remainder of the game, dictator militia have +1 initiative."

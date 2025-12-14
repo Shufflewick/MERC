@@ -1,0 +1,10 @@
+quantity,name,story,description
+1,Block Trade,"Perhaps you can stop the rebels if you take away their ability to re-supply. ","Flip all cities to their explored side. 
+
+Count half the number of rebel players (round up). Add that many of your militia to each city."
+1,Conscripts,You have decided to conscript children into your militia.,"Count half the number of rebel players (round up). At the end of your turn, add that many of your militia to each sector you control. Do this at the end of each of your turns for the remainder of the game.
+
+The limit of 10 militia per sector still applies."
+1,Oil Reserves,"You decide to crank up your oil refinery so your MERCs can be more effective. ","For the remainder of the game, whoever controls the oil industry gains 1 free move action for their MERCs."
+1,Tainted Water,You are merciless and would rather kill your own citizens than give up your island. You poison the water supply.,"Count half the number of rebel players (round up). Remove that many rebel militia from each sector and deal 1 damage to each rebel MERC, regardless of armor."
+1,Untitled,,

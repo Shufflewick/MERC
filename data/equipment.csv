@@ -1,0 +1,46 @@
+quantity,name,combat,targets,training,initiative,armor,negates_armor,description,file,type,serial
+2,9mm Handgun,+1,,0,0,0,,,{$gun1},Weapon,510
+2,9mm Handgun with AP Ammo,+1,,0,0,0,1,,{$gun1},Weapon,530
+2,9mm Handgun with Laser Sight,+1,,0,+2,0,,,{$gun1},Weapon,550
+2,45 Caliber Handgun,+2,,0,0,0,,,{$gun2},Weapon,570
+2,45 Caliber Handgun with AP Ammo,+2,,0,0,0,1,,{$gun2},Weapon,590
+2,45 Caliber Handgun with Laser Sight,+2,,0,+2,0,,,{$gun2},Weapon,610
+1,50 Caliber Rifle,+5,,0,0,0,,,{$gun6},Weapon,750
+1,50 Caliber Rifle with FLIR Scope,+5,,0,+3,0,,,{$gun6},Weapon,770
+1,AK-47,+4,,0,0,0,,,{$gun5},Weapon,710
+1,AK-47 with Bipod,+4,,0,+1,0,,,{$gun5},Weapon,730
+1,AK-47 with Burst Fire,+3,+1,0,0,0,,,{$gun5},Weapon,870
+1,AK-47 with Full Auto,+2,+2,0,0,0,,,{$gun5},Weapon,910
+2,Army FM 30-25,,,+2,0,0,,,https://s3.amazonaws.com/files.component.studio/F10F99A8-0C1C-11E8-829E-E1B0E261B13A/field-manual.png,Accessory,490
+2,Attack Dog,,,0,+1,0,,Assign to an enemy MERC on your initiative before your attack. Assigned MERC can take no action except to attack the dog. Dog has 3 health.,https://s3.amazonaws.com/files.component.studio/F3BCB4E2-0C1C-11E8-829E-E1B0E261B13A/attack-dog.png,Accessory,190
+2,Bandolier,,,0,0,0,,Gives 2 extra accessory slots. Cannot be combined with another bandolier.,https://s3.amazonaws.com/files.component.studio/BB865A6A-0C1C-11E8-829E-E1B0E261B13A/bandolier.png,Accessory,980
+2,Body Armor,-1,,0,-1,+3,,,{$armor3},Armor,370
+1,Body Armor with Ceramic Plates,-1,,0,-2,+4,,,{$armor3},Armor,310
+1,Body Armor with Ceramic Plates and Kevlar Helmet,-2,,0,-2,+5,,,{$armor3},Armor,330
+2,Epinephrine Shot,,,0,0,0,,"Discard to prevent the death of self or another MERC, restores 1 health.",https://s3.amazonaws.com/files.component.studio/F3F9A938-0C1C-11E8-8984-B75AE261B13A/epinephrine.png,Accessory,230
+2,Field Radio,,,+1,+1,0,,,https://s3.amazonaws.com/files.component.studio/F5688B72-0C1C-11E8-8984-B75AE261B13A/field-radio.png,Accessory,430
+2,First Aid Kit,,,0,0,0,,"On your initiative before your attack, discard 1 combat dice to heal 1 wound (per die discarded) on self or another MERC. Discard after 1 use.",{$firstaidkit},Accessory,150
+1,Flak Vest,,,0,0,+1,,,{$armor1},Armor,470
+1,Flak Vest with Ceramic Plates and Kevlar Helmet,-1,,0,-1,+3,,,{$armor1},Armor,290
+1,Flak Vest with Kevlar Helmet,,,0,-1,+2,,,{$armor1},Armor,250
+2,Fragmentation Grenade,+4,+3,0,-2,0,,Discard after 1 attack.,https://s3.amazonaws.com/files.component.studio/F3F25502-0C1C-11E8-8984-B75AE261B13A/fragmentation-grenade.png,Accessory,930
+2,Full Body Armor,-2,,0,-3,+6,,,{$armor4},Armor,410
+2,Ghillie Suit,,,0,+2,0,,,https://s3.amazonaws.com/files.component.studio/F5BD31E0-0C1C-11E8-829E-E1B0E261B13A/ghillie-suit.png,Armor,450
+2,Grenade,+3,+2,0,-2,0,,Discard after 1 attack.,https://s3.amazonaws.com/files.component.studio/F3E79270-0C1C-11E8-8984-B75AE261B13A/grenade.png,Accessory,890
+2,Kevlar Vest,,,0,-1,+2,,,{$armor2},Armor,350
+2,Kevlar Vest with Ceramic Plates,-1,,0,-1,+3,,,{$armor2},Armor,390
+2,Kevlar Vest with Ceramic Plates and Kevlar Helmet,-1,,0,-2,+4,,,{$armor2},Armor,270
+2,Land Mine,,,0,0,0,,"Place in an equipment stash in a sector you control. When an enemy enters the sector, declare you have planted a mine and it will explode dealing 1 damage to every target.",https://s3.amazonaws.com/files.component.studio/F4BF4A58-0C1C-11E8-829E-E1B0E261B13A/landmine.png,Accessory,110
+1,M16,+3,,0,0,0,,,{$gun4},Weapon,630
+1,M16 with AP Ammo,+3,,0,0,0,1,,{$gun4},Weapon,650
+1,M16 with Burst Fire,+2,+1,0,0,0,,,{$gun4},Weapon,850
+1,M16 with Laser Sight,+3,,0,+2,0,,,{$gun4},Weapon,670
+2,Medical Kit,,,0,0,0,,"On your initiative, before your attack, discard 1 combat dice to heal 1 wound (per dice discarded) on self or another MERC. Discard after 3 uses.",{$medicalkit},Accessory,170
+2,Mortar,+5,+4,0,-2,0,,"Spend an action to bombard an adjacent sector with damage without entering the sector, or use as normal during combat.
+
+Either way, discard after 1 attack.",https://s3.amazonaws.com/files.component.studio/F43BFF40-0C1C-11E8-829E-E1B0E261B13A/mortar.png,Accessory,950
+2,Repair Kit,,,,,,,Discard this card to take 1 card from any equipment discard pile.,https://s3.amazonaws.com/files.component.studio/6AD4E0DA-A0E9-11EC-A2D8-901905252F8C/repair-kit.png,Accessory,130
+2,SMAW,+10,,0,-2,0,,,https://s3.amazonaws.com/files.component.studio/F5543794-0C1C-11E8-829E-E1B0E261B13A/smaw.png,Weapon,790
+1,Untitled,,,,,,,,,,
+2,Uzi,,+1,0,0,0,,,{$gun3},Weapon,810
+2,Uzi with AP Ammo,,+1,0,0,0,1,,{$gun3},Weapon,830

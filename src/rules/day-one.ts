@@ -1,0 +1,455 @@
+/**
+ * Day 1 - The Landing
+ *
+ * Based on: data/rules/04-day-one-the-landing.md
+ *
+ * Day 1 is a special setup round where the invasion begins.
+ * It follows different rules than Days 2-6.
+ */
+
+import type { MERCGame, RebelPlayer } from './game.js';
+import { MercCard, Equipment, Sector, TacticsCard } from './elements.js';
+import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
+
+// =============================================================================
+// Rebel Phase - Day 1
+// =============================================================================
+
+/**
+ * Draw multiple MERCs for initial hiring selection.
+ * Rebels draw 3, then choose which to hire.
+ */
+export function drawMercsForHiring(game: MERCGame, count: number = 3): MercCard[] {
+  const drawnMercs: MercCard[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const merc = game.drawMerc();
+    if (merc) {
+      drawnMercs.push(merc);
+    }
+  }
+
+  return drawnMercs;
+}
+
+/**
+ * Hire selected MERCs from the drawn pool.
+ * Returns unhired MERCs to the discard pile.
+ */
+export function hireSelectedMercs(
+  game: MERCGame,
+  player: RebelPlayer,
+  drawnMercs: MercCard[],
+  selectedIndices: number[]
+): MercCard[] {
+  const hiredMercs: MercCard[] = [];
+
+  for (let i = 0; i < drawnMercs.length; i++) {
+    const merc = drawnMercs[i];
+
+    if (selectedIndices.includes(i)) {
+      // Hire this MERC - add to player's primary squad
+      merc.putInto(player.primarySquad);
+      hiredMercs.push(merc);
+      game.message(`${player.name} hired ${merc.mercName}`);
+    } else {
+      // Discard unhired MERC
+      merc.putInto(game.mercDiscard);
+    }
+  }
+
+  return hiredMercs;
+}
+
+/**
+ * Check if a sector is a valid landing zone.
+ * - Must be on the map edge
+ * - Cannot be claimed by another rebel
+ * - Cannot be the dictator's base
+ */
+export function isValidLandingSector(game: MERCGame, sector: Sector): boolean {
+  // Must be an edge sector
+  if (!game.gameMap.isEdgeSector(sector)) {
+    return false;
+  }
+
+  // Cannot be dictator's base
+  if (sector.isBase) {
+    return false;
+  }
+
+  // Cannot be where another rebel has already landed
+  for (const rebel of game.rebelPlayers) {
+    if (rebel.primarySquad.sectorId === sector.sectorId) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Get all valid landing sectors for a rebel.
+ */
+export function getValidLandingSectors(game: MERCGame): Sector[] {
+  return game.gameMap.getEdgeSectors().filter(sector =>
+    isValidLandingSector(game, sector)
+  );
+}
+
+/**
+ * Place a rebel's primary squad on their chosen landing sector.
+ */
+export function placeLanding(
+  game: MERCGame,
+  player: RebelPlayer,
+  sector: Sector
+): void {
+  if (!isValidLandingSector(game, sector)) {
+    throw new Error(`Invalid landing sector: ${sector.sectorName}`);
+  }
+
+  player.primarySquad.sectorId = sector.sectorId;
+  game.message(`${player.name} landed at ${sector.sectorName}`);
+}
+
+/**
+ * Equip starting equipment on a MERC.
+ * Each newly hired MERC gets 1 free equipment from any deck.
+ */
+export function equipStartingEquipment(
+  game: MERCGame,
+  merc: MercCard,
+  equipmentType: 'Weapon' | 'Armor' | 'Accessory'
+): Equipment | undefined {
+  const equipment = game.drawEquipment(equipmentType);
+
+  if (equipment) {
+    merc.equip(equipment);
+    game.message(`${merc.mercName} equipped ${equipment.equipmentName}`);
+  }
+
+  return equipment;
+}
+
+/**
+ * Complete the rebel phase of Day 1 for a single player.
+ * This is a helper function that orchestrates the full rebel setup.
+ */
+export interface RebelDay1Setup {
+  drawnMercs: MercCard[];
+  hiredMercs: MercCard[];
+  landingSector: Sector | null;
+  startingEquipment: Equipment[];
+}
+
+// =============================================================================
+// Dictator Phase - Day 1
+// =============================================================================
+
+/**
+ * Get all unoccupied industries on the map.
+ * Industries are unoccupied if no rebel has landed there.
+ */
+export function getUnoccupiedIndustries(game: MERCGame): Sector[] {
+  const occupiedSectorIds = new Set<string>();
+
+  // Mark sectors where rebels have landed as occupied
+  for (const rebel of game.rebelPlayers) {
+    if (rebel.primarySquad.sectorId) {
+      occupiedSectorIds.add(rebel.primarySquad.sectorId);
+    }
+  }
+
+  // Return industries that aren't occupied
+  return game.gameMap.getAllSectors().filter(sector =>
+    sector.isIndustry && !occupiedSectorIds.has(sector.sectorId)
+  );
+}
+
+/**
+ * Place initial militia on unoccupied industries.
+ * Each unoccupied industry receives 'difficulty' militia.
+ */
+export function placeInitialMilitia(game: MERCGame): number {
+  const difficulty = game.setupConfig.dictatorStrength.difficulty;
+  const unoccupiedIndustries = getUnoccupiedIndustries(game);
+
+  let totalPlaced = 0;
+
+  for (const sector of unoccupiedIndustries) {
+    const placed = sector.addDictatorMilitia(difficulty);
+    totalPlaced += placed;
+    game.message(`Placed ${placed} militia at ${sector.sectorName}`);
+  }
+
+  game.message(`Initial militia: ${totalPlaced} total on ${unoccupiedIndustries.length} industries`);
+
+  return totalPlaced;
+}
+
+/**
+ * Hire the dictator's first MERC.
+ * The dictator draws 1 random MERC (no choice).
+ * The MERC is placed at a sector the Dictator controls.
+ */
+export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
+  const merc = game.drawMerc();
+
+  if (merc) {
+    // Track the hired MERC
+    game.dictatorPlayer.hiredMercs.push(merc);
+
+    // Place at a sector with Dictator militia (choose highest militia count)
+    const controlledSectors = game.gameMap.getAllSectors()
+      .filter(s => s.dictatorMilitia > 0)
+      .sort((a, b) => b.dictatorMilitia - a.dictatorMilitia);
+
+    if (controlledSectors.length > 0) {
+      game.dictatorPlayer.stationedSectorId = controlledSectors[0].sectorId;
+      game.message(`Dictator hired ${merc.mercName} (stationed at ${controlledSectors[0].sectorName})`);
+    } else {
+      // No controlled sectors yet - will be placed later
+      game.message(`Dictator hired ${merc.mercName}`);
+    }
+  }
+
+  return merc;
+}
+
+/**
+ * Check and apply dictator's special ability during setup.
+ * Some dictators have abilities that trigger during setup.
+ */
+export function applyDictatorSetupAbility(game: MERCGame): void {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator) return;
+
+  // Check the ability text for setup triggers
+  const ability = dictator.ability.toLowerCase();
+
+  // Example abilities that might trigger during setup:
+  // - "Start with X extra militia"
+  // - "Begin with equipment"
+  // These would be implemented based on specific dictator cards
+
+  game.message(`Dictator ability: ${dictator.ability}`);
+}
+
+/**
+ * Draw tactics cards until the dictator has a full hand.
+ */
+export function drawTacticsHand(game: MERCGame): TacticsCard[] {
+  const drawnCards: TacticsCard[] = [];
+  const targetHandSize = DictatorConstants.HAND_SIZE;
+  const tacticsHand = game.dictatorPlayer.tacticsHand;
+  const tacticsDeck = game.dictatorPlayer.tacticsDeck;
+
+  while (tacticsHand.count(TacticsCard) < targetHandSize) {
+    const card = tacticsDeck.first(TacticsCard);
+    if (!card) break;
+
+    card.putInto(tacticsHand);
+    drawnCards.push(card);
+  }
+
+  game.message(`Dictator drew ${drawnCards.length} tactics cards`);
+
+  return drawnCards;
+}
+
+/**
+ * Place extra militia on dictator-controlled sectors.
+ * The dictator can distribute these across multiple sectors.
+ */
+export function placeExtraMilitia(
+  game: MERCGame,
+  placements: Map<string, number>
+): number {
+  const extraBudget = game.setupConfig.dictatorStrength.extra;
+  let totalPlaced = 0;
+
+  for (const [sectorId, count] of placements) {
+    if (totalPlaced + count > extraBudget) {
+      const remaining = extraBudget - totalPlaced;
+      if (remaining <= 0) break;
+
+      const sector = game.getSector(sectorId);
+      if (sector) {
+        const placed = sector.addDictatorMilitia(remaining);
+        totalPlaced += placed;
+        game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
+      }
+      break;
+    }
+
+    const sector = game.getSector(sectorId);
+    if (sector) {
+      const placed = sector.addDictatorMilitia(count);
+      totalPlaced += placed;
+      game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
+    }
+  }
+
+  return totalPlaced;
+}
+
+/**
+ * Auto-place extra militia evenly across dictator-controlled sectors.
+ * Used for AI/automated placement.
+ */
+export function autoPlaceExtraMilitia(game: MERCGame): number {
+  const extraBudget = game.setupConfig.dictatorStrength.extra;
+
+  // Get sectors the dictator controls (those with militia)
+  const controlledSectors = game.gameMap.getAllSectors().filter(s =>
+    s.dictatorMilitia > 0
+  );
+
+  if (controlledSectors.length === 0) {
+    // No controlled sectors, place on a random industry
+    const industries = game.gameMap.getAllSectors().filter(s => s.isIndustry);
+    if (industries.length > 0) {
+      const sector = industries[0];
+      const placed = sector.addDictatorMilitia(extraBudget);
+      game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
+      return placed;
+    }
+    return 0;
+  }
+
+  // Distribute evenly across controlled sectors
+  const perSector = Math.floor(extraBudget / controlledSectors.length);
+  let remainder = extraBudget % controlledSectors.length;
+  let totalPlaced = 0;
+
+  for (const sector of controlledSectors) {
+    const toPlace = perSector + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+
+    const placed = sector.addDictatorMilitia(toPlace);
+    totalPlaced += placed;
+  }
+
+  game.message(`Distributed ${totalPlaced} extra militia across ${controlledSectors.length} sectors`);
+
+  return totalPlaced;
+}
+
+// =============================================================================
+// Complete Day 1 Execution
+// =============================================================================
+
+/**
+ * Execute the complete dictator phase of Day 1.
+ * This is called after all rebels have completed their phase.
+ */
+export function executeDictatorDay1(game: MERCGame): void {
+  game.message('=== Dictator Day 1 Phase ===');
+
+  // Step 1: Place initial militia on unoccupied industries
+  placeInitialMilitia(game);
+
+  // Step 2: Hire dictator's first MERC
+  hireDictatorMerc(game);
+
+  // Step 3: Check dictator special ability
+  applyDictatorSetupAbility(game);
+
+  // Step 4: Draw tactics hand
+  drawTacticsHand(game);
+
+  // Step 5: Place extra militia
+  autoPlaceExtraMilitia(game);
+
+  game.message('=== Dictator Day 1 Complete ===');
+}
+
+/**
+ * Get the summary of Day 1 state after completion.
+ */
+export function getDay1Summary(game: MERCGame): string {
+  const lines: string[] = [];
+
+  lines.push('=== Day 1 Complete ===');
+  lines.push('');
+
+  // Rebel summary
+  lines.push('Rebels:');
+  for (const rebel of game.rebelPlayers) {
+    const sector = game.getSector(rebel.primarySquad.sectorId!);
+    const mercs = rebel.team.map(m => m.mercName).join(', ');
+    lines.push(`  ${rebel.name}: ${mercs}`);
+    lines.push(`    Landing: ${sector?.sectorName ?? 'Unknown'}`);
+  }
+
+  lines.push('');
+
+  // Dictator summary
+  lines.push('Dictator:');
+  lines.push(`  Name: ${game.dictatorPlayer.dictator?.dictatorName}`);
+  lines.push(`  Tactics in hand: ${game.dictatorPlayer.tacticsHand?.count(TacticsCard)}`);
+  lines.push(`  Tactics in deck: ${game.dictatorPlayer.tacticsDeck?.count(TacticsCard)}`);
+
+  // Militia summary
+  const sectorsWithMilitia = game.gameMap.getAllSectors().filter(s => s.dictatorMilitia > 0);
+  const totalMilitia = sectorsWithMilitia.reduce((sum, s) => sum + s.dictatorMilitia, 0);
+  lines.push(`  Total militia: ${totalMilitia} across ${sectorsWithMilitia.length} sectors`);
+
+  lines.push('');
+  lines.push('Proceed to Day 2');
+
+  return lines.join('\n');
+}
+
+// =============================================================================
+// Validation Helpers
+// =============================================================================
+
+/**
+ * Check if a rebel has completed all Day 1 requirements.
+ */
+export function isRebelDay1Complete(game: MERCGame, player: RebelPlayer): boolean {
+  // Must have hired 2 MERCs
+  if (player.teamSize < TeamConstants.STARTING_MERCS) {
+    return false;
+  }
+
+  // Must have placed on a sector
+  if (!player.primarySquad.sectorId) {
+    return false;
+  }
+
+  // Each MERC should have starting equipment
+  // (This is optional in some variants, so we don't enforce it strictly)
+
+  return true;
+}
+
+/**
+ * Check if all rebels have completed Day 1.
+ */
+export function isRebelPhaseComplete(game: MERCGame): boolean {
+  return game.rebelPlayers.every(rebel => isRebelDay1Complete(game, rebel));
+}
+
+/**
+ * Get the number of MERCs a rebel should hire on Day 1.
+ */
+export function getStartingMercCount(): number {
+  return TeamConstants.STARTING_MERCS;
+}
+
+/**
+ * Get the number of MERCs to draw for hiring selection.
+ */
+export function getMercsToDrawForHiring(): number {
+  return 3; // Draw 3, pick 1-3
+}
+
+/**
+ * Get maximum militia per sector.
+ */
+export function getMaxMilitiaPerSector(): number {
+  return SectorConstants.MAX_MILITIA_PER_SIDE;
+}

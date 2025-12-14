@@ -1,0 +1,82 @@
+{
+  "setupConfigurations": [
+    {
+      "rebels": 1,
+      "mapSize": [3,3],
+      "sectorTypes": {
+        "industries": 4,
+        "cities": 1,
+        "wilderness": 4
+      },
+      "dictatorStrength": {
+        "difficulty": 2,
+        "extra": 0
+      }
+    },
+    {
+      "rebels": 2,
+      "mapSize": [3,4],
+      "sectorTypes": {
+        "industries": 6,
+        "cities": 1,
+        "wilderness": 5
+      },
+      "dictatorStrength": {
+        "difficulty": 3,
+        "extra": 4
+      }
+    },
+    {
+      "rebels": 3,
+      "mapSize": [4,4],
+      "sectorTypes": {
+        "industries": 8,
+        "cities": 1,
+        "wilderness": 7
+      },
+      "dictatorStrength": {
+        "difficulty": 4,
+        "extra": 9
+      }
+    },
+    {
+      "rebels": 4,
+      "mapSize": [4,5],
+      "sectorTypes": {
+        "industries": 10,
+        "cities": 2,
+        "wilderness": 8
+      },
+      "dictatorStrength": {
+        "difficulty": 5,
+        "extra": 12
+      }
+    },
+    {
+      "rebels": 5,
+      "mapSize": [5,5],
+      "sectorTypes": {
+        "industries": 12,
+        "cities": 2,
+        "wilderness": 11
+      },
+      "dictatorStrength": {
+        "difficulty": 6,
+        "extra": 15
+      }
+    },
+    {
+      "rebels": 6,
+      "mapSize": [5,6],
+      "sectorTypes": {
+        "industries": 13,
+        "cities": 3,
+        "wilderness": 14
+      },
+      "dictatorStrength": {
+        "difficulty": 7,
+        "extra": 18
+      }
+    }
+  ]
+}
