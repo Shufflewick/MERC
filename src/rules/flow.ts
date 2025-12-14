@@ -144,7 +144,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // MERC-wrq: Added coordinatedAttack for same-player multi-squad attacks
                 // MERC-a2h: Added multi-player coordinated attack actions
                 // MERC-ttx: splitSquad is free action, available anytime including combat
+                // MERC-n1f: Combat actions for interactive retreat choice
                 actions: [
+                  'combatContinue', // MERC-n1f: Continue active combat (highest priority)
+                  'combatRetreat', // MERC-n1f: Retreat from active combat
                   'move',
                   'coordinatedAttack', // MERC-wrq: Same player, both squads
                   'declareCoordinatedAttack', // MERC-a2h: Stage for multi-player attack

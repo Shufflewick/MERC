@@ -8,7 +8,7 @@ import {
   isValidLandingSector,
   equipStartingEquipment,
 } from './day-one.js';
-import { executeCombat, hasEnemies } from './combat.js';
+import { executeCombat, executeCombatRetreat, hasEnemies, getValidRetreatSectors } from './combat.js';
 import { executeTacticsEffect } from './tactics-effects.js';
 
 // =============================================================================
@@ -2172,6 +2172,85 @@ export function createDictatorEndMercActionsAction(game: MERCGame): ActionDefini
 }
 
 // =============================================================================
+// MERC-n1f: Interactive Combat Actions
+// =============================================================================
+
+/**
+ * Continue fighting in active combat
+ */
+export function createCombatContinueAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatContinue')
+    .prompt('Continue fighting')
+    .condition(() => game.activeCombat !== null)
+    .execute((_, ctx) => {
+      if (!game.activeCombat) {
+        return { success: false, message: 'No active combat' };
+      }
+
+      const sector = game.getSector(game.activeCombat.sectorId);
+      if (!sector) {
+        return { success: false, message: 'Combat sector not found' };
+      }
+
+      const player = ctx.player as RebelPlayer;
+      const outcome = executeCombat(game, sector, player);
+
+      return {
+        success: true,
+        message: outcome.combatPending
+          ? 'Combat continues - choose to retreat or continue'
+          : outcome.rebelVictory
+          ? 'Victory!'
+          : 'Combat complete',
+        data: {
+          rebelVictory: outcome.rebelVictory,
+          dictatorVictory: outcome.dictatorVictory,
+          combatPending: outcome.combatPending,
+        },
+      };
+    });
+}
+
+/**
+ * Retreat from active combat
+ */
+export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatRetreat')
+    .prompt('Retreat from combat')
+    .condition(() => game.activeCombat !== null)
+    .chooseFrom({
+      name: 'retreatSector',
+      prompt: 'Choose sector to retreat to',
+      items: () => {
+        if (!game.activeCombat) return [];
+        const combatSector = game.getSector(game.activeCombat.sectorId);
+        if (!combatSector) return [];
+        const player = game.rebelPlayers.find(
+          p => `${p.position}` === game.activeCombat!.attackingPlayerId
+        );
+        if (!player) return [];
+        return getValidRetreatSectors(game, combatSector, player);
+      },
+      display: (sector) => (sector as Sector).sectorName,
+      filter: () => true,
+      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+    })
+    .execute((args) => {
+      const retreatSector = args.retreatSector as Sector;
+      const outcome = executeCombatRetreat(game, retreatSector);
+
+      return {
+        success: true,
+        message: `Retreated to ${retreatSector.sectorName}`,
+        data: {
+          retreated: true,
+          retreatSector: retreatSector.sectorName,
+        },
+      };
+    });
+}
+
+// =============================================================================
 // Action Registration Helper
 // =============================================================================
 
@@ -2194,6 +2273,10 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createMergeSquadsAction(game));
   game.registerAction(createFireMercAction(game));
   game.registerAction(createEndTurnAction(game));
+
+  // MERC-n1f: Combat actions
+  game.registerAction(createCombatContinueAction(game));
+  game.registerAction(createCombatRetreatAction(game));
 
   // Day 1 specific actions
   game.registerAction(createHireStartingMercsAction(game));

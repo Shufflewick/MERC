@@ -62,6 +62,9 @@ export interface CombatOutcome {
   dictatorCasualties: Combatant[];
   retreated: boolean;
   retreatSector?: Sector;
+  // MERC-n1f: Interactive combat support
+  combatPending: boolean; // True if combat paused for retreat decision
+  canRetreat: boolean; // True if retreat is available
 }
 
 // =============================================================================
@@ -187,6 +190,33 @@ function militiaToCombatants(
   return combatants;
 }
 
+/**
+ * MERC-54m: Refresh combatant stats from source element
+ * Called between rounds to update stats after equipment changes (lost armor, consumed weapons)
+ */
+function refreshCombatantStats(combatant: Combatant): void {
+  if (combatant.isMilitia) {
+    // Militia stats don't change
+    return;
+  }
+
+  if (combatant.sourceElement instanceof MercCard) {
+    const merc = combatant.sourceElement;
+    // Refresh stats that can change with equipment
+    combatant.initiative = merc.initiative;
+    combatant.combat = merc.combat;
+    combatant.targets = merc.targets;
+    combatant.armor = merc.equipmentArmor;
+    combatant.armorPiercing = merc.weaponSlot?.negatesArmor ?? false;
+    combatant.hasOneUseWeapon = merc.weaponSlot?.isOneUse ?? false;
+  } else if (combatant.sourceElement instanceof DictatorCard) {
+    const dictator = combatant.sourceElement;
+    combatant.initiative = dictator.initiative;
+    combatant.combat = dictator.combat;
+    // Dictator targets and armor could be updated here if they get equipment
+  }
+}
+
 // =============================================================================
 // Retreat Mechanics
 // =============================================================================
@@ -203,8 +233,9 @@ export function getValidRetreatSectors(
   const adjacentSectors = game.getAdjacentSectors(currentSector);
 
   return adjacentSectors.filter(sector => {
-    // Unoccupied (no dictator forces)
+    // MERC-4bp: Check for ALL dictator forces (militia, MERCs, and dictator card)
     const hasDictatorForces = sector.dictatorMilitia > 0 ||
+      game.getDictatorMercsInSector(sector).length > 0 ||
       (game.dictatorPlayer.baseRevealed &&
        game.dictatorPlayer.baseSectorId === sector.sectorId);
 
@@ -212,10 +243,19 @@ export function getValidRetreatSectors(
       return true;
     }
 
-    // Friendly (controlled by this player)
-    const playerUnits = game.getRebelUnitsInSector(sector, player);
+    // MERC-kpv: Friendly = controlled by this player OR any allied rebel
+    // Per rules: retreat valid to sector "controlled by you or ally"
     const dictatorUnits = game.getDictatorUnitsInSector(sector);
-    return playerUnits > dictatorUnits;
+
+    // Check if current player controls
+    const playerUnits = game.getRebelUnitsInSector(sector, player);
+    if (playerUnits > dictatorUnits) {
+      return true;
+    }
+
+    // Check if any allied rebel controls (total rebel units > dictator)
+    const totalRebelUnits = game.getTotalRebelUnitsInSector(sector);
+    return totalRebelUnits > dictatorUnits;
   });
 }
 
@@ -388,6 +428,14 @@ function executeCombatRound(
   dictatorSide: Combatant[],
   game: MERCGame
 ): CombatRound {
+  // MERC-54m: Refresh all combatant stats at start of round
+  // This updates initiative/combat/targets after equipment changes in previous rounds
+  for (const combatant of [...rebels, ...dictatorSide]) {
+    if (combatant.health > 0) {
+      refreshCombatantStats(combatant);
+    }
+  }
+
   const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
   const results: CombatResult[] = [];
   const casualties: Combatant[] = [];
@@ -561,28 +609,56 @@ function applyCombatResults(
 
 /**
  * Execute full combat in a sector
+ * MERC-n1f: Supports interactive mode where combat pauses after each round for retreat decision
  */
 export function executeCombat(
   game: MERCGame,
   sector: Sector,
   attackingPlayer: RebelPlayer,
-  maxRounds: number = 10
+  options: { maxRounds?: number; interactive?: boolean } = {}
 ): CombatOutcome {
-  game.message(`=== Combat at ${sector.sectorName} ===`);
+  const { maxRounds = 10, interactive = true } = options;
 
-  const { rebels, dictator } = getCombatants(game, sector, attackingPlayer);
+  // Check if resuming from paused combat
+  const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
 
-  game.message(`Rebels: ${rebels.length} units`);
-  game.message(`Dictator: ${dictator.length} units`);
+  let rebels: Combatant[];
+  let dictator: Combatant[];
+  let rounds: CombatRound[];
+  let allRebelCasualties: Combatant[];
+  let allDictatorCasualties: Combatant[];
+  let startRound: number;
 
-  const rounds: CombatRound[] = [];
-  const allRebelCasualties: Combatant[] = [];
-  const allDictatorCasualties: Combatant[] = [];
+  if (isResuming && game.activeCombat) {
+    // Resume from saved state
+    rebels = game.activeCombat.rebelCombatants as Combatant[];
+    dictator = game.activeCombat.dictatorCombatants as Combatant[];
+    rounds = [];
+    allRebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
+    allDictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
+    startRound = game.activeCombat.round + 1;
+    game.message(`--- Combat continues at ${sector.sectorName} ---`);
+  } else {
+    // Start new combat
+    game.message(`=== Combat at ${sector.sectorName} ===`);
+    const combatants = getCombatants(game, sector, attackingPlayer);
+    rebels = combatants.rebels;
+    dictator = combatants.dictator;
+    rounds = [];
+    allRebelCasualties = [];
+    allDictatorCasualties = [];
+    startRound = 1;
+
+    game.message(`Rebels: ${rebels.length} units`);
+    game.message(`Dictator: ${dictator.length} units`);
+  }
 
   let retreatSector: Sector | undefined;
   let didRetreat = false;
+  let combatPending = false;
+  let retreatAvailable = false;
 
-  for (let round = 1; round <= maxRounds; round++) {
+  for (let round = startRound; round <= maxRounds; round++) {
     game.message(`--- Round ${round} ---`);
 
     const roundResult = executeCombatRound(round, rebels, dictator, game);
@@ -605,11 +681,41 @@ export function executeCombat(
       break;
     }
 
-    // MERC-n69: Per rules (07-combat-system.md): At end of each round, survivors may CHOOSE to retreat
-    // TODO: Implement interactive retreat choice. For now, combat continues to the end.
-    // When interactive combat is implemented, this should pause and offer retreat options.
-    // Valid retreat sectors can be checked with: getValidRetreatSectors(game, sector, attackingPlayer)
+    // MERC-n1f: Check if retreat is possible and pause for player decision
+    retreatAvailable = canRetreat(game, sector, attackingPlayer);
+    if (interactive && retreatAvailable) {
+      // Save combat state and pause for player decision
+      game.activeCombat = {
+        sectorId: sector.sectorId,
+        attackingPlayerId: `${attackingPlayer.position}`,
+        round,
+        rebelCombatants: rebels,
+        dictatorCombatants: dictator,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+      };
+      combatPending = true;
+      game.message(`Round ${round} complete. You may retreat or continue fighting.`);
+      break;
+    }
   }
+
+  // If combat is pending, don't apply final results yet
+  if (combatPending) {
+    return {
+      rounds,
+      rebelVictory: false,
+      dictatorVictory: false,
+      rebelCasualties: allRebelCasualties,
+      dictatorCasualties: allDictatorCasualties,
+      retreated: false,
+      combatPending: true,
+      canRetreat: retreatAvailable,
+    };
+  }
+
+  // Clear any saved combat state
+  game.activeCombat = null;
 
   // Apply results to game state
   applyCombatResults(game, sector, rebels, dictator, attackingPlayer);
@@ -625,6 +731,8 @@ export function executeCombat(
     dictatorCasualties: allDictatorCasualties,
     retreated: didRetreat,
     retreatSector: retreatSector,
+    combatPending: false,
+    canRetreat: false,
   };
 
   if (outcome.rebelVictory) {
@@ -633,13 +741,62 @@ export function executeCombat(
     game.message(`Dictator forces hold ${sector.sectorName}!`);
   } else if (outcome.retreated) {
     game.message(`Rebels have retreated to ${retreatSector?.sectorName}!`);
-  } else {
-    game.message(`Combat continues at ${sector.sectorName}...`);
   }
 
   game.message(`=== Combat Complete ===`);
 
   return outcome;
+}
+
+/**
+ * MERC-n1f: Execute retreat for active combat
+ */
+export function executeCombatRetreat(
+  game: MERCGame,
+  retreatSector: Sector
+): CombatOutcome {
+  if (!game.activeCombat) {
+    throw new Error('No active combat to retreat from');
+  }
+
+  const combatSector = game.getSector(game.activeCombat.sectorId);
+  if (!combatSector) {
+    throw new Error('Combat sector not found');
+  }
+
+  const attackingPlayer = game.rebelPlayers.find(
+    p => `${p.position}` === game.activeCombat!.attackingPlayerId
+  );
+  if (!attackingPlayer) {
+    throw new Error('Attacking player not found');
+  }
+
+  // Execute the retreat
+  executeRetreat(game, combatSector, retreatSector, attackingPlayer);
+
+  // Apply combat results (casualties, etc.)
+  const rebels = game.activeCombat.rebelCombatants as Combatant[];
+  const dictator = game.activeCombat.dictatorCombatants as Combatant[];
+  applyCombatResults(game, combatSector, rebels, dictator, attackingPlayer);
+
+  // Clear combat state
+  const rebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
+  const dictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
+  game.activeCombat = null;
+
+  game.message(`=== Combat Complete (Retreated) ===`);
+
+  return {
+    rounds: [],
+    rebelVictory: false,
+    dictatorVictory: false,
+    rebelCasualties,
+    dictatorCasualties,
+    retreated: true,
+    retreatSector,
+    combatPending: false,
+    canRetreat: false,
+  };
 }
 
 /**

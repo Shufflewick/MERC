@@ -229,6 +229,18 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Key: target sectorId, Value: array of { playerId, squadType }
   pendingCoordinatedAttacks: Map<string, Array<{ playerId: string; squadType: 'primary' | 'secondary' }>> = new Map();
 
+  // MERC-n1f: Interactive combat state
+  // Tracks active combat that's paused for player decision (retreat/continue)
+  activeCombat: {
+    sectorId: string;
+    attackingPlayerId: string;
+    round: number;
+    rebelCombatants: any[]; // Combatant[]
+    dictatorCombatants: any[]; // Combatant[]
+    rebelCasualties: any[];
+    dictatorCasualties: any[];
+  } | null = null;
+
   // Data loaded from JSON
   private mercData: MercData[] = [];
   private equipmentData: EquipmentData[] = [];

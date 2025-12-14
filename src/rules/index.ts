@@ -68,6 +68,9 @@ export {
   createDictatorTrainAction,
   createDictatorReEquipAction,
   createDictatorEndMercActionsAction,
+  // MERC-n1f: Combat actions
+  createCombatContinueAction,
+  createCombatRetreatAction,
   registerAllActions,
 } from './actions.js';
 
@@ -106,9 +109,12 @@ export { createGameFlow } from './flow.js';
 // Combat
 export {
   executeCombat,
+  executeCombatRetreat, // MERC-n1f: Interactive retreat
   getCombatants,
   hasEnemies,
   calculateCombatOdds,
+  getValidRetreatSectors, // MERC-n1f: Get valid retreat destinations
+  canRetreat, // MERC-n1f: Check if retreat is possible
   type Combatant,
   type CombatResult,
   type CombatRound,
