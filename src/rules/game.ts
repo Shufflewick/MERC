@@ -225,6 +225,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   declare dictatorPlayer: DictatorPlayer;
   rebelPlayers: RebelPlayer[] = [];
 
+  // MERC-a2h: Track pending coordinated attacks across multiple rebel players
+  // Key: target sectorId, Value: array of { playerId, squadType }
+  pendingCoordinatedAttacks: Map<string, Array<{ playerId: string; squadType: 'primary' | 'secondary' }>> = new Map();
+
   // Data loaded from JSON
   private mercData: MercData[] = [];
   private equipmentData: EquipmentData[] = [];
@@ -694,6 +698,69 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       return [...sector.stash];
     }
     return [];
+  }
+
+  // ==========================================================================
+  // MERC-a2h: Coordinated Attack Management
+  // ==========================================================================
+
+  /**
+   * Declare a coordinated attack on a target sector.
+   * Squad will wait for other participants before executing the attack.
+   */
+  declareCoordinatedAttack(targetSectorId: string, playerId: string, squadType: 'primary' | 'secondary'): void {
+    if (!this.pendingCoordinatedAttacks.has(targetSectorId)) {
+      this.pendingCoordinatedAttacks.set(targetSectorId, []);
+    }
+    const attacks = this.pendingCoordinatedAttacks.get(targetSectorId)!;
+
+    // Don't add duplicate entries
+    if (!attacks.some(a => a.playerId === playerId && a.squadType === squadType)) {
+      attacks.push({ playerId, squadType });
+      this.message(`Squad declared coordinated attack on sector`);
+    }
+  }
+
+  /**
+   * Get pending coordinated attacks for a target sector.
+   */
+  getPendingCoordinatedAttack(targetSectorId: string): Array<{ playerId: string; squadType: 'primary' | 'secondary' }> {
+    return this.pendingCoordinatedAttacks.get(targetSectorId) || [];
+  }
+
+  /**
+   * Clear pending coordinated attack for a target sector (after execution).
+   */
+  clearCoordinatedAttack(targetSectorId: string): void {
+    this.pendingCoordinatedAttacks.delete(targetSectorId);
+  }
+
+  /**
+   * Check if a squad has a pending coordinated attack declared.
+   */
+  hasCoordinatedAttackDeclared(playerId: string, squadType: 'primary' | 'secondary'): string | null {
+    for (const [sectorId, attacks] of this.pendingCoordinatedAttacks.entries()) {
+      if (attacks.some(a => a.playerId === playerId && a.squadType === squadType)) {
+        return sectorId;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Cancel a squad's pending coordinated attack declaration.
+   */
+  cancelCoordinatedAttack(playerId: string, squadType: 'primary' | 'secondary'): void {
+    for (const [sectorId, attacks] of this.pendingCoordinatedAttacks.entries()) {
+      const index = attacks.findIndex(a => a.playerId === playerId && a.squadType === squadType);
+      if (index >= 0) {
+        attacks.splice(index, 1);
+        if (attacks.length === 0) {
+          this.pendingCoordinatedAttacks.delete(sectorId);
+        }
+        break;
+      }
+    }
   }
 
   // ==========================================================================

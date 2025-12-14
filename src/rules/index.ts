@@ -40,7 +40,10 @@ export {
   createHireMercAction,
   createPlaceLandingAction,
   createMoveAction,
-  createCoordinatedAttackAction, // MERC-wrq: Coordinated attacks
+  createCoordinatedAttackAction, // MERC-wrq: Coordinated attacks (same player)
+  createDeclareCoordinatedAttackAction, // MERC-a2h: Multi-player coordinated attacks
+  createJoinCoordinatedAttackAction, // MERC-a2h: Join multi-player attack
+  createExecuteCoordinatedAttackAction, // MERC-a2h: Execute multi-player attack
   createExploreAction,
   createTrainAction,
   // createAttackAction removed - combat triggers via movement only

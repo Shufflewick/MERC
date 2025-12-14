@@ -434,10 +434,272 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
 }
 
 /**
+ * MERC-a2h: Declare Coordinated Attack - Stage a squad for multi-player coordinated attack
+ * Per rules (06-merc-actions.md): Squads from different rebel players can attack together
+ * This action stages a squad to participate; execute when all participants ready
+ * Cost: Free (action spent when attack executes)
+ */
+export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('declareCoordinatedAttack')
+    .prompt('Declare coordinated attack (stage for multi-player)')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Need at least one squad with MERCs adjacent to an enemy sector
+      const hasValidSquad = [player.primarySquad, player.secondarySquad].some(squad => {
+        if (squad.mercCount === 0 || !squad.sectorId) return false;
+        const sector = game.getSector(squad.sectorId);
+        if (!sector) return false;
+        // Check if any adjacent sector has enemies
+        const adjacent = game.getAdjacentSectors(sector);
+        return adjacent.some(s => hasEnemies(game, s, player));
+      });
+      return hasValidSquad;
+    })
+    .chooseElement<Squad>('squad', {
+      prompt: 'Select squad to stage for coordinated attack',
+      elementClass: Squad,
+      filter: (element, ctx) => {
+        const squad = element as unknown as Squad;
+        const player = ctx.player as RebelPlayer;
+        if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
+        if (squad.mercCount === 0 || !squad.sectorId) return false;
+        // Must have MERCs with actions
+        return squad.getMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
+      },
+    })
+    .chooseElement<Sector>('target', {
+      prompt: 'Select target sector for coordinated attack',
+      elementClass: Sector,
+      filter: (element, ctx) => {
+        const sector = element as unknown as Sector;
+        const player = ctx.player as RebelPlayer;
+        const squad = ctx.args.squad as Squad;
+        if (!squad?.sectorId) return false;
+        const currentSector = game.getSector(squad.sectorId);
+        if (!currentSector) return false;
+        // Must be adjacent and have enemies
+        const adjacent = game.getAdjacentSectors(currentSector);
+        return adjacent.some(s => s.sectorId === sector.sectorId) && hasEnemies(game, sector, player);
+      },
+      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const squad = args.squad as Squad;
+      const target = args.target as Sector;
+      const squadType = squad === player.primarySquad ? 'primary' : 'secondary';
+
+      // Declare the coordinated attack
+      game.declareCoordinatedAttack(target.sectorId, `${player.position}`, squadType);
+
+      const pending = game.getPendingCoordinatedAttack(target.sectorId);
+      game.message(`${player.name}'s ${squadType} squad staged for coordinated attack on ${target.sectorName} (${pending.length} squad(s) ready)`);
+
+      return {
+        success: true,
+        message: `Staged for coordinated attack`,
+        data: { targetSector: target.sectorId, pendingCount: pending.length },
+      };
+    });
+}
+
+/**
+ * MERC-a2h: Join Coordinated Attack - Add squad to existing coordinated attack
+ * Per rules (06-merc-actions.md): Multiple squads can join a declared attack
+ * Cost: Free (action spent when attack executes)
+ */
+export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('joinCoordinatedAttack')
+    .prompt('Join coordinated attack')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Must have pending coordinated attacks that this player can join
+      if (game.pendingCoordinatedAttacks.size === 0) return false;
+
+      // Check if player has a squad that can reach any pending attack target
+      for (const [targetId] of game.pendingCoordinatedAttacks) {
+        const targetSector = game.getSector(targetId);
+        if (!targetSector) continue;
+
+        for (const squad of [player.primarySquad, player.secondarySquad]) {
+          if (squad.mercCount === 0 || !squad.sectorId) continue;
+          const sector = game.getSector(squad.sectorId);
+          if (!sector) continue;
+          const adjacent = game.getAdjacentSectors(sector);
+          if (adjacent.some(s => s.sectorId === targetId)) {
+            // Check squad can move
+            if (squad.getMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    })
+    .chooseFrom<string>('targetAttack', {
+      prompt: 'Select coordinated attack to join',
+      choices: () => {
+        const choices: { label: string; value: string }[] = [];
+        for (const [targetId, participants] of game.pendingCoordinatedAttacks) {
+          const sector = game.getSector(targetId);
+          if (sector) {
+            choices.push({
+              label: `Attack on ${sector.sectorName} (${participants.length} squad(s) ready)`,
+              value: targetId,
+            });
+          }
+        }
+        return choices;
+      },
+    })
+    .chooseElement<Squad>('squad', {
+      prompt: 'Select squad to join the attack',
+      elementClass: Squad,
+      filter: (element, ctx) => {
+        const squad = element as unknown as Squad;
+        const player = ctx.player as RebelPlayer;
+        const targetId = ctx.data?.targetAttack as string;
+        if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
+        if (squad.mercCount === 0 || !squad.sectorId) return false;
+
+        // Must be adjacent to target
+        const sector = game.getSector(squad.sectorId);
+        if (!sector) return false;
+        const adjacent = game.getAdjacentSectors(sector);
+        if (!adjacent.some(s => s.sectorId === targetId)) return false;
+
+        // Must have MERCs with actions
+        return squad.getMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const squad = args.squad as Squad;
+      const targetId = args.targetAttack as string;
+      const squadType = squad === player.primarySquad ? 'primary' : 'secondary';
+
+      game.declareCoordinatedAttack(targetId, `${player.position}`, squadType);
+
+      const pending = game.getPendingCoordinatedAttack(targetId);
+      const target = game.getSector(targetId);
+      game.message(`${player.name}'s ${squadType} squad joined coordinated attack on ${target?.sectorName} (${pending.length} squad(s) ready)`);
+
+      return {
+        success: true,
+        message: `Joined coordinated attack`,
+        data: { targetSector: targetId, pendingCount: pending.length },
+      };
+    });
+}
+
+/**
+ * MERC-a2h: Execute Coordinated Attack - Launch staged multi-player attack
+ * All participating squads move to target and combat begins with all attackers
+ * Cost: 1 action per MERC in all participating squads
+ */
+export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('executeCoordinatedAttack')
+    .prompt('Execute coordinated attack')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Must have a pending coordinated attack with this player participating
+      for (const [, participants] of game.pendingCoordinatedAttacks) {
+        if (participants.some(p => p.playerId === `${player.position}`)) {
+          return true;
+        }
+      }
+      return false;
+    })
+    .chooseFrom<string>('targetAttack', {
+      prompt: 'Select coordinated attack to execute',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const choices: { label: string; value: string }[] = [];
+        for (const [targetId, participants] of game.pendingCoordinatedAttacks) {
+          if (participants.some(p => p.playerId === `${player.position}`)) {
+            const sector = game.getSector(targetId);
+            if (sector) {
+              choices.push({
+                label: `Attack on ${sector.sectorName} (${participants.length} squad(s))`,
+                value: targetId,
+              });
+            }
+          }
+        }
+        return choices;
+      },
+    })
+    .execute((args, ctx) => {
+      const targetId = args.targetAttack as string;
+      const target = game.getSector(targetId);
+      if (!target) {
+        return { success: false, message: 'Target sector not found' };
+      }
+
+      const participants = game.getPendingCoordinatedAttack(targetId);
+      if (participants.length === 0) {
+        return { success: false, message: 'No participants in coordinated attack' };
+      }
+
+      // Move all participating squads to target and spend actions
+      const allMercs: MercCard[] = [];
+      const participantNames: string[] = [];
+
+      for (const { playerId, squadType } of participants) {
+        const rebel = game.rebelPlayers.find(r => `${r.position}` === playerId);
+        if (!rebel) continue;
+
+        const squad = squadType === 'primary' ? rebel.primarySquad : rebel.secondarySquad;
+        const mercs = squad.getMercs();
+
+        // Spend actions and move
+        for (const merc of mercs) {
+          useAction(merc, ACTION_COSTS.MOVE);
+          allMercs.push(merc);
+        }
+        squad.sectorId = targetId;
+        participantNames.push(`${rebel.name} (${mercs.length} MERC${mercs.length > 1 ? 's' : ''})`);
+      }
+
+      // Clear the pending attack
+      game.clearCoordinatedAttack(targetId);
+
+      game.message(`Coordinated attack launched on ${target.sectorName}! Participants: ${participantNames.join(', ')}`);
+
+      // Trigger combat with all attackers
+      // Note: executeCombat handles all rebel MERCs in the sector
+      if (hasEnemies(game, target, game.rebelPlayers[0])) {
+        game.message(`Combat begins with ${allMercs.length} attacking MERC(s)!`);
+        // Combat will include all rebel MERCs now in the sector
+        const outcome = executeCombat(game, target, game.rebelPlayers[0]);
+        return {
+          success: true,
+          message: `Coordinated attack executed`,
+          data: {
+            combatTriggered: true,
+            coordinatedAttack: true,
+            participantCount: participants.length,
+            totalMercs: allMercs.length,
+            rebelVictory: outcome.rebelVictory,
+            dictatorVictory: outcome.dictatorVictory,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        message: `All squads moved to ${target.sectorName}`,
+        data: { participantCount: participants.length, totalMercs: allMercs.length },
+      };
+    });
+}
+
+/**
  * Explore an unexplored sector
  * Cost: 1 action
  * Per rules (06-merc-actions.md): After exploring, perform a free Re-Equip
  * MERC-gjw: Free re-equip allows equipping multiple items to multiple MERCs
+ * MERC-6cu: Free re-equip includes trading between MERCs without action cost
  */
 export function createExploreAction(game: MERCGame): ActionDefinition {
   // Cache drawn equipment for free re-equip selection
@@ -548,6 +810,63 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         return equipChoices.length === 0;
       },
     })
+    // MERC-6cu: Free trade option - trade equipment between MERCs without action cost
+    .chooseFrom<string>('freeTrade', {
+      prompt: 'Free Trade: Transfer equipment between MERCs? (no action cost)',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        // Only offer trade if player has 2+ MERCs and at least one has equipment
+        const hasEquippedMercs = player.team.some(m =>
+          m.weaponSlot || m.armorSlot || m.accessorySlot
+        );
+        if (player.teamSize < 2 || !hasEquippedMercs) {
+          return [{ label: 'No trades needed', value: 'skip' }];
+        }
+        return [
+          { label: 'Yes, trade equipment', value: 'trade' },
+          { label: 'No trades needed', value: 'skip' },
+        ];
+      },
+    })
+    // Select MERC giving equipment (for free trade)
+    .chooseElement<MercCard>('tradeGiver', {
+      prompt: 'Select MERC to give equipment',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+        return player.team.includes(merc) &&
+          (merc.weaponSlot || merc.armorSlot || merc.accessorySlot);
+      },
+      skipIf: (ctx) => ctx.data?.freeTrade !== 'trade',
+    })
+    // Select which equipment to trade
+    .chooseFrom<string>('tradeEquipment', {
+      prompt: 'Which equipment to give?',
+      choices: (ctx) => {
+        const giver = ctx.args?.tradeGiver as MercCard;
+        const choices: string[] = [];
+        if (giver?.weaponSlot) choices.push(`Weapon: ${giver.weaponSlot.equipmentName}`);
+        if (giver?.armorSlot) choices.push(`Armor: ${giver.armorSlot.equipmentName}`);
+        if (giver?.accessorySlot) choices.push(`Accessory: ${giver.accessorySlot.equipmentName}`);
+        return choices;
+      },
+      skipIf: (ctx) => ctx.data?.freeTrade !== 'trade',
+    })
+    // Select MERC receiving equipment (for free trade)
+    .chooseElement<MercCard>('tradeReceiver', {
+      prompt: 'Select MERC to receive equipment',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+        const giver = ctx.args?.tradeGiver as MercCard;
+        return player.team.includes(merc) && merc !== giver;
+      },
+      skipIf: (ctx) => ctx.data?.freeTrade !== 'trade',
+    })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
@@ -599,13 +918,55 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         }
       }
 
+      // MERC-6cu: Handle free trade during exploration (no action cost)
+      const freeTrade = args.freeTrade as string;
+      let tradeResult = '';
+      if (freeTrade === 'trade') {
+        const giver = args.tradeGiver as MercCard;
+        const receiver = args.tradeReceiver as MercCard;
+        const tradeEquipmentStr = args.tradeEquipment as string;
+
+        if (giver && receiver && tradeEquipmentStr) {
+          // Determine which slot to trade
+          let equipmentToTrade: Equipment | undefined;
+          let slot: 'Weapon' | 'Armor' | 'Accessory';
+
+          if (tradeEquipmentStr.startsWith('Weapon:')) {
+            equipmentToTrade = giver.weaponSlot;
+            slot = 'Weapon';
+          } else if (tradeEquipmentStr.startsWith('Armor:')) {
+            equipmentToTrade = giver.armorSlot;
+            slot = 'Armor';
+          } else {
+            equipmentToTrade = giver.accessorySlot;
+            slot = 'Accessory';
+          }
+
+          if (equipmentToTrade) {
+            // Remove from giver
+            giver.unequip(slot);
+
+            // Give to receiver (may replace their existing equipment)
+            const replaced = receiver.equip(equipmentToTrade);
+            if (replaced) {
+              // Receiver's old equipment goes to stash
+              sector.addToStash(replaced);
+              tradeResult = `${giver.mercName} gave ${equipmentToTrade.equipmentName} to ${receiver.mercName}, ${replaced.equipmentName} added to stash`;
+            } else {
+              tradeResult = `${giver.mercName} gave ${equipmentToTrade.equipmentName} to ${receiver.mercName}`;
+            }
+            game.message(`Free trade: ${tradeResult}`);
+          }
+        }
+      }
+
       // Clean up cache
       explorationCache.delete(`${player.position}`);
 
       return {
         success: true,
         message: `Explored ${sector.sectorName}`,
-        data: { stashRemaining: sector.stash.length, equipped },
+        data: { stashRemaining: sector.stash.length, equipped, tradeResult },
       };
     });
 }
@@ -1819,7 +2180,10 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createHireMercAction(game));
   game.registerAction(createPlaceLandingAction(game));
   game.registerAction(createMoveAction(game));
-  game.registerAction(createCoordinatedAttackAction(game)); // MERC-wrq
+  game.registerAction(createCoordinatedAttackAction(game)); // MERC-wrq: Same-player coordinated attack
+  game.registerAction(createDeclareCoordinatedAttackAction(game)); // MERC-a2h: Multi-player coordinated attack
+  game.registerAction(createJoinCoordinatedAttackAction(game)); // MERC-a2h
+  game.registerAction(createExecuteCoordinatedAttackAction(game)); // MERC-a2h
   game.registerAction(createExploreAction(game));
   game.registerAction(createTrainAction(game));
   // Attack removed - per rules, combat triggers via movement only
