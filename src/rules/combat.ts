@@ -36,6 +36,8 @@ export interface Combatant {
   isDictator: boolean;
   sourceElement: MercCard | DictatorCard | null;
   ownerId?: string; // For rebel militia
+  armorPiercing: boolean; // MERC-38e: Weapon ignores armor
+  hasOneUseWeapon: boolean; // MERC-f0y: Weapon is one-use
 }
 
 export interface CombatResult {
@@ -110,6 +112,8 @@ function sortByInitiative(combatants: Combatant[]): Combatant[] {
 
 /**
  * Build combatant from a MERC card
+ * MERC-38e: Includes armorPiercing from weapon
+ * MERC-f0y: Includes hasOneUseWeapon flag
  */
 function mercToCombatant(merc: MercCard, isDictatorSide: boolean): Combatant {
   return {
@@ -125,6 +129,8 @@ function mercToCombatant(merc: MercCard, isDictatorSide: boolean): Combatant {
     isMilitia: false,
     isDictator: false,
     sourceElement: merc,
+    armorPiercing: merc.weaponSlot?.negatesArmor ?? false, // MERC-38e
+    hasOneUseWeapon: merc.weaponSlot?.isOneUse ?? false, // MERC-f0y
   };
 }
 
@@ -145,6 +151,8 @@ function dictatorToCombatant(dictator: DictatorCard): Combatant {
     isMilitia: false,
     isDictator: true,
     sourceElement: dictator,
+    armorPiercing: false,
+    hasOneUseWeapon: false,
   };
 }
 
@@ -172,6 +180,8 @@ function militiaToCombatants(
       isDictator: false,
       sourceElement: null,
       ownerId,
+      armorPiercing: false,
+      hasOneUseWeapon: false,
     });
   }
   return combatants;
@@ -332,13 +342,14 @@ function selectTargets(
  * Apply damage to a combatant
  * Per rules (07-combat-system.md): Damage hits armor before health.
  * When armor reaches 0, the armor equipment is destroyed.
+ * MERC-38e: Armor Piercing weapons ignore armor entirely.
  * Returns actual damage dealt to health
  */
-function applyDamage(target: Combatant, damage: number, game: MERCGame): number {
+function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPiercing: boolean = false): number {
   let remainingDamage = damage;
 
-  // Armor absorbs damage first
-  if (target.armor > 0 && remainingDamage > 0) {
+  // MERC-38e: Armor Piercing weapons skip armor entirely
+  if (!armorPiercing && target.armor > 0 && remainingDamage > 0) {
     const armorAbsorbed = Math.min(target.armor, remainingDamage);
     target.armor -= armorAbsorbed;
     remainingDamage -= armorAbsorbed;
@@ -357,6 +368,8 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame): number 
         }
       }
     }
+  } else if (armorPiercing && target.armor > 0) {
+    game.message(`Armor piercing attack ignores ${target.name}'s armor!`);
   }
 
   // Apply remaining damage to health
@@ -389,9 +402,15 @@ function executeCombatRound(
 
     if (aliveEnemies.length === 0) continue;
 
+    // MERC-pd5: Select targets BEFORE rolling dice (per rules)
+    const targets = selectTargets(attacker, enemies, attacker.targets);
+    const targetNames = targets.map(t => t.name).join(', ');
+    game.message(`${attacker.name} declares targets: ${targetNames}`);
+
     // Roll dice
     const rolls = rollDice(attacker.combat);
     const hits = countHits(rolls);
+    game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
     if (hits === 0) {
       results.push({
@@ -401,12 +420,9 @@ function executeCombatRound(
         targets: [],
         damageDealt: new Map(),
       });
-      game.message(`${attacker.name} rolls [${rolls.join(', ')}] - no hits`);
       continue;
     }
 
-    // Select targets
-    const targets = selectTargets(attacker, enemies, attacker.targets);
     const damageDealt = new Map<string, number>();
 
     // Distribute hits among targets
@@ -414,7 +430,8 @@ function executeCombatRound(
     for (const target of targets) {
       if (remainingHits <= 0) break;
 
-      const damage = applyDamage(target, remainingHits, game);
+      // MERC-38e: Pass armorPiercing flag to applyDamage
+      const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
       damageDealt.set(target.id, damage);
 
       if (target.health <= 0) {
@@ -432,6 +449,22 @@ function executeCombatRound(
       }
     }
 
+    // MERC-f0y: Consume one-use weapon after attack
+    if (attacker.hasOneUseWeapon && attacker.sourceElement instanceof MercCard) {
+      const merc = attacker.sourceElement;
+      if (merc.weaponSlot?.isOneUse) {
+        game.message(`${merc.mercName}'s ${merc.weaponSlot.equipmentName} is used up!`);
+        const weapon = merc.unequip('Weapon');
+        if (weapon) {
+          const discard = game.getEquipmentDiscard('Weapon');
+          if (discard) weapon.putInto(discard);
+        }
+        // Mark combatant as no longer having one-use weapon for subsequent rounds
+        attacker.hasOneUseWeapon = false;
+        attacker.armorPiercing = false; // One-use weapons lose their effects
+      }
+    }
+
     results.push({
       attacker,
       rolls,
@@ -439,8 +472,6 @@ function executeCombatRound(
       targets,
       damageDealt,
     });
-
-    game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
   }
 
   return { roundNumber, results, casualties };
@@ -449,6 +480,7 @@ function executeCombatRound(
 /**
  * Apply combat results to actual game state
  * Handles coordinated attacks - updates all participating rebels' militia
+ * MERC-4ib: Handles MERC death by discarding card and equipment
  */
 function applyCombatResults(
   game: MERCGame,
@@ -457,16 +489,59 @@ function applyCombatResults(
   dictatorSide: Combatant[],
   attackingPlayer: RebelPlayer
 ): void {
-  // Update MERC damage
+  // Update MERC damage and handle deaths
   for (const combatant of [...rebels, ...dictatorSide]) {
     if (combatant.sourceElement instanceof MercCard) {
       const merc = combatant.sourceElement;
       const damageTaken = combatant.maxHealth - combatant.health;
       merc.damage = damageTaken;
+
+      // MERC-4ib: Handle MERC death - discard card and equipment
+      if (combatant.health <= 0) {
+        merc.isDead = true;
+
+        // Discard all equipment
+        const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
+        for (const eqType of equipmentTypes) {
+          const equipment = merc.unequip(eqType);
+          if (equipment) {
+            const discard = game.getEquipmentDiscard(eqType);
+            if (discard) equipment.putInto(discard);
+          }
+        }
+
+        // Remove from owner's team and put in discard
+        if (combatant.isDictatorSide) {
+          // Remove from dictator's hired MERCs
+          const idx = game.dictatorPlayer.hiredMercs.indexOf(merc);
+          if (idx >= 0) {
+            game.dictatorPlayer.hiredMercs.splice(idx, 1);
+          }
+        } else {
+          // Remove from rebel's team
+          for (const rebel of game.rebelPlayers) {
+            const idx = rebel.team.indexOf(merc);
+            if (idx >= 0) {
+              rebel.team.splice(idx, 1);
+              break;
+            }
+          }
+        }
+
+        // Put MERC card in discard pile
+        merc.putInto(game.mercDiscard);
+        game.message(`${merc.mercName} has been killed in combat!`);
+      }
     } else if (combatant.sourceElement instanceof DictatorCard) {
       const dictator = combatant.sourceElement;
       const damageTaken = combatant.maxHealth - combatant.health;
       dictator.damage = damageTaken;
+
+      // Handle dictator death
+      if (combatant.health <= 0) {
+        dictator.isDead = true;
+        game.message(`THE DICTATOR HAS BEEN KILLED! REBELS WIN!`);
+      }
     }
   }
 
@@ -530,26 +605,10 @@ export function executeCombat(
       break;
     }
 
-    // Per rules (07-combat-system.md): At end of each round, survivors may retreat
-    // AI auto-retreat logic: retreat if severely outnumbered or low health
-    const rebelMercs = aliveRebels.filter(c => !c.isMilitia);
-    const totalRebelHealth = rebelMercs.reduce((sum, c) => sum + c.health, 0);
-    const dictatorStrength = aliveDictator.reduce((sum, c) => sum + c.combat, 0);
-
-    // Consider retreating if MERCs are at less than 50% health and outnumbered
-    const shouldConsiderRetreat = totalRebelHealth < rebelMercs.length * 1.5 ||
-      dictatorStrength > aliveRebels.reduce((sum, c) => sum + c.combat, 0) * 2;
-
-    if (shouldConsiderRetreat && canRetreat(game, sector, attackingPlayer)) {
-      const validRetreats = getValidRetreatSectors(game, sector, attackingPlayer);
-      if (validRetreats.length > 0) {
-        retreatSector = validRetreats[0];
-        executeRetreat(game, sector, retreatSector, attackingPlayer);
-        didRetreat = true;
-        game.message(`Rebels retreat from ${sector.sectorName}!`);
-        break;
-      }
-    }
+    // MERC-n69: Per rules (07-combat-system.md): At end of each round, survivors may CHOOSE to retreat
+    // TODO: Implement interactive retreat choice. For now, combat continues to the end.
+    // When interactive combat is implemented, this should pause and offer retreat options.
+    // Valid retreat sectors can be checked with: getValidRetreatSectors(game, sector, attackingPlayer)
   }
 
   // Apply results to game state
@@ -585,12 +644,24 @@ export function executeCombat(
 
 /**
  * Check if a sector has enemies to fight
+ * MERC-7un: Also checks for dictator hired MERCs, not just militia and dictator card
  */
 export function hasEnemies(game: MERCGame, sector: Sector, player: RebelPlayer): boolean {
-  return sector.dictatorMilitia > 0 ||
-    (game.dictatorPlayer.baseRevealed &&
-     game.dictatorPlayer.baseSectorId === sector.sectorId &&
-     !game.dictatorPlayer.dictator?.isDead);
+  // Check for dictator militia
+  if (sector.dictatorMilitia > 0) return true;
+
+  // MERC-7un: Check for dictator hired MERCs
+  const dictatorMercs = game.getDictatorMercsInSector(sector);
+  if (dictatorMercs.length > 0) return true;
+
+  // Check for dictator card at revealed base
+  if (game.dictatorPlayer.baseRevealed &&
+      game.dictatorPlayer.baseSectorId === sector.sectorId &&
+      !game.dictatorPlayer.dictator?.isDead) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
