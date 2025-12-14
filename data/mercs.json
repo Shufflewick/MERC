@@ -8,7 +8,7 @@
     "initiative": 1,
     "ability": "Won't use grenades or mortars.",
     "bio": "His brother died in an explosion.",
-    "image": "https://s3.amazonaws.com/files.component.studio/022D242E-10DE-11E8-B185-E78BE261B13A/apeiron.png"
+    "image": "/mercs/apeiron.jpg"
   },
   {
     "id": "badger",
@@ -19,7 +19,7 @@
     "initiative": 1,
     "ability": "Always has initiative over militia.",
     "bio": "Was a wrestler for Wisconsin.",
-    "image": "https://s3.amazonaws.com/files.component.studio/0DD032DA-10DE-11E8-B185-E78BE261B13A/badger.png"
+    "image": "/mercs/badger.jpg"
   },
   {
     "id": "basic",
@@ -30,7 +30,7 @@
     "initiative": 2,
     "ability": "May reroll all dice once per combat.",
     "bio": "Repeated basic training 4 times.",
-    "image": "https://s3.amazonaws.com/files.component.studio/02665276-10DE-11E8-B38E-C69BE261B13A/basic.png"
+    "image": "/mercs/basic.jpg"
   },
   {
     "id": "borris",
@@ -41,7 +41,7 @@
     "initiative": 2,
     "ability": "Will not work with Squirrel.",
     "bio": "Often requests assignments with Natasha.",
-    "image": "https://s3.amazonaws.com/files.component.studio/08B59BC8-10DE-11E8-B185-E78BE261B13A/borris.png"
+    "image": "/mercs/borris.jpg"
   },
   {
     "id": "bouba",
@@ -52,7 +52,7 @@
     "initiative": 4,
     "ability": "+1 combat when using a handgun.",
     "bio": "Wants desperately to be a good MERC.",
-    "image": "https://s3.amazonaws.com/files.component.studio/0792F114-10DE-11E8-B38E-C69BE261B13A/bouba.png"
+    "image": "/mercs/bouba.jpg"
   },
   {
     "id": "buzzkill",
@@ -63,7 +63,7 @@
     "initiative": 2,
     "ability": "Always attacks enemy MERCs instead of militia when possible.",
     "bio": "Killed his cellmate for using an electric razor.",
-    "image": "https://s3.amazonaws.com/files.component.studio/07C074FE-10DE-11E8-B38E-C69BE261B13A/buzzkill.png"
+    "image": "/mercs/buzzkill.jpg"
   },
   {
     "id": "doc",
@@ -74,7 +74,7 @@
     "initiative": 2,
     "ability": "Heals all MERCs in his squad as a free action outside of combat.",
     "bio": "Put pressure here.",
-    "image": "https://s3.amazonaws.com/files.component.studio/0BDA66B2-10DE-11E8-B185-E78BE261B13A/doc.png"
+    "image": "/mercs/doc.jpg"
   },
   {
     "id": "ewok",
@@ -85,7 +85,7 @@
     "initiative": 2,
     "ability": "+1 action.",
     "bio": "She often spouts Star Wars trivia.",
-    "image": "https://s3.amazonaws.com/files.component.studio/09B25B38-10DE-11E8-B185-E78BE261B13A/ewok.png"
+    "image": "/mercs/ewok.jpg"
   },
   {
     "id": "faustina",
@@ -96,7 +96,7 @@
     "initiative": 3,
     "ability": "+1 action, for training only.",
     "bio": "Attitude goes further than fortitude.",
-    "image": "https://s3.amazonaws.com/files.component.studio/164FEC2A-10DE-11E8-B185-E78BE261B13A/faustina.png"
+    "image": "/mercs/faustina.jpg"
   },
   {
     "id": "feedback",
@@ -107,7 +107,7 @@
     "initiative": 1,
     "ability": "Spend 1 action to take 1 piece of equipment from the discard pile.",
     "bio": "If it sparks, I can fix it.",
-    "image": "https://s3.amazonaws.com/files.component.studio/0BC484BE-10DE-11E8-B38E-C69BE261B13A/feedback.png"
+    "image": "/mercs/feedback.jpg"
   },
   {
     "id": "genesis",
@@ -118,7 +118,7 @@
     "initiative": 2,
     "ability": "May carry an extra weapon in his accessory slot instead of an accessory.",
     "bio": "Jack of all trades.",
-    "image": "https://s3.amazonaws.com/files.component.studio/10840966-10DE-11E8-B185-E78BE261B13A/genesis.png"
+    "image": "/mercs/genesis.jpg"
   },
   {
     "id": "gunther",
@@ -129,7 +129,7 @@
     "initiative": 1,
     "ability": "He can use all equipment slots to carry accessories.",
     "bio": "There's no problem that's too big.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1073C1F0-10DE-11E8-B38E-C69BE261B13A/gunther.png"
+    "image": "/mercs/gunther.jpg"
   },
   {
     "id": "haarg",
@@ -140,7 +140,7 @@
     "initiative": 1,
     "ability": "+1 to any skill that anyone in his squad has higher than him.",
     "bio": "It's been done before, but I can do it better.",
-    "image": "https://s3.amazonaws.com/files.component.studio/12CDDD3C-10DE-11E8-B185-E78BE261B13A/haarg.png"
+    "image": "/mercs/haarg.jpg"
   },
   {
     "id": "juicer",
@@ -151,7 +151,7 @@
     "initiative": 2,
     "ability": "+2 health.",
     "bio": "Don't hire if you do drug screening.",
-    "image": "https://s3.amazonaws.com/files.component.studio/12C3C658-10DE-11E8-B185-E78BE261B13A/juicer.png"
+    "image": "/mercs/juicer.jpg"
   },
   {
     "id": "kastern",
@@ -162,7 +162,7 @@
     "initiative": 0,
     "ability": "Always goes first in combat.",
     "bio": "Likes to sing nursery rhymes while in combat.",
-    "image": "https://s3.amazonaws.com/files.component.studio/143C9C80-10DE-11E8-B38E-C69BE261B13A/kastern.png"
+    "image": "/mercs/kastern.jpg"
   },
   {
     "id": "khenn",
@@ -173,7 +173,7 @@
     "initiative": 0,
     "ability": "Rolls a D6 at the beginning of combat. That is his initiative for this combat.",
     "bio": "He's a cheap bastard.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1B9010CA-10DE-11E8-B38E-C69BE261B13A/khenn.png"
+    "image": "/mercs/khenn.jpg"
   },
   {
     "id": "lucid",
@@ -184,7 +184,7 @@
     "initiative": 2,
     "ability": "Hits on a 3+.",
     "bio": "Hates it when people call him a contractor.",
-    "image": "https://s3.amazonaws.com/files.component.studio/15E341E2-10DE-11E8-B38E-C69BE261B13A/lucid.png"
+    "image": "/mercs/lucid.jpg"
   },
   {
     "id": "max",
@@ -195,7 +195,7 @@
     "initiative": 2,
     "ability": "Opposing MERCs have -1 to all skills when attacking his squad.",
     "bio": "After 25 years of service, founded MERC.",
-    "image": "https://s3.amazonaws.com/files.component.studio/20E7B05A-10DE-11E8-B185-E78BE261B13A/max.png"
+    "image": "/mercs/max.jpg"
   },
   {
     "id": "mayhem",
@@ -206,7 +206,7 @@
     "initiative": 2,
     "ability": "+2 combat when using an Uzi.",
     "bio": "Became a MERC because his neighborhood was too violent.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1A09037E-10DE-11E8-B38E-C69BE261B13A/mayhem.png"
+    "image": "/mercs/mayhem.jpg"
   },
   {
     "id": "meatbop",
@@ -217,7 +217,7 @@
     "initiative": 0,
     "ability": "Will not fight without an accessory equipped.",
     "bio": "Has a habit of 'misplacing' his gun.",
-    "image": "https://s3.amazonaws.com/files.component.studio/2A439100-10DE-11E8-B38E-C69BE261B13A/meatbop.png"
+    "image": "/mercs/meatbop.jpg"
   },
   {
     "id": "moose",
@@ -228,7 +228,7 @@
     "initiative": 2,
     "ability": "Will not work with Borris.",
     "bio": "Grew up on the same street as Squirrel.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1E7070A0-10DE-11E8-B38E-C69BE261B13A/moose.png"
+    "image": "/mercs/moose.jpg"
   },
   {
     "id": "natasha",
@@ -239,7 +239,7 @@
     "initiative": 3,
     "ability": "Will not work with Moose.",
     "bio": "Kinda has a thing for Squirrel.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1CCADF38-10DE-11E8-B38E-C69BE261B13A/natasha.png"
+    "image": "/mercs/natasha.jpg"
   },
   {
     "id": "preaction",
@@ -250,7 +250,7 @@
     "initiative": 5,
     "ability": "Automatically restores 1 health each day until fully healed.",
     "bio": "Prefers to work at night.",
-    "image": "https://s3.amazonaws.com/files.component.studio/2204E610-10DE-11E8-B185-E78BE261B13A/preaction.png"
+    "image": "/mercs/preaction.jpg"
   },
   {
     "id": "ra",
@@ -261,7 +261,7 @@
     "initiative": 1,
     "ability": "+1 target with any weapon.",
     "bio": "Always brings the beer.",
-    "image": "https://s3.amazonaws.com/files.component.studio/21D399FC-10DE-11E8-B38E-C69BE261B13A/ra.png"
+    "image": "/mercs/ra.jpg"
   },
   {
     "id": "rizen",
@@ -272,7 +272,7 @@
     "initiative": 3,
     "ability": "Regardless of weapon used, each hit counts as a new target when attacking militia.",
     "bio": "F\\*\\*\\* the f\\*\\*\\*ing f\\*\\*\\*ers!",
-    "image": "https://s3.amazonaws.com/files.component.studio/2223493E-10DE-11E8-B38E-C69BE261B13A/rizen.png"
+    "image": "/mercs/rizen.jpg"
   },
   {
     "id": "rozeske",
@@ -283,7 +283,7 @@
     "initiative": 1,
     "ability": "+1 combat while wearing armor.",
     "bio": "He's a MERC because he likes to travel.",
-    "image": "https://s3.amazonaws.com/files.component.studio/26C96E28-10DE-11E8-B185-E78BE261B13A/rozeske.png"
+    "image": "/mercs/rozeske.jpg"
   },
   {
     "id": "runde",
@@ -294,7 +294,7 @@
     "initiative": 2,
     "ability": "Is always the last MERC targeted.",
     "bio": "This grainy photo is the only known image of him.",
-    "image": "https://s3.amazonaws.com/files.component.studio/25C781B8-10DE-11E8-B38E-C69BE261B13A/runde.png"
+    "image": "/mercs/runde.jpg"
   },
   {
     "id": "sarge",
@@ -305,7 +305,7 @@
     "initiative": 3,
     "ability": "+1 to all skills when his initiative is highest in the squad.",
     "bio": "OohRah!",
-    "image": "https://s3.amazonaws.com/files.component.studio/33722D90-10DE-11E8-B185-E78BE261B13A/sarge.png"
+    "image": "/mercs/sarge.jpg"
   },
   {
     "id": "shadkaam",
@@ -316,7 +316,7 @@
     "initiative": 2,
     "ability": "Immune to attack dogs.",
     "bio": "With me you will be triumphant.",
-    "image": "https://s3.amazonaws.com/files.component.studio/2EDCE126-10DE-11E8-B185-E78BE261B13A/shadkaam.png"
+    "image": "/mercs/shadkaam.jpg"
   },
   {
     "id": "shooter",
@@ -327,7 +327,7 @@
     "initiative": 1,
     "ability": "Is an extremely good shot.",
     "bio": "Volunteered for two tours in a hot zone.",
-    "image": "https://s3.amazonaws.com/files.component.studio/28E35E30-10DE-11E8-B185-E78BE261B13A/shooter.png"
+    "image": "/mercs/shooter.jpg"
   },
   {
     "id": "snake",
@@ -338,7 +338,7 @@
     "initiative": 2,
     "ability": "+1 to all skills when working alone.",
     "bio": "Named himself after his hero Snake Pliskin.",
-    "image": "https://s3.amazonaws.com/files.component.studio/31939D9C-10DE-11E8-B185-E78BE261B13A/snake.png"
+    "image": "/mercs/snake.jpg"
   },
   {
     "id": "sonia",
@@ -349,7 +349,7 @@
     "initiative": 4,
     "ability": "She can bring up to 2 militia with her when she moves.",
     "bio": "She's also an Olympic gymnastics champion.",
-    "image": "https://s3.amazonaws.com/files.component.studio/3986487E-10DE-11E8-B38E-C69BE261B13A/sonia.png"
+    "image": "/mercs/sonia.jpg"
   },
   {
     "id": "squidhead",
@@ -360,7 +360,7 @@
     "initiative": 1,
     "ability": "Disarms enemy land mines when he enters a sector. May re-arm them for himself.",
     "bio": "Live hard.",
-    "image": "https://s3.amazonaws.com/files.component.studio/2B31B2EA-10DE-11E8-B185-E78BE261B13A/squidhead.png"
+    "image": "/mercs/squidhead.jpg"
   },
   {
     "id": "squirrel",
@@ -371,7 +371,7 @@
     "initiative": 3,
     "ability": "Will not work with Natasha.",
     "bio": "Thinks Borris has a weirdly shaped head.",
-    "image": "https://s3.amazonaws.com/files.component.studio/370739D2-10DE-11E8-B185-E78BE261B13A/squirrel.png"
+    "image": "/mercs/squirrel.jpg"
   },
   {
     "id": "stumpy",
@@ -382,7 +382,7 @@
     "initiative": 3,
     "ability": "+1 combat with grenades and mortars.",
     "bio": "Wants to follow in his grandfather's footsteps.",
-    "image": "https://s3.amazonaws.com/files.component.studio/2E92C01E-10DE-11E8-B38E-C69BE261B13A/stumpy.png"
+    "image": "/mercs/stumpy.jpg"
   },
   {
     "id": "surgeon",
@@ -393,7 +393,7 @@
     "initiative": 2,
     "ability": "May discard 1 combat die before he fires to restore 1 health to anyone in his squad.",
     "bio": "Got a medical discharge for injuring his foot in Iraq.",
-    "image": "https://s3.amazonaws.com/files.component.studio/3072BC36-10DE-11E8-B185-E78BE261B13A/surgeon.png"
+    "image": "/mercs/surgeon.jpg"
   },
   {
     "id": "tack",
@@ -404,7 +404,7 @@
     "initiative": 3,
     "ability": "+2 initiative to her squad when she has the highest initiative.",
     "bio": "Is a tactical driving instructor for the LAPD.",
-    "image": "https://s3.amazonaws.com/files.component.studio/3615B5BC-10DE-11E8-B38E-C69BE261B13A/tack.png"
+    "image": "/mercs/tack.jpg"
   },
   {
     "id": "tao",
@@ -415,7 +415,7 @@
     "initiative": 1,
     "ability": "Will not harm dogs.",
     "bio": "He's also a french-trained pastry chef.",
-    "image": "https://s3.amazonaws.com/files.component.studio/3431A92C-10DE-11E8-B185-E78BE261B13A/tao.png"
+    "image": "/mercs/tao.jpg"
   },
   {
     "id": "tavisto",
@@ -426,7 +426,7 @@
     "initiative": 2,
     "ability": "+1 to all skills when a woman is in his squad.",
     "bio": "Don't pee in my Cheerios!",
-    "image": "https://s3.amazonaws.com/files.component.studio/4295ED5C-10DE-11E8-B185-E78BE261B13A/tavisto.png"
+    "image": "/mercs/tavisto.jpg"
   },
   {
     "id": "teresa",
@@ -437,7 +437,7 @@
     "initiative": 0,
     "ability": "Doesn't count toward team limit.",
     "bio": "Was working for Red Cross when the Rebels invaded.",
-    "image": "https://s3.amazonaws.com/files.component.studio/3A159948-10DE-11E8-B38E-C69BE261B13A/teresa.png"
+    "image": "/mercs/teresa.jpg"
   },
   {
     "id": "valkyrie",
@@ -448,7 +448,7 @@
     "initiative": 4,
     "ability": "Gives +1 initiative to all other MERCs in her squad.",
     "bio": "She's also a classicly trained opera singer.",
-    "image": "https://s3.amazonaws.com/files.component.studio/37899DDC-10DE-11E8-B185-E78BE261B13A/valkyrie.png"
+    "image": "/mercs/valkyrie.jpg"
   },
   {
     "id": "vandal",
@@ -459,7 +459,7 @@
     "initiative": 1,
     "ability": "Fires a second shot at the end of each round of combat.",
     "bio": "Freelance hitman, before joining MERC.",
-    "image": "https://s3.amazonaws.com/files.component.studio/41502750-10DE-11E8-B38E-C69BE261B13A/vandal.png"
+    "image": "/mercs/vandal.jpg"
   },
   {
     "id": "vandradi",
@@ -470,7 +470,7 @@
     "initiative": 3,
     "ability": "+1 combat when using a weapon that adds 1 or more targets.",
     "bio": "Hell comes with me.",
-    "image": "https://s3.amazonaws.com/files.component.studio/3AA7A50E-10DE-11E8-B185-E78BE261B13A/vandradi.png"
+    "image": "/mercs/vandradi.jpg"
   },
   {
     "id": "vrbansk",
@@ -481,7 +481,7 @@
     "initiative": 3,
     "ability": "When he's hired, give him the top card from the accessories deck.",
     "bio": "This ain't no f\\*\\*\\* around operation.",
-    "image": "https://s3.amazonaws.com/files.component.studio/40B67A24-10DE-11E8-B38E-C69BE261B13A/vrbansk.png"
+    "image": "/mercs/vrbansk.jpg"
   },
   {
     "id": "vulture",
@@ -492,7 +492,7 @@
     "initiative": 3,
     "ability": "Ignores initiative penalties from equipment.",
     "bio": "Has a degree in architecture.",
-    "image": "https://s3.amazonaws.com/files.component.studio/41465AAE-10DE-11E8-B185-E78BE261B13A/vulture.png"
+    "image": "/mercs/vulture.jpg"
   },
   {
     "id": "walter",
@@ -503,7 +503,7 @@
     "initiative": 0,
     "ability": "+2 Initiative to his militia when he's present.",
     "bio": "He's very proud of his grandson.",
-    "image": "https://s3.amazonaws.com/files.component.studio/40554B0A-10DE-11E8-B185-E78BE261B13A/walter.png"
+    "image": "/mercs/walter.jpg"
   },
   {
     "id": "wolverine",
@@ -514,7 +514,7 @@
     "initiative": 4,
     "ability": "Any 6s rolled during combat may be used on targets other than his declared target.",
     "bio": "Semper Fi, motherf\\*\\*\\*er.",
-    "image": "https://s3.amazonaws.com/files.component.studio/4203CA76-10DE-11E8-B38E-C69BE261B13A/wolverine.png"
+    "image": "/mercs/wolverine.jpg"
   },
   {
     "id": "adelheid",
@@ -525,7 +525,7 @@
     "initiative": 2,
     "ability": "Each hit targeting militia can convert the militia to her side rather than killing it.",
     "bio": "Everyone loves their mom.",
-    "image": "https://s3.amazonaws.com/files.component.studio/58367A54-9EED-11EC-8D0A-B1D6611F9854/adelheid.png"
+    "image": "/mercs/adelheid.jpg"
   },
   {
     "id": "dutch",
@@ -536,7 +536,7 @@
     "initiative": 1,
     "ability": "If he has no weapon add +1 to his combat and initiative, as he always carries his sword.",
     "bio": "Is a world-class sword fighting instructor.",
-    "image": "https://s3.amazonaws.com/files.component.studio/5EB40D38-9EED-11EC-81BE-853E05252F8C/dutch.png"
+    "image": "/mercs/dutch.jpg"
   },
   {
     "id": "golem",
@@ -547,7 +547,7 @@
     "initiative": 3,
     "ability": "May attack any 1 target before the first round of combat.",
     "bio": "I am a sneaky bastard. Sir!",
-    "image": "https://s3.amazonaws.com/files.component.studio/0D2A6FBC-10DE-11E8-B185-E78BE261B13A/golem.png"
+    "image": "/mercs/golem.jpg"
   },
   {
     "id": "hagness",
@@ -558,7 +558,7 @@
     "initiative": 2,
     "ability": "Spend 1 action to draw 3 pieces of equipment, choose 1 and give it to any member of his squad.",
     "bio": "He's a natural negotiator.",
-    "image": "https://s3.amazonaws.com/files.component.studio/192888BC-10DE-11E8-B185-E78BE261B13A/hagness.png"
+    "image": "/mercs/hagness.jpg"
   },
   {
     "id": "moe",
@@ -569,6 +569,6 @@
     "initiative": 3,
     "ability": "+1 target when using a SMAW.",
     "bio": "Been there. Done that. Let's do it again.",
-    "image": "https://s3.amazonaws.com/files.component.studio/25B86142-10DE-11E8-B185-E78BE261B13A/moe.png"
+    "image": "/mercs/moe.jpg"
   }
 ]

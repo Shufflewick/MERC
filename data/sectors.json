@@ -8,7 +8,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 2,
-    "image": "https://s3.amazonaws.com/files.component.studio/0283FA74-0CF1-11E8-B26A-CF67E261B13A/industry---bauxite.png"
+    "image": "/sectors/industry---bauxite.jpg"
   },
   {
     "id": "industry---coal",
@@ -19,7 +19,7 @@
     "weapons": 1,
     "armor": 1,
     "accessories": 3,
-    "image": "https://s3.amazonaws.com/files.component.studio/0164185E-0CF1-11E8-93C7-B7AAE261B13A/industry---coal.png"
+    "image": "/sectors/industry---coal.jpg"
   },
   {
     "id": "industry---cocaine",
@@ -30,7 +30,7 @@
     "weapons": 4,
     "armor": 1,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/009AF64A-0CF1-11E8-B26A-CF67E261B13A/industry---cocaine.png"
+    "image": "/sectors/industry---cocaine.jpg"
   },
   {
     "id": "industry---coffee",
@@ -41,7 +41,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/019EC7BA-0CF1-11E8-93C7-B7AAE261B13A/industry---coffee.png"
+    "image": "/sectors/industry---coffee.jpg"
   },
   {
     "id": "industry---copper",
@@ -52,7 +52,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "https://s3.amazonaws.com/files.component.studio/0145CE6C-0CF1-11E8-B26A-CF67E261B13A/industry---copper.png"
+    "image": "/sectors/industry---copper.jpg"
   },
   {
     "id": "industry---diamond",
@@ -63,7 +63,7 @@
     "weapons": 3,
     "armor": 1,
     "accessories": 2,
-    "image": "https://s3.amazonaws.com/files.component.studio/FF35CB7C-0CF0-11E8-93C7-B7AAE261B13A/industry---diamond.png"
+    "image": "/sectors/industry---diamond.jpg"
   },
   {
     "id": "industry---fishing",
@@ -74,7 +74,7 @@
     "weapons": 1,
     "armor": 1,
     "accessories": 2,
-    "image": "https://s3.amazonaws.com/files.component.studio/F87FCF76-0CF0-11E8-B26A-CF67E261B13A/industry---fishing.png"
+    "image": "/sectors/industry---fishing.jpg"
   },
   {
     "id": "industry---gold",
@@ -85,7 +85,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "https://s3.amazonaws.com/files.component.studio/03FFD382-0CF1-11E8-93C7-B7AAE261B13A/industry---gold.png"
+    "image": "/sectors/industry---gold.jpg"
   },
   {
     "id": "town---a",
@@ -96,7 +96,7 @@
     "weapons": 1,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/03ED8380-0CF1-11E8-93C7-B7AAE261B13A/town---a.png"
+    "image": "/sectors/town---a.jpg"
   },
   {
     "id": "wilderness9",
@@ -107,7 +107,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/02B9FA7A-0CF1-11E8-93C7-B7AAE261B13A/wilderness9.png"
+    "image": "/sectors/wilderness9.jpg"
   },
   {
     "id": "wilderness10",
@@ -118,7 +118,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/03EDB8C8-0CF1-11E8-B26A-CF67E261B13A/wilderness10.png"
+    "image": "/sectors/wilderness10.jpg"
   },
   {
     "id": "wilderness11",
@@ -129,7 +129,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/03D9172E-0CF1-11E8-93C7-B7AAE261B13A/wilderness11.png"
+    "image": "/sectors/wilderness11.jpg"
   },
   {
     "id": "wilderness12",
@@ -140,7 +140,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/03DCB4C4-0CF1-11E8-B26A-CF67E261B13A/wilderness12.png"
+    "image": "/sectors/wilderness12.jpg"
   },
   {
     "id": "wilderness13",
@@ -151,7 +151,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/03E8F4FA-0CF1-11E8-93C7-B7AAE261B13A/wilderness13.png"
+    "image": "/sectors/wilderness13.jpg"
   },
   {
     "id": "wilderness14",
@@ -162,7 +162,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/F67598E6-0CF0-11E8-B26A-CF67E261B13A/wilderness14.png"
+    "image": "/sectors/wilderness14.jpg"
   },
   {
     "id": "wilderness20",
@@ -173,7 +173,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/00ECC132-0CF1-11E8-93C7-B7AAE261B13A/wilderness20.png"
+    "image": "/sectors/wilderness20.jpg"
   },
   {
     "id": "industry---iron",
@@ -184,7 +184,7 @@
     "weapons": 1,
     "armor": 1,
     "accessories": 2,
-    "image": "https://s3.amazonaws.com/files.component.studio/00DA80E4-0CF1-11E8-B26A-CF67E261B13A/industry---iron.png"
+    "image": "/sectors/industry---iron.jpg"
   },
   {
     "id": "industry---oil",
@@ -195,7 +195,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "https://s3.amazonaws.com/files.component.studio/01779A28-0CF1-11E8-93C7-B7AAE261B13A/industry---oil.png"
+    "image": "/sectors/industry---oil.jpg"
   },
   {
     "id": "industry---opium",
@@ -206,7 +206,7 @@
     "weapons": 3,
     "armor": 1,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/041A58A6-0CF1-11E8-B26A-CF67E261B13A/industry---opium.png"
+    "image": "/sectors/industry---opium.jpg"
   },
   {
     "id": "industry---resort",
@@ -217,7 +217,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "https://s3.amazonaws.com/files.component.studio/FE884BA0-0CF0-11E8-93C7-B7AAE261B13A/industry---resort.png"
+    "image": "/sectors/industry---resort.jpg"
   },
   {
     "id": "industry---silver",
@@ -228,7 +228,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 2,
-    "image": "https://s3.amazonaws.com/files.component.studio/FDF9360E-0CF0-11E8-B26A-CF67E261B13A/industry---silver.png"
+    "image": "/sectors/industry---silver.jpg"
   },
   {
     "id": "town---b",
@@ -239,7 +239,7 @@
     "weapons": 1,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/046B71D2-0CF1-11E8-B26A-CF67E261B13A/town---b.png"
+    "image": "/sectors/town---b.jpg"
   },
   {
     "id": "town---c",
@@ -250,7 +250,7 @@
     "weapons": 1,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/0208E9EC-0CF1-11E8-93C7-B7AAE261B13A/town---c.png"
+    "image": "/sectors/town---c.jpg"
   },
   {
     "id": "wilderness",
@@ -261,7 +261,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/0403C6EA-0CF1-11E8-B26A-CF67E261B13A/wilderness.png"
+    "image": "/sectors/wilderness.jpg"
   },
   {
     "id": "wilderness2",
@@ -272,7 +272,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/030D9B4E-0CF1-11E8-93C7-B7AAE261B13A/wilderness2.png"
+    "image": "/sectors/wilderness2.jpg"
   },
   {
     "id": "wilderness3",
@@ -283,7 +283,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/0285B6AC-0CF1-11E8-B26A-CF67E261B13A/wilderness3.png"
+    "image": "/sectors/wilderness3.jpg"
   },
   {
     "id": "wilderness4",
@@ -294,7 +294,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/030D873A-0CF1-11E8-93C7-B7AAE261B13A/wilderness4.png"
+    "image": "/sectors/wilderness4.jpg"
   },
   {
     "id": "wilderness5",
@@ -305,7 +305,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/03AAC3CE-0CF1-11E8-B26A-CF67E261B13A/wilderness5.png"
+    "image": "/sectors/wilderness5.jpg"
   },
   {
     "id": "wilderness7",
@@ -316,7 +316,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/02401AAC-0CF1-11E8-93C7-B7AAE261B13A/wilderness7.png"
+    "image": "/sectors/wilderness7.jpg"
   },
   {
     "id": "wilderness8",
@@ -327,6 +327,6 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "https://s3.amazonaws.com/files.component.studio/FBC14994-0CF0-11E8-B26A-CF67E261B13A/wilderness8.png"
+    "image": "/sectors/wilderness8.jpg"
   }
 ]

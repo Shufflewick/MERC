@@ -368,7 +368,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
           mercName: merc.name,
           bio: merc.bio,
           ability: merc.ability,
-          image: `/mercs/${merc.id}.jpg`,
+          image: merc.image,
           baseInitiative: merc.initiative,
           baseTraining: merc.training,
           baseCombat: merc.combat,

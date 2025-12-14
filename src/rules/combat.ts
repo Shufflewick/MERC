@@ -59,6 +59,7 @@ export interface CombatOutcome {
   rebelCasualties: Combatant[];
   dictatorCasualties: Combatant[];
   retreated: boolean;
+  retreatSector?: Sector;
 }
 
 // =============================================================================
@@ -177,11 +178,82 @@ function militiaToCombatants(
 }
 
 // =============================================================================
+// Retreat Mechanics
+// =============================================================================
+
+/**
+ * Get valid retreat sectors for a player.
+ * Per rules (07-combat-system.md): Adjacent sector that is unoccupied or friendly.
+ */
+export function getValidRetreatSectors(
+  game: MERCGame,
+  currentSector: Sector,
+  player: RebelPlayer
+): Sector[] {
+  const adjacentSectors = game.getAdjacentSectors(currentSector);
+
+  return adjacentSectors.filter(sector => {
+    // Unoccupied (no dictator forces)
+    const hasDictatorForces = sector.dictatorMilitia > 0 ||
+      (game.dictatorPlayer.baseRevealed &&
+       game.dictatorPlayer.baseSectorId === sector.sectorId);
+
+    if (!hasDictatorForces) {
+      return true;
+    }
+
+    // Friendly (controlled by this player)
+    const playerUnits = game.getRebelUnitsInSector(sector, player);
+    const dictatorUnits = game.getDictatorUnitsInSector(sector);
+    return playerUnits > dictatorUnits;
+  });
+}
+
+/**
+ * Check if retreat is possible for a player.
+ */
+export function canRetreat(
+  game: MERCGame,
+  sector: Sector,
+  player: RebelPlayer
+): boolean {
+  return getValidRetreatSectors(game, sector, player).length > 0;
+}
+
+/**
+ * Execute retreat for a player's squad.
+ * Per rules: Entire squad must retreat together. Militia cannot retreat.
+ */
+export function executeRetreat(
+  game: MERCGame,
+  fromSector: Sector,
+  toSector: Sector,
+  player: RebelPlayer
+): void {
+  // Move primary squad if it's in the combat sector
+  if (player.primarySquad.sectorId === fromSector.sectorId) {
+    player.primarySquad.sectorId = toSector.sectorId;
+    game.message(`${player.name}'s primary squad retreats to ${toSector.sectorName}`);
+  }
+
+  // Move secondary squad if it's in the combat sector
+  if (player.secondarySquad.sectorId === fromSector.sectorId) {
+    player.secondarySquad.sectorId = toSector.sectorId;
+    game.message(`${player.name}'s secondary squad retreats to ${toSector.sectorName}`);
+  }
+
+  // Note: Militia do NOT retreat (per rules: "Militia cannot retreat")
+}
+
+// =============================================================================
 // Combat Execution
 // =============================================================================
 
 /**
  * Get all combatants for a sector
+ * Per rules (06-merc-actions.md lines 195-218): Coordinated attacks allow
+ * multiple squads from same or different rebels to attack together.
+ * All rebel forces in the sector participate in combat.
  */
 export function getCombatants(
   game: MERCGame,
@@ -191,22 +263,30 @@ export function getCombatants(
   const rebels: Combatant[] = [];
   const dictator: Combatant[] = [];
 
-  // Add attacking rebel's MERCs
-  const attackingMercs = game.getMercsInSector(sector, attackingPlayer);
-  for (const merc of attackingMercs) {
-    if (!merc.isDead) {
-      rebels.push(mercToCombatant(merc, false));
+  // Add ALL rebel MERCs in the sector (coordinated attacks)
+  for (const rebel of game.rebelPlayers) {
+    const rebelMercs = game.getMercsInSector(sector, rebel);
+    for (const merc of rebelMercs) {
+      if (!merc.isDead) {
+        rebels.push(mercToCombatant(merc, false));
+      }
     }
-  }
 
-  // Add attacking rebel's militia
-  const rebelMilitia = sector.getRebelMilitia(`${attackingPlayer.position}`);
-  rebels.push(...militiaToCombatants(rebelMilitia, false, `${attackingPlayer.position}`));
+    // Add this rebel's militia
+    const rebelMilitia = sector.getRebelMilitia(`${rebel.position}`);
+    rebels.push(...militiaToCombatants(rebelMilitia, false, `${rebel.position}`));
+  }
 
   // Add dictator's militia
   dictator.push(...militiaToCombatants(sector.dictatorMilitia, true));
 
-  // Add dictator's MERC if present and base is revealed
+  // Add dictator's MERCs if present at this sector
+  const dictatorMercs = game.getDictatorMercsInSector(sector);
+  for (const merc of dictatorMercs) {
+    dictator.push(mercToCombatant(merc, true));
+  }
+
+  // Add dictator card if base is revealed and at this sector
   if (game.dictatorPlayer.baseRevealed && game.dictatorPlayer.baseSectorId === sector.sectorId) {
     const dictatorCard = game.dictatorPlayer.dictator;
     if (dictatorCard && !dictatorCard.isDead) {
@@ -250,15 +330,33 @@ function selectTargets(
 
 /**
  * Apply damage to a combatant
+ * Per rules (07-combat-system.md): Damage hits armor before health.
+ * When armor reaches 0, the armor equipment is destroyed.
  * Returns actual damage dealt to health
  */
-function applyDamage(target: Combatant, damage: number): number {
-  // Armor absorbs damage first
+function applyDamage(target: Combatant, damage: number, game: MERCGame): number {
   let remainingDamage = damage;
 
+  // Armor absorbs damage first
   if (target.armor > 0 && remainingDamage > 0) {
     const armorAbsorbed = Math.min(target.armor, remainingDamage);
+    target.armor -= armorAbsorbed;
     remainingDamage -= armorAbsorbed;
+
+    // If armor is destroyed, mark the equipment as damaged/destroyed
+    if (target.armor <= 0 && target.sourceElement instanceof MercCard) {
+      const merc = target.sourceElement;
+      if (merc.armorSlot) {
+        merc.armorSlot.isDamaged = true;
+        game.message(`${merc.mercName}'s ${merc.armorSlot.equipmentName} is destroyed!`);
+        // Discard the armor
+        const armor = merc.unequip('Armor');
+        if (armor) {
+          const discard = game.getEquipmentDiscard('Armor');
+          if (discard) armor.putInto(discard);
+        }
+      }
+    }
   }
 
   // Apply remaining damage to health
@@ -316,7 +414,7 @@ function executeCombatRound(
     for (const target of targets) {
       if (remainingHits <= 0) break;
 
-      const damage = applyDamage(target, remainingHits);
+      const damage = applyDamage(target, remainingHits, game);
       damageDealt.set(target.id, damage);
 
       if (target.health <= 0) {
@@ -350,6 +448,7 @@ function executeCombatRound(
 
 /**
  * Apply combat results to actual game state
+ * Handles coordinated attacks - updates all participating rebels' militia
  */
 function applyCombatResults(
   game: MERCGame,
@@ -371,14 +470,18 @@ function applyCombatResults(
     }
   }
 
-  // Update militia counts
+  // Update dictator militia count
   const survivingDictatorMilitia = dictatorSide.filter(c => c.isMilitia && c.health > 0).length;
   sector.dictatorMilitia = survivingDictatorMilitia;
 
-  const survivingRebelMilitia = rebels.filter(
-    c => c.isMilitia && c.health > 0 && c.ownerId === `${attackingPlayer.position}`
-  ).length;
-  sector.rebelMilitia.set(`${attackingPlayer.position}`, survivingRebelMilitia);
+  // Update militia for ALL rebel players who had militia in combat (coordinated attacks)
+  for (const rebel of game.rebelPlayers) {
+    const playerId = `${rebel.position}`;
+    const survivingMilitia = rebels.filter(
+      c => c.isMilitia && c.health > 0 && c.ownerId === playerId
+    ).length;
+    sector.rebelMilitia.set(playerId, survivingMilitia);
+  }
 }
 
 /**
@@ -400,6 +503,9 @@ export function executeCombat(
   const rounds: CombatRound[] = [];
   const allRebelCasualties: Combatant[] = [];
   const allDictatorCasualties: Combatant[] = [];
+
+  let retreatSector: Sector | undefined;
+  let didRetreat = false;
 
   for (let round = 1; round <= maxRounds; round++) {
     game.message(`--- Round ${round} ---`);
@@ -423,6 +529,27 @@ export function executeCombat(
     if (aliveRebels.length === 0 || aliveDictator.length === 0) {
       break;
     }
+
+    // Per rules (07-combat-system.md): At end of each round, survivors may retreat
+    // AI auto-retreat logic: retreat if severely outnumbered or low health
+    const rebelMercs = aliveRebels.filter(c => !c.isMilitia);
+    const totalRebelHealth = rebelMercs.reduce((sum, c) => sum + c.health, 0);
+    const dictatorStrength = aliveDictator.reduce((sum, c) => sum + c.combat, 0);
+
+    // Consider retreating if MERCs are at less than 50% health and outnumbered
+    const shouldConsiderRetreat = totalRebelHealth < rebelMercs.length * 1.5 ||
+      dictatorStrength > aliveRebels.reduce((sum, c) => sum + c.combat, 0) * 2;
+
+    if (shouldConsiderRetreat && canRetreat(game, sector, attackingPlayer)) {
+      const validRetreats = getValidRetreatSectors(game, sector, attackingPlayer);
+      if (validRetreats.length > 0) {
+        retreatSector = validRetreats[0];
+        executeRetreat(game, sector, retreatSector, attackingPlayer);
+        didRetreat = true;
+        game.message(`Rebels retreat from ${sector.sectorName}!`);
+        break;
+      }
+    }
   }
 
   // Apply results to game state
@@ -433,17 +560,20 @@ export function executeCombat(
 
   const outcome: CombatOutcome = {
     rounds,
-    rebelVictory: aliveDictator.length === 0,
+    rebelVictory: aliveDictator.length === 0 && !didRetreat,
     dictatorVictory: aliveRebels.length === 0,
     rebelCasualties: allRebelCasualties,
     dictatorCasualties: allDictatorCasualties,
-    retreated: false,
+    retreated: didRetreat,
+    retreatSector: retreatSector,
   };
 
   if (outcome.rebelVictory) {
     game.message(`Rebels are victorious at ${sector.sectorName}!`);
   } else if (outcome.dictatorVictory) {
     game.message(`Dictator forces hold ${sector.sectorName}!`);
+  } else if (outcome.retreated) {
+    game.message(`Rebels have retreated to ${retreatSector?.sectorName}!`);
   } else {
     game.message(`Combat continues at ${sector.sectorName}...`);
   }
