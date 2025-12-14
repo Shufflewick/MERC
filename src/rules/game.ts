@@ -666,6 +666,31 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return total;
   }
 
+  /**
+   * Check if a player can see a sector's stash contents.
+   * Per rules (01-game-elements-and-components.md): Stash contents are not public knowledge.
+   * A player can only see stash if they have units in the sector.
+   */
+  canSeeStash(sector: Sector, player: MERCPlayer): boolean {
+    if (player instanceof DictatorPlayer) {
+      return this.getDictatorUnitsInSector(sector) > 0;
+    } else {
+      const rebel = player as RebelPlayer;
+      return this.getRebelUnitsInSector(sector, rebel) > 0;
+    }
+  }
+
+  /**
+   * Get visible stash contents for a player.
+   * Returns empty array if player cannot see the stash.
+   */
+  getVisibleStash(sector: Sector, player: MERCPlayer): Equipment[] {
+    if (this.canSeeStash(sector, player)) {
+      return [...sector.stash];
+    }
+    return [];
+  }
+
   // ==========================================================================
   // Game State Queries
   // ==========================================================================
