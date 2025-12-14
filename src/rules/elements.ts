@@ -58,6 +58,8 @@ export class MercCard extends BaseCard {
   // Current state
   damage: number = 0;
   actionsRemaining: number = 2;
+  // Location tracking (used for dictator MERCs; rebel MERCs use Squad.sectorId)
+  sectorId?: string;
 
   // Equipment slots (references to equipped cards)
   weaponSlot?: Equipment;

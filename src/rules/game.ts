@@ -592,31 +592,32 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   // Get sectors controlled by a specific player
+  // Per rules (11-victory-and-game-end.md): Units = MERCs + Militia, Dictator wins ties
   getControlledSectors(player: MERCPlayer): Sector[] {
     return this.gameMap.getAllSectors().filter(sector => {
+      const dictatorUnits = this.getDictatorUnitsInSector(sector);
+      const totalRebelUnits = this.getTotalRebelUnitsInSector(sector);
+
       if (player instanceof DictatorPlayer) {
-        // Dictator controls if they have equal or more militia than all rebels combined
+        // Dictator controls if they have equal or more units than all rebels combined
         // Per rules: "Dictator wins all ties" (02-game-constants-and-configuration.md)
-        return sector.dictatorMilitia >= sector.getTotalRebelMilitia() && sector.dictatorMilitia > 0;
+        return dictatorUnits >= totalRebelUnits && dictatorUnits > 0;
       } else {
-        // Rebel controls if they have more militia/mercs than dictator and other rebels
+        // Rebel controls if they have more units than dictator and other rebels
         const rebel = player as RebelPlayer;
-        const rebelMilitia = sector.getRebelMilitia(`${rebel.position}`);
-        const rebelMercs = this.getMercsInSector(sector, rebel).length;
-        const totalRebelStrength = rebelMilitia + rebelMercs;
+        const rebelUnits = this.getRebelUnitsInSector(sector, rebel);
 
-        // Check against dictator
-        if (sector.dictatorMilitia >= totalRebelStrength) return false;
+        // Must have more units than dictator (dictator wins ties)
+        if (dictatorUnits >= rebelUnits) return false;
 
-        // Check against other rebels
+        // Must have more units than any other rebel (first rebel wins ties between rebels)
         for (const otherRebel of this.rebelPlayers) {
           if (otherRebel === rebel) continue;
-          const otherMilitia = sector.getRebelMilitia(`${otherRebel.position}`);
-          const otherMercs = this.getMercsInSector(sector, otherRebel).length;
-          if (otherMilitia + otherMercs >= totalRebelStrength) return false;
+          const otherUnits = this.getRebelUnitsInSector(sector, otherRebel);
+          if (otherUnits >= rebelUnits) return false;
         }
 
-        return totalRebelStrength > 0;
+        return rebelUnits > 0;
       }
     });
   }
@@ -632,6 +633,37 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     return mercs;
+  }
+
+  getDictatorMercsInSector(sector: Sector): MercCard[] {
+    if (!this.dictatorPlayer) return [];
+    return this.dictatorPlayer.hiredMercs.filter(m =>
+      !m.isDead && m.sectorId === sector.sectorId
+    );
+  }
+
+  getDictatorUnitsInSector(sector: Sector): number {
+    const militia = sector.dictatorMilitia;
+    const mercs = this.getDictatorMercsInSector(sector).length;
+    // Count dictator card if in play at this sector
+    const dictatorCard = this.dictatorPlayer?.dictator;
+    const dictatorInSector = dictatorCard?.inPlay &&
+      this.dictatorPlayer?.baseSectorId === sector.sectorId ? 1 : 0;
+    return militia + mercs + dictatorInSector;
+  }
+
+  getRebelUnitsInSector(sector: Sector, player: RebelPlayer): number {
+    const militia = sector.getRebelMilitia(`${player.position}`);
+    const mercs = this.getMercsInSector(sector, player).length;
+    return militia + mercs;
+  }
+
+  getTotalRebelUnitsInSector(sector: Sector): number {
+    let total = 0;
+    for (const rebel of this.rebelPlayers) {
+      total += this.getRebelUnitsInSector(sector, rebel);
+    }
+    return total;
   }
 
   // ==========================================================================
@@ -703,6 +735,33 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return hasRebelUnits;
   }
 
+  /**
+   * Calculate victory points for each side based on controlled sector values.
+   * Per rules (11-victory-and-game-end.md): Sum values of controlled sectors.
+   * Neutral sectors (no units) don't count toward anyone's total.
+   */
+  calculateVictoryPoints(): { rebelPoints: number; dictatorPoints: number } {
+    let rebelPoints = 0;
+    let dictatorPoints = 0;
+
+    for (const sector of this.gameMap.getAllSectors()) {
+      const dictatorUnits = this.getDictatorUnitsInSector(sector);
+      const totalRebelUnits = this.getTotalRebelUnitsInSector(sector);
+
+      // Skip neutral sectors (no units)
+      if (dictatorUnits === 0 && totalRebelUnits === 0) continue;
+
+      // Dictator wins ties
+      if (dictatorUnits >= totalRebelUnits) {
+        dictatorPoints += sector.value;
+      } else {
+        rebelPoints += sector.value;
+      }
+    }
+
+    return { rebelPoints, dictatorPoints };
+  }
+
   override getWinners(): MERCPlayer[] {
     if (!this.isFinished()) return [];
 
@@ -717,10 +776,19 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     // If tactics deck empty, check victory points
-    // For now, rebels win if dictator tactics are exhausted
+    // Per rules (11-victory-and-game-end.md): Compare total sector values
+    // Rebels win if they have MORE points than dictator; dictator wins ties
     if (this.dictatorPlayer?.tacticsDeck?.count(TacticsCard) === 0 &&
         this.dictatorPlayer?.tacticsHand?.count(TacticsCard) === 0) {
-      return [...this.rebelPlayers];
+      const { rebelPoints, dictatorPoints } = this.calculateVictoryPoints();
+      this.message(`Final score - Rebels: ${rebelPoints}, Dictator: ${dictatorPoints}`);
+
+      // Rebels must have strictly more points to win; dictator wins ties
+      if (rebelPoints > dictatorPoints) {
+        return [...this.rebelPlayers];
+      } else {
+        return [this.dictatorPlayer];
+      }
     }
 
     // Otherwise dictator wins

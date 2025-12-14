@@ -211,10 +211,16 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
       .sort((a, b) => b.dictatorMilitia - a.dictatorMilitia);
 
     if (controlledSectors.length > 0) {
+      // Set the MERC's location for tracking
+      merc.sectorId = controlledSectors[0].sectorId;
       game.dictatorPlayer.stationedSectorId = controlledSectors[0].sectorId;
       game.message(`Dictator hired ${merc.mercName} (stationed at ${controlledSectors[0].sectorName})`);
+    } else if (game.dictatorPlayer.baseSectorId) {
+      // Default to base sector if no controlled sectors yet
+      merc.sectorId = game.dictatorPlayer.baseSectorId;
+      game.message(`Dictator hired ${merc.mercName} (at base)`);
     } else {
-      // No controlled sectors yet - will be placed later
+      // No location available yet
       game.message(`Dictator hired ${merc.mercName}`);
     }
   }

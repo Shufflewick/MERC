@@ -42,7 +42,7 @@ export {
   createMoveAction,
   createExploreAction,
   createTrainAction,
-  createAttackAction,
+  // createAttackAction removed - combat triggers via movement only
   createReEquipAction,
   createHospitalAction,
   createArmsDealerAction,

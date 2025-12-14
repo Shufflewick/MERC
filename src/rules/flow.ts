@@ -64,16 +64,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             name: 'rebel-landing',
             filter: (player) => game.isRebelPlayer(player as any), // Only rebels, skip dictator
             do: sequence(
-              // Step 1: Hire starting MERCs (draw 3, pick 2, first 2 are free)
+              // Step 1: Hire starting MERCs (draw 3, pick 2 in single action, first 2 are free)
               actionStep({
-                name: 'hire-first-merc',
+                name: 'hire-starting-mercs',
                 actions: ['hireStartingMercs'],
-                prompt: 'Draw 3 MERCs and choose your first MERC to hire',
-              }),
-              actionStep({
-                name: 'hire-second-merc',
-                actions: ['hireStartingMercs'],
-                prompt: 'Choose your second MERC to hire (from the same 3 drawn)',
+                prompt: 'Draw 3 MERCs and choose 2 to hire',
               }),
 
               // Step 2: Choose landing sector
@@ -145,10 +140,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               maxIterations: 30, // Safety limit per turn
               do: actionStep({
                 name: 'rebel-action',
+                // Per rules (05-main-game-loop.md): Combat triggers via movement, not as separate action
                 actions: [
                   'move',
                   'explore',
-                  'attack',
                   'train',
                   'hireMerc',
                   'reEquip',
@@ -156,6 +151,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'armsDealer',
                   'splitSquad',
                   'mergeSquads',
+                  'fireMerc',
                   'endTurn',
                 ],
                 skipIf: () => game.isFinished(),

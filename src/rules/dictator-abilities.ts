@@ -95,6 +95,18 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   // Hire the selected MERC
   game.dictatorPlayer.hiredMercs.push(bestMerc);
 
+  // Set the MERC's location (prefer base, fallback to highest militia sector)
+  if (game.dictatorPlayer.baseSectorId) {
+    bestMerc.sectorId = game.dictatorPlayer.baseSectorId;
+  } else {
+    const controlledSectors = game.gameMap.getAllSectors()
+      .filter(s => s.dictatorMilitia > 0)
+      .sort((a, b) => b.dictatorMilitia - a.dictatorMilitia);
+    if (controlledSectors.length > 0) {
+      bestMerc.sectorId = controlledSectors[0].sectorId;
+    }
+  }
+
   // Discard the others
   for (const merc of drawnMercs) {
     if (merc !== bestMerc) {
