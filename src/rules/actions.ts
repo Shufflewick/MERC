@@ -913,9 +913,12 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
-          return ['No MERCs available'];
+          return [{ label: 'No MERCs available', value: '' }];
         }
-        return available.map((m) => `${m.mercId}: ${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`);
+        return available.map((m) => ({
+          label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+          value: m.mercId,
+        }));
       },
     })
     .chooseFrom<string>('secondMerc', {
@@ -924,25 +927,29 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
         const available = drawnMercsCache.get(playerId) || [];
-        const firstChoice = ctx.args?.firstMerc as string | undefined;
+        const firstMercId = ctx.args?.firstMerc as string | undefined;
 
         // Safety check - if firstMerc not yet selected, show all available
-        if (!firstChoice || firstChoice === 'No MERCs available') {
+        if (!firstMercId) {
           if (available.length === 0) {
-            return ['No MERCs available'];
+            return [{ label: 'No MERCs available', value: '' }];
           }
-          return available.map((m) => `${m.mercId}: ${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`);
+          return available.map((m) => ({
+            label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+            value: m.mercId,
+          }));
         }
-
-        const firstMercId = firstChoice.split(':')[0];
 
         // Filter out the first selected MERC
         const remaining = available.filter(m => m.mercId !== firstMercId);
 
         if (remaining.length === 0) {
-          return ['No MERCs available'];
+          return [{ label: 'No MERCs available', value: '' }];
         }
-        return remaining.map((m) => `${m.mercId}: ${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`);
+        return remaining.map((m) => ({
+          label: `${m.mercName} (Init:${m.baseInitiative} Train:${m.baseTraining} Combat:${m.baseCombat})`,
+          value: m.mercId,
+        }));
       },
     })
     .execute((args, ctx) => {
@@ -954,15 +961,12 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const firstChoice = args.firstMerc as string;
-      const secondChoice = args.secondMerc as string;
+      const firstMercId = args.firstMerc as string;
+      const secondMercId = args.secondMerc as string;
 
-      if (firstChoice === 'No MERCs available' || secondChoice === 'No MERCs available') {
+      if (!firstMercId || !secondMercId) {
         return { success: false, message: 'No MERCs available in deck' };
       }
-
-      const firstMercId = firstChoice.split(':')[0];
-      const secondMercId = secondChoice.split(':')[0];
 
       const firstMerc = available.find(m => m.mercId === firstMercId);
       const secondMerc = available.find(m => m.mercId === secondMercId);
