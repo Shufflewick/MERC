@@ -879,6 +879,16 @@ export function createFireMercAction(game: MERCGame): ActionDefinition {
 export function createEndTurnAction(game: MERCGame): ActionDefinition {
   return Action.create('endTurn')
     .prompt('End turn')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Only show end turn if player has MERCs with actions remaining
+      // This prevents the flow from auto-ending when no actions are taken
+      return player.team.some(m => m.actionsRemaining > 0);
+    })
+    .chooseFrom<string>('confirm', {
+      prompt: 'End your turn?',
+      choices: ['Yes, end turn'],
+    })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
 
