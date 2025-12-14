@@ -597,12 +597,19 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
 
 /**
  * End the current turn
+ * Clears all remaining actions from player's MERCs
  */
 export function createEndTurnAction(game: MERCGame): ActionDefinition {
   return Action.create('endTurn')
     .prompt('End turn')
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
+
+      // Clear all remaining actions from player's MERCs
+      for (const merc of player.team) {
+        merc.actionsRemaining = 0;
+      }
+
       game.message(`${player.name} ends their turn`);
       return { success: true, message: 'Turn ended', data: { endTurn: true } };
     });
@@ -824,10 +831,13 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       elementClass: Sector,
       filter: (element) => {
         const sector = element as unknown as Sector;
-        // Must be a sector with dictator presence or any industry
-        return sector.dictatorMilitia > 0 ||
-          sector.isIndustry ||
-          (game.dictatorPlayer.baseSectorId === sector.sectorId);
+        // Per rules: "Sector must be Dictator-controlled"
+        // Dictator controls if militia >= total rebel militia (ties go to dictator)
+        const isControlled = sector.dictatorMilitia >= sector.getTotalRebelMilitia() &&
+          sector.dictatorMilitia > 0;
+        // Also allow base sector even if no militia yet
+        const isBase = game.dictatorPlayer.baseSectorId === sector.sectorId;
+        return isControlled || isBase;
       },
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
     })
@@ -900,6 +910,28 @@ export function createMoveMilitiaAction(game: MERCGame): ActionDefinition {
       const added = toSector.addDictatorMilitia(removed);
 
       game.message(`Dictator moved ${added} militia from ${fromSector.sectorName} to ${toSector.sectorName}`);
+
+      // Per rules: "Combat triggers when: An enemy moves into your sector"
+      // Check if any rebel has units at destination and trigger combat
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === toSector.sectorId ||
+          rebel.secondarySquad.sectorId === toSector.sectorId;
+        const hasMilitia = toSector.getRebelMilitia(`${rebel.position}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${toSector.sectorName} - combat begins!`);
+          const outcome = executeCombat(game, toSector, rebel);
+          return {
+            success: true,
+            message: `Moved ${added} militia and engaged in combat`,
+            data: {
+              combatTriggered: true,
+              rebelVictory: outcome.rebelVictory,
+              dictatorVictory: outcome.dictatorVictory,
+            },
+          };
+        }
+      }
 
       return { success: true, message: `Moved ${added} militia` };
     });

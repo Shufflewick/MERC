@@ -132,7 +132,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             filter: (player) => game.isRebelPlayer(player as any) && !game.isFinished(),
             do: loop({
               name: 'rebel-action-loop',
-              while: () => !game.isFinished(),
+              while: (ctx) => {
+                if (game.isFinished()) return false;
+                // Check if current player has any MERCs with actions remaining
+                const player = ctx?.player as RebelPlayer | undefined;
+                if (player) {
+                  const hasActionsLeft = player.team.some(m => m.actionsRemaining > 0);
+                  return hasActionsLeft;
+                }
+                return true; // Continue if no player context (shouldn't happen)
+              },
               maxIterations: 30, // Safety limit per turn
               do: actionStep({
                 name: 'rebel-action',

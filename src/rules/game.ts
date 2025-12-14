@@ -644,6 +644,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // 2. Rebels capture the Dictator's base (base revealed and rebels control sector)
     // 3. Dictator tactics deck and hand are empty
     // 4. All rebels are eliminated
+    // 5. Day limit reached (after Day 6)
 
     if (this.dictatorPlayer?.isDefeated) {
       return true;
@@ -661,6 +662,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     const aliveRebels = this.rebelPlayers.filter(r => r.teamSize > 0 || r.canHireMerc(this));
     if (aliveRebels.length === 0 && this.rebelPlayers.length > 0) {
+      return true;
+    }
+
+    // Day limit reached - game ends after Day 6
+    if (this.isDayLimitReached()) {
       return true;
     }
 
