@@ -87,9 +87,24 @@ const weaponSlot = computed(() => getProp('weaponSlot', null));
 const armorSlot = computed(() => getProp('armorSlot', null));
 const accessorySlot = computed(() => getProp('accessorySlot', null));
 
-const weaponName = computed(() => weaponSlot.value?.equipmentName || weaponSlot.value?.name || null);
-const armorName = computed(() => armorSlot.value?.equipmentName || armorSlot.value?.name || null);
-const accessoryName = computed(() => accessorySlot.value?.equipmentName || accessorySlot.value?.name || null);
+// Helper to extract equipment name from slot data
+// Equipment might be: { equipmentName: "..." } or { attributes: { equipmentName: "..." } }
+function getEquipmentName(slot: any): string | null {
+  if (!slot) return null;
+  // Direct property
+  if (slot.equipmentName) return slot.equipmentName;
+  if (slot.name) return slot.name;
+  // Nested in attributes (BoardSmith element structure)
+  if (slot.attributes?.equipmentName) return slot.attributes.equipmentName;
+  if (slot.attributes?.name) return slot.attributes.name;
+  // Check ref as fallback
+  if (slot.ref) return slot.ref;
+  return null;
+}
+
+const weaponName = computed(() => getEquipmentName(weaponSlot.value));
+const armorName = computed(() => getEquipmentName(armorSlot.value));
+const accessoryName = computed(() => getEquipmentName(accessorySlot.value));
 </script>
 
 <template>
