@@ -336,15 +336,31 @@ export function selectAIBaseLocation(game: MERCGame): Sector | null {
 // =============================================================================
 
 /**
+ * Check if extra militia should be skipped for solo/1-rebel games.
+ * MERC-93p: Per AI Setup rules, extra militia is skipped "unless solo/1 Rebel".
+ */
+export function shouldSkipExtraMilitia(game: MERCGame): boolean {
+  // MERC-93p: Skip extra militia for solo games (1 rebel)
+  return game.rebelPlayers.length <= 1;
+}
+
+/**
  * Distribute militia evenly among Dictator-controlled Industries.
  * MERC-cgn: Per AI Setup rules, extra militia during setup are distributed EVENLY
  * among Dictator-controlled Industries (not using placement priority).
+ * MERC-93p: Skips if solo/1-rebel game.
  */
 export function distributeExtraMilitiaEvenly(
   game: MERCGame,
   totalMilitia: number
 ): Map<string, number> {
   const placements = new Map<string, number>();
+
+  // MERC-93p: Skip extra militia for solo games
+  if (shouldSkipExtraMilitia(game)) {
+    game.message('Solo game: skipping extra militia');
+    return placements;
+  }
 
   // Get dictator-controlled industries
   const dictatorIndustries = game.gameMap.getAllSectors().filter(
@@ -486,6 +502,43 @@ export function getAIFreeEquipmentType(): 'Weapon' | 'Armor' | 'Accessory' {
 }
 
 /**
+ * Select MERC for AI hiring when there's a choice.
+ * MERC-632: Per rules 4.3.1, if choice of more than 1, pick randomly from top of deck.
+ * Returns the index of the selected MERC.
+ */
+export function selectAIMercForHiring(availableMercs: MercCard[]): number {
+  if (availableMercs.length === 0) return -1;
+  if (availableMercs.length === 1) return 0;
+
+  // MERC-632: Random selection
+  return Math.floor(Math.random() * availableMercs.length);
+}
+
+/**
+ * Select multiple MERCs for AI hiring.
+ * MERC-632: Per rules 4.3.1, pick randomly when there's a choice.
+ * Returns indices of selected MERCs.
+ */
+export function selectAIMercsForHiring(
+  availableMercs: MercCard[],
+  countToSelect: number
+): number[] {
+  if (availableMercs.length === 0 || countToSelect <= 0) return [];
+
+  const indices: number[] = [];
+  const available = availableMercs.map((_, i) => i);
+
+  for (let i = 0; i < Math.min(countToSelect, availableMercs.length); i++) {
+    // MERC-632: Random selection
+    const randomIdx = Math.floor(Math.random() * available.length);
+    indices.push(available[randomIdx]);
+    available.splice(randomIdx, 1);
+  }
+
+  return indices;
+}
+
+/**
  * Select sector for new AI MERC placement.
  * Per rules 4.3.2: Dictator-controlled sector closest to weakest rebel sector.
  */
@@ -515,13 +568,13 @@ export function selectNewMercLocation(game: MERCGame): Sector | null {
 }
 
 // =============================================================================
-// AI Land Mine Detonation (Section 4.8)
+// AI Land Mine Detonation (Section 4.2 - When Attacked)
 // =============================================================================
 
 /**
  * Check and detonate land mine when dictator is attacked.
- * MERC-b65: Per rules 4.8, when rebels attack a sector, AI detonates
- * land mines immediately before combat, dealing 1 damage to all attackers.
+ * MERC-0nu: Per rules 4.2 ("When Attacked"), when rebels attack a sector,
+ * AI detonates land mines immediately before combat, dealing 1 damage to all attackers.
  * Returns the number of land mines detonated.
  */
 export function detonateLandMines(
@@ -871,8 +924,37 @@ export function getAIMercActionPriority(
 }
 
 /**
+ * Find the closest rebel-controlled sector.
+ * MERC-asf: Per rules 3.4, move toward CLOSEST rebel sector.
+ */
+export function findClosestRebelSector(game: MERCGame, fromSector: Sector): Sector | null {
+  const rebelSectors = getRebelControlledSectors(game);
+  if (rebelSectors.length === 0) return null;
+
+  // Sort by distance (closest first), then by strength (weakest first) as tie-breaker
+  const sorted = [...rebelSectors].sort((a, b) => {
+    const distA = distanceBetweenSectors(game, fromSector, a);
+    const distB = distanceBetweenSectors(game, fromSector, b);
+
+    // MERC-asf: Primary sort by distance (closest first)
+    if (distA !== distB) return distA - distB;
+
+    // Tie-breaker: weaker force per rules 4.5
+    const strengthA = calculateRebelStrength(game, a);
+    const strengthB = calculateRebelStrength(game, b);
+    if (strengthA !== strengthB) return strengthA - strengthB;
+
+    // Final tie-breaker: random
+    return Math.random() - 0.5;
+  });
+
+  return sorted[0];
+}
+
+/**
  * Determine best move direction for AI MERC.
- * Moves toward the weakest rebel-controlled sector.
+ * MERC-asf: Per rules 3.4, moves toward the CLOSEST rebel-controlled sector.
+ * Uses "weakest" (4.5) only as tie-breaker when multiple sectors are equidistant.
  */
 export function getBestMoveDirection(game: MERCGame, fromSector: Sector): Sector | null {
   const adjacent = game.getAdjacentSectors(fromSector);
@@ -884,13 +966,14 @@ export function getBestMoveDirection(game: MERCGame, fromSector: Sector): Sector
     return null;
   }
 
-  const weakestRebel = chooseWeakestRebelSector(game, rebelSectors);
-  if (!weakestRebel) return null;
+  // MERC-asf: Find the CLOSEST rebel sector (not weakest)
+  const closestRebel = findClosestRebelSector(game, fromSector);
+  if (!closestRebel) return null;
 
-  // Find adjacent sector that gets us closest to weakest rebel
+  // Find adjacent sector that gets us closest to the closest rebel
   return [...adjacent].sort((a, b) => {
-    const distA = distanceBetweenSectors(game, a, weakestRebel);
-    const distB = distanceBetweenSectors(game, b, weakestRebel);
+    const distA = distanceBetweenSectors(game, a, closestRebel);
+    const distB = distanceBetweenSectors(game, b, closestRebel);
     return distA - distB;
   })[0];
 }

@@ -11,6 +11,12 @@ import {
 import { executeCombat, executeCombatRetreat, hasEnemies, getValidRetreatSectors } from './combat.js';
 import { executeTacticsEffect } from './tactics-effects.js';
 import { autoEquipDictatorUnits } from './ai-helpers.js';
+import {
+  getNextAIAction,
+  getAIUnitSelection,
+  getAIMoveDestination,
+  getAIEquipmentSelection,
+} from './ai-executor.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -1988,6 +1994,15 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
         }
         return false;
       },
+      // MERC-5aa: AI auto-selection
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const nextAction = getNextAIAction(game);
+        if (nextAction?.actionName === 'dictatorMove' && nextAction.unit) {
+          return nextAction.unit;
+        }
+        return undefined;
+      },
     })
     .chooseElement<Sector>('destination', {
       prompt: 'Select destination sector',
@@ -2001,6 +2016,17 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
         if (!currentSector) return false;
         const adjacent = game.getAdjacentSectors(currentSector);
         return adjacent.some(s => s.sectorId === sector.sectorId);
+      },
+      // MERC-5aa: AI auto-selection
+      aiSelect: (ctx) => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const unit = ctx.args.merc as DictatorUnit;
+        if (!unit) return undefined;
+        const nextAction = getNextAIAction(game);
+        if (nextAction?.destination) {
+          return nextAction.destination;
+        }
+        return getAIMoveDestination(game, unit) ?? undefined;
       },
     })
     .execute((args) => {
@@ -2081,6 +2107,15 @@ export function createDictatorExploreAction(game: MERCGame): ActionDefinition {
           return canDictatorUnitExplore(element, game);
         }
         return false;
+      },
+      // MERC-5aa: AI auto-selection
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const nextAction = getNextAIAction(game);
+        if (nextAction?.actionName === 'dictatorExplore' && nextAction.unit) {
+          return nextAction.unit;
+        }
+        return undefined;
       },
     })
     .execute((args) => {
@@ -2177,6 +2212,15 @@ export function createDictatorTrainAction(game: MERCGame): ActionDefinition {
         }
         return false;
       },
+      // MERC-5aa: AI auto-selection
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const nextAction = getNextAIAction(game);
+        if (nextAction?.actionName === 'dictatorTrain' && nextAction.unit) {
+          return nextAction.unit;
+        }
+        return undefined;
+      },
     })
     .execute((args) => {
       const unit = args.merc as DictatorUnit;
@@ -2239,6 +2283,15 @@ export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
         }
         return false;
       },
+      // MERC-5aa: AI auto-selection
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const nextAction = getNextAIAction(game);
+        if (nextAction?.actionName === 'dictatorReEquip' && nextAction.unit) {
+          return nextAction.unit;
+        }
+        return undefined;
+      },
     })
     .chooseElement<Equipment>('equipment', {
       prompt: 'Select equipment from stash',
@@ -2249,6 +2302,13 @@ export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
         if (!unit?.sectorId) return false;
         const sector = game.getSector(unit.sectorId);
         return sector?.stash.includes(equipment) ?? false;
+      },
+      // MERC-5aa: AI auto-selection
+      aiSelect: (ctx) => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const unit = ctx.args.merc as DictatorUnit;
+        if (!unit) return undefined;
+        return getAIEquipmentSelection(game, unit) ?? undefined;
       },
     })
     .execute((args) => {
