@@ -176,10 +176,10 @@ export function getTotalSectors(config: SetupConfiguration): number {
 
 /**
  * Calculate reinforcement militia gained when Dictator discards a Tactics card
- * Formula: floor(Rebel Players / 2) + 1
+ * Formula: ceil(Rebel Players / 2) + 1 (per rules: round up)
  */
 export function getReinforcementAmount(rebelCount: number): number {
-  return Math.floor(rebelCount / 2) + 1;
+  return Math.ceil(rebelCount / 2) + 1;
 }
 
 /**
