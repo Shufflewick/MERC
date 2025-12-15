@@ -50,6 +50,26 @@ const ACTION_COSTS = {
   MERGE_SQUADS: 0, // Free action
 } as const;
 
+/**
+ * MERC hiring incompatibilities
+ * MERC-s37: Borris won't work with Squirrel
+ * MERC-related: Natasha won't work with Moose, Moose won't work with Borris, Squirrel won't work with Natasha
+ */
+const MERC_INCOMPATIBILITIES: Record<string, string[]> = {
+  borris: ['squirrel'],
+  squirrel: ['borris', 'natasha'],
+  natasha: ['moose'],
+  moose: ['borris'],
+};
+
+/**
+ * Check if a MERC can be hired given the current team composition
+ */
+function canHireMercWithTeam(mercId: string, team: MercCard[]): boolean {
+  const incompatible = MERC_INCOMPATIBILITIES[mercId] || [];
+  return !team.some(m => incompatible.includes(m.mercId));
+}
+
 // =============================================================================
 // Action Point Helpers
 // =============================================================================
@@ -148,10 +168,14 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         const currentSize = player.teamSize - (willFire ? 1 : 0);
         const canHire = teamLimit - currentSize;
 
-        const choices = drawnMercs.map(m => capitalize(m.mercName));
+        // MERC-s37: Filter out MERCs incompatible with current team
+        const compatibleMercs = drawnMercs.filter(m =>
+          canHireMercWithTeam(m.mercId, player.team)
+        );
+        const choices = compatibleMercs.map(m => capitalize(m.mercName));
 
         // Add note about team limit
-        if (canHire < drawnMercs.length) {
+        if (canHire < compatibleMercs.length) {
           game.message(`Team limit: can hire up to ${canHire} MERC(s)`);
         }
 
@@ -1514,6 +1538,106 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       game.message(`${squidhead.mercName} arms a land mine at ${sector.sectorName}`);
 
       return { success: true, message: 'Armed land mine' };
+    });
+}
+
+/**
+ * MERC-jrph: Hagness can draw equipment for squad
+ * Cost: 1 action
+ * Per rules: "Spend 1 action to draw 3 pieces of equipment, choose 1 and give it to any member of his squad."
+ */
+export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
+  return Action.create('hagnessDraw')
+    .prompt('Hagness: Draw equipment for squad')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Find Hagness in team with actions
+      const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
+      if (!hagness) return false;
+      return hagness.actionsRemaining >= 1;
+    })
+    .chooseElement<MercCard>('recipient', {
+      prompt: 'Give equipment to which squad member?',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+        const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
+        if (!hagness) return false;
+
+        // Find Hagness's squad
+        const primaryMercs = player.primarySquad.getMercs();
+        const secondaryMercs = player.secondarySquad.getMercs();
+
+        let squadMates: MercCard[] = [];
+        if (primaryMercs.includes(hagness)) {
+          squadMates = primaryMercs.filter(m => !m.isDead);
+        } else if (secondaryMercs.includes(hagness)) {
+          squadMates = secondaryMercs.filter(m => !m.isDead);
+        }
+
+        return squadMates.includes(merc);
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead)!;
+      const recipient = args.recipient as MercCard;
+
+      if (!recipient) {
+        return { success: false, message: 'Selection cancelled' };
+      }
+
+      // Draw 3 random equipment from different decks
+      const drawnEquipment: Equipment[] = [];
+      const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
+      for (const type of types) {
+        const eq = game.drawEquipment(type);
+        if (eq) drawnEquipment.push(eq);
+      }
+
+      if (drawnEquipment.length === 0) {
+        return { success: false, message: 'No equipment available' };
+      }
+
+      // For AI/auto-play: choose the best equipment for the recipient
+      // Sort by what they can use and what would be an upgrade
+      let bestEquip: Equipment | null = null;
+      for (const eq of drawnEquipment) {
+        if (recipient.canEquip(eq)) {
+          const current = recipient.getEquipmentOfType(eq.equipmentType);
+          if (!current || (eq.serial || 0) > (current.serial || 0)) {
+            bestEquip = eq;
+            break;
+          }
+        }
+      }
+
+      // If no upgrade found, just take the first equippable
+      if (!bestEquip) {
+        bestEquip = drawnEquipment.find(eq => recipient.canEquip(eq)) || drawnEquipment[0];
+      }
+
+      // Equip selected item to recipient
+      const replaced = recipient.equip(bestEquip);
+
+      // Return replaced and unselected equipment to discard
+      for (const eq of drawnEquipment) {
+        if (eq !== bestEquip) {
+          const discard = game.getEquipmentDiscard(eq.equipmentType);
+          if (discard) eq.putInto(discard);
+        }
+      }
+      if (replaced) {
+        const discard = game.getEquipmentDiscard(replaced.equipmentType);
+        if (discard) replaced.putInto(discard);
+      }
+
+      hagness.useAction(1);
+      game.message(`Hagness gives ${bestEquip.equipmentName} to ${recipient.mercName}`);
+
+      return { success: true, message: `Gave ${bestEquip.equipmentName} to ${recipient.mercName}` };
     });
 }
 
@@ -3077,6 +3201,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createFeedbackDiscardAction(game)); // MERC-24h: Feedback discard retrieval
   game.registerAction(createSquidheadDisarmAction(game)); // MERC-4qd: Squidhead disarm mines
   game.registerAction(createSquidheadArmAction(game)); // MERC-4qd: Squidhead arm mines
+  game.registerAction(createHagnessDrawAction(game)); // MERC-jrph: Hagness draw equipment
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createSplitSquadAction(game));

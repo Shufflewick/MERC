@@ -83,6 +83,7 @@
     "training": 1,
     "combat": 2,
     "initiative": 2,
+    "sex": "F",
     "ability": "+1 action.",
     "bio": "She often spouts Star Wars trivia.",
     "image": "/mercs/ewok.jpg"
@@ -94,6 +95,7 @@
     "training": 3,
     "combat": 2,
     "initiative": 3,
+    "sex": "F",
     "ability": "+1 action, for training only.",
     "bio": "Attitude goes further than fortitude.",
     "image": "/mercs/faustina.jpg"
@@ -237,6 +239,7 @@
     "training": 2,
     "combat": 3,
     "initiative": 3,
+    "sex": "F",
     "ability": "Will not work with Moose.",
     "bio": "Kinda has a thing for Squirrel.",
     "image": "/mercs/natasha.jpg"
@@ -347,6 +350,7 @@
     "training": 4,
     "combat": 2,
     "initiative": 4,
+    "sex": "F",
     "ability": "She can bring up to 2 militia with her when she moves.",
     "bio": "She's also an Olympic gymnastics champion.",
     "image": "/mercs/sonia.jpg"
@@ -402,6 +406,7 @@
     "training": 1,
     "combat": 2,
     "initiative": 3,
+    "sex": "F",
     "ability": "+2 initiative to her squad when she has the highest initiative.",
     "bio": "Is a tactical driving instructor for the LAPD.",
     "image": "/mercs/tack.jpg"
@@ -435,6 +440,7 @@
     "training": 0,
     "combat": 0,
     "initiative": 0,
+    "sex": "F",
     "ability": "Doesn't count toward team limit.",
     "bio": "Was working for Red Cross when the Rebels invaded.",
     "image": "/mercs/teresa.jpg"
@@ -446,6 +452,7 @@
     "training": 2,
     "combat": 3,
     "initiative": 4,
+    "sex": "F",
     "ability": "Gives +1 initiative to all other MERCs in her squad.",
     "bio": "She's also a classicly trained opera singer.",
     "image": "/mercs/valkyrie.jpg"
@@ -523,6 +530,7 @@
     "training": 2,
     "combat": 1,
     "initiative": 2,
+    "sex": "F",
     "ability": "Each hit targeting militia can convert the militia to her side rather than killing it.",
     "bio": "Everyone loves their mom.",
     "image": "/mercs/adelheid.jpg"

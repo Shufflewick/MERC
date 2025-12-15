@@ -155,7 +155,8 @@ export class MercCard extends BaseCard {
 
   resetActions(): void {
     // MERC-qb1: Ewok gets +1 action (3 total instead of 2)
-    if (this.mercId === 'ewok') {
+    // MERC-bd4: Faustina gets +1 action for training only (3 total)
+    if (this.mercId === 'ewok' || this.mercId === 'faustina') {
       this.actionsRemaining = MercCard.BASE_ACTIONS + 1;
     } else {
       this.actionsRemaining = MercCard.BASE_ACTIONS;
@@ -171,6 +172,14 @@ export class MercCard extends BaseCard {
   }
 
   canEquip(equipment: Equipment): boolean {
+    // MERC-70a: Apeiron won't use grenades or mortars
+    if (this.mercId === 'apeiron') {
+      const name = equipment.equipmentName.toLowerCase();
+      if (name.includes('grenade') || name.includes('mortar')) {
+        return false;
+      }
+    }
+
     // MERC-42g: Gunther can use all equipment slots for accessories
     if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
       // Gunther can equip accessory if ANY slot is empty

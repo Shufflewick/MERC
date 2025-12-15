@@ -253,6 +253,98 @@ function applySurgeonHeal(
 }
 
 /**
+ * MERC-clsx: Check if a combatant is Adelheid
+ */
+function isAdelheid(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'adelheid';
+  }
+  return false;
+}
+
+/**
+ * MERC-b9p4: Check if a combatant is Golem
+ */
+function isGolem(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'golem';
+  }
+  return false;
+}
+
+/**
+ * MERC-16f: Check if a combatant is Bouba
+ */
+function isBouba(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'bouba';
+  }
+  return false;
+}
+
+/**
+ * MERC-16f: Check if combatant has a handgun equipped
+ */
+function hasHandgun(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    const weapon = combatant.sourceElement.weaponSlot;
+    return weapon?.equipmentName.toLowerCase().includes('handgun') ?? false;
+  }
+  return false;
+}
+
+/**
+ * MERC-16f: Apply Bouba's handgun combat bonus
+ */
+function applyBoubaBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isBouba(combatant) && hasHandgun(combatant) && combatant.health > 0) {
+      combatant.combat += 1;
+    }
+  }
+}
+
+/**
+ * MERC-b9p4: Execute Golem's pre-combat attack
+ * Golem may attack any 1 target before the first round of combat
+ */
+function executeGolemPreCombat(
+  game: MERCGame,
+  rebels: Combatant[],
+  dictatorSide: Combatant[]
+): void {
+  const allCombatants = [...rebels, ...dictatorSide];
+  const golems = allCombatants.filter(c => isGolem(c) && c.health > 0);
+
+  for (const golem of golems) {
+    const enemies = golem.isDictatorSide ? rebels : dictatorSide;
+    const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+
+    if (aliveEnemies.length === 0) continue;
+
+    // Select target (use AI targeting)
+    const target = sortTargetsByAIPriority(aliveEnemies)[0];
+
+    game.message(`${golem.name} strikes before combat begins!`);
+    game.message(`${golem.name} targets: ${target.name}`);
+
+    // Roll dice for pre-combat attack
+    const rolls = rollDice(golem.combat);
+    const hits = countHitsForCombatant(rolls, golem);
+    game.message(`${golem.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
+
+    if (hits > 0) {
+      const damage = applyDamage(target, hits, game, golem.armorPiercing);
+      if (target.health <= 0) {
+        game.message(`${golem.name} kills ${target.name} before combat starts!`);
+      } else {
+        game.message(`${golem.name} hits ${target.name} for ${damage} damage`);
+      }
+    }
+  }
+}
+
+/**
  * Sort combatants by initiative (highest first)
  * Dictator wins ties
  * MERC-nvr: Kastern always goes first in combat
@@ -917,6 +1009,12 @@ function executeCombatRound(
   // Dictator attacking rebels: if Max is in rebel side, debuff dictator MERCs
   applyMaxDebuff(dictatorSide, rebels);
 
+  // MERC-16f: Apply Bouba's handgun combat bonus
+  applyBoubaBonus([...rebels, ...dictatorSide]);
+
+  // MERC-b9p4: Execute Golem's pre-combat attack (before first round)
+  executeGolemPreCombat(game, rebels, dictatorSide);
+
   const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
   const results: CombatResult[] = [];
   const casualties: Combatant[] = [];
@@ -1000,16 +1098,36 @@ function executeCombatRound(
       damageDealt.set(target.id, damage);
 
       if (target.health <= 0) {
-        casualties.push(target);
-        game.message(`${attacker.name} kills ${target.name}!`);
+        // MERC-clsx: Adelheid converts militia instead of killing
+        if (isAdelheid(attacker) && target.isMilitia && !attacker.isDictatorSide) {
+          // Convert militia to rebel's side
+          const attackerMerc = attacker.sourceElement as MercCard;
+          const ownerPlayer = game.rebelPlayers.find(p =>
+            p.team.includes(attackerMerc)
+          );
+          if (ownerPlayer && sector) {
+            // Remove dictator militia
+            sector.dictatorMilitia--;
+            // Add to rebel militia
+            sector.addRebelMilitia(`${ownerPlayer.position}`, 1);
+            game.message(`${attacker.name} converts ${target.name} to her side!`);
+            // Don't add to casualties - militia is converted, not killed
+          } else {
+            casualties.push(target);
+            game.message(`${attacker.name} kills ${target.name}!`);
+          }
+        } else {
+          casualties.push(target);
+          game.message(`${attacker.name} kills ${target.name}!`);
 
-        // MERC-l09: If a dog dies, remove the assignment
-        if (target.isAttackDog) {
-          // Find and remove the assignment for this dog
-          for (const [targetId, dog] of activeDogState.assignments.entries()) {
-            if (dog.id === target.id) {
-              activeDogState.assignments.delete(targetId);
-              break;
+          // MERC-l09: If a dog dies, remove the assignment
+          if (target.isAttackDog) {
+            // Find and remove the assignment for this dog
+            for (const [targetId, dog] of activeDogState.assignments.entries()) {
+              if (dog.id === target.id) {
+                activeDogState.assignments.delete(targetId);
+                break;
+              }
             }
           }
         }

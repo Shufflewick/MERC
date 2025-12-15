@@ -170,6 +170,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'feedbackDiscard', // MERC-24h: Feedback discard retrieval
                   'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
                   'squidheadArm', // MERC-4qd: Squidhead arm mines
+                  'hagnessDraw', // MERC-jrph: Hagness draw equipment
                   'armsDealer',
                   'splitSquad', // MERC-ttx: Free action available anytime
                   'mergeSquads',
