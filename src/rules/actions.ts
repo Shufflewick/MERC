@@ -1246,6 +1246,74 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 }
 
 /**
+ * MERC-m4k: Doc's free heal ability
+ * Cost: 0 (free action), heals ALL MERCs in Doc's squad
+ * Per rules 13-clarifications-and-edge-cases.md:
+ * "Heals all MERCs in his squad as a free action outside of combat"
+ */
+export function createDocHealAction(game: MERCGame): ActionDefinition {
+  return Action.create('docHeal')
+    .prompt('Doc: Heal squad (free)')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Must not be in combat
+      if (game.activeCombat) return false;
+
+      // Find Doc in team
+      const doc = player.team.find(m => m.mercId === 'doc' && !m.isDead);
+      if (!doc) return false;
+
+      // Find which squad Doc is in
+      const primaryMercs = player.primarySquad.getMercs();
+      const secondaryMercs = player.secondarySquad.getMercs();
+
+      // Get Doc's squad mates
+      let squadMates: MercCard[] = [];
+      if (primaryMercs.includes(doc)) {
+        squadMates = primaryMercs.filter(m => m !== doc && !m.isDead);
+      } else if (secondaryMercs.includes(doc)) {
+        squadMates = secondaryMercs.filter(m => m !== doc && !m.isDead);
+      }
+
+      // Only show action if there are damaged MERCs in Doc's squad
+      return squadMates.some(m => m.damage > 0) || doc.damage > 0;
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const doc = player.team.find(m => m.mercId === 'doc' && !m.isDead)!;
+
+      // Find Doc's squad
+      const primaryMercs = player.primarySquad.getMercs();
+      const secondaryMercs = player.secondarySquad.getMercs();
+
+      let squadMercs: MercCard[] = [];
+      if (primaryMercs.includes(doc)) {
+        squadMercs = primaryMercs.filter(m => !m.isDead);
+      } else if (secondaryMercs.includes(doc)) {
+        squadMercs = secondaryMercs.filter(m => !m.isDead);
+      }
+
+      // Heal all MERCs in squad (including Doc himself)
+      let healed = 0;
+      for (const merc of squadMercs) {
+        if (merc.damage > 0) {
+          const healAmount = merc.damage;
+          merc.fullHeal();
+          game.message(`Doc healed ${merc.mercName} for ${healAmount} damage`);
+          healed++;
+        }
+      }
+
+      if (healed === 0) {
+        return { success: false, message: 'No one to heal' };
+      }
+
+      game.message(`Doc healed ${healed} MERC(s) in his squad`);
+      return { success: true, message: `Healed ${healed} MERC(s)` };
+    });
+}
+
+/**
  * Use hospital in a city sector
  * Cost: 1 action, fully heals MERC
  */
@@ -2801,6 +2869,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createTrainAction(game));
   // Attack removed - per rules, combat triggers via movement only
   game.registerAction(createReEquipAction(game));
+  game.registerAction(createDocHealAction(game)); // MERC-m4k: Doc's free heal
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createSplitSquadAction(game));

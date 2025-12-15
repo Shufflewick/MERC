@@ -102,7 +102,10 @@ export class MercCard extends BaseCard {
   }
 
   get health(): number {
-    return this.maxHealth - this.damage;
+    // MERC-iqe: Per rules 13-clarifications-and-edge-cases.md,
+    // minimum health is 1 to prevent edge cases
+    const calculatedHealth = this.maxHealth - this.damage;
+    return calculatedHealth <= 0 ? 0 : calculatedHealth;
   }
 
   get targets(): number {
@@ -147,7 +150,12 @@ export class MercCard extends BaseCard {
   }
 
   resetActions(): void {
-    this.actionsRemaining = MercCard.BASE_ACTIONS;
+    // MERC-qb1: Ewok gets +1 action (3 total instead of 2)
+    if (this.mercId === 'ewok') {
+      this.actionsRemaining = MercCard.BASE_ACTIONS + 1;
+    } else {
+      this.actionsRemaining = MercCard.BASE_ACTIONS;
+    }
   }
 
   useAction(cost: number = 1): boolean {
@@ -159,6 +167,12 @@ export class MercCard extends BaseCard {
   }
 
   canEquip(equipment: Equipment): boolean {
+    // MERC-42g: Gunther can use all equipment slots for accessories
+    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
+      // Gunther can equip accessory if ANY slot is empty
+      return !this.accessorySlot || !this.weaponSlot || !this.armorSlot;
+    }
+
     switch (equipment.equipmentType) {
       case 'Weapon':
         return !this.weaponSlot;
@@ -173,6 +187,24 @@ export class MercCard extends BaseCard {
 
   equip(equipment: Equipment): Equipment | undefined {
     let replaced: Equipment | undefined;
+
+    // MERC-42g: Gunther can equip accessories in any slot
+    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
+      // Try accessory slot first, then weapon, then armor
+      if (!this.accessorySlot) {
+        this.accessorySlot = equipment;
+      } else if (!this.weaponSlot) {
+        this.weaponSlot = equipment;
+      } else if (!this.armorSlot) {
+        this.armorSlot = equipment;
+      } else {
+        // All slots full, replace accessory slot
+        replaced = this.accessorySlot;
+        this.accessorySlot = equipment;
+      }
+      return replaced;
+    }
+
     switch (equipment.equipmentType) {
       case 'Weapon':
         replaced = this.weaponSlot;

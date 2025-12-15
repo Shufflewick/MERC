@@ -104,11 +104,28 @@ function countHits(rolls: number[]): number {
 }
 
 /**
+ * MERC-dac: Check if a combatant is Badger
+ */
+function isBadger(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'badger';
+  }
+  return false;
+}
+
+/**
  * Sort combatants by initiative (highest first)
  * Dictator wins ties
+ * MERC-dac: Badger always has initiative over militia
  */
 function sortByInitiative(combatants: Combatant[]): Combatant[] {
   return [...combatants].sort((a, b) => {
+    // MERC-dac: Badger always goes before militia
+    const aIsBadger = isBadger(a);
+    const bIsBadger = isBadger(b);
+    if (aIsBadger && b.isMilitia) return -1; // Badger before militia
+    if (bIsBadger && a.isMilitia) return 1;  // Militia after Badger
+
     if (b.initiative !== a.initiative) {
       return b.initiative - a.initiative;
     }
@@ -298,6 +315,117 @@ function refreshCombatantStats(combatant: Combatant): void {
   }
 }
 
+/**
+ * MERC-cm0: Check if a combatant is Haarg
+ */
+function isHaarg(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'haarg';
+  }
+  return false;
+}
+
+/**
+ * MERC-cm0: Apply Haarg's comparative bonus ability
+ * Per rules 13-clarifications-and-edge-cases.md:
+ * - Compare to all other units in combat
+ * - If anyone has higher Initiative → Haarg gets +1 Initiative
+ * - If anyone has higher Combat → Haarg gets +1 Combat
+ * - Can get bonuses to multiple stats simultaneously
+ * - Recalculates each combat round
+ */
+function applyHaargBonus(allCombatants: Combatant[]): void {
+  const haargCombatants = allCombatants.filter(c => isHaarg(c) && c.health > 0);
+  if (haargCombatants.length === 0) return;
+
+  const otherCombatants = allCombatants.filter(c => !isHaarg(c) && c.health > 0);
+  if (otherCombatants.length === 0) return;
+
+  // Find max stats among other combatants
+  const maxInitiative = Math.max(...otherCombatants.map(c => c.initiative));
+  const maxCombat = Math.max(...otherCombatants.map(c => c.combat));
+
+  for (const haarg of haargCombatants) {
+    // Get Haarg's base stats (before any bonus)
+    const baseInitiative = haarg.sourceElement instanceof MercCard
+      ? haarg.sourceElement.initiative : haarg.initiative;
+    const baseCombat = haarg.sourceElement instanceof MercCard
+      ? haarg.sourceElement.combat : haarg.combat;
+
+    // Apply +1 if anyone has higher
+    if (maxInitiative > baseInitiative) {
+      haarg.initiative = baseInitiative + 1;
+    }
+    if (maxCombat > baseCombat) {
+      haarg.combat = baseCombat + 1;
+    }
+  }
+}
+
+/**
+ * MERC-r2k: Check if a combatant is Snake
+ */
+function isSnake(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'snake';
+  }
+  return false;
+}
+
+/**
+ * MERC-zd5: Check if a combatant is Vandal
+ */
+function isVandal(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'vandal';
+  }
+  return false;
+}
+
+/**
+ * MERC-r2k: Apply Snake's solo bonus ability
+ * Per rules 13-clarifications-and-edge-cases.md:
+ * - Only gets ability if he is the SOLE member of his squad
+ * - Other squads can exist, but Snake must be alone in his
+ * - +1 to all skills when working alone
+ */
+function applySnakeBonus(game: MERCGame, allCombatants: Combatant[]): void {
+  const snakeCombatants = allCombatants.filter(c => isSnake(c) && c.health > 0);
+  if (snakeCombatants.length === 0) return;
+
+  for (const snake of snakeCombatants) {
+    const snakeMerc = snake.sourceElement as MercCard;
+
+    // Find which player owns Snake and which squad he's in
+    for (const rebel of game.rebelPlayers) {
+      // Check primary squad
+      const primaryMercs = rebel.primarySquad.getMercs();
+      if (primaryMercs.includes(snakeMerc)) {
+        // Snake is in primary squad - check if alone
+        if (primaryMercs.filter(m => !m.isDead).length === 1) {
+          // Snake is alone in his squad - apply +1 to all stats
+          snake.initiative += 1;
+          snake.combat += 1;
+          // Note: Training bonus applied separately for train action
+        }
+        break;
+      }
+
+      // Check secondary squad
+      const secondaryMercs = rebel.secondarySquad.getMercs();
+      if (secondaryMercs.includes(snakeMerc)) {
+        // Snake is in secondary squad - check if alone
+        if (secondaryMercs.filter(m => !m.isDead).length === 1) {
+          // Snake is alone in his squad - apply +1 to all stats
+          snake.initiative += 1;
+          snake.combat += 1;
+        }
+        break;
+      }
+    }
+  }
+}
+
 // =============================================================================
 // Retreat Mechanics
 // =============================================================================
@@ -437,6 +565,16 @@ function canTargetDictator(dictatorSide: Combatant[]): boolean {
 }
 
 /**
+ * MERC-dz0: Check if a combatant is Rizen
+ */
+function isRizen(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'rizen';
+  }
+  return false;
+}
+
+/**
  * Select targets for an attacker
  * MERC-0q8: AI (dictator side) uses priority targeting per rules 4.6:
  * 1. Lowest health + armor
@@ -450,6 +588,16 @@ function selectTargets(
   maxTargets: number
 ): Combatant[] {
   const aliveEnemies = enemies.filter(e => e.health > 0);
+
+  // MERC-dz0: Rizen can target ALL militia with his attack
+  // Per rules: "each hit counts as a new target when attacking militia"
+  if (isRizen(attacker)) {
+    const militia = aliveEnemies.filter(e => e.isMilitia);
+    const nonMilitia = aliveEnemies.filter(e => !e.isMilitia);
+    // Rizen targets all militia plus normal targets for non-militia
+    const rizenTargets = [...militia, ...nonMilitia.slice(0, maxTargets)];
+    return rizenTargets;
+  }
 
   // If attacker is rebel and dictator is present, check protection rule
   if (!attacker.isDictatorSide) {
@@ -611,6 +759,12 @@ function executeCombatRound(
     }
   }
 
+  // MERC-cm0: Apply Haarg's comparative bonus (must be after refresh, before sorting)
+  applyHaargBonus([...rebels, ...dictatorSide]);
+
+  // MERC-r2k: Apply Snake's solo bonus (needs game for squad context)
+  applySnakeBonus(game, [...rebels, ...dictatorSide]);
+
   const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
   const results: CombatResult[] = [];
   const casualties: Combatant[] = [];
@@ -728,6 +882,62 @@ function executeCombatRound(
       targets,
       damageDealt,
     });
+  }
+
+  // MERC-zd5: Vandal fires a second shot at the end of each round
+  const vandals = allCombatants.filter(c => isVandal(c) && c.health > 0);
+  for (const vandal of vandals) {
+    const enemies = vandal.isDictatorSide ? rebels : dictatorSide;
+    const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+
+    if (aliveEnemies.length === 0) continue;
+
+    game.message(`${vandal.name} fires second shot!`);
+
+    // Select targets for second shot (can target same or different enemies)
+    const targets = selectTargetsWithDogs(vandal, enemies, vandal.targets, activeDogState);
+    if (targets.length === 0) continue;
+
+    const targetNames = targets.map(t => t.name).join(', ');
+    game.message(`${vandal.name} targets: ${targetNames}`);
+
+    // Roll dice for second shot
+    const rolls = rollDice(vandal.combat);
+    const hits = countHits(rolls);
+    game.message(`${vandal.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
+
+    if (hits > 0) {
+      const damageDealt = new Map<string, number>();
+      let remainingHits = hits;
+
+      for (const target of targets) {
+        if (remainingHits <= 0) break;
+
+        const damage = applyDamage(target, remainingHits, game, vandal.armorPiercing);
+        damageDealt.set(target.id, damage);
+
+        if (target.health <= 0) {
+          casualties.push(target);
+          game.message(`${vandal.name} kills ${target.name}!`);
+        } else {
+          game.message(`${vandal.name} hits ${target.name} for ${damage} damage`);
+        }
+
+        if (target.isMilitia || target.isAttackDog) {
+          remainingHits--;
+        } else {
+          remainingHits -= damage;
+        }
+      }
+
+      results.push({
+        attacker: vandal,
+        rolls,
+        hits,
+        targets,
+        damageDealt,
+      });
+    }
   }
 
   return { roundNumber, results, casualties };

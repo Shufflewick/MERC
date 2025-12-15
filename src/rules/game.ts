@@ -837,8 +837,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     if (!baseSector) return false;
 
     // Base is captured if no dictator units AND rebels have units there
+    // MERC-1e8: Must check for militia, dictator card, AND hired MERCs
     const hasDictatorUnits = baseSector.dictatorMilitia > 0 ||
-      (this.dictatorPlayer.dictator && !this.dictatorPlayer.dictator.isDead);
+      (this.dictatorPlayer.dictator && !this.dictatorPlayer.dictator.isDead) ||
+      this.getDictatorMercsInSector(baseSector).length > 0;
 
     if (hasDictatorUnits) return false;
 

@@ -166,6 +166,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'hireMerc',
                   'reEquip',
                   'hospital',
+                  'docHeal', // MERC-m4k: Doc's free heal ability
                   'armsDealer',
                   'splitSquad', // MERC-ttx: Free action available anytime
                   'mergeSquads',
