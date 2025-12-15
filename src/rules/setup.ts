@@ -59,10 +59,37 @@ export interface TacticsData {
 // =============================================================================
 
 /**
+ * Check if a position is a corner of the grid.
+ */
+function isCorner(row: number, col: number, rows: number, cols: number): boolean {
+  return (row === 0 || row === rows - 1) && (col === 0 || col === cols - 1);
+}
+
+/**
+ * Check if a position is the center of an odd-dimension grid.
+ * For odd grids (like 3x3), the center should be a city, not an industry.
+ */
+function isCenter(row: number, col: number, rows: number, cols: number): boolean {
+  // Only applies to odd-dimension grids
+  if (rows % 2 === 0 || cols % 2 === 0) return false;
+  const centerRow = Math.floor(rows / 2);
+  const centerCol = Math.floor(cols / 2);
+  return row === centerRow && col === centerCol;
+}
+
+/**
  * Determines if a position should be an industry based on checkerboard pattern.
  * Industries are placed so no two are adjacent (orthogonally).
+ * Special case: center of odd-dimension grids is reserved for city.
  */
-export function isIndustryPosition(row: number, col: number): boolean {
+export function isIndustryPosition(row: number, col: number, rows?: number, cols?: number): boolean {
+  // If grid dimensions provided, check for center exclusion
+  if (rows !== undefined && cols !== undefined) {
+    // Center of odd grids is NOT an industry position (reserved for city)
+    if (isCenter(row, col, rows, cols)) {
+      return false;
+    }
+  }
   // Checkerboard pattern: (row + col) % 2 === 0 means industry position
   return (row + col) % 2 === 0;
 }
@@ -90,6 +117,12 @@ function selectRandom<T>(array: T[], count: number): T[] {
 /**
  * Build the game map with sectors placed in checkerboard pattern.
  *
+ * Layout rules:
+ * - Industries are placed in a checkerboard pattern so no two are adjacent
+ * - For odd-dimension grids (e.g., 3x3), the center is reserved for a city
+ * - Industries are placed at corners first, then remaining checkerboard positions
+ * - Wilderness fills the non-checkerboard positions
+ *
  * @param game - The game instance
  * @param sectorData - Array of sector data from JSON
  */
@@ -114,34 +147,82 @@ export function buildMap(game: MERCGame, sectorData: SectorData[]): void {
   const selectedCities = selectRandom(cities, config.sectorTypes.cities);
   const selectedWilderness = selectRandom(wilderness, config.sectorTypes.wilderness);
 
-  // Combine non-industry sectors
-  const nonIndustries = shuffleArray([...selectedCities, ...selectedWilderness]);
+  // Categorize positions
+  const cornerPositions: Array<{row: number; col: number}> = [];
+  const centerPosition: {row: number; col: number} | null =
+    (rows % 2 === 1 && cols % 2 === 1)
+      ? { row: Math.floor(rows / 2), col: Math.floor(cols / 2) }
+      : null;
+  const industryPositions: Array<{row: number; col: number}> = [];
+  const nonIndustryPositions: Array<{row: number; col: number}> = [];
+
+  // First pass: categorize all positions
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const pos = { row, col };
+
+      if (isCorner(row, col, rows, cols)) {
+        cornerPositions.push(pos);
+      } else if (centerPosition && row === centerPosition.row && col === centerPosition.col) {
+        // Center is handled separately - will get a city
+      } else if (isIndustryPosition(row, col, rows, cols)) {
+        industryPositions.push(pos);
+      } else {
+        nonIndustryPositions.push(pos);
+      }
+    }
+  }
+
+  // Shuffle non-corner industry positions for variety
+  const shuffledIndustryPositions = shuffleArray(industryPositions);
+
+  // All industry positions: corners first, then remaining checkerboard positions
+  const allIndustryPositions = [...cornerPositions, ...shuffledIndustryPositions];
+
+  // Shuffle non-industry positions for variety
+  const shuffledNonIndustryPositions = shuffleArray(nonIndustryPositions);
 
   // Track which sectors we've used
   let industryIndex = 0;
-  let nonIndustryIndex = 0;
+  let cityIndex = 0;
+  let wildernessIndex = 0;
 
-  // Build the map in checkerboard pattern
+  // Create a map of position -> sector type
+  const positionMap = new Map<string, SectorData>();
+
+  // Place industries at industry positions (corners + checkerboard)
+  for (let i = 0; i < allIndustryPositions.length && industryIndex < selectedIndustries.length; i++) {
+    const pos = allIndustryPositions[i];
+    positionMap.set(`${pos.row},${pos.col}`, selectedIndustries[industryIndex++]);
+  }
+
+  // Place city at center (for odd grids) or in non-industry positions
+  if (centerPosition && cityIndex < selectedCities.length) {
+    positionMap.set(`${centerPosition.row},${centerPosition.col}`, selectedCities[cityIndex++]);
+  }
+
+  // Place remaining cities in non-industry positions
+  for (let i = 0; i < shuffledNonIndustryPositions.length && cityIndex < selectedCities.length; i++) {
+    const pos = shuffledNonIndustryPositions[i];
+    if (!positionMap.has(`${pos.row},${pos.col}`)) {
+      positionMap.set(`${pos.row},${pos.col}`, selectedCities[cityIndex++]);
+    }
+  }
+
+  // Place wilderness in remaining non-industry positions
+  for (const pos of shuffledNonIndustryPositions) {
+    if (!positionMap.has(`${pos.row},${pos.col}`) && wildernessIndex < selectedWilderness.length) {
+      positionMap.set(`${pos.row},${pos.col}`, selectedWilderness[wildernessIndex++]);
+    }
+  }
+
+  // Build the map
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      let sectorInfo: SectorData;
+      const sectorInfo = positionMap.get(`${row},${col}`);
 
-      if (isIndustryPosition(row, col)) {
-        // Industry position
-        if (industryIndex < selectedIndustries.length) {
-          sectorInfo = selectedIndustries[industryIndex++];
-        } else {
-          // Fallback to non-industry if we run out (shouldn't happen with correct config)
-          sectorInfo = nonIndustries[nonIndustryIndex++];
-        }
-      } else {
-        // Non-industry position (City or Wilderness)
-        if (nonIndustryIndex < nonIndustries.length) {
-          sectorInfo = nonIndustries[nonIndustryIndex++];
-        } else {
-          // Fallback to industry if we run out (shouldn't happen with correct config)
-          sectorInfo = selectedIndustries[industryIndex++];
-        }
+      if (!sectorInfo) {
+        throw new Error(`No sector assigned to position (${row}, ${col})`);
       }
 
       // Create the sector in the game map
