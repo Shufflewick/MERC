@@ -130,6 +130,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can hire MERCs
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.HIRE_MERC;
@@ -343,6 +345,8 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       prompt: 'Select squad to move',
       elementClass: Squad,
       filter: (element, ctx) => {
+        // Safety check - only rebels have squads
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
         if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
@@ -459,6 +463,8 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
       prompt: 'Select target sector for coordinated attack',
       elementClass: Sector,
       filter: (element, ctx) => {
+        // Safety check - only rebels have squads
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const sector = element as unknown as Sector;
         const player = ctx.player as RebelPlayer;
 
@@ -541,6 +547,8 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       prompt: 'Select squad to stage for coordinated attack',
       elementClass: Squad,
       filter: (element, ctx) => {
+        // Safety check - only rebels have squads
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
         if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
@@ -553,6 +561,8 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       prompt: 'Select target sector for coordinated attack',
       elementClass: Sector,
       filter: (element, ctx) => {
+        // Safety check - only rebels can declare coordinated attacks
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const sector = element as unknown as Sector;
         const player = ctx.player as RebelPlayer;
         const squad = ctx.args.squad as Squad;
@@ -640,6 +650,8 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
       prompt: 'Select squad to join the attack',
       elementClass: Squad,
       filter: (element, ctx) => {
+        // Safety check - only rebels have squads
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
         const targetId = ctx.data?.targetAttack as string;
@@ -808,6 +820,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can explore
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.EXPLORE;
@@ -922,6 +936,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can trade
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) &&
@@ -948,6 +964,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can trade
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         const giver = ctx.args?.tradeGiver as MercCard;
@@ -1084,6 +1102,8 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can train militia
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) &&
@@ -1142,6 +1162,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can re-equip
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
@@ -1180,6 +1202,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can trade
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         const selectedMerc = ctx.args?.merc as MercCard;
@@ -1605,6 +1629,8 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can use Hagness ability
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
@@ -1708,6 +1734,8 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can visit hospital
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) &&
@@ -1756,6 +1784,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can visit arms dealer
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
@@ -1850,6 +1880,8 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels have squads
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.primarySquad.getMercs().includes(merc);
@@ -1924,6 +1956,8 @@ export function createFireMercAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels can fire MERCs
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc);
@@ -2134,6 +2168,8 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
+        // Safety check - only rebels equip starting equipment
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         return player.team.includes(merc) &&
