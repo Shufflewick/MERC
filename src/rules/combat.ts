@@ -305,6 +305,147 @@ function applyBoubaBonus(combatants: Combatant[]): void {
 }
 
 /**
+ * MERC-2se: Check if a combatant is Buzzkill
+ */
+function isBuzzkill(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'buzzkill';
+  }
+  return false;
+}
+
+/**
+ * MERC-ml7: Check if a combatant is Khenn
+ */
+function isKhenn(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'khenn';
+  }
+  return false;
+}
+
+/**
+ * MERC-s3x: Check if a combatant is Mayhem
+ */
+function isMayhem(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'mayhem';
+  }
+  return false;
+}
+
+/**
+ * MERC-s3x: Check if combatant has an Uzi equipped
+ */
+function hasUzi(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    const weapon = combatant.sourceElement.weaponSlot;
+    return weapon?.equipmentName.toLowerCase().includes('uzi') ?? false;
+  }
+  return false;
+}
+
+/**
+ * MERC-82k: Check if a combatant is Meatbop
+ */
+function isMeatbop(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'meatbop';
+  }
+  return false;
+}
+
+/**
+ * MERC-82k: Check if Meatbop has an accessory equipped
+ */
+function hasAccessory(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.accessorySlot !== undefined;
+  }
+  return false;
+}
+
+/**
+ * MERC-c1f: Check if a combatant is Ra
+ */
+function isRa(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'ra';
+  }
+  return false;
+}
+
+/**
+ * MERC-3zd: Check if a combatant is Rozeske
+ */
+function isRozeske(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'rozeske';
+  }
+  return false;
+}
+
+/**
+ * MERC-3zd: Check if combatant has armor equipped
+ */
+function hasArmor(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.armorSlot !== undefined;
+  }
+  return false;
+}
+
+/**
+ * MERC-s3x: Apply Mayhem's Uzi combat bonus (+2)
+ */
+function applyMayhemBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isMayhem(combatant) && hasUzi(combatant) && combatant.health > 0) {
+      combatant.combat += 2;
+    }
+  }
+}
+
+/**
+ * MERC-3zd: Apply Rozeske's armor combat bonus (+1)
+ */
+function applyRozeskeBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isRozeske(combatant) && hasArmor(combatant) && combatant.health > 0) {
+      combatant.combat += 1;
+    }
+  }
+}
+
+/**
+ * MERC-c1f: Apply Ra's target bonus (+1 with any weapon)
+ */
+function applyRaBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isRa(combatant) && combatant.health > 0) {
+      // Ra gets +1 target with any weapon
+      if (combatant.sourceElement instanceof MercCard && combatant.sourceElement.weaponSlot) {
+        combatant.targets += 1;
+      }
+    }
+  }
+}
+
+/**
+ * MERC-ml7: Apply Khenn's random initiative
+ * Khenn rolls a D6 at the beginning of combat for his initiative
+ */
+function applyKhennInitiative(combatants: Combatant[], game: MERCGame): void {
+  for (const combatant of combatants) {
+    if (isKhenn(combatant) && combatant.health > 0) {
+      const roll = Math.floor(Math.random() * 6) + 1;
+      combatant.initiative = roll;
+      game.message(`Khenn rolls ${roll} for initiative`);
+    }
+  }
+}
+
+/**
  * MERC-b9p4: Execute Golem's pre-combat attack
  * Golem may attack any 1 target before the first round of combat
  */
@@ -837,6 +978,15 @@ function selectTargets(
     return rizenTargets;
   }
 
+  // MERC-2se: Buzzkill always attacks enemy MERCs instead of militia when possible
+  if (isBuzzkill(attacker)) {
+    const mercs = aliveEnemies.filter(e => !e.isMilitia && !e.isAttackDog);
+    const militia = aliveEnemies.filter(e => e.isMilitia || e.isAttackDog);
+    // Prioritize MERCs, then militia
+    const buzzkillTargets = [...mercs, ...militia].slice(0, maxTargets);
+    return buzzkillTargets;
+  }
+
   // If attacker is rebel and dictator is present, check protection rule
   if (!attacker.isDictatorSide) {
     const canHitDictator = canTargetDictator(aliveEnemies);
@@ -1012,6 +1162,18 @@ function executeCombatRound(
   // MERC-16f: Apply Bouba's handgun combat bonus
   applyBoubaBonus([...rebels, ...dictatorSide]);
 
+  // MERC-s3x: Apply Mayhem's Uzi combat bonus
+  applyMayhemBonus([...rebels, ...dictatorSide]);
+
+  // MERC-3zd: Apply Rozeske's armor combat bonus
+  applyRozeskeBonus([...rebels, ...dictatorSide]);
+
+  // MERC-c1f: Apply Ra's target bonus
+  applyRaBonus([...rebels, ...dictatorSide]);
+
+  // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
+  applyKhennInitiative([...rebels, ...dictatorSide], game);
+
   // MERC-b9p4: Execute Golem's pre-combat attack (before first round)
   executeGolemPreCombat(game, rebels, dictatorSide);
 
@@ -1023,6 +1185,19 @@ function executeCombatRound(
   for (const attacker of allCombatants) {
     // Skip dead combatants and attack dogs (dogs don't attack)
     if (attacker.health <= 0 || attacker.isAttackDog) continue;
+
+    // MERC-82k: Meatbop will not fight without an accessory equipped
+    if (isMeatbop(attacker) && !hasAccessory(attacker)) {
+      game.message(`${attacker.name} refuses to fight without an accessory!`);
+      results.push({
+        attacker,
+        rolls: [],
+        hits: 0,
+        targets: [],
+        damageDealt: new Map(),
+      });
+      continue;
+    }
 
     // Determine enemies
     const enemies = attacker.isDictatorSide ? rebels : dictatorSide;

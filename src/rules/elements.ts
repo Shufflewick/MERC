@@ -186,6 +186,12 @@ export class MercCard extends BaseCard {
       return !this.accessorySlot || !this.weaponSlot || !this.armorSlot;
     }
 
+    // MERC-vwi: Genesis can carry a weapon in his accessory slot
+    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
+      // Genesis can equip weapon if weapon slot OR accessory slot is empty
+      return !this.weaponSlot || !this.accessorySlot;
+    }
+
     switch (equipment.equipmentType) {
       case 'Weapon':
         return !this.weaponSlot;
@@ -214,6 +220,21 @@ export class MercCard extends BaseCard {
         // All slots full, replace accessory slot
         replaced = this.accessorySlot;
         this.accessorySlot = equipment;
+      }
+      return replaced;
+    }
+
+    // MERC-vwi: Genesis can equip weapons in accessory slot
+    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
+      // Try weapon slot first, then accessory slot
+      if (!this.weaponSlot) {
+        this.weaponSlot = equipment;
+      } else if (!this.accessorySlot) {
+        this.accessorySlot = equipment;
+      } else {
+        // Both slots full, replace weapon slot
+        replaced = this.weaponSlot;
+        this.weaponSlot = equipment;
       }
       return replaced;
     }
