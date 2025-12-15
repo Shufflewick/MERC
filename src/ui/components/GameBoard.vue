@@ -194,9 +194,19 @@ const allMercs = computed(() => {
   const squads = findAllByClassName('Squad');
   for (const squad of squads) {
     const sectorId = getAttr(squad, 'sectorId', '');
-    const playerColor = getAttr(squad, 'playerColor', '') ||
-                        getAttr(squad, 'player', null)?.playerColor ||
-                        '';
+
+    // Get player color from squad's player position
+    const playerPos = getSquadPlayerPosition(squad);
+    const squadName = getAttr(squad, 'name', '') || squad.ref || '';
+    const isDictatorSquad = squadName.includes('dictator');
+
+    let playerColor = '';
+    if (isDictatorSquad) {
+      playerColor = 'dictator';
+    } else if (playerPos >= 0) {
+      const player = players.value.find(p => p.position === playerPos);
+      playerColor = player?.playerColor || ['red', 'blue', 'green', 'yellow', 'purple', 'orange'][playerPos] || 'red';
+    }
 
     if (squad.children) {
       for (const merc of squad.children) {
