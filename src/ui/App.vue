@@ -20,6 +20,7 @@ import { UI_COLORS } from './colors';
         :action-args="actionArgs"
         :execute-action="executeAction"
         :set-board-prompt="setBoardPrompt"
+        :state="state"
       />
     </template>
 

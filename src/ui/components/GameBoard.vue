@@ -14,13 +14,14 @@ const props = defineProps<{
   actionArgs: Record<string, unknown>;
   executeAction: (name: string) => Promise<void>;
   setBoardPrompt: (prompt: string | null) => void;
+  state?: any; // Flow state from GameShell
 }>();
 
 const showDebug = ref(false);
 
 // Copy debug info to clipboard
 async function copyDebug() {
-  const debugInfo = `GameView Structure:\n${gameViewSummary.value}\n\nSectors found: ${sectors.value.length}\n\nAvailable Actions:\n${JSON.stringify(props.availableActions, null, 2)}\n\nAction Args:\n${JSON.stringify(props.actionArgs, null, 2)}\n\nHirable MERCs (${hirableMercs.value.length}):\n${JSON.stringify(hirableMercs.value.slice(0, 3), null, 2)}`;
+  const debugInfo = `GameView Structure:\n${gameViewSummary.value}\n\nSectors found: ${sectors.value.length}\n\nAvailable Actions:\n${JSON.stringify(props.availableActions, null, 2)}\n\nAction Args:\n${JSON.stringify(props.actionArgs, null, 2)}\n\nFlow State:\n${JSON.stringify(props.state?.flowState, null, 2)}\n\nHirable MERCs (${hirableMercs.value.length}):\n${JSON.stringify(hirableMercs.value.slice(0, 3), null, 2)}`;
   try {
     await navigator.clipboard.writeText(debugInfo);
     alert('Copied to clipboard!');
@@ -340,14 +341,33 @@ function getMercId(merc: any): string {
   return merc.attributes?.mercId || merc.mercId || merc.id || merc.ref || '';
 }
 
+// Get capitalized MERC name for action (action expects capitalized names)
+function getMercDisplayName(merc: any): string {
+  const name = merc.attributes?.mercName || merc.mercName || getMercId(merc);
+  // Capitalize first letter
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+// Check if we're on the second step of hiring (firstMerc already selected)
+const isSecondMercStep = computed(() => {
+  // Check flowState for pendingArgs containing firstMerc
+  const flowState = props.state?.flowState;
+  if (flowState?.pendingArgs?.firstMerc) return true;
+  // Also check actionArgs
+  if (props.actionArgs?.firstMerc) return true;
+  return false;
+});
+
 // Handle clicking a MERC to hire - immediately calls the action to sync with ActionPanel
 async function selectMercToHire(merc: any) {
-  const mercId = getMercId(merc);
-  if (!mercId) return;
+  const mercName = getMercDisplayName(merc);
+  if (!mercName) return;
 
-  // Call the action with the selected MERC - this syncs with the ActionPanel
-  // The action framework handles the multi-step flow (first MERC, then second MERC)
-  await props.action('hireStartingMercs', { firstMerc: mercId });
+  // Determine which argument to use based on the step
+  const argName = isSecondMercStep.value ? 'secondMerc' : 'firstMerc';
+
+  // Call the action with the selected MERC name (capitalized)
+  await props.action('hireStartingMercs', { [argName]: mercName });
 }
 
 // Handle sector clicks for actions
@@ -417,6 +437,9 @@ const gameViewSummary = computed(() => {
       <pre>{{ availableActions }}</pre>
       <h3>Action Args:</h3>
       <pre>{{ JSON.stringify(actionArgs, null, 2) }}</pre>
+      <h3>Flow State (pendingArgs):</h3>
+      <pre>{{ JSON.stringify(state?.flowState?.pendingArgs, null, 2) }}</pre>
+      <h3>Is Second MERC Step: {{ isSecondMercStep }}</h3>
       <h3>Hirable MERCs ({{ hirableMercs.length }}):</h3>
       <pre>{{ JSON.stringify(hirableMercs.slice(0, 2), null, 2) }}</pre>
     </div>
@@ -425,7 +448,8 @@ const gameViewSummary = computed(() => {
     <div v-if="isHiringMercs" class="action-panel">
       <h2 class="action-title">Choose MERCs to Hire</h2>
       <p class="action-subtitle">
-        Click a MERC to hire them (first 2 are free)
+        {{ isSecondMercStep ? 'Select your SECOND MERC' : 'Select your FIRST MERC' }}
+        (first 2 are free)
       </p>
       <div class="merc-choices">
         <div
