@@ -58,6 +58,7 @@ export interface MERCOptions extends GameOptions {
   rebelCount?: number;  // 1-6 rebels
   dictatorId?: string;  // Which dictator to use
   expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
+  dictatorIsAI?: boolean;  // MERC-exaf: Explicitly set if dictator is AI-controlled
 }
 
 // =============================================================================
@@ -217,8 +218,9 @@ export class DictatorPlayer extends Player {
   // Sector where the Dictator's forces are stationed
   stationedSectorId?: string;
 
-  // MERC-5j2: AI mode - dictator plays cards from deck top, no hand
-  isAI: boolean = true;
+  // MERC-exaf: AI mode - dictator plays cards from deck top, no hand
+  // Default to false (human) - set explicitly via game options or when AI is detected
+  isAI: boolean = false;
 
   // MERC-q4v: Privacy Player - Rebel designated to handle AI decisions
   privacyPlayerId?: string;
@@ -330,6 +332,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Safety check: ensure dictatorPlayer was created
     if (!this.dictatorPlayer) {
       throw new Error(`DictatorPlayer not created. Players: ${this.players.length}, pendingCount: ${MERCGame._pendingPlayerCount}`);
+    }
+
+    // MERC-exaf: Set dictator AI mode from options
+    // When true, enables AI auto-selection logic and privacy player designation
+    if (options.dictatorIsAI !== undefined) {
+      this.dictatorPlayer.isAI = options.dictatorIsAI;
     }
 
     // Create decks (will be populated later when data is loaded)

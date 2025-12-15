@@ -8,7 +8,7 @@ import {
   type FlowDefinition,
 } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from './game.js';
-import { executeDictatorDay1, getDay1Summary, drawTacticsHand } from './day-one.js';
+import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect } from './tactics-effects.js';
 
@@ -105,9 +105,55 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           }),
 
           // ===== DICTATOR PHASE =====
-          execute(() => {
-            game.message('--- Dictator Phase ---');
-            executeDictatorDay1(game);
+          // MERC-mtoq: Convert to action steps for human dictator support
+          eachPlayer({
+            name: 'dictator-landing',
+            filter: (player) => game.isDictatorPlayer(player as any),
+            do: sequence(
+              execute(() => {
+                game.message('--- Dictator Phase ---');
+                game.message('=== Dictator Day 1 Phase ===');
+              }),
+
+              // Step 1: Place initial militia on unoccupied industries
+              actionStep({
+                name: 'dictator-place-initial-militia',
+                actions: ['dictatorPlaceInitialMilitia'],
+                prompt: 'Place initial militia on unoccupied industries',
+              }),
+
+              // Step 2: Hire dictator's first MERC
+              actionStep({
+                name: 'dictator-hire-first-merc',
+                actions: ['dictatorHireFirstMerc'],
+                prompt: 'Hire your first MERC',
+              }),
+
+              // Step 3: Apply dictator special ability
+              actionStep({
+                name: 'dictator-setup-ability',
+                actions: ['dictatorSetupAbility'],
+                prompt: 'Apply dictator special ability',
+              }),
+
+              // Step 4: Draw tactics hand
+              actionStep({
+                name: 'dictator-draw-tactics',
+                actions: ['dictatorDrawTactics'],
+                prompt: 'Draw tactics cards',
+              }),
+
+              // Step 5: Place extra militia
+              actionStep({
+                name: 'dictator-place-extra-militia',
+                actions: ['dictatorPlaceExtraMilitia', 'dictatorSkipExtraMilitia'],
+                prompt: 'Place extra militia',
+              }),
+
+              execute(() => {
+                game.message('=== Dictator Day 1 Complete ===');
+              }),
+            ),
           }),
 
           // Day 1 Complete
@@ -183,12 +229,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           }),
 
           // Dictator turn
+          // MERC-e94i: Wrap in eachPlayer to set dictator as current player
           // Per rules (05-main-game-loop.md):
           // Step 1: Play Tactics card OR Reinforce
           // Step 2: Each Dictator MERC takes 2 actions
           // Step 3: Use Special Ability (if applicable)
           // Step 4: Refill hand to 3 cards
-          phase('dictator-turn', {
+          eachPlayer({
+            name: 'dictator-turn',
+            filter: (player) => game.isDictatorPlayer(player as any) && !game.isFinished(),
             do: sequence(
               execute(() => {
                 game.message('--- Dictator Turn ---');

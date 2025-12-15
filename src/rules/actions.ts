@@ -7,6 +7,11 @@ import {
   hireSelectedMercs,
   isValidLandingSector,
   equipStartingEquipment,
+  placeInitialMilitia,
+  hireDictatorMerc,
+  applyDictatorSetupAbility,
+  drawTacticsHand,
+  autoPlaceExtraMilitia,
 } from './day-one.js';
 import { executeCombat, executeCombatRetreat, hasEnemies, getValidRetreatSectors } from './combat.js';
 import { executeTacticsEffect } from './tactics-effects.js';
@@ -3192,6 +3197,108 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
+// Day 1 Dictator Actions (MERC-mtoq)
+// =============================================================================
+
+/**
+ * MERC-f6m6: Place initial militia on unoccupied industries
+ * For human dictator: Shows where militia will be placed and confirms
+ * For AI dictator: Auto-executes
+ */
+export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorPlaceInitialMilitia')
+    .prompt('Place initial militia on unoccupied industries')
+    .condition(() => {
+      // Only available during Day 1 setup
+      return game.currentDay === 1;
+    })
+    .execute(() => {
+      placeInitialMilitia(game);
+      return { success: true, message: 'Initial militia placed' };
+    });
+}
+
+/**
+ * MERC-i4g5: Hire dictator's first MERC
+ * Per rules: Dictator draws 1 random MERC (Castro can draw 3 and pick 1)
+ */
+export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorHireFirstMerc')
+    .prompt('Hire your first MERC')
+    .condition(() => {
+      // Only available during Day 1 setup
+      return game.currentDay === 1;
+    })
+    .execute(() => {
+      hireDictatorMerc(game);
+      return { success: true, message: 'Dictator MERC hired' };
+    });
+}
+
+/**
+ * Apply dictator's special setup ability
+ * This is automatic based on which dictator is selected
+ */
+export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorSetupAbility')
+    .prompt('Apply dictator special ability')
+    .condition(() => {
+      return game.currentDay === 1;
+    })
+    .execute(() => {
+      applyDictatorSetupAbility(game);
+      return { success: true, message: 'Dictator ability applied' };
+    });
+}
+
+/**
+ * Draw tactics cards for dictator
+ * AI plays from deck top, human gets a hand
+ */
+export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorDrawTactics')
+    .prompt('Draw tactics cards')
+    .condition(() => {
+      return game.currentDay === 1;
+    })
+    .execute(() => {
+      drawTacticsHand(game);
+      return { success: true, message: 'Tactics cards drawn' };
+    });
+}
+
+/**
+ * MERC-l2nb: Place extra militia
+ * For AI: Distributes evenly among controlled sectors
+ * For human: Could allow choice of distribution (future enhancement)
+ */
+export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorPlaceExtraMilitia')
+    .prompt('Place extra militia')
+    .condition(() => {
+      return game.currentDay === 1 && game.setupConfig.dictatorStrength.extra > 0;
+    })
+    .execute(() => {
+      autoPlaceExtraMilitia(game);
+      return { success: true, message: 'Extra militia placed' };
+    });
+}
+
+/**
+ * Skip extra militia placement (when none to place)
+ */
+export function createDictatorSkipExtraMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorSkipExtraMilitia')
+    .prompt('No extra militia to place')
+    .condition(() => {
+      return game.currentDay === 1 && game.setupConfig.dictatorStrength.extra === 0;
+    })
+    .execute(() => {
+      return { success: true, message: 'No extra militia' };
+    });
+}
+
+// =============================================================================
 // Action Registration Helper
 // =============================================================================
 
@@ -3224,9 +3331,17 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatContinueAction(game));
   game.registerAction(createCombatRetreatAction(game));
 
-  // Day 1 specific actions
+  // Day 1 specific actions (Rebel)
   game.registerAction(createHireStartingMercsAction(game));
   game.registerAction(createEquipStartingAction(game));
+
+  // Day 1 specific actions (Dictator) - MERC-mtoq
+  game.registerAction(createDictatorPlaceInitialMilitiaAction(game));
+  game.registerAction(createDictatorHireFirstMercAction(game));
+  game.registerAction(createDictatorSetupAbilityAction(game));
+  game.registerAction(createDictatorDrawTacticsAction(game));
+  game.registerAction(createDictatorPlaceExtraMilitiaAction(game));
+  game.registerAction(createDictatorSkipExtraMilitiaAction(game));
 
   // Dictator actions
   game.registerAction(createPlayTacticsAction(game));
