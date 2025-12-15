@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useBoardInteraction } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
+
+// Get board interaction for checking selectable elements
+const boardInteraction = useBoardInteraction();
 
 const props = defineProps<{
   gameView: any;
@@ -14,20 +18,13 @@ const props = defineProps<{
   actionArgs: Record<string, unknown>;
   executeAction: (name: string) => Promise<void>;
   setBoardPrompt: (prompt: string | null) => void;
+  startAction: (name: string, initialArgs?: Record<string, unknown>) => void;
   state?: any; // Flow state from GameShell
 }>();
 
-const showDebug = ref(false);
-
-// Copy debug info to clipboard
-async function copyDebug() {
-  const debugInfo = `GameView Structure:\n${gameViewSummary.value}\n\nSectors found: ${sectors.value.length}\n\nAvailable Actions:\n${JSON.stringify(props.availableActions, null, 2)}\n\nAction Args:\n${JSON.stringify(props.actionArgs, null, 2)}\n\nFlow State:\n${JSON.stringify(props.state?.flowState, null, 2)}\n\nHirable MERCs (${hirableMercs.value.length}):\n${JSON.stringify(hirableMercs.value.slice(0, 3), null, 2)}`;
-  try {
-    await navigator.clipboard.writeText(debugInfo);
-    alert('Copied to clipboard!');
-  } catch (e) {
-    console.error('Failed to copy:', e);
-  }
+// Helper to normalize class name (strips underscore prefix)
+function normalizeClassName(className: string): string {
+  return className?.replace(/^_/, '') || '';
 }
 
 // Helper to find elements by className in gameView tree
@@ -35,8 +32,9 @@ function findByClassName(className: string, root?: any): any {
   if (!root) root = props.gameView;
   if (!root) return null;
 
-  // Check className or ref that contains the class name
-  if (root.className === className || root.ref?.includes(className.toLowerCase())) {
+  // Check className (handle underscore prefix) or ref that contains the class name
+  const rootClass = normalizeClassName(root.className);
+  if (rootClass === className || root.className === className || root.ref?.includes(className.toLowerCase())) {
     return root;
   }
 
@@ -56,7 +54,8 @@ function findAllByClassName(className: string, root?: any): any[] {
 
   function search(node: any) {
     if (!node) return;
-    if (node.className === className || node.ref?.includes(className.toLowerCase())) {
+    const nodeClass = normalizeClassName(node.className);
+    if (nodeClass === className || node.className === className || node.ref?.includes(className.toLowerCase())) {
       results.push(node);
     }
     if (node.children) {
@@ -86,6 +85,13 @@ function findByRef(ref: string, root?: any): any {
   return null;
 }
 
+// Helper to get property from node (checks attributes first, then root)
+function getAttr<T>(node: any, key: string, defaultVal: T): T {
+  if (node?.attributes && node.attributes[key] !== undefined) return node.attributes[key];
+  if (node && node[key] !== undefined) return node[key];
+  return defaultVal;
+}
+
 // Extract map sectors from gameView
 const sectors = computed(() => {
   // Try to find GameMap element
@@ -95,48 +101,60 @@ const sectors = computed(() => {
     const sectorElements = findAllByClassName('Sector');
     if (sectorElements.length > 0) {
       return sectorElements.map((s: any) => ({
-        sectorId: s.ref || s.sectorId || `sector-${s.row}-${s.col}`,
-        sectorName: s.sectorName || '',
-        sectorType: s.sectorType || 'Wilderness',
-        value: s.value || 0,
-        row: s.row ?? 0,
-        col: s.col ?? 0,
-        image: s.image,
-        explored: s.explored ?? false,
-        dictatorMilitia: s.dictatorMilitia ?? 0,
-        rebelMilitia: s.rebelMilitia || {},
+        sectorId: s.ref || getAttr(s, 'sectorId', '') || `sector-${getAttr(s, 'row', 0)}-${getAttr(s, 'col', 0)}`,
+        sectorName: getAttr(s, 'sectorName', ''),
+        sectorType: getAttr(s, 'sectorType', 'Wilderness'),
+        value: getAttr(s, 'value', 0),
+        row: getAttr(s, 'row', 0),
+        col: getAttr(s, 'col', 0),
+        image: getAttr(s, 'image', undefined),
+        explored: getAttr(s, 'explored', false),
+        dictatorMilitia: getAttr(s, 'dictatorMilitia', 0),
+        rebelMilitia: getAttr(s, 'rebelMilitia', {}),
       }));
     }
     return [];
   }
 
   return map.children
-    .filter((c: any) => c.className === 'Sector' || c.sectorId)
+    .filter((c: any) => c.className === 'Sector' || getAttr(c, 'sectorId', ''))
     .map((c: any) => ({
-      sectorId: c.ref || c.sectorId || `sector-${c.row}-${c.col}`,
-      sectorName: c.sectorName || '',
-      sectorType: c.sectorType || 'Wilderness',
-      value: c.value || 0,
-      row: c.row ?? 0,
-      col: c.col ?? 0,
-      image: c.image,
-      explored: c.explored ?? false,
-      dictatorMilitia: c.dictatorMilitia ?? 0,
-      rebelMilitia: c.rebelMilitia || {},
+      sectorId: c.ref || getAttr(c, 'sectorId', '') || `sector-${getAttr(c, 'row', 0)}-${getAttr(c, 'col', 0)}`,
+      sectorName: getAttr(c, 'sectorName', ''),
+      sectorType: getAttr(c, 'sectorType', 'Wilderness'),
+      value: getAttr(c, 'value', 0),
+      row: getAttr(c, 'row', 0),
+      col: getAttr(c, 'col', 0),
+      image: getAttr(c, 'image', undefined),
+      explored: getAttr(c, 'explored', false),
+      dictatorMilitia: getAttr(c, 'dictatorMilitia', 0),
+      rebelMilitia: getAttr(c, 'rebelMilitia', {}),
     }));
 });
 
 // Extract all players
 const players = computed(() => {
-  // Find player elements - try RebelPlayer and DictatorPlayer
+  // Try various player element names
   const rebelPlayers = findAllByClassName('RebelPlayer');
   const dictatorPlayers = findAllByClassName('DictatorPlayer');
+  const playerAreas = findAllByClassName('PlayerArea');
 
-  const all = [...rebelPlayers, ...dictatorPlayers];
-  return all.map((p: any) => ({
-    position: p.position ?? 0,
-    playerColor: p.playerColor,
-    isDictator: p.className === 'DictatorPlayer',
+  const all = [...rebelPlayers, ...dictatorPlayers, ...playerAreas];
+
+  if (all.length === 0) {
+    // Fallback: create player entries from flowState if available
+    // For now, just create a basic entry for current player
+    return [{
+      position: props.playerPosition,
+      playerColor: 'red', // Default color
+      isDictator: false,
+    }];
+  }
+
+  return all.map((p: any, index: number) => ({
+    position: getAttr(p, 'position', index),
+    playerColor: getAttr(p, 'playerColor', '') || getAttr(p, 'color', '') || ['red', 'blue', 'green', 'yellow'][index] || 'red',
+    isDictator: normalizeClassName(p.className) === 'DictatorPlayer',
   }));
 });
 
@@ -153,14 +171,18 @@ const allMercs = computed(() => {
   // Find rebel squads
   const squads = findAllByClassName('Squad');
   for (const squad of squads) {
-    const sectorId = squad.sectorId;
-    const playerColor = squad.playerColor;
+    const sectorId = getAttr(squad, 'sectorId', '');
+    const playerColor = getAttr(squad, 'playerColor', '') ||
+                        getAttr(squad, 'player', null)?.playerColor ||
+                        '';
 
     if (squad.children) {
       for (const merc of squad.children) {
-        if (merc.mercId || merc.className === 'MercCard') {
+        const mercId = getAttr(merc, 'mercId', '');
+        if (mercId || merc.className === 'MercCard') {
           mercs.push({
             ...merc,
+            mercId: mercId || merc.ref,
             sectorId,
             playerColor,
           });
@@ -172,11 +194,14 @@ const allMercs = computed(() => {
   // Find dictator MERCs
   const dictatorMercs = findAllByClassName('MercCard');
   for (const merc of dictatorMercs) {
-    if (merc.mercId && merc.sectorId) {
-      const exists = mercs.some((m) => m.mercId === merc.mercId);
+    const mercId = getAttr(merc, 'mercId', '') || merc.ref;
+    const sectorId = getAttr(merc, 'sectorId', '');
+    if (mercId && sectorId) {
+      const exists = mercs.some((m) => m.mercId === mercId);
       if (!exists) {
         mercs.push({
           ...merc,
+          mercId,
           playerColor: 'dictator',
         });
       }
@@ -234,18 +259,37 @@ const controlMap = computed(() => {
   return map;
 });
 
+// Helper to get player position from squad
+function getSquadPlayerPosition(squad: any): number {
+  // Try various ways to get player position
+  const player = getAttr(squad, 'player', null);
+  if (player?.position !== undefined) return player.position;
+  if (squad.player?.position !== undefined) return squad.player.position;
+  const playerPos = getAttr(squad, 'playerPosition', undefined);
+  if (playerPos !== undefined) return playerPos;
+  // Try checking ref for player number
+  const ref = squad.ref || '';
+  let match = ref.match(/player-?(\d+)/i);
+  if (match) return parseInt(match[1], 10);
+  // Try parsing from name attribute like "squad-0-primary"
+  const name = getAttr(squad, 'name', '');
+  match = name.match(/squad-(\d+)/i);
+  if (match) return parseInt(match[1], 10);
+  return -1;
+}
+
 // Get current player's squads
 const primarySquad = computed(() => {
   const squads = findAllByClassName('Squad');
-  const squad = squads.find(
-    (s: any) =>
-      s.player?.position === props.playerPosition &&
-      s.isPrimary === true
-  );
+  const squad = squads.find((s: any) => {
+    const playerPos = getSquadPlayerPosition(s);
+    const isPrimary = getAttr(s, 'isPrimary', false);
+    return playerPos === props.playerPosition && isPrimary === true;
+  });
 
   if (!squad) return undefined;
 
-  const sectorId = squad.sectorId;
+  const sectorId = getAttr(squad, 'sectorId', '');
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
   return {
@@ -254,22 +298,22 @@ const primarySquad = computed(() => {
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => c.mercId || c.className === 'MercCard')
+      .filter((c: any) => getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard')
       .map((c: any) => c),
   };
 });
 
 const secondarySquad = computed(() => {
   const squads = findAllByClassName('Squad');
-  const squad = squads.find(
-    (s: any) =>
-      s.player?.position === props.playerPosition &&
-      s.isPrimary === false
-  );
+  const squad = squads.find((s: any) => {
+    const playerPos = getSquadPlayerPosition(s);
+    const isPrimary = getAttr(s, 'isPrimary', true); // Default true so we exclude unless explicitly false
+    return playerPos === props.playerPosition && isPrimary === false;
+  });
 
   if (!squad) return undefined;
 
-  const sectorId = squad.sectorId;
+  const sectorId = getAttr(squad, 'sectorId', '');
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
   return {
@@ -278,7 +322,7 @@ const secondarySquad = computed(() => {
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => c.mercId || c.className === 'MercCard')
+      .filter((c: any) => getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard')
       .map((c: any) => c),
   };
 });
@@ -302,27 +346,95 @@ const isPlacingLanding = computed(() => {
   return props.availableActions.includes('placeLanding');
 });
 
+// Get landing zone action metadata
+const landingZoneMetadata = computed(() => {
+  if (!isPlacingLanding.value) return null;
+  return props.state?.state?.actionMetadata?.placeLanding;
+});
+
 // Check if we're equipping starting equipment
 const isEquipping = computed(() => {
   return props.availableActions.includes('equipStarting');
 });
 
-// Get MERCs available for hiring from action args
+// Use the shared actionArgs from GameShell (props.actionArgs) instead of local state
+// This allows both custom UI and ActionPanel to potentially share state
+
+// Get action metadata for the current action
+const currentActionMetadata = computed(() => {
+  if (!isHiringMercs.value) return null;
+  return props.state?.state?.actionMetadata?.hireStartingMercs;
+});
+
+// Get the current selection (first one that hasn't been filled yet)
+// Reads from props.actionArgs (shared state)
+const currentSelection = computed(() => {
+  const metadata = currentActionMetadata.value;
+  if (!metadata?.selections?.length) return null;
+
+  // Find first selection that doesn't have a value in actionArgs
+  for (const sel of metadata.selections) {
+    if (props.actionArgs[sel.name] === undefined) {
+      return sel;
+    }
+  }
+  return null; // All selections filled
+});
+
+// Check if all selections are filled
+const allSelectionsComplete = computed(() => {
+  const metadata = currentActionMetadata.value;
+  if (!metadata?.selections?.length) return false;
+
+  for (const sel of metadata.selections) {
+    if (props.actionArgs[sel.name] === undefined) {
+      return false;
+    }
+  }
+  return true;
+});
+
+// Helper to find a MERC by name anywhere in the gameView tree
+function findMercByName(name: string, node?: any): any {
+  if (!node) node = props.gameView;
+  if (!node) return null;
+
+  const mercName = getAttr(node, 'mercName', '');
+  if (mercName.toLowerCase() === name.toLowerCase()) {
+    return node;
+  }
+
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findMercByName(name, child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Get MERCs available for hiring from action metadata
 const hirableMercs = computed(() => {
-  const choices = actionChoices.value;
-  // Look for merc choices in various possible formats
-  if (choices.mercs && Array.isArray(choices.mercs)) {
-    return choices.mercs;
-  }
-  if (choices.mercChoices && Array.isArray(choices.mercChoices)) {
-    return choices.mercChoices;
-  }
-  // Check for drawn MERCs in deck
-  const mercDeck = findByRef('merc-deck') || findByClassName('MercDeck');
-  if (mercDeck?.children) {
-    return mercDeck.children.slice(0, 3); // First 3 for hiring
-  }
-  return [];
+  const selection = currentSelection.value;
+  if (!selection?.choices) return [];
+
+  // Get already-selected merc names from shared actionArgs to filter them out
+  const selectedMercs = Object.values(props.actionArgs || {}) as string[];
+
+  // Find MERCs anywhere in the gameView and attach the original choice value
+  // Filter out MERCs that have already been selected
+  return selection.choices
+    .filter((choice: any) => {
+      const choiceValue = choice.value || choice.display || choice;
+      return !selectedMercs.includes(choiceValue);
+    })
+    .map((choice: any) => {
+      const choiceValue = choice.value || choice.display || choice;
+      const merc = findMercByName(choiceValue);
+      // Attach the original choice value so we can use it when clicking
+      const result = merc ? { ...merc, _choiceValue: choiceValue } : { mercName: choiceValue, attributes: { mercName: choiceValue }, _choiceValue: choiceValue };
+      return result;
+    });
 });
 
 // Get available landing sectors (edge sectors)
@@ -348,32 +460,100 @@ function getMercDisplayName(merc: any): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-// Check if we're on the second step of hiring (firstMerc already selected)
-const isSecondMercStep = computed(() => {
-  // Check flowState for pendingArgs containing firstMerc
-  const flowState = props.state?.flowState;
-  if (flowState?.pendingArgs?.firstMerc) return true;
-  // Also check actionArgs
-  if (props.actionArgs?.firstMerc) return true;
-  return false;
-});
-
-// Handle clicking a MERC to hire - immediately calls the action to sync with ActionPanel
+// Handle clicking a MERC to hire - uses unified actionArgs with ActionPanel
 async function selectMercToHire(merc: any) {
-  const mercName = getMercDisplayName(merc);
-  if (!mercName) return;
+  console.log('selectMercToHire called with:', merc);
 
-  // Determine which argument to use based on the step
-  const argName = isSecondMercStep.value ? 'secondMerc' : 'firstMerc';
+  const selection = currentSelection.value;
+  console.log('Current selection:', selection);
+  if (!selection) {
+    console.log('No selection available, returning');
+    return;
+  }
 
-  // Call the action with the selected MERC name (capitalized)
-  await props.action('hireStartingMercs', { [argName]: mercName });
+  // Use the original choice value (attached during lookup)
+  const choiceValue = merc._choiceValue;
+  console.log('Choice value:', choiceValue);
+  if (!choiceValue) {
+    console.log('No choice value, returning');
+    return;
+  }
+
+  // Check if this is the first selection (action not yet started)
+  const isFirstSelection = Object.keys(props.actionArgs).length === 0;
+
+  if (isFirstSelection) {
+    // Use startAction with initial args (correct pattern per BoardSmith docs)
+    // This starts the action in ActionPanel and pre-fills the first selection
+    console.log('Starting action with initial selection:', { [selection.name]: choiceValue });
+    props.startAction('hireStartingMercs', { [selection.name]: choiceValue });
+  } else {
+    // Action already started - write directly to actionArgs for subsequent selections
+    props.actionArgs[selection.name] = choiceValue;
+    console.log('Updated actionArgs:', { ...props.actionArgs });
+
+    // Check if all selections are now complete and execute if so
+    // (ActionPanel's auto-execute doesn't trigger when we write to actionArgs externally)
+    const metadata = currentActionMetadata.value;
+    if (metadata?.selections) {
+      const allFilled = metadata.selections.every(
+        (sel: any) => props.actionArgs[sel.name] !== undefined
+      );
+      if (allFilled) {
+        console.log('All selections filled, executing action');
+        await props.executeAction('hireStartingMercs');
+      }
+    }
+  }
 }
 
 // Handle sector clicks for actions
-function handleSectorClick(sectorId: string) {
-  if (props.availableActions.includes('placeLanding')) {
-    props.action('placeLanding', { sectorId });
+async function handleSectorClick(sectorId: string) {
+  if (isPlacingLanding.value) {
+    // Get the selection from metadata
+    const metadata = landingZoneMetadata.value;
+    const selection = metadata?.selections?.[0];
+    const selectionName = selection?.name || 'sector';
+    const selectionType = selection?.type;
+
+    console.log('Selection details:', { name: selectionName, type: selectionType, selection });
+
+    // Find the sector
+    const sector = sectors.value.find(s => s.sectorId === sectorId);
+
+    // Determine the value to send based on selection type
+    let actionValue: any;
+
+    if (selectionType === 'element') {
+      // Element selections expect element IDs - find the sector element ID
+      // The sectorId might need to be converted to an element ID
+      // For now, try using the sectorId directly or look up from validElements
+      const validElements = selection?.validElements || [];
+      const matchingElement = validElements.find((e: any) =>
+        e.ref?.name === sectorId ||
+        e.ref?.notation === sectorId ||
+        e.display === sector?.sectorName
+      );
+      actionValue = matchingElement?.id || sectorId;
+      console.log('Element selection - validElements:', validElements, 'matched:', matchingElement, 'using:', actionValue);
+    } else {
+      // Choice selections - use sector name
+      const choices = selection?.choices || [];
+      const matchingChoice = choices.find((c: any) => {
+        const choiceValue = c.value || c.display || c;
+        return choiceValue === sector?.sectorName ||
+               choiceValue === sectorId ||
+               choiceValue.includes(sector?.sectorName);
+      });
+      actionValue = matchingChoice?.value || matchingChoice?.display || sector?.sectorName || sectorId;
+      console.log('Choice selection - choices:', choices, 'using:', actionValue);
+    }
+
+    console.log('Executing placeLanding with:', { [selectionName]: actionValue });
+
+    // Execute the action
+    const result = await props.action('placeLanding', { [selectionName]: actionValue });
+    console.log('placeLanding result:', result);
   } else if (props.availableActions.includes('move')) {
     props.action('move', { sectorId });
   }
@@ -382,88 +562,77 @@ function handleSectorClick(sectorId: string) {
 // Clickable sectors based on available actions
 const clickableSectors = computed(() => {
   if (isPlacingLanding.value) {
-    return landingSectors.value.map((s) => s.sectorId);
+    // Get valid choices from action metadata
+    const metadata = landingZoneMetadata.value;
+    const selection = metadata?.selections?.[0];
+    const choices = selection?.choices || [];
+
+    console.log('placeLanding metadata:', metadata);
+    console.log('placeLanding choices:', choices);
+
+    if (choices.length > 0) {
+      // Find sectors that match the choices
+      const validSectorIds: string[] = [];
+      for (const choice of choices) {
+        const choiceValue = choice.value || choice.display || choice;
+        // Find sector by name match
+        const matchingSector = sectors.value.find(s =>
+          s.sectorName === choiceValue ||
+          choiceValue.includes(s.sectorName)
+        );
+        if (matchingSector) {
+          validSectorIds.push(matchingSector.sectorId);
+        }
+      }
+      console.log('Valid sector IDs from choices:', validSectorIds);
+      if (validSectorIds.length > 0) {
+        return validSectorIds;
+      }
+    }
+
+    // Fallback to edge sectors (all edge sectors are valid landing zones)
+    const edgeSectors = landingSectors.value.map((s) => s.sectorId);
+    console.log('Fallback to edge sectors:', edgeSectors);
+    return edgeSectors;
   }
   return [];
 });
 
-// Debug: get summary of gameView structure
-const gameViewSummary = computed(() => {
-  if (!props.gameView) return 'No gameView';
-
-  function summarize(node: any, depth: number = 0): string {
-    if (!node || depth > 3) return '';
-    const indent = '  '.repeat(depth);
-    const className = node.className || 'unknown';
-    const ref = node.ref ? ` (${node.ref})` : '';
-    const childCount = node.children?.length || 0;
-
-    let result = `${indent}${className}${ref}`;
-    if (childCount > 0) {
-      result += ` [${childCount} children]`;
-    }
-    result += '\n';
-
-    if (node.children && depth < 2) {
-      for (const child of node.children.slice(0, 5)) {
-        result += summarize(child, depth + 1);
-      }
-      if (node.children.length > 5) {
-        result += `${indent}  ... and ${node.children.length - 5} more\n`;
-      }
-    }
-
-    return result;
-  }
-
-  return summarize(props.gameView);
-});
 </script>
 
 <template>
   <div class="game-board">
-    <!-- Debug toggle -->
-    <button class="debug-toggle" @click="showDebug = !showDebug">
-      {{ showDebug ? 'Hide' : 'Show' }} Debug
-    </button>
+    <!-- Hiring phase - show MERCs to choose from -->
+    <div v-if="isHiringMercs" class="hiring-phase">
+      <div class="hiring-header">
+        <div class="hiring-icon">👥</div>
+        <div class="hiring-content">
+          <h2 class="hiring-title">Hiring Phase</h2>
+          <p class="hiring-prompt">{{ currentSelection?.prompt || state?.flowState?.prompt || 'Select your MERCs' }}</p>
+        </div>
+      </div>
 
-    <!-- Debug panel -->
-    <div v-if="showDebug" class="debug-panel">
-      <button class="copy-btn" @click="copyDebug">Copy to Clipboard</button>
-      <h3>GameView Structure:</h3>
-      <pre>{{ gameViewSummary }}</pre>
-      <h3>Sectors found: {{ sectors.length }}</h3>
-      <h3>Available Actions:</h3>
-      <pre>{{ availableActions }}</pre>
-      <h3>Action Args:</h3>
-      <pre>{{ JSON.stringify(actionArgs, null, 2) }}</pre>
-      <h3>Flow State (pendingArgs):</h3>
-      <pre>{{ JSON.stringify(state?.flowState?.pendingArgs, null, 2) }}</pre>
-      <h3>Is Second MERC Step: {{ isSecondMercStep }}</h3>
-      <h3>Hirable MERCs ({{ hirableMercs.length }}):</h3>
-      <pre>{{ JSON.stringify(hirableMercs.slice(0, 2), null, 2) }}</pre>
-    </div>
+      <!-- Show already-selected MERCs from shared actionArgs -->
+      <div v-if="Object.keys(actionArgs).length > 0" class="selected-mercs">
+        <span class="selected-label">Selected:</span>
+        <span v-for="(value, key) in actionArgs" :key="key" class="selected-merc-badge">
+          {{ value }}
+        </span>
+      </div>
 
-    <!-- Action Panel - shown when player needs to make a choice -->
-    <div v-if="isHiringMercs" class="action-panel">
-      <h2 class="action-title">Choose MERCs to Hire</h2>
-      <p class="action-subtitle">
-        {{ isSecondMercStep ? 'Select your SECOND MERC' : 'Select your FIRST MERC' }}
-        (first 2 are free)
-      </p>
-      <div class="merc-choices">
+      <div class="merc-choices" v-if="hirableMercs.length > 0">
         <div
           v-for="merc in hirableMercs"
           :key="getMercId(merc)"
           class="merc-choice"
           @click="selectMercToHire(merc)"
         >
-          <MercCard
-            :merc="merc"
-            :player-color="currentPlayerColor"
-            :show-equipment="false"
-          />
+          <MercCard :merc="merc" :player-color="currentPlayerColor" />
         </div>
+      </div>
+
+      <div v-else class="use-action-panel">
+        <p class="action-panel-hint">Loading MERCs...</p>
       </div>
     </div>
 
@@ -517,75 +686,63 @@ const gameViewSummary = computed(() => {
   position: relative;
 }
 
-.debug-toggle {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 4px 12px;
-  background: v-bind('UI_COLORS.backgroundLight');
-  color: v-bind('UI_COLORS.text');
-  border: 1px solid v-bind('UI_COLORS.border');
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  z-index: 100;
-}
-
-.debug-panel {
-  background: rgba(0, 0, 0, 0.8);
-  color: #0f0;
-  padding: 12px;
-  border-radius: 8px;
-  font-family: monospace;
-  font-size: 0.75rem;
-  max-height: 300px;
-  overflow: auto;
-  position: relative;
-}
-
-.debug-panel h3 {
-  color: #0ff;
-  margin: 8px 0 4px;
-}
-
-.debug-panel pre {
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-.copy-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 4px 10px;
-  background: #0f0;
-  color: #000;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: bold;
-}
-
-.copy-btn:hover {
-  background: #0a0;
-}
-
-.action-panel {
+.hiring-phase {
   background: v-bind('UI_COLORS.cardBg');
+  border: 2px solid v-bind('UI_COLORS.accent');
   border-radius: 12px;
-  padding: 20px;
+  padding: 20px 24px;
 }
 
-.action-title {
+.hiring-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.hiring-icon {
+  font-size: 2.5rem;
+}
+
+.hiring-content {
+  flex: 1;
+}
+
+.hiring-title {
   color: v-bind('UI_COLORS.accent');
-  font-size: 1.3rem;
-  margin: 0 0 8px;
+  font-size: 1.4rem;
+  margin: 0 0 4px;
+  font-weight: 700;
 }
 
-.action-subtitle {
+.hiring-prompt {
+  color: v-bind('UI_COLORS.text');
+  margin: 0;
+  font-size: 1rem;
+}
+
+.selected-mercs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: v-bind('UI_COLORS.backgroundLight');
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.selected-label {
   color: v-bind('UI_COLORS.textMuted');
-  margin: 0 0 16px;
+  font-size: 0.9rem;
+}
+
+.selected-merc-badge {
+  background: v-bind('UI_COLORS.accent');
+  color: v-bind('UI_COLORS.background');
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .merc-choices {
@@ -604,6 +761,51 @@ const gameViewSummary = computed(() => {
 .merc-choice:hover {
   transform: translateY(-4px);
   box-shadow: 0 0 0 3px v-bind('UI_COLORS.accent'), 0 8px 24px rgba(212, 168, 75, 0.4);
+}
+
+.no-mercs-message {
+  color: v-bind('UI_COLORS.textMuted');
+  text-align: center;
+  font-style: italic;
+}
+
+.use-action-panel {
+  text-align: center;
+  padding: 20px;
+}
+
+.action-panel-hint {
+  color: v-bind('UI_COLORS.text');
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+}
+
+.arrow-down {
+  font-size: 2rem;
+  color: v-bind('UI_COLORS.accent');
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+.action-panel {
+  background: v-bind('UI_COLORS.cardBg');
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.action-title {
+  color: v-bind('UI_COLORS.accent');
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+}
+
+.action-subtitle {
+  color: v-bind('UI_COLORS.textMuted');
+  margin: 0 0 16px;
 }
 
 .board-layout {

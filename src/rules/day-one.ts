@@ -158,8 +158,11 @@ export function getUnoccupiedIndustries(game: MERCGame): Sector[] {
 
   // Mark sectors where rebels have landed as occupied
   for (const rebel of game.rebelPlayers) {
-    if (rebel.primarySquad.sectorId) {
+    if (rebel.primarySquad?.sectorId) {
       occupiedSectorIds.add(rebel.primarySquad.sectorId);
+    }
+    if (rebel.secondarySquad?.sectorId) {
+      occupiedSectorIds.add(rebel.secondarySquad.sectorId);
     }
   }
 

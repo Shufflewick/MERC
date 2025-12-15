@@ -10,7 +10,7 @@ import { UI_COLORS } from './colors';
     display-name="MERC"
     :player-count="2"
   >
-    <template #game-board="{ state, gameView, playerPosition, isMyTurn, availableActions, action, actionArgs, executeAction, setBoardPrompt }">
+    <template #game-board="{ state, gameView, playerPosition, isMyTurn, availableActions, action, actionArgs, executeAction, setBoardPrompt, startAction }">
       <GameBoard
         :game-view="gameView"
         :player-position="playerPosition"
@@ -20,6 +20,7 @@ import { UI_COLORS } from './colors';
         :action-args="actionArgs"
         :execute-action="executeAction"
         :set-board-prompt="setBoardPrompt"
+        :start-action="startAction"
         :state="state"
       />
     </template>

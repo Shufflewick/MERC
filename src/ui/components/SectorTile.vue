@@ -41,12 +41,13 @@ const borderColor = computed(() => {
 
 const displayName = computed(() => {
   const { sectorName, sectorType } = props.sector;
-  if (sectorType === 'Industry') {
-    return `${sectorName} Industry`;
-  } else if (sectorType === 'City') {
-    return `${sectorName} City`;
+  // sectorName already includes the type (e.g., "Silver Industry", "Maplewood City")
+  // Just use sectorName directly unless it's missing
+  if (sectorName) {
+    return sectorName;
   }
-  return sectorType; // Wilderness
+  // Fallback to just showing the type
+  return sectorType;
 });
 
 const imagePath = computed(() => {

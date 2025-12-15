@@ -132,17 +132,57 @@ interface TacticsData {
 export class RebelPlayer extends Player {
   playerColor!: PlayerColor;
 
-  // Squads (set by game after creation)
-  primarySquad!: Squad;
-  secondarySquad!: Squad;
+  // Squad refs - store IDs instead of direct references to avoid stale refs after deserialization
+  primarySquadRef!: string;
+  secondarySquadRef!: string;
 
-  // Player area
-  area!: PlayerArea;
+  // Player area ref
+  areaRef!: string;
+
+  // Getters that look up elements fresh from the game tree
+  // Using name-based lookups to avoid stale object references after deserialization
+  get primarySquad(): Squad {
+    const game = this.game as MERCGame;
+    if (!game) {
+      throw new Error(`primarySquad: game not set for player ${this.position}`);
+    }
+    const squad = game.first(Squad, s => s.name === this.primarySquadRef);
+    if (!squad) {
+      throw new Error(`primarySquad: could not find squad "${this.primarySquadRef}" for player ${this.position}`);
+    }
+    return squad;
+  }
+
+  get secondarySquad(): Squad {
+    const game = this.game as MERCGame;
+    if (!game) {
+      throw new Error(`secondarySquad: game not set for player ${this.position}`);
+    }
+    const squad = game.first(Squad, s => s.name === this.secondarySquadRef);
+    if (!squad) {
+      throw new Error(`secondarySquad: could not find squad "${this.secondarySquadRef}" for player ${this.position}`);
+    }
+    return squad;
+  }
+
+  get area(): PlayerArea {
+    const game = this.game as MERCGame;
+    if (!game) {
+      throw new Error(`area: game not set for player ${this.position}`);
+    }
+    const area = game.first(PlayerArea, a => a.name === this.areaRef);
+    if (!area) {
+      throw new Error(`area: could not find area "${this.areaRef}" for player ${this.position}`);
+    }
+    return area;
+  }
 
   get team(): MercCard[] {
     const mercs: MercCard[] = [];
-    if (this.primarySquad) mercs.push(...this.primarySquad.getMercs());
-    if (this.secondarySquad) mercs.push(...this.secondarySquad.getMercs());
+    const primary = this.primarySquad;
+    const secondary = this.secondarySquad;
+    if (primary) mercs.push(...primary.getMercs());
+    if (secondary) mercs.push(...secondary.getMercs());
     return mercs;
   }
 
@@ -230,7 +270,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Game state
   // Use 'declare' to avoid class field initialization overwriting the value set in createPlayer()
   declare dictatorPlayer: DictatorPlayer;
-  rebelPlayers: RebelPlayer[] = [];
+
+  // Use getter to always get fresh player references from the BoardSmith-managed players array
+  get rebelPlayers(): RebelPlayer[] {
+    return this.players.filter((p): p is RebelPlayer => p instanceof RebelPlayer);
+  }
 
   // MERC-a2h: Track pending coordinated attacks across multiple rebel players
   // Key: target sectorId, Value: array of { playerId, squadType }
@@ -329,12 +373,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   protected override createPlayer(position: number, name: string): MERCPlayer {
-    // Initialize rebelPlayers if not already done (needed because createPlayer
-    // is called from super() before class property initializers run)
-    if (!this.rebelPlayers) {
-      this.rebelPlayers = [];
-    }
-
     // Last player is the Dictator, others are Rebels
     // This ensures that with --ai 1, the AI (last position) is the dictator
     // and human players (earlier positions) are rebels
@@ -354,14 +392,19 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
       rebel.playerColor = colors[position % colors.length];
 
-      // Create squads for rebel
-      rebel.primarySquad = this.create(Squad, `squad-${position}-primary`, { isPrimary: true });
-      rebel.secondarySquad = this.create(Squad, `squad-${position}-secondary`, { isPrimary: false });
+      // Create squads for rebel and store refs (not direct references)
+      const primaryRef = `squad-${position}-primary`;
+      const secondaryRef = `squad-${position}-secondary`;
+      const areaRef = `area-${position}`;
 
-      // Create player area
-      rebel.area = this.create(PlayerArea, `area-${position}`);
+      this.create(Squad, primaryRef, { isPrimary: true });
+      this.create(Squad, secondaryRef, { isPrimary: false });
+      this.create(PlayerArea, areaRef);
 
-      this.rebelPlayers.push(rebel);
+      rebel.primarySquadRef = primaryRef;
+      rebel.secondarySquadRef = secondaryRef;
+      rebel.areaRef = areaRef;
+
       return rebel;
     }
   }

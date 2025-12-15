@@ -1974,6 +1974,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
 
   return Action.create('hireStartingMercs')
     .prompt('Hire your starting MERCs')
+    .notUndoable() // Involves randomness (drawing cards) - disables undo for rest of Day 1
     .condition((ctx) => {
       const player = ctx.player as RebelPlayer;
       return player.teamSize === 0; // Only show if player hasn't hired yet
@@ -2070,6 +2071,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
 export function createEquipStartingAction(game: MERCGame): ActionDefinition {
   return Action.create('equipStarting')
     .prompt('Equip starting equipment')
+    .notUndoable() // Involves randomness (drawing equipment)
     .condition((ctx) => {
       const player = ctx.player as RebelPlayer;
       return player.team.some(merc =>
