@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-
-interface Card {
-  id: string;
-  name: string;
-  attributes?: {
-    rank?: string;
-    suit?: string;
-  };
-}
+import MapGrid from './MapGrid.vue';
+import SquadPanel from './SquadPanel.vue';
+import { UI_COLORS } from '../colors';
 
 const props = defineProps<{
   gameView: any;
@@ -21,80 +15,267 @@ const props = defineProps<{
   setBoardPrompt: (prompt: string | null) => void;
 }>();
 
-// Computed properties to extract data from gameView
-const myHand = computed<Card[]>(() => {
-  if (!props.gameView) return [];
-  const handElement = props.gameView.children?.find(
-    (c: any) => c.attributes?.$type === 'hand' && c.attributes?.player?.position === props.playerPosition
+// Helper to find elements by $type in gameView tree
+function findByType(type: string, root?: any): any {
+  if (!root) root = props.gameView;
+  if (!root) return null;
+
+  if (root.attributes?.$type === type) return root;
+
+  if (root.children) {
+    for (const child of root.children) {
+      const found = findByType(type, child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Find all elements of a type
+function findAllByType(type: string, root?: any): any[] {
+  if (!root) root = props.gameView;
+  const results: any[] = [];
+
+  function search(node: any) {
+    if (!node) return;
+    if (node.attributes?.$type === type) {
+      results.push(node);
+    }
+    if (node.children) {
+      for (const child of node.children) {
+        search(child);
+      }
+    }
+  }
+
+  search(root);
+  return results;
+}
+
+// Extract map sectors from gameView
+const sectors = computed(() => {
+  const map = findByType('map');
+  if (!map?.children) return [];
+
+  return map.children
+    .filter((c: any) => c.attributes?.sectorId)
+    .map((c: any) => ({
+      sectorId: c.attributes.sectorId,
+      sectorName: c.attributes.sectorName || '',
+      sectorType: c.attributes.sectorType || 'Wilderness',
+      value: c.attributes.value || 0,
+      row: c.attributes.row ?? 0,
+      col: c.attributes.col ?? 0,
+      image: c.attributes.image,
+      explored: c.attributes.explored ?? false,
+      dictatorMilitia: c.attributes.dictatorMilitia ?? 0,
+      rebelMilitia: c.attributes.rebelMilitia || {},
+    }));
+});
+
+// Extract all players
+const players = computed(() => {
+  const playerElements = findAllByType('player');
+  return playerElements.map((p: any) => ({
+    position: p.attributes?.position ?? 0,
+    playerColor: p.attributes?.playerColor,
+    isDictator: p.attributes?.isDictator ?? false,
+  }));
+});
+
+// Current player's color
+const currentPlayerColor = computed(() => {
+  const player = players.value.find((p) => p.position === props.playerPosition);
+  return player?.playerColor || 'red';
+});
+
+// Extract all MERCs with their locations
+const allMercs = computed(() => {
+  const mercs: any[] = [];
+
+  // Find rebel squads
+  const squads = findAllByType('squad');
+  for (const squad of squads) {
+    const sectorId = squad.attributes?.sectorId;
+    const playerColor = squad.attributes?.playerColor;
+
+    if (squad.children) {
+      for (const merc of squad.children) {
+        if (merc.attributes?.mercId) {
+          mercs.push({
+            ...merc.attributes,
+            sectorId,
+            playerColor,
+          });
+        }
+      }
+    }
+  }
+
+  // Find dictator MERCs (they have sectorId directly)
+  const dictatorMercs = findAllByType('merc');
+  for (const merc of dictatorMercs) {
+    if (merc.attributes?.mercId && merc.attributes?.sectorId) {
+      // Check if not already added from a squad
+      const exists = mercs.some((m) => m.mercId === merc.attributes.mercId);
+      if (!exists) {
+        mercs.push({
+          ...merc.attributes,
+          playerColor: 'dictator',
+        });
+      }
+    }
+  }
+
+  return mercs;
+});
+
+// Build control map (sectorId -> playerColor who controls it)
+const controlMap = computed(() => {
+  const map: Record<string, string | undefined> = {};
+
+  for (const sector of sectors.value) {
+    // Simple control check: whoever has more units controls
+    // MERCs count + militia count
+    let dictatorUnits = sector.dictatorMilitia;
+    const rebelUnits: Record<string, number> = {};
+
+    // Count dictator MERCs in sector
+    const dictatorMercsInSector = allMercs.value.filter(
+      (m) => m.sectorId === sector.sectorId && m.playerColor === 'dictator'
+    );
+    dictatorUnits += dictatorMercsInSector.length;
+
+    // Count rebel militia
+    for (const [color, count] of Object.entries(sector.rebelMilitia || {})) {
+      rebelUnits[color] = (rebelUnits[color] || 0) + (count as number);
+    }
+
+    // Count rebel MERCs
+    const rebelMercsInSector = allMercs.value.filter(
+      (m) => m.sectorId === sector.sectorId && m.playerColor !== 'dictator'
+    );
+    for (const merc of rebelMercsInSector) {
+      const color = merc.playerColor || 'unknown';
+      rebelUnits[color] = (rebelUnits[color] || 0) + 1;
+    }
+
+    // Determine controller
+    let maxUnits = 0;
+    let controller: string | undefined;
+
+    // Check dictator first (wins ties)
+    if (dictatorUnits > 0) {
+      maxUnits = dictatorUnits;
+      controller = 'dictator';
+    }
+
+    // Check rebels
+    for (const [color, units] of Object.entries(rebelUnits)) {
+      if (units > maxUnits) {
+        maxUnits = units;
+        controller = color;
+      }
+    }
+
+    if (maxUnits > 0) {
+      map[sector.sectorId] = controller;
+    }
+  }
+
+  return map;
+});
+
+// Get current player's squads
+const primarySquad = computed(() => {
+  const squads = findAllByType('squad');
+  const squad = squads.find(
+    (s: any) =>
+      s.attributes?.player?.position === props.playerPosition &&
+      s.attributes?.isPrimary === true
   );
-  return handElement?.children?.filter((c: any) => c.attributes?.rank) || [];
-});
 
-const deckCount = computed(() => {
-  if (!props.gameView) return 0;
-  const deck = props.gameView.children?.find((c: any) => c.attributes?.$type === 'deck');
-  return deck?.children?.length || deck?.childCount || 0;
-});
+  if (!squad) return undefined;
 
-// Helpers
-function getSuitSymbol(suit: string): string {
-  const symbols: Record<string, string> = {
-    'H': '\u2665', 'D': '\u2666', 'C': '\u2663', 'S': '\u2660',
-    'hearts': '\u2665', 'diamonds': '\u2666', 'clubs': '\u2663', 'spades': '\u2660',
+  const sectorId = squad.attributes?.sectorId;
+  const sector = sectors.value.find((s) => s.sectorId === sectorId);
+
+  return {
+    squadId: squad.attributes?.squadId || 'primary',
+    isPrimary: true,
+    sectorId,
+    sectorName: sector?.sectorName,
+    mercs: (squad.children || [])
+      .filter((c: any) => c.attributes?.mercId)
+      .map((c: any) => c.attributes),
   };
-  return symbols[suit] || suit;
+});
+
+const secondarySquad = computed(() => {
+  const squads = findAllByType('squad');
+  const squad = squads.find(
+    (s: any) =>
+      s.attributes?.player?.position === props.playerPosition &&
+      s.attributes?.isPrimary === false
+  );
+
+  if (!squad) return undefined;
+
+  const sectorId = squad.attributes?.sectorId;
+  const sector = sectors.value.find((s) => s.sectorId === sectorId);
+
+  return {
+    squadId: squad.attributes?.squadId || 'secondary',
+    isPrimary: false,
+    sectorId,
+    sectorName: sector?.sectorName,
+    mercs: (squad.children || [])
+      .filter((c: any) => c.attributes?.mercId)
+      .map((c: any) => c.attributes),
+  };
+});
+
+// Handle sector clicks for actions
+function handleSectorClick(sectorId: string) {
+  // Check if we have an action that needs a sector
+  if (props.availableActions.includes('move')) {
+    props.action('move', { sectorId });
+  } else if (props.availableActions.includes('placeLanding')) {
+    props.action('placeLanding', { sectorId });
+  }
 }
 
-function getSuitColor(suit: string): string {
-  return suit === 'H' || suit === 'D' || suit === 'hearts' || suit === 'diamonds' ? '#e74c3c' : '#2c3e50';
-}
-
-// Actions
-async function drawCard() {
-  if (!props.isMyTurn || !props.availableActions.includes('draw')) return;
-  await props.action('draw', {});
-}
-
-async function playCard(card: Card) {
-  if (!props.isMyTurn || !props.availableActions.includes('play')) return;
-  await props.action('play', { card: card.id });
-}
+// Clickable sectors based on available actions
+const clickableSectors = computed(() => {
+  // This would ideally come from actionArgs or game state
+  // For now, return empty array - sectors become clickable based on action context
+  return [];
+});
 </script>
 
 <template>
   <div class="game-board">
-    <!-- Deck Area -->
-    <div class="deck-area">
-      <div
-        class="deck"
-        :class="{ clickable: isMyTurn && availableActions.includes('draw') }"
-        @click="drawCard"
-      >
-        <span v-if="deckCount > 0">{{ deckCount }} cards</span>
-        <span v-else>Empty</span>
+    <!-- Main content: Map + Squad Panel -->
+    <div class="board-layout">
+      <!-- Map Section -->
+      <div class="map-section">
+        <MapGrid
+          :sectors="sectors"
+          :mercs="allMercs"
+          :players="players"
+          :control-map="controlMap"
+          :clickable-sectors="clickableSectors"
+          @sector-click="handleSectorClick"
+        />
       </div>
-      <div class="deck-label">Deck</div>
-    </div>
 
-    <!-- My Hand -->
-    <div class="hand-area">
-      <div class="area-header">
-        <span class="area-title">Your Hand</span>
-        <span class="card-count">{{ myHand.length }} cards</span>
-      </div>
-      <div class="cards">
-        <div
-          v-for="card in myHand"
-          :key="card.id"
-          class="card"
-          :class="{ clickable: isMyTurn && availableActions.includes('play') }"
-          :style="{ color: getSuitColor(card.attributes?.suit || '') }"
-          @click="playCard(card)"
-        >
-          <span class="rank">{{ card.attributes?.rank }}</span>
-          <span class="suit">{{ getSuitSymbol(card.attributes?.suit || '') }}</span>
-        </div>
-        <div v-if="myHand.length === 0" class="no-cards">No cards in hand</div>
+      <!-- Squad Panel -->
+      <div class="squad-section">
+        <SquadPanel
+          :primary-squad="primarySquad"
+          :secondary-squad="secondarySquad"
+          :player-color="currentPlayerColor"
+        />
       </div>
     </div>
 
@@ -109,118 +290,47 @@ async function playCard(card: Card) {
 .game-board {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 30px;
-  padding: 20px;
+  gap: 16px;
+  padding: 16px;
+  min-height: 100%;
+  background: v-bind('UI_COLORS.background');
 }
 
-.deck-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.deck {
-  width: 100px;
-  height: 140px;
-  background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-  transition: transform 0.2s;
-}
-
-.deck.clickable {
-  cursor: pointer;
-}
-
-.deck.clickable:hover {
-  transform: translateY(-4px);
-}
-
-.deck-label {
-  color: #888;
-  font-size: 0.9rem;
-}
-
-.hand-area {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 20px;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 600px;
-}
-
-.area-header {
+.board-layout {
   display: flex;
   gap: 20px;
-  margin-bottom: 15px;
-  align-items: center;
+  flex: 1;
+  min-height: 0;
 }
 
-.area-title {
-  font-weight: bold;
-  font-size: 1.1rem;
+.map-section {
+  flex: 1;
+  min-width: 0;
 }
 
-.card-count {
-  font-size: 0.9rem;
-  color: #aaa;
+.squad-section {
+  flex-shrink: 0;
 }
 
-.cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-}
+/* Responsive: stack on smaller screens */
+@media (max-width: 900px) {
+  .board-layout {
+    flex-direction: column;
+  }
 
-.no-cards {
-  color: #666;
-  font-style: italic;
-}
-
-.card {
-  width: 60px;
-  height: 84px;
-  background: #fff;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.card.clickable {
-  cursor: pointer;
-}
-
-.card.clickable:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 20px rgba(0, 217, 255, 0.4);
-}
-
-.card .rank {
-  font-size: 1.5rem;
-}
-
-.card .suit {
-  font-size: 1.8rem;
+  .squad-section {
+    width: 100%;
+  }
 }
 
 .turn-indicator {
-  background: linear-gradient(90deg, #00d9ff, #00ff88);
+  background: linear-gradient(90deg, #d4a84b, #e8c77b);
   color: #1a1a2e;
   padding: 8px 24px;
   border-radius: 20px;
   font-weight: bold;
+  text-align: center;
+  width: fit-content;
+  margin: 0 auto;
 }
 </style>
