@@ -66,6 +66,12 @@ export class MercCard extends BaseCard {
   armorSlot?: Equipment;
   accessorySlot?: Equipment;
 
+  // Serialized equipment data for UI (updated when equipment changes)
+  // BoardSmith doesn't serialize element references, only plain data
+  weaponSlotData?: { equipmentId: string; equipmentName: string; equipmentType: string } | null;
+  armorSlotData?: { equipmentId: string; equipmentName: string; equipmentType: string } | null;
+  accessorySlotData?: { equipmentId: string; equipmentName: string; equipmentType: string } | null;
+
   // Constants (imported from game constants)
   static readonly BASE_HEALTH = MercConstants.BASE_HEALTH;
   static readonly BASE_TARGETS = MercConstants.BASE_TARGETS;
@@ -204,6 +210,28 @@ export class MercCard extends BaseCard {
     }
   }
 
+  /**
+   * Sync the serialized equipment data properties from the actual slot references.
+   * Called after equip/unequip to ensure UI gets updated data.
+   */
+  private syncEquipmentData(): void {
+    this.weaponSlotData = this.weaponSlot ? {
+      equipmentId: this.weaponSlot.equipmentId,
+      equipmentName: this.weaponSlot.equipmentName,
+      equipmentType: this.weaponSlot.equipmentType,
+    } : null;
+    this.armorSlotData = this.armorSlot ? {
+      equipmentId: this.armorSlot.equipmentId,
+      equipmentName: this.armorSlot.equipmentName,
+      equipmentType: this.armorSlot.equipmentType,
+    } : null;
+    this.accessorySlotData = this.accessorySlot ? {
+      equipmentId: this.accessorySlot.equipmentId,
+      equipmentName: this.accessorySlot.equipmentName,
+      equipmentType: this.accessorySlot.equipmentType,
+    } : null;
+  }
+
   equip(equipment: Equipment): Equipment | undefined {
     let replaced: Equipment | undefined;
 
@@ -221,6 +249,7 @@ export class MercCard extends BaseCard {
         replaced = this.accessorySlot;
         this.accessorySlot = equipment;
       }
+      this.syncEquipmentData();
       return replaced;
     }
 
@@ -236,6 +265,7 @@ export class MercCard extends BaseCard {
         replaced = this.weaponSlot;
         this.weaponSlot = equipment;
       }
+      this.syncEquipmentData();
       return replaced;
     }
 
@@ -253,6 +283,7 @@ export class MercCard extends BaseCard {
         this.accessorySlot = equipment;
         break;
     }
+    this.syncEquipmentData();
     return replaced;
   }
 
@@ -272,6 +303,7 @@ export class MercCard extends BaseCard {
         this.accessorySlot = undefined;
         break;
     }
+    this.syncEquipmentData();
     return equipment;
   }
 
@@ -288,66 +320,6 @@ export class MercCard extends BaseCard {
     }
   }
 
-  /**
-   * Custom attributes getter to serialize equipment slots to game view.
-   * BoardSmith only serializes properties from this getter.
-   */
-  get attributes(): Record<string, unknown> {
-    return {
-      mercId: this.mercId,
-      mercName: this.mercName,
-      bio: this.bio,
-      ability: this.ability,
-      image: this.image,
-      baseInitiative: this.baseInitiative,
-      baseTraining: this.baseTraining,
-      baseCombat: this.baseCombat,
-      damage: this.damage,
-      actionsRemaining: this.actionsRemaining,
-      sectorId: this.sectorId,
-      // Computed stats
-      initiative: this.initiative,
-      training: this.training,
-      combat: this.combat,
-      health: this.health,
-      maxHealth: this.maxHealth,
-      targets: this.targets,
-      equipmentArmor: this.equipmentArmor,
-      isDead: this.isDead,
-      isFullyEquipped: this.isFullyEquipped,
-      // Equipment slots - serialize the equipment data for UI
-      weaponSlot: this.weaponSlot ? {
-        equipmentId: this.weaponSlot.equipmentId,
-        equipmentName: this.weaponSlot.equipmentName,
-        equipmentType: this.weaponSlot.equipmentType,
-        description: this.weaponSlot.description,
-        image: this.weaponSlot.image,
-        combatBonus: this.weaponSlot.combatBonus,
-        initiative: this.weaponSlot.initiative,
-        training: this.weaponSlot.training,
-        isDamaged: this.weaponSlot.isDamaged,
-      } : null,
-      armorSlot: this.armorSlot ? {
-        equipmentId: this.armorSlot.equipmentId,
-        equipmentName: this.armorSlot.equipmentName,
-        equipmentType: this.armorSlot.equipmentType,
-        description: this.armorSlot.description,
-        image: this.armorSlot.image,
-        combatBonus: this.armorSlot.combatBonus,
-        armorBonus: this.armorSlot.armorBonus,
-        isDamaged: this.armorSlot.isDamaged,
-      } : null,
-      accessorySlot: this.accessorySlot ? {
-        equipmentId: this.accessorySlot.equipmentId,
-        equipmentName: this.accessorySlot.equipmentName,
-        equipmentType: this.accessorySlot.equipmentType,
-        description: this.accessorySlot.description,
-        image: this.accessorySlot.image,
-        combatBonus: this.accessorySlot.combatBonus,
-        isDamaged: this.accessorySlot.isDamaged,
-      } : null,
-    };
-  }
 }
 
 // =============================================================================

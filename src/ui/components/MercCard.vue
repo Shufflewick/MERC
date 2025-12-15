@@ -83,9 +83,10 @@ const imagePath = computed(() => {
   return `/mercs/${mercId.value}.jpg`;
 });
 
-const weaponSlot = computed(() => getProp('weaponSlot', null));
-const armorSlot = computed(() => getProp('armorSlot', null));
-const accessorySlot = computed(() => getProp('accessorySlot', null));
+// Try weaponSlotData first (serialized data), fall back to weaponSlot (legacy)
+const weaponSlot = computed(() => getProp('weaponSlotData', null) || getProp('weaponSlot', null));
+const armorSlot = computed(() => getProp('armorSlotData', null) || getProp('armorSlot', null));
+const accessorySlot = computed(() => getProp('accessorySlotData', null) || getProp('accessorySlot', null));
 
 // Helper to extract equipment name from slot data
 // Equipment might be: { equipmentName: "..." } or { attributes: { equipmentName: "..." } }
