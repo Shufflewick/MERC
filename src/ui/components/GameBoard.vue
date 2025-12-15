@@ -395,6 +395,8 @@ const gameViewSummary = computed(() => {
       <pre>{{ availableActions }}</pre>
       <h3>Action Args:</h3>
       <pre>{{ JSON.stringify(actionArgs, null, 2) }}</pre>
+      <h3>Hirable MERCs ({{ hirableMercs.length }}):</h3>
+      <pre>{{ JSON.stringify(hirableMercs.slice(0, 2), null, 2) }}</pre>
     </div>
 
     <!-- Action Panel - shown when player needs to make a choice -->

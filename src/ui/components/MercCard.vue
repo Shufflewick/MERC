@@ -3,8 +3,12 @@ import { computed } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
 
 interface MercData {
-  mercId: string;
-  mercName: string;
+  // Can use either naming convention (JSON vs class)
+  mercId?: string;
+  id?: string;
+  ref?: string;
+  mercName?: string;
+  name?: string;
   image?: string;
   baseTraining?: number;
   baseCombat?: number;
@@ -17,9 +21,10 @@ interface MercData {
   damage?: number;
   actionsRemaining?: number;
   ability?: string;
-  weaponSlot?: { equipmentName?: string } | null;
-  armorSlot?: { equipmentName?: string } | null;
-  accessorySlot?: { equipmentName?: string } | null;
+  bio?: string;
+  weaponSlot?: { equipmentName?: string; name?: string } | null;
+  armorSlot?: { equipmentName?: string; name?: string } | null;
+  accessorySlot?: { equipmentName?: string; name?: string } | null;
 }
 
 const props = defineProps<{
@@ -28,6 +33,14 @@ const props = defineProps<{
   showEquipment?: boolean;
   compact?: boolean;
 }>();
+
+// Helper to get MERC ID (handles both naming conventions)
+const mercId = computed(() => props.merc.mercId || props.merc.id || props.merc.ref || 'unknown');
+const mercName = computed(() => {
+  const name = props.merc.mercName || props.merc.name || mercId.value;
+  // Capitalize first letter
+  return name.charAt(0).toUpperCase() + name.slice(1);
+});
 
 // Computed stats - use computed values if available, otherwise base values
 const training = computed(() => props.merc.training ?? props.merc.baseTraining ?? 0);
@@ -43,15 +56,18 @@ const maxHealth = computed(() => props.merc.maxHealth ?? 3);
 const actionsRemaining = computed(() => props.merc.actionsRemaining ?? 2);
 const maxActions = computed(() => 2); // Standard is 2
 
+// Ability text (can be 'ability' or 'bio')
+const abilityText = computed(() => props.merc.ability || props.merc.bio || '');
+
 const borderColor = computed(() => getPlayerColor(props.playerColor));
 const imagePath = computed(() => {
   if (props.merc.image) return props.merc.image;
-  return `/mercs/${props.merc.mercId}.jpg`;
+  return `/mercs/${mercId.value}.jpg`;
 });
 
-const weaponName = computed(() => props.merc.weaponSlot?.equipmentName || null);
-const armorName = computed(() => props.merc.armorSlot?.equipmentName || null);
-const accessoryName = computed(() => props.merc.accessorySlot?.equipmentName || null);
+const weaponName = computed(() => props.merc.weaponSlot?.equipmentName || props.merc.weaponSlot?.name || null);
+const armorName = computed(() => props.merc.armorSlot?.equipmentName || props.merc.armorSlot?.name || null);
+const accessoryName = computed(() => props.merc.accessorySlot?.equipmentName || props.merc.accessorySlot?.name || null);
 </script>
 
 <template>
@@ -59,10 +75,10 @@ const accessoryName = computed(() => props.merc.accessorySlot?.equipmentName || 
     <!-- Header: Portrait + Name + Actions -->
     <div class="merc-header">
       <div class="portrait-wrapper" :style="{ borderColor }">
-        <img :src="imagePath" :alt="merc.mercName" class="portrait" />
+        <img :src="imagePath" :alt="mercName" class="portrait" />
       </div>
       <div class="name-section">
-        <span class="merc-name">{{ merc.mercName }}</span>
+        <span class="merc-name">{{ mercName }}</span>
         <span class="actions-badge">{{ actionsRemaining }}/{{ maxActions }}</span>
       </div>
     </div>
@@ -94,9 +110,9 @@ const accessoryName = computed(() => props.merc.accessorySlot?.equipmentName || 
     </div>
 
     <!-- Ability Section -->
-    <div class="ability-section" v-if="merc.ability && !compact">
+    <div class="ability-section" v-if="abilityText && !compact">
       <div class="ability-header">Ability:</div>
-      <div class="ability-text">{{ merc.ability }}</div>
+      <div class="ability-text">{{ abilityText }}</div>
     </div>
 
     <!-- Equipment Section -->
