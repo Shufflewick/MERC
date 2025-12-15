@@ -490,6 +490,81 @@ function hasMultiTargetWeapon(combatant: Combatant): boolean {
 }
 
 /**
+ * MERC-btst: Check if a combatant is Vulture
+ */
+function isVulture(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'vulture';
+  }
+  return false;
+}
+
+/**
+ * MERC-djs0: Check if a combatant is Walter
+ */
+function isWalter(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'walter';
+  }
+  return false;
+}
+
+/**
+ * MERC-9mpr: Check if a combatant is Wolverine
+ */
+function isWolverine(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'wolverine';
+  }
+  return false;
+}
+
+/**
+ * MERC-ddq4: Check if a combatant is Dutch
+ */
+function isDutch(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'dutch';
+  }
+  return false;
+}
+
+/**
+ * MERC-ddq4: Check if Dutch is using a sword (or unarmed)
+ */
+function isDutchUsingFists(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    const weapon = combatant.sourceElement.weaponSlot;
+    // No weapon or sword equipped
+    if (!weapon) return true;
+    const name = weapon.equipmentName.toLowerCase();
+    return name.includes('sword');
+  }
+  return false;
+}
+
+/**
+ * MERC-adnu: Check if a combatant is Moe
+ */
+function isMoe(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'moe';
+  }
+  return false;
+}
+
+/**
+ * MERC-adnu: Check if combatant has SMAW equipped
+ */
+function hasSmaw(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    const weapon = combatant.sourceElement.weaponSlot;
+    return weapon?.equipmentName.toLowerCase().includes('smaw') ?? false;
+  }
+  return false;
+}
+
+/**
  * MERC-s3x: Apply Mayhem's Uzi combat bonus (+2)
  */
 function applyMayhemBonus(combatants: Combatant[]): void {
@@ -716,6 +791,85 @@ function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
         }
         break;
       }
+    }
+  }
+}
+
+/**
+ * MERC-btst: Apply Vulture's initiative penalty ignore
+ * Vulture ignores initiative penalties from equipment
+ */
+function applyVultureBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isVulture(combatant) && combatant.health > 0) {
+      const merc = combatant.sourceElement as MercCard;
+      // Calculate total negative initiative from equipment
+      let penalty = 0;
+      if (merc.weaponSlot?.initiative && merc.weaponSlot.initiative < 0) {
+        penalty += merc.weaponSlot.initiative;
+      }
+      if (merc.armorSlot?.initiative && merc.armorSlot.initiative < 0) {
+        penalty += merc.armorSlot.initiative;
+      }
+      if (merc.accessorySlot?.initiative && merc.accessorySlot.initiative < 0) {
+        penalty += merc.accessorySlot.initiative;
+      }
+      // Add back the penalty (negate it)
+      combatant.initiative -= penalty;
+    }
+  }
+}
+
+/**
+ * MERC-djs0: Apply Walter's militia initiative bonus
+ * Walter's militia get +2 initiative
+ */
+function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
+  // Find Walter in combatants
+  const walterCombatant = combatants.find(c => isWalter(c) && c.health > 0);
+  if (!walterCombatant) return;
+
+  // Find which player owns Walter
+  const walterMerc = walterCombatant.sourceElement as MercCard;
+  let walterOwnerId: string | undefined;
+  for (const rebel of game.rebelPlayers) {
+    if (rebel.team.includes(walterMerc)) {
+      walterOwnerId = `${rebel.position}`;
+      break;
+    }
+  }
+
+  if (!walterOwnerId) return;
+
+  // Apply +2 initiative to militia owned by Walter's player
+  for (const combatant of combatants) {
+    if (combatant.isMilitia && combatant.ownerId === walterOwnerId) {
+      combatant.initiative += 2;
+    }
+  }
+}
+
+/**
+ * MERC-ddq4: Apply Dutch's unarmed bonus
+ * Dutch gets +1 combat and +1 initiative when using fists (or sword)
+ */
+function applyDutchBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isDutch(combatant) && isDutchUsingFists(combatant) && combatant.health > 0) {
+      combatant.combat += 1;
+      combatant.initiative += 1;
+    }
+  }
+}
+
+/**
+ * MERC-adnu: Apply Moe's SMAW target bonus
+ * Moe gets +1 target when using SMAW
+ */
+function applyMoeBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isMoe(combatant) && hasSmaw(combatant) && combatant.health > 0) {
+      combatant.targets += 1;
     }
   }
 }
@@ -1475,6 +1629,18 @@ function executeCombatRound(
   // MERC-dxi: Apply Tavisto's woman-in-squad bonus
   applyTavistoBonus(game, [...rebels, ...dictatorSide]);
 
+  // MERC-btst: Apply Vulture's initiative penalty ignore
+  applyVultureBonus([...rebels, ...dictatorSide]);
+
+  // MERC-djs0: Apply Walter's militia initiative bonus
+  applyWalterBonus(game, [...rebels, ...dictatorSide]);
+
+  // MERC-ddq4: Apply Dutch's unarmed bonus
+  applyDutchBonus([...rebels, ...dictatorSide]);
+
+  // MERC-adnu: Apply Moe's SMAW target bonus
+  applyMoeBonus([...rebels, ...dictatorSide]);
+
   // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
   applyKhennInitiative([...rebels, ...dictatorSide], game);
 
@@ -1554,6 +1720,16 @@ function executeCombatRound(
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
     }
 
+    // MERC-9mpr: Wolverine's 6s can hit additional targets
+    // Count 6s rolled for bonus targets
+    let wolverineBonus6s = 0;
+    if (isWolverine(attacker)) {
+      wolverineBonus6s = rolls.filter(r => r === 6).length;
+      if (wolverineBonus6s > 0) {
+        game.message(`Wolverine's ${wolverineBonus6s} six(es) can hit additional targets!`);
+      }
+    }
+
     if (hits === 0) {
       results.push({
         attacker,
@@ -1567,9 +1743,22 @@ function executeCombatRound(
 
     const damageDealt = new Map<string, number>();
 
+    // MERC-9mpr: Add additional targets for Wolverine's 6s
+    let expandedTargets = [...targets];
+    if (wolverineBonus6s > 0) {
+      const availableExtra = enemies.filter(e =>
+        e.health > 0 && !targets.includes(e) && !e.isAttackDog
+      );
+      const extraTargets = availableExtra.slice(0, wolverineBonus6s);
+      if (extraTargets.length > 0) {
+        expandedTargets.push(...extraTargets);
+        game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
+      }
+    }
+
     // Distribute hits among targets
     let remainingHits = hits;
-    for (const target of targets) {
+    for (const target of expandedTargets) {
       if (remainingHits <= 0) break;
 
       // MERC-38e: Pass armorPiercing flag to applyDamage
