@@ -118,6 +118,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireMerc')
     .prompt('Hire mercenaries')
     .condition((ctx) => {
+      // Only rebels can hire MERCs
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       if (!player.canHireMerc(game)) return false;
       if (!hasActionsRemaining(player, ACTION_COSTS.HIRE_MERC)) return false;
@@ -333,6 +335,10 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 export function createMoveAction(game: MERCGame): ActionDefinition {
   return Action.create('move')
     .prompt('Move your squad')
+    .condition((ctx) => {
+      // Only rebels can use move action (dictator uses dictatorMove)
+      return game.isRebelPlayer(ctx.player as any);
+    })
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to move',
       elementClass: Squad,
@@ -420,6 +426,8 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
   return Action.create('coordinatedAttack')
     .prompt('Coordinated attack (both squads)')
     .condition((ctx) => {
+      // Only rebels can use coordinated attack
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Need both squads with MERCs and they must be in different but adjacent sectors
       // that share a common adjacent target
@@ -515,6 +523,8 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
   return Action.create('declareCoordinatedAttack')
     .prompt('Declare coordinated attack (stage for multi-player)')
     .condition((ctx) => {
+      // Only rebels can declare coordinated attacks
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Need at least one squad with MERCs adjacent to an enemy sector
       const hasValidSquad = [player.primarySquad, player.secondarySquad].some(squad => {
@@ -584,6 +594,8 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
   return Action.create('joinCoordinatedAttack')
     .prompt('Join coordinated attack')
     .condition((ctx) => {
+      // Only rebels can join coordinated attacks
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Must have pending coordinated attacks that this player can join
       if (game.pendingCoordinatedAttacks.size === 0) return false;
@@ -673,6 +685,8 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
   return Action.create('executeCoordinatedAttack')
     .prompt('Execute coordinated attack')
     .condition((ctx) => {
+      // Only rebels can execute coordinated attacks
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Must have a pending coordinated attack with this player participating
       for (const [, participants] of game.pendingCoordinatedAttacks) {
@@ -780,6 +794,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
   return Action.create('explore')
     .prompt('Explore the current sector')
     .condition((ctx) => {
+      // Only rebels can explore
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       const squad = player.primarySquad;
       if (!squad?.sectorId) return false;
@@ -1051,6 +1067,8 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
   return Action.create('train')
     .prompt('Train militia')
     .condition((ctx) => {
+      // Only rebels can train militia
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       const squad = player.primarySquad;
       if (!squad?.sectorId) return false;
@@ -1107,6 +1125,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
   return Action.create('reEquip')
     .prompt('Re-equip')
     .condition((ctx) => {
+      // Only rebels can re-equip
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       const squad = player.primarySquad;
       if (!squad?.sectorId) return false;
@@ -1310,6 +1330,8 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
   return Action.create('docHeal')
     .prompt('Doc: Heal squad (free)')
     .condition((ctx) => {
+      // Only rebels can use Doc heal
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Must not be in combat
       if (game.activeCombat) return false;
@@ -1377,6 +1399,8 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
   return Action.create('feedbackDiscard')
     .prompt('Feedback: Take from discard')
     .condition((ctx) => {
+      // Only rebels can use Feedback ability
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Feedback in team
       const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead);
@@ -1443,6 +1467,8 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
   return Action.create('squidheadDisarm')
     .prompt('Squidhead: Disarm mine')
     .condition((ctx) => {
+      // Only rebels can use Squidhead ability
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Squidhead in team
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
@@ -1506,6 +1532,8 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
   return Action.create('squidheadArm')
     .prompt('Squidhead: Arm mine')
     .condition((ctx) => {
+      // Only rebels can use Squidhead ability
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Squidhead in team with a land mine equipped
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
@@ -1564,6 +1592,8 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
   return Action.create('hagnessDraw')
     .prompt('Hagness: Draw equipment for squad')
     .condition((ctx) => {
+      // Only rebels can use Hagness ability
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Hagness in team with actions
       const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
@@ -1663,6 +1693,8 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
   return Action.create('hospital')
     .prompt('Visit hospital')
     .condition((ctx) => {
+      // Only rebels can visit hospital
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       const squad = player.primarySquad;
       if (!squad?.sectorId) return false;
@@ -1710,6 +1742,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
     .condition((ctx) => {
+      // Only rebels can visit arms dealer
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       const squad = player.primarySquad;
       if (!squad?.sectorId) return false;
@@ -1805,6 +1839,8 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
   return Action.create('splitSquad')
     .prompt('Split squad')
     .condition((ctx) => {
+      // Only rebels can split squads
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Must have at least 2 MERCs in primary and empty secondary
       return player.primarySquad.mercCount > 1 && player.secondarySquad.mercCount === 0;
@@ -1842,6 +1878,8 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
   return Action.create('mergeSquads')
     .prompt('Merge squads')
     .condition((ctx) => {
+      // Only rebels can merge squads
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Both squads must be in same sector
       return player.secondarySquad.mercCount > 0 &&
@@ -1875,6 +1913,8 @@ export function createFireMercAction(game: MERCGame): ActionDefinition {
   return Action.create('fireMerc')
     .prompt('Fire a MERC')
     .condition((ctx) => {
+      // Only rebels can fire MERCs
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Must have at least 2 MERCs (can't fire your only MERC)
       return player.teamSize >= 2;
@@ -1942,6 +1982,8 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
   return Action.create('endTurn')
     .prompt('End turn')
     .condition((ctx) => {
+      // Only rebels can end turn (dictator uses dictatorEndMercActions)
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       // Only show end turn if player has MERCs with actions remaining
       // This prevents the flow from auto-ending when no actions are taken
@@ -1981,6 +2023,8 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
     .prompt('Hire your starting MERCs')
     .notUndoable() // Involves randomness (drawing cards) - disables undo for rest of Day 1
     .condition((ctx) => {
+      // Only rebels hire starting MERCs
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       return player.teamSize === 0; // Only show if player hasn't hired yet
     })
@@ -2078,6 +2122,8 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
     .prompt('Equip starting equipment')
     .notUndoable() // Involves randomness (drawing equipment)
     .condition((ctx) => {
+      // Only rebels equip starting equipment
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       return player.team.some(merc =>
         !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot
@@ -2124,6 +2170,10 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
 export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
   return Action.create('placeLanding')
     .prompt('Choose your landing zone')
+    .condition((ctx) => {
+      // Only rebels place landing zones
+      return game.isRebelPlayer(ctx.player as any);
+    })
     .chooseElement<Sector>('sector', {
       prompt: 'Select an edge sector to land',
       elementClass: Sector,
