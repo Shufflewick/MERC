@@ -18,6 +18,8 @@ import {
   setPrivacyPlayer,
   selectMilitiaPlacementSector,
   distanceToNearestRebel,
+  mercNeedsHealing,
+  getAIHealingPriority,
 } from './ai-helpers.js';
 import {
   getNextAIAction,
@@ -1877,6 +1879,26 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
     });
 }
 
+// MERC-1ph: Helper to check if there's a beneficial militia move for AI
+function hasBeneficialMilitiaMove(game: MERCGame): boolean {
+  const sectorsWithMilitia = game.gameMap.getAllSectors()
+    .filter(s => s.dictatorMilitia > 0);
+
+  for (const from of sectorsWithMilitia) {
+    const fromDist = distanceToNearestRebel(game, from);
+    const adjacent = game.getAdjacentSectors(from);
+
+    for (const to of adjacent) {
+      // Check if moving would get closer to rebels
+      const toDist = distanceToNearestRebel(game, to);
+      if (toDist < fromDist && to.dictatorMilitia < 10) {
+        return true; // Found a beneficial move
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Move dictator militia between adjacent sectors
  */
@@ -1887,7 +1909,14 @@ export function createMoveMilitiaAction(game: MERCGame): ActionDefinition {
       // Only the dictator player can move militia
       if (!game.isDictatorPlayer(ctx.player as any)) return false;
       // Must have militia somewhere
-      return game.gameMap.getAllSectors().some(s => s.dictatorMilitia > 0);
+      if (!game.gameMap.getAllSectors().some(s => s.dictatorMilitia > 0)) return false;
+
+      // MERC-1ph: For AI, only show if there's a beneficial move
+      if (game.dictatorPlayer?.isAI) {
+        return hasBeneficialMilitiaMove(game);
+      }
+
+      return true;
     })
     .chooseElement<Sector>('fromSector', {
       prompt: 'Move militia from which sector?',
@@ -2411,6 +2440,113 @@ export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
     });
 }
 
+// MERC-7fy: Helper to check if a MERC has a healing item equipped
+function hasHealingItem(merc: MercCard): boolean {
+  const accessory = merc.accessorySlot;
+  if (!accessory) return false;
+  const name = accessory.equipmentName.toLowerCase();
+  return name.includes('medical kit') || name.includes('first aid kit');
+}
+
+// MERC-7fy: Helper to get healing amount from item
+function getHealingAmount(itemName: string): number {
+  const name = itemName.toLowerCase();
+  if (name.includes('medical kit')) return 3; // Medical Kit heals 3
+  if (name.includes('first aid kit')) return 1; // First Aid Kit heals 1
+  return 0;
+}
+
+/**
+ * Dictator MERC heal action
+ * MERC-7fy: Per rules 4.8, AI heals injured MERCs using healing items
+ */
+export function createDictatorHealAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorHeal')
+    .prompt('Heal injured MERC')
+    .condition((ctx) => {
+      // Only the dictator player can use dictator MERC actions
+      if (!game.isDictatorPlayer(ctx.player as any)) return false;
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+
+      // Check if any MERC has a healing item
+      const hasHealer = mercs.some(m => !m.isDead && hasHealingItem(m));
+      if (!hasHealer) return false;
+
+      // Check if any MERC needs healing
+      const hasDamaged = mercs.some(m => mercNeedsHealing(m));
+      return hasDamaged;
+    })
+    .chooseElement<MercCard>('healer', {
+      prompt: 'Select MERC with healing item',
+      display: (merc) => `${merc.mercName} (${merc.accessorySlot?.equipmentName})`,
+      filter: (element) => {
+        if (!(element instanceof MercCard)) return false;
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+        if (!dictatorMercs.includes(element)) return false;
+        return !element.isDead && hasHealingItem(element);
+      },
+      // MERC-7fy: AI auto-selection based on healing priority
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const mercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
+        const damagedMercs = mercs.filter(m => mercNeedsHealing(m));
+        const healingAction = getAIHealingPriority(game, damagedMercs, mercs);
+        if (healingAction?.type === 'item' && healingAction.merc) {
+          return healingAction.merc;
+        }
+        // Fallback to first healer
+        return mercs.find(m => hasHealingItem(m));
+      },
+    })
+    .chooseElement<MercCard>('target', {
+      prompt: 'Select MERC to heal',
+      display: (merc) => `${merc.mercName} (${merc.health}/${merc.maxHealth} HP)`,
+      filter: (element) => {
+        if (!(element instanceof MercCard)) return false;
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+        if (!dictatorMercs.includes(element)) return false;
+        return mercNeedsHealing(element);
+      },
+      // MERC-7fy: AI auto-selection - heal lowest health MERC
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const mercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
+        const damagedMercs = mercs.filter(m => mercNeedsHealing(m));
+        const healingAction = getAIHealingPriority(game, damagedMercs, mercs);
+        if (healingAction?.target) {
+          return healingAction.target;
+        }
+        // Fallback to lowest health
+        return damagedMercs.sort((a, b) => a.health - b.health)[0];
+      },
+    })
+    .execute((args) => {
+      const healer = args.healer as MercCard;
+      const target = args.target as MercCard;
+      const healingItem = healer.accessorySlot;
+
+      if (!healingItem) {
+        return { success: false, message: 'No healing item equipped' };
+      }
+
+      const healAmount = getHealingAmount(healingItem.equipmentName);
+      const actualHealed = Math.min(healAmount, target.damage);
+
+      // Heal the target
+      target.heal(actualHealed);
+
+      // Discard the healing item (one-use)
+      healer.unequip('Accessory');
+      const discard = game.getEquipmentDiscard('Accessory');
+      if (discard) {
+        healingItem.putInto(discard);
+      }
+
+      game.message(`${healer.mercName} uses ${healingItem.equipmentName} to heal ${target.mercName} for ${actualHealed} HP`);
+      return { success: true, message: `Healed ${target.mercName} for ${actualHealed} HP` };
+    });
+}
+
 /**
  * End dictator MERC actions
  */
@@ -2691,6 +2827,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createDictatorExploreAction(game));
   game.registerAction(createDictatorTrainAction(game));
   game.registerAction(createDictatorReEquipAction(game));
+  game.registerAction(createDictatorHealAction(game)); // MERC-7fy
   game.registerAction(createDictatorMortarAction(game)); // MERC-9m9
   game.registerAction(createDictatorEndMercActionsAction(game));
 

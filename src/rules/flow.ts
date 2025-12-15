@@ -212,6 +212,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   name: 'dictator-merc-action',
                   actions: [
                     'dictatorMortar', // MERC-9m9: Mortar attack (high priority per rules 4.12)
+                    'dictatorHeal', // MERC-7fy: Heal injured MERCs (priority per rules 4.8)
                     'dictatorMove',
                     'dictatorExplore',
                     'dictatorTrain',

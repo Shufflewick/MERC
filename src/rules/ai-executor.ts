@@ -25,6 +25,7 @@ import {
   shouldUseSpecialAbility,
   getAIAbilityActivations,
   useRepairKit,
+  canSquadMoveTogether,
   type AIActionDecision,
   type AIActionType,
 } from './ai-helpers.js';
@@ -290,6 +291,22 @@ function convertDecisionToAction(
 
     case 'move':
       if (merc.actionsRemaining >= 1) {
+        // MERC-az8: Check squad cohesion per rule 3.4
+        // "Never split the squad - All MERCs with actions remaining move together"
+        if (!canSquadMoveTogether(game, sector.sectorId)) {
+          // Some MERCs in this sector can't move - skip move to keep squad together
+          // Fall back to training if possible
+          if (sector.dictatorMilitia < 10 && merc.training > 0) {
+            return {
+              actionName: 'dictatorTrain',
+              unit: merc,
+              reason: 'MERC-az8: Squad cannot move together, train instead',
+            };
+          }
+          // Otherwise skip this MERC's action
+          break;
+        }
+
         // Use the target from decision, or calculate best direction
         const destination = decision.target || getBestMoveDirection(game, sector);
         if (destination) {
