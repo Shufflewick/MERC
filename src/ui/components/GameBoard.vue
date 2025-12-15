@@ -165,9 +165,25 @@ const currentPlayerColor = computed(() => {
 });
 
 // MERC-rwdv: Check if current player is the dictator
+// Players aren't in game view tree, so check if this player has rebel squads or dictator squad
 const currentPlayerIsDictator = computed(() => {
-  const player = players.value.find((p) => p.position === props.playerPosition);
-  return player?.isDictator || false;
+  // If player has rebel squads (primary/secondary), they're a rebel
+  const squads = findAllByClassName('Squad');
+  const hasRebelSquad = squads.some((s: any) => {
+    const name = getAttr(s, 'name', '') || s.ref || '';
+    // Rebel squads are named "squad-{position}-primary" or "squad-{position}-secondary"
+    return name.includes(`squad-${props.playerPosition}-`);
+  });
+
+  if (hasRebelSquad) return false;
+
+  // If no rebel squads but dictator squad exists, assume this is the dictator
+  const hasDictatorSquad = squads.some((s: any) => {
+    const name = getAttr(s, 'name', '') || s.ref || '';
+    return name.includes('dictator');
+  });
+
+  return hasDictatorSquad;
 });
 
 // Extract all MERCs with their locations
