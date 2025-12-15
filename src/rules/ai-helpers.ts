@@ -1011,10 +1011,11 @@ export function getMercsWithHealingAbility(mercs: MercCard[]): MercCard[] {
  * 2. Then discard combat dice for Medical Kit / First Aid Kit
  */
 export interface AIHealingAction {
-  type: 'ability' | 'item';
+  type: 'ability' | 'item' | 'repairKit';
   merc?: MercCard;
   item?: string;
   target: MercCard;
+  sector?: Sector;
 }
 
 export function getAIHealingPriority(
@@ -1042,6 +1043,15 @@ export function getAIHealingPriority(
       if (name.includes('medical kit') || name.includes('first aid kit')) {
         return { type: 'item', merc, item: accessory.equipmentName, target };
       }
+    }
+  }
+
+  // MERC-3po: 4.7.2 - Try Repair Kit from stash (AI leaves these in stash per rules)
+  // Check if the damaged MERC's sector has a repair kit
+  if (target.sectorId) {
+    const sector = game.getSector(target.sectorId);
+    if (sector && hasRepairKit(sector)) {
+      return { type: 'repairKit', target, sector };
     }
   }
 

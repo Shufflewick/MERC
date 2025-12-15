@@ -203,6 +203,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'dictator-merc-action',
                   actions: [
+                    'dictatorMortar', // MERC-9m9: Mortar attack (high priority per rules 4.12)
                     'dictatorMove',
                     'dictatorExplore',
                     'dictatorTrain',

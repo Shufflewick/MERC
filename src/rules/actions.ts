@@ -10,7 +10,13 @@ import {
 } from './day-one.js';
 import { executeCombat, executeCombatRetreat, hasEnemies, getValidRetreatSectors } from './combat.js';
 import { executeTacticsEffect } from './tactics-effects.js';
-import { autoEquipDictatorUnits } from './ai-helpers.js';
+import {
+  autoEquipDictatorUnits,
+  hasMortar,
+  getMortarTargets,
+  selectMortarTarget,
+  setPrivacyPlayer,
+} from './ai-helpers.js';
 import {
   getNextAIAction,
   getAIUnitSelection,
@@ -2367,6 +2373,140 @@ export function createDictatorEndMercActionsAction(game: MERCGame): ActionDefini
 }
 
 // =============================================================================
+// MERC-9m9: Dictator Mortar Attack Action
+// =============================================================================
+
+/**
+ * Check if a dictator unit can fire a mortar.
+ * Must have mortar equipped and have valid targets in adjacent sectors.
+ */
+function canDictatorUnitFireMortar(unit: DictatorUnit, game: MERCGame): boolean {
+  if (unit.actionsRemaining < 1 || !unit.sectorId) return false;
+  if (!hasMortar(unit)) return false;
+
+  const sector = game.getSector(unit.sectorId);
+  if (!sector) return false;
+
+  // Check if there are valid mortar targets
+  const targets = getMortarTargets(game, sector);
+  return targets.length > 0;
+}
+
+/**
+ * Dictator mortar attack action.
+ * MERC-9m9: Per rules 4.12, AI always attacks with mortars when possible.
+ * Mortars attack adjacent sectors without entering them.
+ */
+export function createDictatorMortarAction(game: MERCGame): ActionDefinition {
+  return Action.create('dictatorMortar')
+    .prompt('Fire mortar at adjacent sector')
+    .condition((ctx) => {
+      if (!game.isDictatorPlayer(ctx.player as any)) return false;
+
+      const mercs = game.dictatorPlayer?.hiredMercs || [];
+      const dictator = game.dictatorPlayer?.dictator;
+
+      const mercCanFire = mercs.some(m => canDictatorUnitFireMortar(m, game));
+      const dictatorCanFire = dictator?.inPlay && canDictatorUnitFireMortar(dictator, game);
+
+      return mercCanFire || dictatorCanFire;
+    })
+    .chooseElement<DictatorUnit>('merc', {
+      prompt: 'Select unit to fire mortar',
+      display: (unit) => capitalize(getDictatorUnitName(unit)),
+      filter: (element) => {
+        if (element instanceof MercCard) {
+          const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+          return dictatorMercs.includes(element) && canDictatorUnitFireMortar(element, game);
+        }
+        if (element instanceof DictatorCard) {
+          if (!element.inPlay) return false;
+          if (element !== game.dictatorPlayer?.dictator) return false;
+          return canDictatorUnitFireMortar(element, game);
+        }
+        return false;
+      },
+      // MERC-9m9: AI auto-selection - pick first unit with mortar
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const mercs = game.dictatorPlayer.hiredMercs.filter(m => canDictatorUnitFireMortar(m, game));
+        if (mercs.length > 0) return mercs[0];
+        const dictator = game.dictatorPlayer.dictator;
+        if (dictator?.inPlay && canDictatorUnitFireMortar(dictator, game)) {
+          return dictator;
+        }
+        return undefined;
+      },
+    })
+    .chooseElement<Sector>('target', {
+      prompt: 'Select target sector',
+      elementClass: Sector,
+      filter: (element, ctx) => {
+        const sector = element as unknown as Sector;
+        const unit = ctx.args.merc as DictatorUnit;
+        if (!unit?.sectorId) return false;
+
+        const fromSector = game.getSector(unit.sectorId);
+        if (!fromSector) return false;
+
+        const validTargets = getMortarTargets(game, fromSector);
+        return validTargets.some(t => t.sectorId === sector.sectorId);
+      },
+      // MERC-9m9: AI auto-selection - pick sector with most targets
+      aiSelect: (ctx) => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const unit = ctx.args.merc as DictatorUnit;
+        if (!unit?.sectorId) return undefined;
+
+        const fromSector = game.getSector(unit.sectorId);
+        if (!fromSector) return undefined;
+
+        return selectMortarTarget(game, fromSector) ?? undefined;
+      },
+    })
+    .execute((args) => {
+      const unit = args.merc as DictatorUnit;
+      const targetSector = args.target as Sector;
+
+      // Use action
+      unit.useAction(1);
+
+      // Get mortar damage (typically 1 damage per target)
+      const mortarDamage = 1;
+
+      game.message(`${getDictatorUnitName(unit)} fires mortar at ${targetSector.sectorName}!`);
+
+      let totalDamage = 0;
+
+      // Damage all rebel MERCs in the sector
+      for (const rebel of game.rebelPlayers) {
+        const mercsInSector = game.getMercsInSector(targetSector, rebel);
+        for (const merc of mercsInSector) {
+          merc.takeDamage(mortarDamage);
+          totalDamage++;
+          game.message(`Mortar deals ${mortarDamage} damage to ${merc.mercName}`);
+        }
+      }
+
+      // Damage rebel militia in the sector
+      for (const rebel of game.rebelPlayers) {
+        const militia = targetSector.getRebelMilitia(`${rebel.position}`);
+        if (militia > 0) {
+          targetSector.removeRebelMilitia(`${rebel.position}`, mortarDamage);
+          totalDamage++;
+          game.message(`Mortar kills ${mortarDamage} of ${rebel.name}'s militia`);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Mortar attack dealt ${totalDamage} damage`,
+        data: { totalDamage },
+      };
+    });
+}
+
+// =============================================================================
 // MERC-n1f: Interactive Combat Actions
 // =============================================================================
 
@@ -2488,5 +2628,41 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createDictatorExploreAction(game));
   game.registerAction(createDictatorTrainAction(game));
   game.registerAction(createDictatorReEquipAction(game));
+  game.registerAction(createDictatorMortarAction(game)); // MERC-9m9
   game.registerAction(createDictatorEndMercActionsAction(game));
+
+  // MERC-xj2: Privacy Player setup
+  game.registerAction(createDesignatePrivacyPlayerAction(game));
+}
+
+// =============================================================================
+// MERC-xj2: Privacy Player Designation
+// =============================================================================
+
+/**
+ * Action to designate the privacy player for AI games.
+ * MERC-xj2: Per AI rules, one Rebel player handles all Dictator actions.
+ */
+export function createDesignatePrivacyPlayerAction(game: MERCGame): ActionDefinition {
+  return Action.create('designatePrivacyPlayer')
+    .prompt('Designate Privacy Player')
+    .condition(() => {
+      // Only available during setup when AI is enabled
+      return game.dictatorPlayer?.isAI && !game.dictatorPlayer.privacyPlayerId;
+    })
+    .chooseElement<RebelPlayer>('player', {
+      prompt: 'Choose which player will handle AI decisions',
+      filter: (element) => {
+        return game.rebelPlayers.includes(element as unknown as RebelPlayer);
+      },
+      display: (player) => (player as unknown as RebelPlayer).name,
+    })
+    .execute((args) => {
+      const player = args.player as unknown as RebelPlayer;
+      setPrivacyPlayer(game, `${player.position}`);
+      return {
+        success: true,
+        message: `${player.name} designated as Privacy Player`,
+      };
+    });
 }

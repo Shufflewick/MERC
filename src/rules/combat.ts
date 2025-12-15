@@ -17,7 +17,12 @@
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 import { MercCard, Sector, DictatorCard, Militia } from './elements.js';
 import { CombatConstants, TieBreakers } from './constants.js';
-import { sortTargetsByAIPriority, detonateLandMines } from './ai-helpers.js';
+import {
+  sortTargetsByAIPriority,
+  detonateLandMines,
+  shouldUseEpinephrine,
+  hasEpinephrineShot,
+} from './ai-helpers.js';
 
 // =============================================================================
 // Combat Types
@@ -748,39 +753,89 @@ function applyCombatResults(
 
       // MERC-4ib: Handle MERC death - discard card and equipment
       if (combatant.health <= 0) {
-        merc.isDead = true;
+        // MERC-594: Check if epinephrine can save this MERC
+        let savedByEpinephrine = false;
 
-        // Discard all equipment
-        const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
-        for (const eqType of equipmentTypes) {
-          const equipment = merc.unequip(eqType);
-          if (equipment) {
-            const discard = game.getEquipmentDiscard(eqType);
-            if (discard) equipment.putInto(discard);
-          }
-        }
+        if (combatant.isDictatorSide && game.dictatorPlayer?.isAI) {
+          // AI dictator auto-uses epinephrine per rules 4.9
+          const squadMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
+          const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
+          if (mercWithEpi) {
+            // Use the epinephrine shot
+            const epiShot = mercWithEpi.accessorySlot;
+            if (epiShot) {
+              mercWithEpi.unequip('Accessory');
+              const discard = game.getEquipmentDiscard('Accessory');
+              if (discard) epiShot.putInto(discard);
 
-        // Remove from owner's team and put in discard
-        if (combatant.isDictatorSide) {
-          // Remove from dictator's hired MERCs
-          const idx = game.dictatorPlayer.hiredMercs.indexOf(merc);
-          if (idx >= 0) {
-            game.dictatorPlayer.hiredMercs.splice(idx, 1);
+              // Restore MERC to 1 health
+              combatant.health = 1;
+              merc.damage = merc.maxHealth - 1;
+              savedByEpinephrine = true;
+              game.message(`${mercWithEpi.mercName} uses Epinephrine Shot to save ${merc.mercName}!`);
+            }
           }
-        } else {
-          // Remove from rebel's team
+        } else if (!combatant.isDictatorSide) {
+          // Rebel side - check for epinephrine in the same squad
           for (const rebel of game.rebelPlayers) {
-            const idx = rebel.team.indexOf(merc);
-            if (idx >= 0) {
-              rebel.team.splice(idx, 1);
+            if (rebel.team.includes(merc)) {
+              const squadMercs = rebel.team.filter(m => !m.isDead);
+              const mercWithEpi = hasEpinephrineShot(squadMercs);
+              if (mercWithEpi && mercWithEpi !== merc) {
+                // Use the epinephrine shot
+                const epiShot = mercWithEpi.accessorySlot;
+                if (epiShot) {
+                  mercWithEpi.unequip('Accessory');
+                  const discard = game.getEquipmentDiscard('Accessory');
+                  if (discard) epiShot.putInto(discard);
+
+                  // Restore MERC to 1 health
+                  combatant.health = 1;
+                  merc.damage = merc.maxHealth - 1;
+                  savedByEpinephrine = true;
+                  game.message(`${mercWithEpi.mercName} uses Epinephrine Shot to save ${merc.mercName}!`);
+                }
+              }
               break;
             }
           }
         }
 
-        // Put MERC card in discard pile
-        merc.putInto(game.mercDiscard);
-        game.message(`${merc.mercName} has been killed in combat!`);
+        if (!savedByEpinephrine) {
+          merc.isDead = true;
+
+          // Discard all equipment
+          const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
+          for (const eqType of equipmentTypes) {
+            const equipment = merc.unequip(eqType);
+            if (equipment) {
+              const discard = game.getEquipmentDiscard(eqType);
+              if (discard) equipment.putInto(discard);
+            }
+          }
+
+          // Remove from owner's team and put in discard
+          if (combatant.isDictatorSide) {
+            // Remove from dictator's hired MERCs
+            const idx = game.dictatorPlayer.hiredMercs.indexOf(merc);
+            if (idx >= 0) {
+              game.dictatorPlayer.hiredMercs.splice(idx, 1);
+            }
+          } else {
+            // Remove from rebel's team
+            for (const rebel of game.rebelPlayers) {
+              const idx = rebel.team.indexOf(merc);
+              if (idx >= 0) {
+                rebel.team.splice(idx, 1);
+                break;
+              }
+            }
+          }
+
+          // Put MERC card in discard pile
+          merc.putInto(game.mercDiscard);
+          game.message(`${merc.mercName} has been killed in combat!`);
+        }
       }
     } else if (combatant.sourceElement instanceof DictatorCard) {
       const dictator = combatant.sourceElement;

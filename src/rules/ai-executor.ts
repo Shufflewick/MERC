@@ -20,6 +20,11 @@ import {
   autoEquipDictatorUnits,
   shouldLeaveInStash,
   sortEquipmentByAIPriority,
+  getAIHealingPriority,
+  mercNeedsHealing,
+  shouldUseSpecialAbility,
+  getAIAbilityActivations,
+  useRepairKit,
   type AIActionDecision,
   type AIActionType,
 } from './ai-helpers.js';
@@ -39,6 +44,64 @@ export interface AIActionSelection {
 }
 
 /**
+ * Check and log special ability usage for AI.
+ * MERC-onm: Per rules 4.10, AI ALWAYS uses MERC special abilities when appropriate.
+ * Note: Actual ability execution depends on the specific ability and game context.
+ */
+function checkAISpecialAbilities(game: MERCGame): void {
+  const mercsWithAbilities = getAIAbilityActivations(game.dictatorPlayer.hiredMercs);
+
+  for (const merc of mercsWithAbilities) {
+    if (shouldUseSpecialAbility(merc, 'turn-start')) {
+      // Log ability consideration - actual activation depends on ability type
+      // Some abilities are passive, some are triggered, some are active
+      game.message(`AI considers using ${merc.mercName}'s ability: ${merc.ability}`);
+    }
+  }
+
+  // Also check dictator card ability if in play
+  const dictator = game.dictatorPlayer.dictator;
+  if (dictator?.inPlay && dictator.ability) {
+    game.message(`AI considers using Dictator ability: ${dictator.ability}`);
+  }
+}
+
+/**
+ * Check if AI should heal before taking other actions.
+ * MERC-5zs: Per rules 4.8, AI heals injured MERCs.
+ */
+function checkAIHealing(game: MERCGame): AIActionSelection | null {
+  const allMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
+  const damagedMercs = allMercs.filter(m => mercNeedsHealing(m));
+
+  if (damagedMercs.length === 0) return null;
+
+  const healingAction = getAIHealingPriority(game, damagedMercs, allMercs);
+  if (!healingAction) return null;
+
+  // MERC-3po: Handle repair kit healing directly (it's a free action from stash)
+  if (healingAction.type === 'repairKit' && healingAction.sector) {
+    const success = useRepairKit(game, healingAction.sector, healingAction.target);
+    if (success) {
+      // Repair kit was used - continue checking for other actions
+      return null;
+    }
+  }
+
+  // Log other healing intentions
+  game.message(`AI considers healing ${healingAction.target.mercName} using ${healingAction.type}`);
+
+  // If using an item like Medical Kit, the MERC with the item needs to use it
+  if (healingAction.type === 'item' && healingAction.merc) {
+    // This would trigger a heal action - for now we note the intent
+    // The actual healing action would need to be added to actions.ts
+    return null; // Let other actions proceed; healing integration requires a dedicated heal action
+  }
+
+  return null;
+}
+
+/**
  * Get the next AI action to execute.
  * MERC-f5u: Re-evaluates from top after each action.
  * Returns null if no actions available.
@@ -46,6 +109,15 @@ export interface AIActionSelection {
 export function getNextAIAction(game: MERCGame): AIActionSelection | null {
   if (!game.dictatorPlayer?.isAI) {
     return null;
+  }
+
+  // MERC-onm: Check for special ability activations
+  checkAISpecialAbilities(game);
+
+  // MERC-5zs: Check if healing should be prioritized
+  const healingAction = checkAIHealing(game);
+  if (healingAction) {
+    return healingAction;
   }
 
   // Get all dictator units with actions remaining
