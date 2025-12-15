@@ -11,6 +11,7 @@ import type { MERCGame, RebelPlayer } from './game.js';
 import { TacticsCard, Sector, MercCard } from './elements.js';
 import { SectorConstants } from './constants.js';
 import { executeCombat } from './combat.js';
+import { selectAIBaseLocation } from './ai-helpers.js';
 
 // =============================================================================
 // Types
@@ -93,14 +94,31 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
 
 /**
  * Reveal the dictator's base
+ * MERC-55b: Now properly sets baseSectorId to a controlled industry
+ * MERC-897: Uses AI criteria (furthest from rebels, most defended, highest value)
  */
 function revealBase(game: MERCGame): TacticsEffectResult {
   if (game.dictatorPlayer.baseRevealed) {
     return { success: true, message: 'Base was already revealed' };
   }
 
+  // MERC-897: Use AI base selection criteria per rules 4.1
+  if (!game.dictatorPlayer.baseSectorId) {
+    const baseSector = selectAIBaseLocation(game);
+    if (baseSector) {
+      game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      game.message(`Dictator base established at ${baseSector.sectorName}`);
+    }
+  }
+
   game.dictatorPlayer.baseRevealed = true;
   game.dictatorPlayer.dictator?.enterPlay();
+
+  // Set dictator card location to base sector
+  if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {
+    game.dictatorPlayer.dictator.sectorId = game.dictatorPlayer.baseSectorId;
+  }
+
   game.message('The Dictator reveals their base!');
 
   return { success: true, message: 'Base revealed' };

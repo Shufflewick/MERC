@@ -208,6 +208,19 @@ export class MercCard extends BaseCard {
     }
     return equipment;
   }
+
+  getEquipmentOfType(type: EquipmentType): Equipment | undefined {
+    switch (type) {
+      case 'Weapon':
+        return this.weaponSlot;
+      case 'Armor':
+        return this.armorSlot;
+      case 'Accessory':
+        return this.accessorySlot;
+      default:
+        return undefined;
+    }
+  }
 }
 
 // =============================================================================
@@ -335,7 +348,20 @@ export class Sector extends GridCell {
     return this.rebelMilitia.get(playerId) || 0;
   }
 
-  addDictatorMilitia(count: number): number {
+  /**
+   * Add dictator militia to this sector.
+   * @param count - Number of militia to add
+   * @param bypassCap - If true, bypasses the normal 10 militia cap (for Kim's ability)
+   * MERC-td6: Added bypassCap parameter for Kim's setup ability (max 20)
+   */
+  addDictatorMilitia(count: number, bypassCap: boolean = false): number {
+    if (bypassCap) {
+      // Kim's ability allows up to 20 militia
+      const kimMax = 20;
+      const canAdd = Math.min(count, kimMax - this.dictatorMilitia);
+      this.dictatorMilitia += canAdd;
+      return canAdd;
+    }
     const canAdd = Math.min(count, Sector.MAX_MILITIA_PER_SIDE - this.dictatorMilitia);
     this.dictatorMilitia += canAdd;
     return canAdd;
@@ -423,10 +449,16 @@ export class DictatorCard extends BaseCard {
   actionsRemaining: number = 2;
   inPlay: boolean = false;
 
+  // MERC-07j: Location tracking (like MercCard)
+  sectorId?: string;
+
   // Equipment slots
   weaponSlot?: Equipment;
   armorSlot?: Equipment;
   accessorySlot?: Equipment;
+
+  // Constants (same as MercCard)
+  static readonly BASE_ACTIONS = MercConstants.ACTIONS_PER_DAY;
 
   // Constant (imported from game constants - Dictator uses same health as MERCs)
   static readonly BASE_HEALTH = MercConstants.BASE_HEALTH;
@@ -474,6 +506,84 @@ export class DictatorCard extends BaseCard {
 
   enterPlay(): void {
     this.inPlay = true;
+  }
+
+  // MERC-07j: Action methods (matching MercCard interface)
+  resetActions(): void {
+    this.actionsRemaining = DictatorCard.BASE_ACTIONS;
+  }
+
+  useAction(cost: number = 1): boolean {
+    if (this.actionsRemaining >= cost) {
+      this.actionsRemaining -= cost;
+      return true;
+    }
+    return false;
+  }
+
+  // MERC-07j: Equipment methods (matching MercCard interface)
+  canEquip(equipment: Equipment): boolean {
+    switch (equipment.equipmentType) {
+      case 'Weapon':
+        return !this.weaponSlot;
+      case 'Armor':
+        return !this.armorSlot;
+      case 'Accessory':
+        return !this.accessorySlot;
+      default:
+        return false;
+    }
+  }
+
+  equip(equipment: Equipment): Equipment | undefined {
+    let replaced: Equipment | undefined;
+    switch (equipment.equipmentType) {
+      case 'Weapon':
+        replaced = this.weaponSlot;
+        this.weaponSlot = equipment;
+        break;
+      case 'Armor':
+        replaced = this.armorSlot;
+        this.armorSlot = equipment;
+        break;
+      case 'Accessory':
+        replaced = this.accessorySlot;
+        this.accessorySlot = equipment;
+        break;
+    }
+    return replaced;
+  }
+
+  unequip(type: EquipmentType): Equipment | undefined {
+    let equipment: Equipment | undefined;
+    switch (type) {
+      case 'Weapon':
+        equipment = this.weaponSlot;
+        this.weaponSlot = undefined;
+        break;
+      case 'Armor':
+        equipment = this.armorSlot;
+        this.armorSlot = undefined;
+        break;
+      case 'Accessory':
+        equipment = this.accessorySlot;
+        this.accessorySlot = undefined;
+        break;
+    }
+    return equipment;
+  }
+
+  getEquipmentOfType(type: EquipmentType): Equipment | undefined {
+    switch (type) {
+      case 'Weapon':
+        return this.weaponSlot;
+      case 'Armor':
+        return this.armorSlot;
+      case 'Accessory':
+        return this.accessorySlot;
+      default:
+        return undefined;
+    }
   }
 }
 

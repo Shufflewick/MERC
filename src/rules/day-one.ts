@@ -11,6 +11,7 @@ import type { MERCGame, RebelPlayer } from './game.js';
 import { MercCard, Equipment, Sector, TacticsCard } from './elements.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
+import { selectNewMercLocation } from './ai-helpers.js';
 
 // =============================================================================
 // Rebel Phase - Day 1
@@ -205,20 +206,12 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
     // Track the hired MERC
     game.dictatorPlayer.hiredMercs.push(merc);
 
-    // Place at a sector with Dictator militia (choose highest militia count)
-    const controlledSectors = game.gameMap.getAllSectors()
-      .filter(s => s.dictatorMilitia > 0)
-      .sort((a, b) => b.dictatorMilitia - a.dictatorMilitia);
-
-    if (controlledSectors.length > 0) {
-      // Set the MERC's location for tracking
-      merc.sectorId = controlledSectors[0].sectorId;
-      game.dictatorPlayer.stationedSectorId = controlledSectors[0].sectorId;
-      game.message(`Dictator hired ${merc.mercName} (stationed at ${controlledSectors[0].sectorName})`);
-    } else if (game.dictatorPlayer.baseSectorId) {
-      // Default to base sector if no controlled sectors yet
-      merc.sectorId = game.dictatorPlayer.baseSectorId;
-      game.message(`Dictator hired ${merc.mercName} (at base)`);
+    // MERC-2ay: Place at sector closest to weakest rebel per AI rules 4.3.2
+    const targetSector = selectNewMercLocation(game);
+    if (targetSector) {
+      merc.sectorId = targetSector.sectorId;
+      game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
+      game.message(`Dictator hired ${merc.mercName} (stationed at ${targetSector.sectorName})`);
     } else {
       // No location available yet
       game.message(`Dictator hired ${merc.mercName}`);
@@ -296,43 +289,61 @@ export function placeExtraMilitia(
 }
 
 /**
- * Auto-place extra militia evenly across dictator-controlled sectors.
- * Used for AI/automated placement.
+ * Auto-place extra militia using AI placement rules.
+ * MERC-611: Per rules 4.4, placement priority is:
+ * 1. Rebel sectors (weakest rebel force)
+ * 2. Neutral sectors (highest value closest to base)
+ * 3. Dictator sectors (closest to rebel)
  */
 export function autoPlaceExtraMilitia(game: MERCGame): number {
+  const { selectMilitiaPlacementSector, getRebelControlledSectors } = require('./ai-helpers.js');
   const extraBudget = game.setupConfig.dictatorStrength.extra;
-
-  // Get sectors the dictator controls (those with militia)
-  const controlledSectors = game.gameMap.getAllSectors().filter(s =>
-    s.dictatorMilitia > 0
-  );
-
-  if (controlledSectors.length === 0) {
-    // No controlled sectors, place on a random industry
-    const industries = game.gameMap.getAllSectors().filter(s => s.isIndustry);
-    if (industries.length > 0) {
-      const sector = industries[0];
-      const placed = sector.addDictatorMilitia(extraBudget);
-      game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
-      return placed;
-    }
-    return 0;
-  }
-
-  // Distribute evenly across controlled sectors
-  const perSector = Math.floor(extraBudget / controlledSectors.length);
-  let remainder = extraBudget % controlledSectors.length;
   let totalPlaced = 0;
+  const placements = new Map<string, number>();
 
-  for (const sector of controlledSectors) {
-    const toPlace = perSector + (remainder > 0 ? 1 : 0);
-    if (remainder > 0) remainder--;
+  for (let i = 0; i < extraBudget; i++) {
+    // Find sectors by category
+    const allSectors = game.gameMap.getAllSectors();
+    const rebelSectors = getRebelControlledSectors(game);
+    const dictatorSectors = allSectors.filter(s => s.dictatorMilitia > 0);
+    const neutralSectors = allSectors.filter(s =>
+      s.dictatorMilitia === 0 &&
+      s.getTotalRebelMilitia() === 0 &&
+      !game.rebelPlayers.some(r =>
+        r.primarySquad?.sectorId === s.sectorId ||
+        r.secondarySquad?.sectorId === s.sectorId
+      )
+    );
 
-    const placed = sector.addDictatorMilitia(toPlace);
-    totalPlaced += placed;
+    // Try placement in priority order
+    let targetSector: Sector | null = null;
+
+    if (rebelSectors.length > 0) {
+      targetSector = selectMilitiaPlacementSector(game, rebelSectors, 'rebel');
+    } else if (neutralSectors.length > 0) {
+      targetSector = selectMilitiaPlacementSector(game, neutralSectors, 'neutral');
+    } else if (dictatorSectors.length > 0) {
+      targetSector = selectMilitiaPlacementSector(game, dictatorSectors, 'dictator');
+    }
+
+    if (targetSector) {
+      const placed = targetSector.addDictatorMilitia(1);
+      if (placed > 0) {
+        totalPlaced++;
+        const existing = placements.get(targetSector.sectorName) || 0;
+        placements.set(targetSector.sectorName, existing + 1);
+      }
+    }
   }
 
-  game.message(`Distributed ${totalPlaced} extra militia across ${controlledSectors.length} sectors`);
+  // Log placements
+  for (const [sectorName, count] of placements) {
+    game.message(`Placed ${count} militia at ${sectorName}`);
+  }
+
+  if (totalPlaced > 0) {
+    game.message(`Total: ${totalPlaced} extra militia placed`);
+  }
 
   return totalPlaced;
 }

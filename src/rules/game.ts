@@ -239,6 +239,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     dictatorCombatants: any[]; // Combatant[]
     rebelCasualties: any[];
     dictatorCasualties: any[];
+    // MERC-l09: Attack Dog state
+    dogAssignments?: Array<[string, any]>; // [targetId, dog Combatant][] - serializable form
+    dogs?: any[]; // Active dog combatants
   } | null = null;
 
   // Data loaded from JSON

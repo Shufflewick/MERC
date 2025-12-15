@@ -17,6 +17,7 @@
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 import { MercCard, Sector, DictatorCard, Militia } from './elements.js';
 import { CombatConstants, TieBreakers } from './constants.js';
+import { sortTargetsByAIPriority, detonateLandMines } from './ai-helpers.js';
 
 // =============================================================================
 // Combat Types
@@ -34,10 +35,15 @@ export interface Combatant {
   isDictatorSide: boolean;
   isMilitia: boolean;
   isDictator: boolean;
+  isAttackDog: boolean; // MERC-l09: Attack Dogs
   sourceElement: MercCard | DictatorCard | null;
   ownerId?: string; // For rebel militia
   armorPiercing: boolean; // MERC-38e: Weapon ignores armor
   hasOneUseWeapon: boolean; // MERC-f0y: Weapon is one-use
+  hasAttackDog: boolean; // MERC-l09: Has Attack Dog equipped
+  attackDogAssignedTo?: string; // MERC-l09: ID of MERC this dog is assigned to
+  isImmuneToAttackDogs: boolean; // MERC-l09: Shadkaam ability
+  willNotHarmDogs: boolean; // MERC-l09: Tao ability
 }
 
 export interface CombatResult {
@@ -114,9 +120,39 @@ function sortByInitiative(combatants: Combatant[]): Combatant[] {
 // =============================================================================
 
 /**
+ * MERC-l09: Attack Dog constants
+ */
+const ATTACK_DOG_HEALTH = 3;
+const ATTACK_DOG_ID = 'attack-dog';
+
+/**
+ * MERC-l09: Check if a MERC has an Attack Dog equipped
+ */
+function hasAttackDogEquipped(merc: MercCard): boolean {
+  return merc.accessorySlot?.equipmentId === ATTACK_DOG_ID;
+}
+
+/**
+ * MERC-l09: Check if a MERC is immune to attack dogs (Shadkaam)
+ */
+function isImmuneToAttackDogs(merc: MercCard): boolean {
+  const ability = merc.ability?.toLowerCase() ?? '';
+  return ability.includes('immune to attack dogs');
+}
+
+/**
+ * MERC-l09: Check if a MERC will not harm dogs (Tao)
+ */
+function willNotHarmDogs(merc: MercCard): boolean {
+  const ability = merc.ability?.toLowerCase() ?? '';
+  return ability.includes('will not harm dogs');
+}
+
+/**
  * Build combatant from a MERC card
  * MERC-38e: Includes armorPiercing from weapon
  * MERC-f0y: Includes hasOneUseWeapon flag
+ * MERC-l09: Includes Attack Dog support
  */
 function mercToCombatant(merc: MercCard, isDictatorSide: boolean): Combatant {
   return {
@@ -131,9 +167,13 @@ function mercToCombatant(merc: MercCard, isDictatorSide: boolean): Combatant {
     isDictatorSide,
     isMilitia: false,
     isDictator: false,
+    isAttackDog: false,
     sourceElement: merc,
     armorPiercing: merc.weaponSlot?.negatesArmor ?? false, // MERC-38e
     hasOneUseWeapon: merc.weaponSlot?.isOneUse ?? false, // MERC-f0y
+    hasAttackDog: hasAttackDogEquipped(merc), // MERC-l09
+    isImmuneToAttackDogs: isImmuneToAttackDogs(merc), // MERC-l09
+    willNotHarmDogs: willNotHarmDogs(merc), // MERC-l09
   };
 }
 
@@ -153,9 +193,13 @@ function dictatorToCombatant(dictator: DictatorCard): Combatant {
     isDictatorSide: true,
     isMilitia: false,
     isDictator: true,
+    isAttackDog: false,
     sourceElement: dictator,
     armorPiercing: false,
     hasOneUseWeapon: false,
+    hasAttackDog: false,
+    isImmuneToAttackDogs: false,
+    willNotHarmDogs: false,
   };
 }
 
@@ -181,13 +225,45 @@ function militiaToCombatants(
       isDictatorSide,
       isMilitia: true,
       isDictator: false,
+      isAttackDog: false,
       sourceElement: null,
       ownerId,
       armorPiercing: false,
       hasOneUseWeapon: false,
+      hasAttackDog: false,
+      isImmuneToAttackDogs: false,
+      willNotHarmDogs: false,
     });
   }
   return combatants;
+}
+
+/**
+ * MERC-l09: Build an Attack Dog combatant
+ * Dogs don't attack, but can be targeted
+ */
+function createAttackDogCombatant(ownerId: string, isDictatorSide: boolean, index: number): Combatant {
+  return {
+    id: `attack-dog-${ownerId}-${index}`,
+    name: 'Attack Dog',
+    initiative: 0, // Dogs don't act on their own
+    combat: 0, // Dogs don't attack
+    health: ATTACK_DOG_HEALTH,
+    maxHealth: ATTACK_DOG_HEALTH,
+    armor: 0,
+    targets: 0,
+    isDictatorSide,
+    isMilitia: false,
+    isDictator: false,
+    isAttackDog: true,
+    sourceElement: null,
+    ownerId,
+    armorPiercing: false,
+    hasOneUseWeapon: false,
+    hasAttackDog: false,
+    isImmuneToAttackDogs: false,
+    willNotHarmDogs: false,
+  };
 }
 
 /**
@@ -357,6 +433,11 @@ function canTargetDictator(dictatorSide: Combatant[]): boolean {
 
 /**
  * Select targets for an attacker
+ * MERC-0q8: AI (dictator side) uses priority targeting per rules 4.6:
+ * 1. Lowest health + armor
+ * 2. If tied, highest targets
+ * 3. If tied, highest initiative
+ * 4. If still tied, random
  */
 function selectTargets(
   attacker: Combatant,
@@ -375,7 +456,9 @@ function selectTargets(
     return validTargets.slice(0, maxTargets);
   }
 
-  return aliveEnemies.slice(0, maxTargets);
+  // MERC-0q8: Dictator AI uses priority targeting
+  const prioritized = sortTargetsByAIPriority(aliveEnemies);
+  return prioritized.slice(0, maxTargets);
 }
 
 /**
@@ -420,14 +503,100 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPie
 }
 
 /**
+ * MERC-l09: Track Attack Dog assignments during combat
+ * Maps target combatant ID -> dog combatant
+ */
+interface AttackDogState {
+  assignments: Map<string, Combatant>; // targetId -> dog
+  dogs: Combatant[]; // All active dogs
+}
+
+/**
+ * MERC-l09: Assign Attack Dog to an enemy MERC
+ * Returns the dog combatant if assigned, null otherwise
+ */
+function assignAttackDog(
+  attacker: Combatant,
+  enemies: Combatant[],
+  dogState: AttackDogState,
+  game: MERCGame,
+  dogIndex: number
+): Combatant | null {
+  if (!attacker.hasAttackDog) return null;
+
+  // Find valid targets (enemy MERCs that aren't immune and don't already have a dog)
+  const validTargets = enemies.filter(e =>
+    e.health > 0 &&
+    !e.isMilitia &&
+    !e.isAttackDog &&
+    !e.isImmuneToAttackDogs &&
+    !dogState.assignments.has(e.id)
+  );
+
+  if (validTargets.length === 0) return null;
+
+  // Auto-assign to first valid target (AI behavior from rules: "always assigns")
+  // In interactive mode, this could be a player choice
+  const target = validTargets[0];
+
+  // Create the dog combatant
+  const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex);
+
+  // Track the assignment
+  dogState.assignments.set(target.id, dog);
+  dogState.dogs.push(dog);
+
+  game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
+  game.message(`${target.name} must attack the dog before doing anything else.`);
+
+  // Mark attacker as having used their dog
+  attacker.hasAttackDog = false;
+
+  return dog;
+}
+
+/**
+ * MERC-l09: Select targets considering Attack Dog assignment
+ * If combatant has a dog assigned to them, they MUST target the dog
+ */
+function selectTargetsWithDogs(
+  attacker: Combatant,
+  enemies: Combatant[],
+  maxTargets: number,
+  dogState: AttackDogState
+): Combatant[] {
+  // Check if this attacker has a dog assigned to them
+  const assignedDog = dogState.assignments.get(attacker.id);
+  if (assignedDog && assignedDog.health > 0) {
+    // MERC-l09: Tao ability - will not harm dogs, can't attack at all if dog assigned
+    if (attacker.willNotHarmDogs) {
+      return []; // Tao cannot attack while dog is assigned
+    }
+    // Must target the dog
+    return [assignedDog];
+  }
+
+  // Normal target selection
+  return selectTargets(attacker, enemies, maxTargets);
+}
+
+/**
  * Execute a single combat round
+ * MERC-l09: Includes Attack Dog mechanics
  */
 function executeCombatRound(
   roundNumber: number,
   rebels: Combatant[],
   dictatorSide: Combatant[],
-  game: MERCGame
+  game: MERCGame,
+  dogState?: AttackDogState
 ): CombatRound {
+  // MERC-l09: Initialize dog state if not provided
+  const activeDogState: AttackDogState = dogState || {
+    assignments: new Map(),
+    dogs: [],
+  };
+
   // MERC-54m: Refresh all combatant stats at start of round
   // This updates initiative/combat/targets after equipment changes in previous rounds
   for (const combatant of [...rebels, ...dictatorSide]) {
@@ -439,19 +608,41 @@ function executeCombatRound(
   const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
   const results: CombatResult[] = [];
   const casualties: Combatant[] = [];
+  let dogIndex = 0;
 
   for (const attacker of allCombatants) {
-    // Skip dead combatants
-    if (attacker.health <= 0) continue;
+    // Skip dead combatants and attack dogs (dogs don't attack)
+    if (attacker.health <= 0 || attacker.isAttackDog) continue;
 
     // Determine enemies
     const enemies = attacker.isDictatorSide ? rebels : dictatorSide;
-    const aliveEnemies = enemies.filter(e => e.health > 0);
+    const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
 
     if (aliveEnemies.length === 0) continue;
 
-    // MERC-pd5: Select targets BEFORE rolling dice (per rules)
-    const targets = selectTargets(attacker, enemies, attacker.targets);
+    // MERC-l09: Before attacking, assign Attack Dog if available
+    if (attacker.hasAttackDog) {
+      assignAttackDog(attacker, enemies, activeDogState, game, dogIndex++);
+    }
+
+    // MERC-l09: Select targets considering dog assignments
+    const targets = selectTargetsWithDogs(attacker, enemies, attacker.targets, activeDogState);
+
+    // MERC-l09: Handle Tao ability - can't attack when dog assigned
+    if (targets.length === 0) {
+      if (attacker.willNotHarmDogs) {
+        game.message(`${attacker.name} refuses to harm the Attack Dog and cannot act.`);
+      }
+      results.push({
+        attacker,
+        rolls: [],
+        hits: 0,
+        targets: [],
+        damageDealt: new Map(),
+      });
+      continue;
+    }
+
     const targetNames = targets.map(t => t.name).join(', ');
     game.message(`${attacker.name} declares targets: ${targetNames}`);
 
@@ -485,12 +676,23 @@ function executeCombatRound(
       if (target.health <= 0) {
         casualties.push(target);
         game.message(`${attacker.name} kills ${target.name}!`);
+
+        // MERC-l09: If a dog dies, remove the assignment
+        if (target.isAttackDog) {
+          // Find and remove the assignment for this dog
+          for (const [targetId, dog] of activeDogState.assignments.entries()) {
+            if (dog.id === target.id) {
+              activeDogState.assignments.delete(targetId);
+              break;
+            }
+          }
+        }
       } else {
         game.message(`${attacker.name} hits ${target.name} for ${damage} damage`);
       }
 
-      // Militia die in one hit, MERCs can take multiple
-      if (target.isMilitia) {
+      // Militia and dogs die in one hit, MERCs can take multiple
+      if (target.isMilitia || target.isAttackDog) {
         remainingHits--;
       } else {
         remainingHits -= damage;
@@ -629,6 +831,9 @@ export function executeCombat(
   let allDictatorCasualties: Combatant[];
   let startRound: number;
 
+  // MERC-l09: Track Attack Dog state across rounds
+  let dogState: AttackDogState;
+
   if (isResuming && game.activeCombat) {
     // Resume from saved state
     rebels = game.activeCombat.rebelCombatants as Combatant[];
@@ -637,6 +842,13 @@ export function executeCombat(
     allRebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
     allDictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
     startRound = game.activeCombat.round + 1;
+
+    // MERC-l09: Restore dog state
+    dogState = {
+      assignments: new Map(game.activeCombat.dogAssignments || []),
+      dogs: (game.activeCombat.dogs || []) as Combatant[],
+    };
+
     game.message(`--- Combat continues at ${sector.sectorName} ---`);
   } else {
     // Start new combat
@@ -649,8 +861,17 @@ export function executeCombat(
     allDictatorCasualties = [];
     startRound = 1;
 
+    // MERC-l09: Initialize dog state
+    dogState = {
+      assignments: new Map(),
+      dogs: [],
+    };
+
     game.message(`Rebels: ${rebels.length} units`);
     game.message(`Dictator: ${dictator.length} units`);
+
+    // MERC-b65: AI detonates land mines before combat begins
+    detonateLandMines(game, sector, attackingPlayer);
   }
 
   let retreatSector: Sector | undefined;
@@ -661,7 +882,8 @@ export function executeCombat(
   for (let round = startRound; round <= maxRounds; round++) {
     game.message(`--- Round ${round} ---`);
 
-    const roundResult = executeCombatRound(round, rebels, dictator, game);
+    // MERC-l09: Pass dog state to combat round
+    const roundResult = executeCombatRound(round, rebels, dictator, game, dogState);
     rounds.push(roundResult);
 
     // Track casualties
@@ -693,6 +915,9 @@ export function executeCombat(
         dictatorCombatants: dictator,
         rebelCasualties: allRebelCasualties,
         dictatorCasualties: allDictatorCasualties,
+        // MERC-l09: Save dog state
+        dogAssignments: Array.from(dogState.assignments.entries()),
+        dogs: dogState.dogs,
       };
       combatPending = true;
       game.message(`Round ${round} complete. You may retreat or continue fighting.`);

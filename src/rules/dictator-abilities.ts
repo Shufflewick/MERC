@@ -11,6 +11,11 @@
 import type { MERCGame } from './game.js';
 import { MercCard, Sector } from './elements.js';
 import { SectorConstants } from './constants.js';
+import {
+  selectNewMercLocation,
+  selectMilitiaPlacementSector,
+  getRebelControlledSectors,
+} from './ai-helpers.js';
 
 // =============================================================================
 // Dictator Ability Types
@@ -45,9 +50,10 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   const militiaCount = Math.min(5 * game.rebelCount, 20);
 
   // Find base sector and add militia
+  // MERC-td6: Use bypassCap=true to allow Kim's max of 20 militia
   const baseSector = game.getSector(game.dictatorPlayer.baseSectorId!);
   if (baseSector) {
-    const placed = baseSector.addDictatorMilitia(militiaCount);
+    const placed = baseSector.addDictatorMilitia(militiaCount, true);
     game.message(`Kim's base is revealed with ${placed} militia!`);
     return {
       success: true,
@@ -95,16 +101,11 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   // Hire the selected MERC
   game.dictatorPlayer.hiredMercs.push(bestMerc);
 
-  // Set the MERC's location (prefer base, fallback to highest militia sector)
-  if (game.dictatorPlayer.baseSectorId) {
-    bestMerc.sectorId = game.dictatorPlayer.baseSectorId;
-  } else {
-    const controlledSectors = game.gameMap.getAllSectors()
-      .filter(s => s.dictatorMilitia > 0)
-      .sort((a, b) => b.dictatorMilitia - a.dictatorMilitia);
-    if (controlledSectors.length > 0) {
-      bestMerc.sectorId = controlledSectors[0].sectorId;
-    }
+  // MERC-2ay: Set MERC location per AI rules 4.3.2
+  // Dictator-controlled sector closest to weakest rebel sector
+  const targetSector = selectNewMercLocation(game);
+  if (targetSector) {
+    bestMerc.sectorId = targetSector.sectorId;
   }
 
   // Discard the others
@@ -145,18 +146,33 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: true, message: 'No rebel sectors', data: { militiaPlaced: 0 } };
   }
 
-  // AI/Auto: Place on the sector with most existing militia (defensive strategy)
-  const dictatorSectors = game.gameMap.getAllSectors()
-    .filter(s => s.dictatorMilitia > 0 || s.isBase)
-    .sort((a, b) => b.dictatorMilitia - a.dictatorMilitia);
+  // MERC-611: Use AI placement rules per section 4.4
+  const allSectors = game.gameMap.getAllSectors();
+  const rebelSectors = getRebelControlledSectors(game);
+  const dictatorSectors = allSectors.filter(s => s.dictatorMilitia > 0);
+  const neutralSectors = allSectors.filter(s =>
+    s.dictatorMilitia === 0 &&
+    s.getTotalRebelMilitia() === 0 &&
+    !game.rebelPlayers.some(r =>
+      r.primarySquad?.sectorId === s.sectorId ||
+      r.secondarySquad?.sectorId === s.sectorId
+    )
+  );
 
-  let targetSector: Sector;
-  if (dictatorSectors.length > 0) {
-    targetSector = dictatorSectors[0];
-  } else {
+  // Try placement in priority order
+  let targetSector: Sector | null = null;
+  if (rebelSectors.length > 0) {
+    targetSector = selectMilitiaPlacementSector(game, rebelSectors, 'rebel');
+  } else if (neutralSectors.length > 0) {
+    targetSector = selectMilitiaPlacementSector(game, neutralSectors, 'neutral');
+  } else if (dictatorSectors.length > 0) {
+    targetSector = selectMilitiaPlacementSector(game, dictatorSectors, 'dictator');
+  }
+
+  if (!targetSector) {
     // Fallback to any industry
-    const industries = game.gameMap.getAllSectors().filter(s => s.isIndustry);
-    targetSector = industries[0] || game.gameMap.getAllSectors()[0];
+    const industries = allSectors.filter(s => s.isIndustry);
+    targetSector = industries[0] || allSectors[0];
   }
 
   const placed = targetSector.addDictatorMilitia(rebelSectorCount);
