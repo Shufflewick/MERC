@@ -176,6 +176,12 @@ export class DictatorPlayer extends Player {
   // Sector where the Dictator's forces are stationed
   stationedSectorId?: string;
 
+  // MERC-5j2: AI mode - dictator plays cards from deck top, no hand
+  isAI: boolean = true;
+
+  // MERC-q4v: Privacy Player - Rebel designated to handle AI decisions
+  privacyPlayerId?: string;
+
   get isDefeated(): boolean {
     return this.baseRevealed && this.dictator?.isDead;
   }

@@ -1729,6 +1729,7 @@ export function createPlaceLandingDay1Action(game: MERCGame): ActionDefinition {
 
 /**
  * Play a tactics card
+ * MERC-5j2: AI plays from top of deck (no hand), auto-selects
  */
 export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
   return Action.create('playTactics')
@@ -1736,6 +1737,10 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Only the dictator player can play tactics cards
       if (!game.isDictatorPlayer(ctx.player as any)) return false;
+      // MERC-5j2: AI plays from deck, human plays from hand
+      if (game.dictatorPlayer?.isAI) {
+        return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
+      }
       return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
     })
     .chooseElement<TacticsCard>('card', {
@@ -1743,6 +1748,11 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       elementClass: TacticsCard,
       filter: (element) => {
         const card = element as unknown as TacticsCard;
+        // MERC-5j2: AI auto-selects top card from deck
+        if (game.dictatorPlayer?.isAI) {
+          const topCard = game.dictatorPlayer?.tacticsDeck?.first(TacticsCard);
+          return card === topCard;
+        }
         return game.dictatorPlayer?.tacticsHand?.all(TacticsCard).includes(card) ?? false;
       },
     })
@@ -1767,6 +1777,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
 /**
  * Reinforce instead of playing a tactics card
  * Discard a tactics card to gain militia
+ * MERC-5j2: AI uses top card from deck
  */
 export function createReinforceAction(game: MERCGame): ActionDefinition {
   return Action.create('reinforce')
@@ -1774,6 +1785,10 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Only the dictator player can reinforce
       if (!game.isDictatorPlayer(ctx.player as any)) return false;
+      // MERC-5j2: AI plays from deck, human plays from hand
+      if (game.dictatorPlayer?.isAI) {
+        return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
+      }
       return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
     })
     .chooseElement<TacticsCard>('card', {
@@ -1781,6 +1796,11 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       elementClass: TacticsCard,
       filter: (element) => {
         const card = element as unknown as TacticsCard;
+        // MERC-5j2: AI auto-selects top card from deck
+        if (game.dictatorPlayer?.isAI) {
+          const topCard = game.dictatorPlayer?.tacticsDeck?.first(TacticsCard);
+          return card === topCard;
+        }
         return game.dictatorPlayer?.tacticsHand?.all(TacticsCard).includes(card) ?? false;
       },
     })

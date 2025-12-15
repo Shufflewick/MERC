@@ -201,6 +201,85 @@ export function sortTargetsByAIPriority<T extends CombatTarget>(targets: T[]): T
 }
 
 // =============================================================================
+// Privacy Player Designation (Section AI Setup)
+// =============================================================================
+
+/**
+ * Check if a player is the designated privacy player.
+ * MERC-q4v: Per rules, one Rebel player is designated to:
+ * - Take all Dictator actions
+ * - See hidden information (mine locations, etc.)
+ * - Make AI decisions impartially
+ */
+export function isPrivacyPlayer(game: MERCGame, playerId: string): boolean {
+  return game.dictatorPlayer.privacyPlayerId === playerId;
+}
+
+/**
+ * Get the privacy player.
+ * MERC-q4v: Per rules, returns the designated Rebel player for AI decisions.
+ */
+export function getPrivacyPlayer(game: MERCGame): { name: string; position: number } | null {
+  const privacyId = game.dictatorPlayer.privacyPlayerId;
+  if (!privacyId) return null;
+
+  const rebel = game.rebelPlayers.find(r => r.position.toString() === privacyId);
+  if (rebel) {
+    return { name: rebel.name, position: rebel.position };
+  }
+  return null;
+}
+
+/**
+ * Designate a privacy player for AI decisions.
+ * MERC-q4v: Should be called during setup.
+ */
+export function setPrivacyPlayer(game: MERCGame, playerId: string): void {
+  game.dictatorPlayer.privacyPlayerId = playerId;
+  game.message(`Player ${playerId} designated as Privacy Player for AI decisions`);
+}
+
+// =============================================================================
+// Dictator Base Restriction (Section 4.1)
+// =============================================================================
+
+/**
+ * Check if dictator can move from their current sector.
+ * MERC-mme: Per rules 4.1 "Post-Revelation Behavior":
+ * - Dictator stays at base (never leaves)
+ * - Takes actions as if a MERC (equip, train, etc.)
+ */
+export function canDictatorMove(game: MERCGame): boolean {
+  // If base is not revealed yet, dictator hasn't spawned so can't move
+  if (!game.dictatorPlayer.baseRevealed) {
+    return false;
+  }
+
+  // MERC-mme: Once revealed, dictator NEVER leaves base
+  return false;
+}
+
+/**
+ * Check if a unit is the dictator at their base.
+ * MERC-mme: Used to enforce base restriction.
+ */
+export function isDictatorAtBase(game: MERCGame): boolean {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || !dictator.inPlay) return false;
+
+  const baseSectorId = game.dictatorPlayer.baseSectorId;
+  return dictator.sectorId === baseSectorId;
+}
+
+/**
+ * Get valid actions for dictator at base.
+ * MERC-mme: Dictator can equip, train, but NOT move.
+ */
+export function getDictatorBaseActions(): AIActionType[] {
+  return ['explore', 're-equip', 'train']; // No 'move'
+}
+
+// =============================================================================
 // Base Location Selection (Section 4.1)
 // =============================================================================
 
@@ -253,8 +332,58 @@ export function selectAIBaseLocation(game: MERCGame): Sector | null {
 }
 
 // =============================================================================
-// AI Militia Placement (Section 4.4)
+// AI Militia Placement (Section 4.4 & Setup)
 // =============================================================================
+
+/**
+ * Distribute militia evenly among Dictator-controlled Industries.
+ * MERC-cgn: Per AI Setup rules, extra militia during setup are distributed EVENLY
+ * among Dictator-controlled Industries (not using placement priority).
+ */
+export function distributeExtraMilitiaEvenly(
+  game: MERCGame,
+  totalMilitia: number
+): Map<string, number> {
+  const placements = new Map<string, number>();
+
+  // Get dictator-controlled industries
+  const dictatorIndustries = game.gameMap.getAllSectors().filter(
+    s => s.isIndustry && s.dictatorMilitia > 0
+  );
+
+  if (dictatorIndustries.length === 0 || totalMilitia === 0) {
+    return placements;
+  }
+
+  // Calculate even distribution
+  const basePerSector = Math.floor(totalMilitia / dictatorIndustries.length);
+  let remainder = totalMilitia % dictatorIndustries.length;
+
+  // Sort industries by value (highest first) for distributing remainder
+  const sortedIndustries = [...dictatorIndustries].sort((a, b) =>
+    (b.industryValue || 0) - (a.industryValue || 0)
+  );
+
+  for (const sector of sortedIndustries) {
+    let toPlace = basePerSector;
+
+    // Distribute remainder to highest value industries first
+    if (remainder > 0) {
+      toPlace++;
+      remainder--;
+    }
+
+    if (toPlace > 0) {
+      const placed = sector.addDictatorMilitia(toPlace);
+      if (placed > 0) {
+        placements.set(sector.sectorId, placed);
+        game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
+      }
+    }
+  }
+
+  return placements;
+}
 
 /**
  * Select sector for AI militia placement.
@@ -347,6 +476,14 @@ export function sortMercsAlphabetically(mercs: MercCard[]): MercCard[] {
 // =============================================================================
 // AI MERC Hiring (Section 4.3)
 // =============================================================================
+
+/**
+ * Get free equipment type for AI.
+ * MERC-pyo: Per rules 4.3.3, AI always chooses Weapon as free equipment.
+ */
+export function getAIFreeEquipmentType(): 'Weapon' | 'Armor' | 'Accessory' {
+  return 'Weapon';
+}
 
 /**
  * Select sector for new AI MERC placement.
@@ -518,58 +655,219 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
 }
 
 // =============================================================================
-// AI MERC Action Priority (Section 4.9)
+// AI MERC Action Priority (Section 3)
 // =============================================================================
 
-export type AIActionType = 'attack' | 'move' | 'explore' | 'train' | 're-equip';
+export type AIActionType = 'explore' | 're-equip' | 'train' | 'move';
+
+export interface AIActionDecision {
+  action: AIActionType;
+  target?: Sector;
+  reason: string;
+}
 
 /**
- * Get prioritized actions for AI MERC.
- * MERC-vbc: Per rules 4.9, action priority is:
- * 1. Attack (if enemies present)
- * 2. Move toward weakest rebel
- * 3. Explore (if at unexplored sector)
- * 4. Train (if at controlled sector)
- * 5. Re-equip (if better equipment available)
+ * Sort MERCs by Initiative order (highest first).
+ * MERC-est: Per rules Section 3 "Action Order", MERCs act in Initiative order.
+ */
+export function sortMercsByInitiative(mercs: MercCard[]): MercCard[] {
+  return [...mercs].sort((a, b) => {
+    // Higher initiative acts first
+    if (a.initiative !== b.initiative) {
+      return b.initiative - a.initiative;
+    }
+    // Tie-breaker: alphabetical
+    return a.mercName.localeCompare(b.mercName);
+  });
+}
+
+/**
+ * Get all AI MERCs in the same squad/sector for movement cohesion.
+ * MERC-1gu: Per rules 3.4, "Never split the squad - All MERCs with actions remaining move together"
+ */
+export function getSquadMercs(game: MERCGame): MercCard[] {
+  const mercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead && m.sectorId);
+  return sortMercsByInitiative(mercs);
+}
+
+/**
+ * Check if all MERCs in a sector can move together.
+ * MERC-1gu: Squad cohesion - never split the squad.
+ */
+export function canSquadMoveTogether(game: MERCGame, fromSectorId: string): boolean {
+  const mercsInSector = game.dictatorPlayer.hiredMercs.filter(
+    m => m.sectorId === fromSectorId && !m.isDead
+  );
+  // All MERCs must have actions remaining to move together
+  return mercsInSector.every(m => m.actionsRemaining > 0);
+}
+
+/**
+ * Get squad action decision - considers all MERCs in the squad together.
+ * MERC-1gu: Per rules 3.4, all MERCs move together when possible.
+ * Returns a single decision for the entire squad.
+ */
+export function getSquadAction(game: MERCGame): AIActionDecision & { mercs: MercCard[] } {
+  const mercs = getSquadMercs(game);
+  if (mercs.length === 0) {
+    return { action: 'move', reason: 'No MERCs available', mercs: [] };
+  }
+
+  // Get the first MERC's sector (all should be in same sector for squad cohesion)
+  const sector = mercs[0].sectorId ? game.getSector(mercs[0].sectorId) : null;
+  if (!sector) {
+    return { action: 'move', reason: 'No sector', mercs };
+  }
+
+  // Get decision for the leader (highest initiative)
+  const decision = getAIMercAction(game, mercs[0]);
+
+  // For move actions, ensure all MERCs move together
+  if (decision.action === 'move' && decision.target) {
+    const canMove = canSquadMoveTogether(game, sector.sectorId);
+    if (!canMove) {
+      // Some MERCs don't have actions - train instead if possible
+      if (sector.dictatorMilitia < 10 && mercs.some(m => m.training > 0)) {
+        return { action: 'train', reason: 'MERC-1gu: Squad cannot move together, train instead', mercs };
+      }
+    }
+  }
+
+  return { ...decision, mercs };
+}
+
+/**
+ * Check if MERC is fully equipped.
+ * MERC-81u: Per rules 3.1, not fully equipped = explore/re-equip priority
+ */
+function isMercFullyEquipped(merc: MercCard): boolean {
+  return merc.isFullyEquipped;
+}
+
+/**
+ * Check if sector is an undefended industry.
+ * MERC-ang: Per rules 3.2, undefended = industry with 0 dictator militia
+ */
+function isUndefendedIndustry(sector: Sector): boolean {
+  return sector.isIndustry && sector.dictatorMilitia === 0;
+}
+
+/**
+ * Find unoccupied industries within movement range.
+ * MERC-qzt: Per rules 3.3, unoccupied = no forces present
+ */
+export function findUnoccupiedIndustriesInRange(game: MERCGame, fromSector: Sector): Sector[] {
+  const allSectors = game.gameMap.getAllSectors();
+  return allSectors.filter(s => {
+    if (!s.isIndustry) return false;
+    // Unoccupied = no dictator militia, no rebel militia, no squads
+    if (s.dictatorMilitia > 0) return false;
+    if (s.getTotalRebelMilitia() > 0) return false;
+    const hasSquads = game.rebelPlayers.some(r =>
+      r.primarySquad?.sectorId === s.sectorId ||
+      r.secondarySquad?.sectorId === s.sectorId
+    );
+    if (hasSquads) return false;
+    // Check if in range (adjacent or reachable in 1-2 moves)
+    const dist = distanceBetweenSectors(game, fromSector, s);
+    return dist <= 2; // "in range" = within 2 moves
+  });
+}
+
+/**
+ * Check if any rebel is in range.
+ * MERC-1gu: Per rules 3.4, rebel in range = adjacent or close
+ */
+function isRebelInRange(game: MERCGame, fromSector: Sector): boolean {
+  const rebelSectors = getRebelControlledSectors(game);
+  for (const rebelSector of rebelSectors) {
+    const dist = distanceBetweenSectors(game, fromSector, rebelSector);
+    if (dist <= 2) return true; // In range = within 2 moves
+  }
+  return false;
+}
+
+/**
+ * Get AI MERC action decision following priority rules.
+ * Per rules Section 3, priority order is:
+ * 3.1 - If not fully equipped → Explore and equip/re-equip
+ * 3.2 - If on undefended Industry → Train militia
+ * 3.3 - If unoccupied Industry in range → Move to it
+ * 3.4 - If Rebel in range → Move toward closest Rebel
+ * 3.5 - If militia < 10 → Train militia
+ * 3.6 - Default → Move toward nearest Rebel
+ */
+export function getAIMercAction(game: MERCGame, merc: MercCard): AIActionDecision {
+  const sector = merc.sectorId ? game.getSector(merc.sectorId) : null;
+
+  if (!sector) {
+    return { action: 'move', reason: 'No sector' };
+  }
+
+  // 3.1 - If not fully equipped, explore or re-equip
+  if (!isMercFullyEquipped(merc)) {
+    if (!sector.explored) {
+      return { action: 'explore', reason: '3.1: Not fully equipped, explore sector' };
+    }
+    const stash = sector.getStashContents();
+    const usableEquipment = stash.filter(e => !shouldLeaveInStash(e));
+    if (usableEquipment.length > 0) {
+      return { action: 're-equip', reason: '3.1: Not fully equipped, equip from stash' };
+    }
+  }
+
+  // 3.2 - If on undefended Industry, train militia
+  if (isUndefendedIndustry(sector) && merc.training > 0) {
+    return { action: 'train', reason: '3.2: On undefended industry, train militia' };
+  }
+
+  // 3.3 - If unoccupied Industry in range, move to it
+  const unoccupiedIndustries = findUnoccupiedIndustriesInRange(game, sector);
+  if (unoccupiedIndustries.length > 0) {
+    // Find closest unoccupied industry
+    const closest = unoccupiedIndustries.sort((a, b) =>
+      distanceBetweenSectors(game, sector, a) - distanceBetweenSectors(game, sector, b)
+    )[0];
+    return { action: 'move', target: closest, reason: '3.3: Move to unoccupied industry' };
+  }
+
+  // 3.4 - If Rebel in range, move toward closest
+  if (isRebelInRange(game, sector)) {
+    const target = getBestMoveDirection(game, sector);
+    if (target) {
+      return { action: 'move', target, reason: '3.4: Rebel in range, move toward' };
+    }
+  }
+
+  // 3.5 - If militia < 10, train
+  if (sector.dictatorMilitia < 10 && merc.training > 0) {
+    return { action: 'train', reason: '3.5: Militia < 10, train' };
+  }
+
+  // 3.6 - Default: move toward nearest rebel
+  const target = getBestMoveDirection(game, sector);
+  if (target) {
+    return { action: 'move', target, reason: '3.6: Default, move toward rebel' };
+  }
+
+  // Fallback: train if possible
+  if (merc.training > 0 && sector.dictatorMilitia < 10) {
+    return { action: 'train', reason: 'Fallback: train militia' };
+  }
+
+  return { action: 'move', reason: 'No action available' };
+}
+
+/**
+ * Legacy function for backwards compatibility.
+ * @deprecated Use getAIMercAction instead
  */
 export function getAIMercActionPriority(
   game: MERCGame,
   merc: MercCard
 ): AIActionType[] {
-  const priorities: AIActionType[] = [];
-  const sector = merc.sectorId ? game.getSector(merc.sectorId) : null;
-
-  if (!sector) return priorities;
-
-  // 1. Attack - if enemies present in sector
-  const hasEnemies = game.rebelPlayers.some(r =>
-    r.primarySquad?.sectorId === sector.sectorId ||
-    r.secondarySquad?.sectorId === sector.sectorId ||
-    sector.getTotalRebelMilitia() > 0
-  );
-  if (hasEnemies) {
-    priorities.push('attack');
-  }
-
-  // 2. Move - always an option if not attacking
-  priorities.push('move');
-
-  // 3. Explore - if at unexplored sector
-  if (!sector.explored) {
-    priorities.push('explore');
-  }
-
-  // 4. Train - if at controlled sector
-  if (sector.dictatorMilitia > 0 && merc.training > 0) {
-    priorities.push('train');
-  }
-
-  // 5. Re-equip - if stash has equipment
-  if (sector.getStashContents().length > 0) {
-    priorities.push('re-equip');
-  }
-
-  return priorities;
+  const decision = getAIMercAction(game, merc);
+  return [decision.action];
 }
 
 /**
@@ -598,16 +896,159 @@ export function getBestMoveDirection(game: MERCGame, fromSector: Sector): Sector
 }
 
 // =============================================================================
-// AI Healing and Saving MERCs (Section 4.10)
+// AI Healing and Saving MERCs (Sections 4.8-4.10)
 // =============================================================================
 
 /**
  * Check if a MERC needs healing.
- * Per rules 4.10, AI prioritizes healing when MERCs are at low health.
+ * Per rules 4.8, AI prioritizes healing when MERCs are injured.
  */
 export function mercNeedsHealing(merc: MercCard): boolean {
-  // Prioritize healing when health is 1 or less
-  return merc.health <= 1 && merc.damage > 0;
+  return merc.damage > 0 && !merc.isDead;
+}
+
+/**
+ * Get MERCs with healing abilities.
+ * MERC-6kw: Per rules 4.8.1, AI uses MERC healing abilities first.
+ */
+export function getMercsWithHealingAbility(mercs: MercCard[]): MercCard[] {
+  return mercs.filter(m =>
+    !m.isDead &&
+    m.ability &&
+    (m.ability.toLowerCase().includes('heal') ||
+     m.ability.toLowerCase().includes('medical') ||
+     m.ability.toLowerCase().includes('restore'))
+  );
+}
+
+/**
+ * Get AI healing priority order.
+ * MERC-6kw: Per rules 4.8:
+ * 1. Use MERC healing abilities first
+ * 2. Then discard combat dice for Medical Kit / First Aid Kit
+ */
+export interface AIHealingAction {
+  type: 'ability' | 'item';
+  merc?: MercCard;
+  item?: string;
+  target: MercCard;
+}
+
+export function getAIHealingPriority(
+  game: MERCGame,
+  damagedMercs: MercCard[],
+  allMercs: MercCard[]
+): AIHealingAction | null {
+  if (damagedMercs.length === 0) return null;
+
+  // Sort damaged MERCs by health (lowest first)
+  const sortedDamaged = [...damagedMercs].sort((a, b) => a.health - b.health);
+  const target = sortedDamaged[0];
+
+  // MERC-6kw: 4.8.1 - Try MERC healing abilities first
+  const healers = getMercsWithHealingAbility(allMercs);
+  if (healers.length > 0) {
+    return { type: 'ability', merc: healers[0], target };
+  }
+
+  // 4.8.2 - Then try Medical Kit or First Aid Kit
+  for (const merc of allMercs) {
+    const accessory = merc.accessorySlot;
+    if (accessory) {
+      const name = accessory.equipmentName.toLowerCase();
+      if (name.includes('medical kit') || name.includes('first aid kit')) {
+        return { type: 'item', merc, item: accessory.equipmentName, target };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if squad has Epinephrine Shot.
+ * MERC-jjr: Per rules 4.9, AI saves dying MERCs with Epinephrine Shot.
+ */
+export function hasEpinephrineShot(mercs: MercCard[]): MercCard | null {
+  for (const merc of mercs) {
+    const accessory = merc.accessorySlot;
+    if (accessory?.equipmentName.toLowerCase().includes('epinephrine')) {
+      return merc;
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if a MERC should use Epinephrine Shot.
+ * MERC-jjr: Per rules 4.9, AI uses Epinephrine to save dying MERCs.
+ * Returns the MERC with the shot if saving is needed.
+ */
+export function shouldUseEpinephrine(
+  dyingMerc: MercCard,
+  squadMercs: MercCard[]
+): MercCard | null {
+  // Only save if MERC is about to die (0 health)
+  if (dyingMerc.health > 0 || dyingMerc.isDead) return null;
+
+  // Find squad member with Epinephrine Shot
+  return hasEpinephrineShot(squadMercs);
+}
+
+// =============================================================================
+// AI Special Abilities (Section 4.10)
+// =============================================================================
+
+/**
+ * Check if AI should use a MERC's special ability.
+ * MERC-65u: Per rules 4.10, AI ALWAYS uses MERC special abilities when appropriate.
+ */
+export function shouldUseSpecialAbility(merc: MercCard, _situation: string): boolean {
+  // AI always uses abilities when they can be used
+  return !!merc.ability && merc.ability.length > 0;
+}
+
+/**
+ * Get list of special ability activations for the AI.
+ * MERC-65u: AI always uses abilities when beneficial.
+ */
+export function getAIAbilityActivations(mercs: MercCard[]): MercCard[] {
+  return mercs.filter(m => !m.isDead && shouldUseSpecialAbility(m, 'any'));
+}
+
+// =============================================================================
+// AI Attack Dog Assignment (Section 4.11)
+// =============================================================================
+
+/**
+ * Check if a unit has Attack Dogs.
+ * MERC-dol: Per rules 4.11, AI always assigns Attack Dogs to Rebel MERCs.
+ */
+export function hasAttackDog(unit: MercCard): boolean {
+  const accessory = unit.accessorySlot;
+  return accessory?.equipmentName.toLowerCase().includes('attack dog') ?? false;
+}
+
+/**
+ * Get all units with Attack Dogs.
+ * MERC-dol: Returns units that can assign dogs to enemies.
+ */
+export function getUnitsWithAttackDogs(mercs: MercCard[]): MercCard[] {
+  return mercs.filter(m => !m.isDead && hasAttackDog(m));
+}
+
+/**
+ * Select target for Attack Dog assignment using AI target rules.
+ * MERC-dol: Per rules 4.11, uses "Choosing Targets in Combat" (4.6).
+ */
+export function selectAttackDogTarget(
+  targets: CombatTarget[]
+): CombatTarget | null {
+  if (targets.length === 0) return null;
+
+  // Use standard AI target priority (4.6)
+  const sorted = sortTargetsByAIPriority(targets);
+  return sorted[0];
 }
 
 /**
@@ -722,14 +1163,53 @@ export function getMortarTargets(game: MERCGame, fromSector: Sector): Sector[] {
 }
 
 /**
+ * Count targets in a sector (MERCs + militia).
+ * MERC-gcb: Per rules 4.12, choose sector with most targets.
+ */
+export function countTargetsInSector(game: MERCGame, sector: Sector): number {
+  let count = 0;
+
+  // Count rebel MERCs
+  for (const rebel of game.rebelPlayers) {
+    if (rebel.primarySquad?.sectorId === sector.sectorId) {
+      count += rebel.primarySquad.getMercs().filter(m => !m.isDead).length;
+    }
+    if (rebel.secondarySquad?.sectorId === sector.sectorId) {
+      count += rebel.secondarySquad.getMercs().filter(m => !m.isDead).length;
+    }
+  }
+
+  // Count rebel militia
+  count += sector.getTotalRebelMilitia();
+
+  return count;
+}
+
+/**
  * Select best mortar target using AI priority.
- * MERC-un4: Per rules 4.12, AI always attacks with mortars when possible.
- * Targets the weakest rebel sector.
+ * MERC-gcb: Per rules 4.12, AI always attacks with mortars when possible.
+ * Chooses sector with most targets. If tied, uses target selection rules.
  */
 export function selectMortarTarget(game: MERCGame, fromSector: Sector): Sector | null {
   const targets = getMortarTargets(game, fromSector);
   if (targets.length === 0) return null;
 
-  // Choose weakest rebel sector
-  return chooseWeakestRebelSector(game, targets);
+  // MERC-gcb: Sort by number of targets (most first)
+  const sortedTargets = [...targets].sort((a, b) => {
+    const countA = countTargetsInSector(game, a);
+    const countB = countTargetsInSector(game, b);
+
+    // Most targets first
+    if (countA !== countB) return countB - countA;
+
+    // Tie-breaker: choose weakest rebel force
+    const strengthA = calculateRebelStrength(game, a);
+    const strengthB = calculateRebelStrength(game, b);
+    if (strengthA !== strengthB) return strengthA - strengthB;
+
+    // Random tie-breaker
+    return Math.random() - 0.5;
+  });
+
+  return sortedTargets[0];
 }

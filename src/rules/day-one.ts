@@ -232,8 +232,15 @@ export function applyDictatorSetupAbility(game: MERCGame): void {
 
 /**
  * Draw tactics cards until the dictator has a full hand.
+ * MERC-5j2: AI does not draw a hand - plays directly from deck.
  */
 export function drawTacticsHand(game: MERCGame): TacticsCard[] {
+  // MERC-5j2: AI doesn't have a hand, plays from deck top
+  if (game.dictatorPlayer.isAI) {
+    game.message('AI Dictator plays tactics from deck (no hand)');
+    return [];
+  }
+
   const drawnCards: TacticsCard[] = [];
   const targetHandSize = DictatorConstants.HAND_SIZE;
   const tacticsHand = game.dictatorPlayer.tacticsHand;
@@ -289,60 +296,29 @@ export function placeExtraMilitia(
 }
 
 /**
- * Auto-place extra militia using AI placement rules.
- * MERC-611: Per rules 4.4, placement priority is:
- * 1. Rebel sectors (weakest rebel force)
- * 2. Neutral sectors (highest value closest to base)
- * 3. Dictator sectors (closest to rebel)
+ * Auto-place extra militia during setup.
+ * MERC-cgn: Per AI Setup rules, extra militia are distributed EVENLY
+ * among Dictator-controlled Industries during setup.
+ * Note: For card-based placement during play, use selectMilitiaPlacementSector.
  */
 export function autoPlaceExtraMilitia(game: MERCGame): number {
-  const { selectMilitiaPlacementSector, getRebelControlledSectors } = require('./ai-helpers.js');
+  const { distributeExtraMilitiaEvenly } = require('./ai-helpers.js');
   const extraBudget = game.setupConfig.dictatorStrength.extra;
-  let totalPlaced = 0;
-  const placements = new Map<string, number>();
 
-  for (let i = 0; i < extraBudget; i++) {
-    // Find sectors by category
-    const allSectors = game.gameMap.getAllSectors();
-    const rebelSectors = getRebelControlledSectors(game);
-    const dictatorSectors = allSectors.filter(s => s.dictatorMilitia > 0);
-    const neutralSectors = allSectors.filter(s =>
-      s.dictatorMilitia === 0 &&
-      s.getTotalRebelMilitia() === 0 &&
-      !game.rebelPlayers.some(r =>
-        r.primarySquad?.sectorId === s.sectorId ||
-        r.secondarySquad?.sectorId === s.sectorId
-      )
-    );
-
-    // Try placement in priority order
-    let targetSector: Sector | null = null;
-
-    if (rebelSectors.length > 0) {
-      targetSector = selectMilitiaPlacementSector(game, rebelSectors, 'rebel');
-    } else if (neutralSectors.length > 0) {
-      targetSector = selectMilitiaPlacementSector(game, neutralSectors, 'neutral');
-    } else if (dictatorSectors.length > 0) {
-      targetSector = selectMilitiaPlacementSector(game, dictatorSectors, 'dictator');
-    }
-
-    if (targetSector) {
-      const placed = targetSector.addDictatorMilitia(1);
-      if (placed > 0) {
-        totalPlaced++;
-        const existing = placements.get(targetSector.sectorName) || 0;
-        placements.set(targetSector.sectorName, existing + 1);
-      }
-    }
+  if (extraBudget === 0) {
+    return 0;
   }
 
-  // Log placements
-  for (const [sectorName, count] of placements) {
-    game.message(`Placed ${count} militia at ${sectorName}`);
+  // MERC-cgn: During setup, distribute evenly among dictator-controlled industries
+  const placements = distributeExtraMilitiaEvenly(game, extraBudget);
+
+  let totalPlaced = 0;
+  for (const count of placements.values()) {
+    totalPlaced += count;
   }
 
   if (totalPlaced > 0) {
-    game.message(`Total: ${totalPlaced} extra militia placed`);
+    game.message(`Total: ${totalPlaced} extra militia distributed evenly`);
   }
 
   return totalPlaced;
