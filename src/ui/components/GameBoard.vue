@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
-import { UI_COLORS } from '../colors';
+import MercCard from './MercCard.vue';
+import { UI_COLORS, getPlayerColor } from '../colors';
 
 const props = defineProps<{
   gameView: any;
@@ -15,30 +16,35 @@ const props = defineProps<{
   setBoardPrompt: (prompt: string | null) => void;
 }>();
 
-// Helper to find elements by $type in gameView tree
-function findByType(type: string, root?: any): any {
+const showDebug = ref(false);
+
+// Helper to find elements by className in gameView tree
+function findByClassName(className: string, root?: any): any {
   if (!root) root = props.gameView;
   if (!root) return null;
 
-  if (root.attributes?.$type === type) return root;
+  // Check className or ref that contains the class name
+  if (root.className === className || root.ref?.includes(className.toLowerCase())) {
+    return root;
+  }
 
   if (root.children) {
     for (const child of root.children) {
-      const found = findByType(type, child);
+      const found = findByClassName(className, child);
       if (found) return found;
     }
   }
   return null;
 }
 
-// Find all elements of a type
-function findAllByType(type: string, root?: any): any[] {
+// Find all elements matching a class name
+function findAllByClassName(className: string, root?: any): any[] {
   if (!root) root = props.gameView;
   const results: any[] = [];
 
   function search(node: any) {
     if (!node) return;
-    if (node.attributes?.$type === type) {
+    if (node.className === className || node.ref?.includes(className.toLowerCase())) {
       results.push(node);
     }
     if (node.children) {
@@ -52,34 +58,73 @@ function findAllByType(type: string, root?: any): any[] {
   return results;
 }
 
+// Find element by ref (id)
+function findByRef(ref: string, root?: any): any {
+  if (!root) root = props.gameView;
+  if (!root) return null;
+
+  if (root.ref === ref) return root;
+
+  if (root.children) {
+    for (const child of root.children) {
+      const found = findByRef(ref, child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // Extract map sectors from gameView
 const sectors = computed(() => {
-  const map = findByType('map');
-  if (!map?.children) return [];
+  // Try to find GameMap element
+  const map = findByClassName('GameMap') || findByRef('game-map');
+  if (!map?.children) {
+    // Fallback: look for Sector elements directly
+    const sectorElements = findAllByClassName('Sector');
+    if (sectorElements.length > 0) {
+      return sectorElements.map((s: any) => ({
+        sectorId: s.ref || s.sectorId || `sector-${s.row}-${s.col}`,
+        sectorName: s.sectorName || '',
+        sectorType: s.sectorType || 'Wilderness',
+        value: s.value || 0,
+        row: s.row ?? 0,
+        col: s.col ?? 0,
+        image: s.image,
+        explored: s.explored ?? false,
+        dictatorMilitia: s.dictatorMilitia ?? 0,
+        rebelMilitia: s.rebelMilitia || {},
+      }));
+    }
+    return [];
+  }
 
   return map.children
-    .filter((c: any) => c.attributes?.sectorId)
+    .filter((c: any) => c.className === 'Sector' || c.sectorId)
     .map((c: any) => ({
-      sectorId: c.attributes.sectorId,
-      sectorName: c.attributes.sectorName || '',
-      sectorType: c.attributes.sectorType || 'Wilderness',
-      value: c.attributes.value || 0,
-      row: c.attributes.row ?? 0,
-      col: c.attributes.col ?? 0,
-      image: c.attributes.image,
-      explored: c.attributes.explored ?? false,
-      dictatorMilitia: c.attributes.dictatorMilitia ?? 0,
-      rebelMilitia: c.attributes.rebelMilitia || {},
+      sectorId: c.ref || c.sectorId || `sector-${c.row}-${c.col}`,
+      sectorName: c.sectorName || '',
+      sectorType: c.sectorType || 'Wilderness',
+      value: c.value || 0,
+      row: c.row ?? 0,
+      col: c.col ?? 0,
+      image: c.image,
+      explored: c.explored ?? false,
+      dictatorMilitia: c.dictatorMilitia ?? 0,
+      rebelMilitia: c.rebelMilitia || {},
     }));
 });
 
 // Extract all players
 const players = computed(() => {
-  const playerElements = findAllByType('player');
-  return playerElements.map((p: any) => ({
-    position: p.attributes?.position ?? 0,
-    playerColor: p.attributes?.playerColor,
-    isDictator: p.attributes?.isDictator ?? false,
+  // Find player elements - try RebelPlayer and DictatorPlayer
+  const rebelPlayers = findAllByClassName('RebelPlayer');
+  const dictatorPlayers = findAllByClassName('DictatorPlayer');
+
+  const all = [...rebelPlayers, ...dictatorPlayers];
+  return all.map((p: any) => ({
+    position: p.position ?? 0,
+    playerColor: p.playerColor,
+    isDictator: p.className === 'DictatorPlayer',
   }));
 });
 
@@ -94,16 +139,16 @@ const allMercs = computed(() => {
   const mercs: any[] = [];
 
   // Find rebel squads
-  const squads = findAllByType('squad');
+  const squads = findAllByClassName('Squad');
   for (const squad of squads) {
-    const sectorId = squad.attributes?.sectorId;
-    const playerColor = squad.attributes?.playerColor;
+    const sectorId = squad.sectorId;
+    const playerColor = squad.playerColor;
 
     if (squad.children) {
       for (const merc of squad.children) {
-        if (merc.attributes?.mercId) {
+        if (merc.mercId || merc.className === 'MercCard') {
           mercs.push({
-            ...merc.attributes,
+            ...merc,
             sectorId,
             playerColor,
           });
@@ -112,15 +157,14 @@ const allMercs = computed(() => {
     }
   }
 
-  // Find dictator MERCs (they have sectorId directly)
-  const dictatorMercs = findAllByType('merc');
+  // Find dictator MERCs
+  const dictatorMercs = findAllByClassName('MercCard');
   for (const merc of dictatorMercs) {
-    if (merc.attributes?.mercId && merc.attributes?.sectorId) {
-      // Check if not already added from a squad
-      const exists = mercs.some((m) => m.mercId === merc.attributes.mercId);
+    if (merc.mercId && merc.sectorId) {
+      const exists = mercs.some((m) => m.mercId === merc.mercId);
       if (!exists) {
         mercs.push({
-          ...merc.attributes,
+          ...merc,
           playerColor: 'dictator',
         });
       }
@@ -130,28 +174,23 @@ const allMercs = computed(() => {
   return mercs;
 });
 
-// Build control map (sectorId -> playerColor who controls it)
+// Build control map
 const controlMap = computed(() => {
   const map: Record<string, string | undefined> = {};
 
   for (const sector of sectors.value) {
-    // Simple control check: whoever has more units controls
-    // MERCs count + militia count
     let dictatorUnits = sector.dictatorMilitia;
     const rebelUnits: Record<string, number> = {};
 
-    // Count dictator MERCs in sector
     const dictatorMercsInSector = allMercs.value.filter(
       (m) => m.sectorId === sector.sectorId && m.playerColor === 'dictator'
     );
     dictatorUnits += dictatorMercsInSector.length;
 
-    // Count rebel militia
     for (const [color, count] of Object.entries(sector.rebelMilitia || {})) {
       rebelUnits[color] = (rebelUnits[color] || 0) + (count as number);
     }
 
-    // Count rebel MERCs
     const rebelMercsInSector = allMercs.value.filter(
       (m) => m.sectorId === sector.sectorId && m.playerColor !== 'dictator'
     );
@@ -160,17 +199,14 @@ const controlMap = computed(() => {
       rebelUnits[color] = (rebelUnits[color] || 0) + 1;
     }
 
-    // Determine controller
     let maxUnits = 0;
     let controller: string | undefined;
 
-    // Check dictator first (wins ties)
     if (dictatorUnits > 0) {
       maxUnits = dictatorUnits;
       controller = 'dictator';
     }
 
-    // Check rebels
     for (const [color, units] of Object.entries(rebelUnits)) {
       if (units > maxUnits) {
         maxUnits = units;
@@ -188,77 +224,205 @@ const controlMap = computed(() => {
 
 // Get current player's squads
 const primarySquad = computed(() => {
-  const squads = findAllByType('squad');
+  const squads = findAllByClassName('Squad');
   const squad = squads.find(
     (s: any) =>
-      s.attributes?.player?.position === props.playerPosition &&
-      s.attributes?.isPrimary === true
+      s.player?.position === props.playerPosition &&
+      s.isPrimary === true
   );
 
   if (!squad) return undefined;
 
-  const sectorId = squad.attributes?.sectorId;
+  const sectorId = squad.sectorId;
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
   return {
-    squadId: squad.attributes?.squadId || 'primary',
+    squadId: squad.ref || 'primary',
     isPrimary: true,
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => c.attributes?.mercId)
-      .map((c: any) => c.attributes),
+      .filter((c: any) => c.mercId || c.className === 'MercCard')
+      .map((c: any) => c),
   };
 });
 
 const secondarySquad = computed(() => {
-  const squads = findAllByType('squad');
+  const squads = findAllByClassName('Squad');
   const squad = squads.find(
     (s: any) =>
-      s.attributes?.player?.position === props.playerPosition &&
-      s.attributes?.isPrimary === false
+      s.player?.position === props.playerPosition &&
+      s.isPrimary === false
   );
 
   if (!squad) return undefined;
 
-  const sectorId = squad.attributes?.sectorId;
+  const sectorId = squad.sectorId;
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
   return {
-    squadId: squad.attributes?.squadId || 'secondary',
+    squadId: squad.ref || 'secondary',
     isPrimary: false,
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => c.attributes?.mercId)
-      .map((c: any) => c.attributes),
+      .filter((c: any) => c.mercId || c.className === 'MercCard')
+      .map((c: any) => c),
   };
 });
 
+// ============================================================================
+// ACTION HANDLING - Show appropriate UI based on available actions
+// ============================================================================
+
+// Get action choices from actionArgs
+const actionChoices = computed(() => {
+  return props.actionArgs || {};
+});
+
+// Check if we're in MERC hiring mode
+const isHiringMercs = computed(() => {
+  return props.availableActions.includes('hireStartingMercs');
+});
+
+// Check if we're in landing placement mode
+const isPlacingLanding = computed(() => {
+  return props.availableActions.includes('placeLanding');
+});
+
+// Check if we're equipping starting equipment
+const isEquipping = computed(() => {
+  return props.availableActions.includes('equipStarting');
+});
+
+// Get MERCs available for hiring from action args
+const hirableMercs = computed(() => {
+  const choices = actionChoices.value;
+  // Look for merc choices in various possible formats
+  if (choices.mercs && Array.isArray(choices.mercs)) {
+    return choices.mercs;
+  }
+  if (choices.mercChoices && Array.isArray(choices.mercChoices)) {
+    return choices.mercChoices;
+  }
+  // Check for drawn MERCs in deck
+  const mercDeck = findByRef('merc-deck') || findByClassName('MercDeck');
+  if (mercDeck?.children) {
+    return mercDeck.children.slice(0, 3); // First 3 for hiring
+  }
+  return [];
+});
+
+// Get available landing sectors (edge sectors)
+const landingSectors = computed(() => {
+  if (!isPlacingLanding.value) return [];
+  // Return edge sectors
+  return sectors.value.filter((s) => {
+    const rows = Math.max(...sectors.value.map((sec) => sec.row)) + 1;
+    const cols = Math.max(...sectors.value.map((sec) => sec.col)) + 1;
+    return s.row === 0 || s.row === rows - 1 || s.col === 0 || s.col === cols - 1;
+  });
+});
+
+// Handle hiring a MERC
+async function hireMerc(mercId: string) {
+  await props.action('hireStartingMercs', { mercIds: [mercId] });
+}
+
 // Handle sector clicks for actions
 function handleSectorClick(sectorId: string) {
-  // Check if we have an action that needs a sector
-  if (props.availableActions.includes('move')) {
-    props.action('move', { sectorId });
-  } else if (props.availableActions.includes('placeLanding')) {
+  if (props.availableActions.includes('placeLanding')) {
     props.action('placeLanding', { sectorId });
+  } else if (props.availableActions.includes('move')) {
+    props.action('move', { sectorId });
   }
 }
 
 // Clickable sectors based on available actions
 const clickableSectors = computed(() => {
-  // This would ideally come from actionArgs or game state
-  // For now, return empty array - sectors become clickable based on action context
+  if (isPlacingLanding.value) {
+    return landingSectors.value.map((s) => s.sectorId);
+  }
   return [];
+});
+
+// Debug: get summary of gameView structure
+const gameViewSummary = computed(() => {
+  if (!props.gameView) return 'No gameView';
+
+  function summarize(node: any, depth: number = 0): string {
+    if (!node || depth > 3) return '';
+    const indent = '  '.repeat(depth);
+    const className = node.className || 'unknown';
+    const ref = node.ref ? ` (${node.ref})` : '';
+    const childCount = node.children?.length || 0;
+
+    let result = `${indent}${className}${ref}`;
+    if (childCount > 0) {
+      result += ` [${childCount} children]`;
+    }
+    result += '\n';
+
+    if (node.children && depth < 2) {
+      for (const child of node.children.slice(0, 5)) {
+        result += summarize(child, depth + 1);
+      }
+      if (node.children.length > 5) {
+        result += `${indent}  ... and ${node.children.length - 5} more\n`;
+      }
+    }
+
+    return result;
+  }
+
+  return summarize(props.gameView);
 });
 </script>
 
 <template>
   <div class="game-board">
+    <!-- Debug toggle -->
+    <button class="debug-toggle" @click="showDebug = !showDebug">
+      {{ showDebug ? 'Hide' : 'Show' }} Debug
+    </button>
+
+    <!-- Debug panel -->
+    <div v-if="showDebug" class="debug-panel">
+      <h3>GameView Structure:</h3>
+      <pre>{{ gameViewSummary }}</pre>
+      <h3>Sectors found: {{ sectors.length }}</h3>
+      <h3>Available Actions:</h3>
+      <pre>{{ availableActions }}</pre>
+      <h3>Action Args:</h3>
+      <pre>{{ JSON.stringify(actionArgs, null, 2) }}</pre>
+    </div>
+
+    <!-- Action Panel - shown when player needs to make a choice -->
+    <div v-if="isHiringMercs" class="action-panel">
+      <h2 class="action-title">Choose MERCs to Hire</h2>
+      <p class="action-subtitle">Select 2 MERCs for your starting team (first 2 are free)</p>
+      <div class="merc-choices">
+        <div
+          v-for="merc in hirableMercs"
+          :key="merc.mercId || merc.ref"
+          class="merc-choice"
+          @click="hireMerc(merc.mercId || merc.ref)"
+        >
+          <MercCard
+            :merc="merc"
+            :player-color="currentPlayerColor"
+            :show-equipment="false"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- Main content: Map + Squad Panel -->
-    <div class="board-layout">
+    <div class="board-layout" v-if="sectors.length > 0 || isPlacingLanding">
       <!-- Map Section -->
       <div class="map-section">
+        <h2 v-if="isPlacingLanding" class="action-title">Choose Landing Zone</h2>
+        <p v-if="isPlacingLanding" class="action-subtitle">Select an edge sector for your landing</p>
         <MapGrid
           :sectors="sectors"
           :mercs="allMercs"
@@ -270,13 +434,19 @@ const clickableSectors = computed(() => {
       </div>
 
       <!-- Squad Panel -->
-      <div class="squad-section">
+      <div class="squad-section" v-if="primarySquad || secondarySquad">
         <SquadPanel
           :primary-squad="primarySquad"
           :secondary-squad="secondarySquad"
           :player-color="currentPlayerColor"
         />
       </div>
+    </div>
+
+    <!-- Fallback when no map data -->
+    <div v-else-if="!isHiringMercs" class="no-data">
+      <p>Waiting for game data...</p>
+      <p class="hint">Available actions: {{ availableActions.join(', ') || 'none' }}</p>
     </div>
 
     <!-- Turn indicator -->
@@ -294,6 +464,76 @@ const clickableSectors = computed(() => {
   padding: 16px;
   min-height: 100%;
   background: v-bind('UI_COLORS.background');
+  position: relative;
+}
+
+.debug-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 12px;
+  background: v-bind('UI_COLORS.backgroundLight');
+  color: v-bind('UI_COLORS.text');
+  border: 1px solid v-bind('UI_COLORS.border');
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  z-index: 100;
+}
+
+.debug-panel {
+  background: rgba(0, 0, 0, 0.8);
+  color: #0f0;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.debug-panel h3 {
+  color: #0ff;
+  margin: 8px 0 4px;
+}
+
+.debug-panel pre {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.action-panel {
+  background: v-bind('UI_COLORS.cardBg');
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.action-title {
+  color: v-bind('UI_COLORS.accent');
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+}
+
+.action-subtitle {
+  color: v-bind('UI_COLORS.textMuted');
+  margin: 0 0 16px;
+}
+
+.merc-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+.merc-choice {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.merc-choice:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(212, 168, 75, 0.3);
 }
 
 .board-layout {
@@ -312,7 +552,6 @@ const clickableSectors = computed(() => {
   flex-shrink: 0;
 }
 
-/* Responsive: stack on smaller screens */
 @media (max-width: 900px) {
   .board-layout {
     flex-direction: column;
@@ -321,6 +560,20 @@ const clickableSectors = computed(() => {
   .squad-section {
     width: 100%;
   }
+}
+
+.no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: v-bind('UI_COLORS.textMuted');
+}
+
+.no-data .hint {
+  font-size: 0.85rem;
+  margin-top: 8px;
 }
 
 .turn-indicator {
