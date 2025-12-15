@@ -167,6 +167,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'reEquip',
                   'hospital',
                   'docHeal', // MERC-m4k: Doc's free heal ability
+                  'feedbackDiscard', // MERC-24h: Feedback discard retrieval
+                  'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
+                  'squidheadArm', // MERC-4qd: Squidhead arm mines
                   'armsDealer',
                   'splitSquad', // MERC-ttx: Free action available anytime
                   'mergeSquads',

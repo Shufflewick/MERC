@@ -998,12 +998,26 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     for (const rebel of this.rebelPlayers) {
       for (const merc of rebel.team) {
         merc.resetActions();
+        // MERC-4t3: Preaction auto-heals 1 health at the start of each day
+        if (merc.mercId === 'preaction' && merc.damage > 0) {
+          const healed = merc.heal(1);
+          if (healed > 0) {
+            this.message(`Preaction auto-heals 1 health (${merc.health}/${merc.maxHealth})`);
+          }
+        }
       }
     }
 
     // Reset dictator MERC actions
     for (const merc of this.dictatorPlayer.hiredMercs) {
       merc.resetActions();
+      // MERC-4t3: Preaction auto-heals 1 health at the start of each day
+      if (merc.mercId === 'preaction' && merc.damage > 0) {
+        const healed = merc.heal(1);
+        if (healed > 0) {
+          this.message(`Preaction auto-heals 1 health (${merc.health}/${merc.maxHealth})`);
+        }
+      }
     }
 
     // Reset dictator card actions if in play

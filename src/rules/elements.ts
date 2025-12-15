@@ -98,6 +98,10 @@ export class MercCard extends BaseCard {
   }
 
   get maxHealth(): number {
+    // MERC-jnr: Juicer gets +2 health (7 total instead of 5)
+    if (this.mercId === 'juicer') {
+      return MercCard.BASE_HEALTH + 2;
+    }
     return MercCard.BASE_HEALTH;
   }
 

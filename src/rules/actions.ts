@@ -326,11 +326,28 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       const player = ctx.player as RebelPlayer;
       const squad = args.squad as Squad;
       const destination = args.destination as Sector;
+      const sourceSector = game.getSector(squad.sectorId!);
 
       // Spend action from each MERC in squad
       const mercs = squad.getMercs();
       for (const merc of mercs) {
         useAction(merc, ACTION_COSTS.MOVE);
+      }
+
+      // MERC-iz7: Sonia can bring up to 2 militia when moving
+      let militiaMoved = 0;
+      if (sourceSector) {
+        const hasSonia = mercs.some(m => m.mercId === 'sonia');
+        if (hasSonia) {
+          const playerId = `${player.position}`;
+          const militiaAvailable = sourceSector.getRebelMilitia(playerId);
+          militiaMoved = Math.min(2, militiaAvailable);
+          if (militiaMoved > 0) {
+            sourceSector.removeRebelMilitia(playerId, militiaMoved);
+            destination.addRebelMilitia(playerId, militiaMoved);
+            game.message(`Sonia brings ${militiaMoved} militia along`);
+          }
+        }
       }
 
       squad.sectorId = destination.sectorId;
@@ -1310,6 +1327,193 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
 
       game.message(`Doc healed ${healed} MERC(s) in his squad`);
       return { success: true, message: `Healed ${healed} MERC(s)` };
+    });
+}
+
+/**
+ * MERC-24h: Feedback can take equipment from discard pile
+ * Cost: 1 action
+ * Per rules: "May take equipment from discard pile"
+ */
+export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
+  return Action.create('feedbackDiscard')
+    .prompt('Feedback: Take from discard')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Find Feedback in team
+      const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead);
+      if (!feedback) return false;
+      if (feedback.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
+
+      // Check if there's any equipment in discard piles
+      const weaponDiscard = game.getEquipmentDiscard('Weapon');
+      const armorDiscard = game.getEquipmentDiscard('Armor');
+      const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+
+      const hasWeapons = weaponDiscard && weaponDiscard.count(Equipment) > 0;
+      const hasArmor = armorDiscard && armorDiscard.count(Equipment) > 0;
+      const hasAccessories = accessoryDiscard && accessoryDiscard.count(Equipment) > 0;
+
+      return hasWeapons || hasArmor || hasAccessories;
+    })
+    .chooseElement<Equipment>('equipment', {
+      prompt: 'Select equipment from discard pile',
+      elementClass: Equipment,
+      display: (eq) => `${eq.equipmentName} (${eq.equipmentType})`,
+      filter: () => {
+        // All equipment in discard piles is valid
+        return true;
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead)!;
+      const selectedEquipment = args.equipment as Equipment;
+
+      if (!selectedEquipment) {
+        return { success: false, message: 'No equipment selected' };
+      }
+
+      // Remove from discard pile
+      const discard = game.getEquipmentDiscard(selectedEquipment.equipmentType);
+      if (!discard) {
+        return { success: false, message: 'Discard pile not found' };
+      }
+
+      // Equip to Feedback (or replace existing)
+      const replaced = feedback.equip(selectedEquipment);
+      if (replaced) {
+        // Put replaced equipment back to discard
+        const replaceDiscard = game.getEquipmentDiscard(replaced.equipmentType);
+        if (replaceDiscard) replaced.putInto(replaceDiscard);
+        game.message(`${feedback.mercName} swapped ${replaced.equipmentName} for ${selectedEquipment.equipmentName}`);
+      } else {
+        game.message(`${feedback.mercName} retrieved ${selectedEquipment.equipmentName} from discard`);
+      }
+
+      feedback.useAction(ACTION_COSTS.RE_EQUIP);
+      return { success: true, message: `Retrieved ${selectedEquipment.equipmentName}` };
+    });
+}
+
+/**
+ * MERC-4qd: Squidhead can disarm land mines
+ * Cost: 0 (free action)
+ * Takes a land mine from sector stash and equips it to Squidhead
+ */
+export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
+  return Action.create('squidheadDisarm')
+    .prompt('Squidhead: Disarm mine')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Find Squidhead in team
+      const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
+      if (!squidhead) return false;
+
+      // Get Squidhead's sector
+      const squad = [player.primarySquad, player.secondarySquad].find(s =>
+        s.getMercs().includes(squidhead)
+      );
+      if (!squad?.sectorId) return false;
+
+      const sector = game.getSector(squad.sectorId);
+      if (!sector) return false;
+
+      // Check for land mines in stash
+      const stash = sector.getStashContents();
+      return stash.some(e => e.equipmentName.toLowerCase().includes('land mine'));
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead)!;
+
+      // Get Squidhead's sector
+      const squad = [player.primarySquad, player.secondarySquad].find(s =>
+        s.getMercs().includes(squidhead)
+      )!;
+      const sector = game.getSector(squad.sectorId!)!;
+
+      // Find and remove the land mine
+      const stash = sector.getStashContents();
+      const mineIndex = stash.findIndex(e => e.equipmentName.toLowerCase().includes('land mine'));
+      if (mineIndex === -1) {
+        return { success: false, message: 'No land mines to disarm' };
+      }
+
+      const mine = sector.takeFromStash(mineIndex)!;
+
+      // Equip to Squidhead if possible, otherwise put in player's inventory
+      if (squidhead.canEquip(mine)) {
+        const replaced = squidhead.equip(mine);
+        if (replaced) {
+          sector.addToStash(replaced);
+        }
+        game.message(`${squidhead.mercName} disarms and collects the land mine`);
+      } else {
+        // Put it back in stash but mark as "disarmed" by removing from dictator's control
+        sector.addToStash(mine);
+        game.message(`${squidhead.mercName} disarms the land mine (left in stash)`);
+      }
+
+      return { success: true, message: 'Disarmed land mine' };
+    });
+}
+
+/**
+ * MERC-4qd: Squidhead can re-arm land mines
+ * Cost: 0 (free action)
+ * Places a land mine from Squidhead's equipment into sector stash
+ */
+export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
+  return Action.create('squidheadArm')
+    .prompt('Squidhead: Arm mine')
+    .condition((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      // Find Squidhead in team with a land mine equipped
+      const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
+      if (!squidhead) return false;
+
+      // Check if Squidhead has a land mine equipped
+      const hasLandMine = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot].some(
+        slot => slot && slot.equipmentName.toLowerCase().includes('land mine')
+      );
+
+      return hasLandMine;
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead)!;
+
+      // Get Squidhead's sector
+      const squad = [player.primarySquad, player.secondarySquad].find(s =>
+        s.getMercs().includes(squidhead)
+      );
+      if (!squad?.sectorId) {
+        return { success: false, message: 'Squidhead must be on the board' };
+      }
+      const sector = game.getSector(squad.sectorId);
+      if (!sector) {
+        return { success: false, message: 'Sector not found' };
+      }
+
+      // Find and unequip the land mine
+      let mine: Equipment | undefined;
+      if (squidhead.accessorySlot?.equipmentName.toLowerCase().includes('land mine')) {
+        mine = squidhead.unequip('Accessory');
+      } else if (squidhead.weaponSlot?.equipmentName.toLowerCase().includes('land mine')) {
+        mine = squidhead.unequip('Weapon');
+      } else if (squidhead.armorSlot?.equipmentName.toLowerCase().includes('land mine')) {
+        mine = squidhead.unequip('Armor');
+      }
+
+      if (!mine) {
+        return { success: false, message: 'No land mine to arm' };
+      }
+
+      sector.addToStash(mine);
+      game.message(`${squidhead.mercName} arms a land mine at ${sector.sectorName}`);
+
+      return { success: true, message: 'Armed land mine' };
     });
 }
 
@@ -2870,6 +3074,9 @@ export function registerAllActions(game: MERCGame): void {
   // Attack removed - per rules, combat triggers via movement only
   game.registerAction(createReEquipAction(game));
   game.registerAction(createDocHealAction(game)); // MERC-m4k: Doc's free heal
+  game.registerAction(createFeedbackDiscardAction(game)); // MERC-24h: Feedback discard retrieval
+  game.registerAction(createSquidheadDisarmAction(game)); // MERC-4qd: Squidhead disarm mines
+  game.registerAction(createSquidheadArmAction(game)); // MERC-4qd: Squidhead arm mines
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createSplitSquadAction(game));

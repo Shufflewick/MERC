@@ -49,6 +49,7 @@ export interface Combatant {
   attackDogAssignedTo?: string; // MERC-l09: ID of MERC this dog is assigned to
   isImmuneToAttackDogs: boolean; // MERC-l09: Shadkaam ability
   willNotHarmDogs: boolean; // MERC-l09: Tao ability
+  hasUsedReroll?: boolean; // MERC-5l3: Basic's once-per-combat reroll
 }
 
 export interface CombatResult {
@@ -114,12 +115,157 @@ function isBadger(combatant: Combatant): boolean {
 }
 
 /**
+ * MERC-nvr: Check if a combatant is Kastern
+ */
+function isKastern(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'kastern';
+  }
+  return false;
+}
+
+/**
+ * MERC-cpb: Check if a combatant is Lucid
+ */
+function isLucid(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'lucid';
+  }
+  return false;
+}
+
+/**
+ * MERC-5l3: Check if a combatant is Basic
+ */
+function isBasic(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'basic';
+  }
+  return false;
+}
+
+/**
+ * Count hits from dice rolls
+ * MERC-cpb: Lucid hits on 3+ instead of 4+
+ */
+function countHitsForCombatant(rolls: number[], combatant: Combatant): number {
+  const threshold = isLucid(combatant) ? 3 : CombatConstants.HIT_THRESHOLD;
+  return rolls.filter(r => r >= threshold).length;
+}
+
+/**
+ * MERC-5l3: Check if Basic should use reroll
+ * Basic may reroll all dice once per combat
+ * AI decision: reroll if hits are below expected value (50% hit rate)
+ */
+function shouldBasicReroll(combatant: Combatant, rolls: number[], hits: number): boolean {
+  if (!isBasic(combatant) || combatant.hasUsedReroll) {
+    return false;
+  }
+  // Expected hits at 50% hit rate
+  const expectedHits = rolls.length * 0.5;
+  // Reroll if significantly below expected (fewer than expected - 1)
+  return hits < expectedHits - 0.5;
+}
+
+/**
+ * MERC-9gl: Check if a combatant is Max
+ */
+function isMax(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'max';
+  }
+  return false;
+}
+
+/**
+ * MERC-9gl: Apply Max's debuff to enemy attackers
+ * Per rules: "-1 to enemy MERCs attacking his squad"
+ * Only affects MERCs, not militia
+ */
+function applyMaxDebuff(enemies: Combatant[], allies: Combatant[]): void {
+  // Check if Max is in the allies (defenders)
+  const maxInSquad = allies.some(c => isMax(c) && c.health > 0);
+  if (!maxInSquad) return;
+
+  // Apply -1 combat to enemy MERCs (not militia)
+  for (const enemy of enemies) {
+    if (!enemy.isMilitia && !enemy.isDictator && !enemy.isAttackDog) {
+      enemy.combat = Math.max(0, enemy.combat - 1);
+    }
+  }
+}
+
+/**
+ * MERC-7te: Check if a combatant is Surgeon
+ */
+function isSurgeon(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'surgeon';
+  }
+  return false;
+}
+
+/**
+ * MERC-7te: Surgeon can sacrifice a combat die to heal 1 damage to squad mate
+ * Returns true if Surgeon used ability (combat reduced by 1)
+ */
+function applySurgeonHeal(
+  game: MERCGame,
+  surgeon: Combatant,
+  allies: Combatant[]
+): boolean {
+  if (!isSurgeon(surgeon) || surgeon.combat <= 1) {
+    return false;
+  }
+
+  // Find damaged squad mates (not Surgeon themselves)
+  const damagedAllies = allies.filter(c =>
+    c !== surgeon &&
+    c.health > 0 &&
+    c.health < c.maxHealth &&
+    !c.isMilitia &&
+    !c.isAttackDog
+  );
+
+  if (damagedAllies.length === 0) {
+    return false;
+  }
+
+  // AI decision: heal the most damaged ally
+  const mostDamaged = damagedAllies.sort((a, b) =>
+    (b.maxHealth - b.health) - (a.maxHealth - a.health)
+  )[0];
+
+  // Sacrifice one die
+  surgeon.combat--;
+
+  // Heal the ally
+  mostDamaged.health = Math.min(mostDamaged.health + 1, mostDamaged.maxHealth);
+
+  // Also heal the source element
+  if (mostDamaged.sourceElement instanceof MercCard) {
+    mostDamaged.sourceElement.heal(1);
+  }
+
+  game.message(`${surgeon.name} sacrifices a die to heal ${mostDamaged.name} for 1`);
+  return true;
+}
+
+/**
  * Sort combatants by initiative (highest first)
  * Dictator wins ties
+ * MERC-nvr: Kastern always goes first in combat
  * MERC-dac: Badger always has initiative over militia
  */
 function sortByInitiative(combatants: Combatant[]): Combatant[] {
   return [...combatants].sort((a, b) => {
+    // MERC-nvr: Kastern ALWAYS goes first in combat (highest priority)
+    const aIsKastern = isKastern(a);
+    const bIsKastern = isKastern(b);
+    if (aIsKastern && !bIsKastern) return -1; // Kastern before everyone
+    if (bIsKastern && !aIsKastern) return 1;  // Everyone after Kastern
+
     // MERC-dac: Badger always goes before militia
     const aIsBadger = isBadger(a);
     const bIsBadger = isBadger(b);
@@ -765,6 +911,12 @@ function executeCombatRound(
   // MERC-r2k: Apply Snake's solo bonus (needs game for squad context)
   applySnakeBonus(game, [...rebels, ...dictatorSide]);
 
+  // MERC-9gl: Apply Max's debuff to enemy attackers
+  // Rebels attacking dictator side: if Max is in dictator side, debuff rebel MERCs
+  applyMaxDebuff(rebels, dictatorSide);
+  // Dictator attacking rebels: if Max is in rebel side, debuff dictator MERCs
+  applyMaxDebuff(dictatorSide, rebels);
+
   const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
   const results: CombatResult[] = [];
   const casualties: Combatant[] = [];
@@ -806,10 +958,24 @@ function executeCombatRound(
     const targetNames = targets.map(t => t.name).join(', ');
     game.message(`${attacker.name} declares targets: ${targetNames}`);
 
+    // MERC-7te: Surgeon can sacrifice a die to heal before attacking
+    const attackerAllies = attacker.isDictatorSide ? dictatorSide : rebels;
+    applySurgeonHeal(game, attacker, attackerAllies);
+
     // Roll dice
-    const rolls = rollDice(attacker.combat);
-    const hits = countHits(rolls);
+    // MERC-cpb: Lucid hits on 3+ instead of 4+
+    let rolls = rollDice(attacker.combat);
+    let hits = countHitsForCombatant(rolls, attacker);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
+
+    // MERC-5l3: Basic may reroll all dice once per combat
+    if (shouldBasicReroll(attacker, rolls, hits)) {
+      game.message(`${attacker.name} uses reroll ability!`);
+      attacker.hasUsedReroll = true;
+      rolls = rollDice(attacker.combat);
+      hits = countHitsForCombatant(rolls, attacker);
+      game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
+    }
 
     if (hits === 0) {
       results.push({
@@ -902,8 +1068,9 @@ function executeCombatRound(
     game.message(`${vandal.name} targets: ${targetNames}`);
 
     // Roll dice for second shot
+    // MERC-cpb: Lucid hits on 3+ instead of 4+
     const rolls = rollDice(vandal.combat);
-    const hits = countHits(rolls);
+    const hits = countHitsForCombatant(rolls, vandal);
     game.message(`${vandal.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
     if (hits > 0) {
