@@ -540,9 +540,10 @@ function assignAttackDog(
 
   if (validTargets.length === 0) return null;
 
-  // Auto-assign to first valid target (AI behavior from rules: "always assigns")
-  // In interactive mode, this could be a player choice
-  const target = validTargets[0];
+  // MERC-tbq: Per rules 4.11, use "Choosing Targets in Combat" (4.6) for Attack Dog assignment
+  // Priority: lowest health+armor, most targets, highest initiative, random
+  const sortedTargets = sortTargetsByAIPriority(validTargets);
+  const target = sortedTargets[0];
 
   // Create the dog combatant
   const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex);

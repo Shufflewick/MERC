@@ -16,6 +16,8 @@ import {
   getMortarTargets,
   selectMortarTarget,
   setPrivacyPlayer,
+  selectMilitiaPlacementSector,
+  distanceToNearestRebel,
 } from './ai-helpers.js';
 import {
   getNextAIAction,
@@ -1767,6 +1769,11 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         }
         return game.dictatorPlayer?.tacticsHand?.all(TacticsCard).includes(card) ?? false;
       },
+      // MERC-pj8: Explicit AI auto-select for top deck card
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
+      },
     })
     .execute((args) => {
       const card = args.card as TacticsCard;
@@ -1815,6 +1822,11 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         }
         return game.dictatorPlayer?.tacticsHand?.all(TacticsCard).includes(card) ?? false;
       },
+      // MERC-pj8: Explicit AI auto-select for top deck card
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
+      },
     })
     .chooseElement<Sector>('sector', {
       prompt: 'Place reinforcement militia where?',
@@ -1830,6 +1842,20 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         return isControlled || isBase;
       },
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+      // MERC-0m0: AI auto-select per rule 4.4.3 - closest to rebel-controlled sector
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        // Get all dictator-controlled sectors
+        const controlled = game.gameMap.getAllSectors().filter(s => {
+          const isControlled = s.dictatorMilitia >= s.getTotalRebelMilitia() &&
+            s.dictatorMilitia > 0;
+          const isBase = game.dictatorPlayer.baseSectorId === s.sectorId;
+          return isControlled || isBase;
+        });
+        if (controlled.length === 0) return undefined;
+        // Use rule 4.4.3: closest to rebel-controlled sector
+        return selectMilitiaPlacementSector(game, controlled, 'dictator') ?? undefined;
+      },
     })
     .execute((args) => {
       const card = args.card as TacticsCard;
@@ -1871,6 +1897,20 @@ export function createMoveMilitiaAction(game: MERCGame): ActionDefinition {
         return sector.dictatorMilitia > 0;
       },
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+      // MERC-p3c: AI selects sector furthest from rebels to move militia from
+      aiSelect: () => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const sectorsWithMilitia = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0);
+        if (sectorsWithMilitia.length === 0) return undefined;
+        // Sort by distance to nearest rebel (furthest first)
+        const sorted = [...sectorsWithMilitia].sort((a, b) => {
+          const distA = distanceToNearestRebel(game, a);
+          const distB = distanceToNearestRebel(game, b);
+          return distB - distA; // Furthest first
+        });
+        return sorted[0];
+      },
     })
     .chooseElement<Sector>('toSector', {
       prompt: 'Move militia to which adjacent sector?',
@@ -1884,6 +1924,22 @@ export function createMoveMilitiaAction(game: MERCGame): ActionDefinition {
           sector.dictatorMilitia < SectorConstants.MAX_MILITIA_PER_SIDE;
       },
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+      // MERC-p3c: AI selects adjacent sector closest to rebels (per rule 4.4.3)
+      aiSelect: (ctx) => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const fromSector = ctx.args.fromSector as Sector;
+        if (!fromSector) return undefined;
+        const adjacent = game.getAdjacentSectors(fromSector)
+          .filter(s => s.dictatorMilitia < SectorConstants.MAX_MILITIA_PER_SIDE);
+        if (adjacent.length === 0) return undefined;
+        // Sort by distance to nearest rebel (closest first)
+        const sorted = [...adjacent].sort((a, b) => {
+          const distA = distanceToNearestRebel(game, a);
+          const distB = distanceToNearestRebel(game, b);
+          return distA - distB; // Closest first
+        });
+        return sorted[0];
+      },
     })
     .chooseFrom<string>('count', {
       prompt: 'How many militia to move?',
@@ -1891,6 +1947,13 @@ export function createMoveMilitiaAction(game: MERCGame): ActionDefinition {
         const fromSector = ctx.args.fromSector as Sector;
         if (!fromSector) return ['1'];
         return Array.from({ length: fromSector.dictatorMilitia }, (_, i) => String(i + 1));
+      },
+      // MERC-p3c: AI moves maximum possible militia
+      aiSelect: (ctx) => {
+        if (!game.dictatorPlayer?.isAI) return undefined;
+        const fromSector = ctx.args.fromSector as Sector;
+        if (!fromSector) return undefined;
+        return String(fromSector.dictatorMilitia); // Move all
       },
     })
     .execute((args) => {

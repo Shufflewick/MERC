@@ -54,6 +54,14 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             game.currentDay = 1;
           }),
 
+          // MERC-1kq: Designate Privacy Player for AI mode
+          actionStep({
+            name: 'designate-privacy-player',
+            actions: ['designatePrivacyPlayer'],
+            prompt: 'Designate a Privacy Player for AI decisions',
+            skipIf: () => !game.dictatorPlayer?.isAI,
+          }),
+
           // ===== REBEL PHASE =====
           execute(() => {
             game.message('--- Rebel Phase ---');
