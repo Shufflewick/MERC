@@ -109,6 +109,17 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
     game.dictatorPlayer.mercSquad.sectorId = targetSector.sectorId;
   }
 
+  // All hired MERCs get 1 free equipment - prioritize weapon
+  let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+  if (bestMerc.weaponSlot) {
+    equipType = bestMerc.armorSlot ? 'Accessory' : 'Armor';
+  }
+  const freeEquipment = game.drawEquipment(equipType);
+  if (freeEquipment) {
+    bestMerc.equip(freeEquipment);
+    game.message(`${bestMerc.mercName} equipped free ${freeEquipment.equipmentName}`);
+  }
+
   // Discard the others
   for (const merc of drawnMercs) {
     if (merc !== bestMerc) {

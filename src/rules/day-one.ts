@@ -197,10 +197,7 @@ export function placeInitialMilitia(game: MERCGame): number {
  * Hire the dictator's first MERC.
  * The dictator draws 1 random MERC (no choice).
  * The MERC is placed at a sector the Dictator controls.
- *
- * IMPORTANT: Per rules (04-day-one-the-landing.md):
- * "The Dictator does not get free starting equipment for this MERC."
- * This function intentionally does NOT call equipStartingEquipment().
+ * All hired MERCs get 1 free equipment.
  */
 export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
   const merc = game.drawMerc();
@@ -219,6 +216,17 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
     } else {
       // No location available yet
       game.message(`Dictator hired ${merc.mercName}`);
+    }
+
+    // All hired MERCs get 1 free equipment - prioritize weapon
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (merc.weaponSlot) {
+      equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+    }
+    const freeEquipment = game.drawEquipment(equipType);
+    if (freeEquipment) {
+      merc.equip(freeEquipment);
+      game.message(`${merc.mercName} equipped free ${freeEquipment.equipmentName}`);
     }
   }
 

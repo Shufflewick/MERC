@@ -86,7 +86,7 @@ Each unoccupied Industry gets 4 militia.
 2. This MERC forms the Dictator's **primary squad**
 3. Place the squad on any sector the Dictator controls
 
-> **Note:** The Dictator does not get free starting equipment for this MERC.
+> **Note:** Like all hired MERCs, this MERC receives 1 free equipment (prioritizing weapons).
 
 ### Step 3: Check Dictator Special Ability
 
