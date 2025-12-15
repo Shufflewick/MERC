@@ -59,6 +59,10 @@ export interface MERCOptions extends GameOptions {
   dictatorId?: string;  // Which dictator to use
   expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
   dictatorIsAI?: boolean;  // MERC-exaf: Explicitly set if dictator is AI-controlled
+  // MERC-pbx4: Role selection - which player position is the dictator
+  // Default: last player (position = playerCount - 1)
+  // Set to 0 for first player, 1 for second player, etc.
+  dictatorPlayerPosition?: number;
 }
 
 // =============================================================================
@@ -248,6 +252,9 @@ export type MERCPlayer = RebelPlayer | DictatorPlayer;
 export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Static storage for playerCount during construction (workaround for super() timing)
   private static _pendingPlayerCount: number = 2;
+  // MERC-pbx4: Static storage for dictator position during construction
+  // -1 means "use default" (last player)
+  private static _pendingDictatorPosition: number = -1;
 
   // Configuration
   rebelCount!: number;
@@ -309,6 +316,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Store playerCount before super() so createPlayer can access it
     // Default to 2 players if not specified (1 rebel + 1 dictator)
     MERCGame._pendingPlayerCount = options.playerCount ?? 2;
+
+    // MERC-pbx4: Store dictator position (-1 means use default: last player)
+    // Validate that the position is within valid range
+    const dictatorPos = options.dictatorPlayerPosition ?? -1;
+    if (dictatorPos >= 0 && dictatorPos >= MERCGame._pendingPlayerCount) {
+      throw new Error(
+        `Invalid dictatorPlayerPosition: ${dictatorPos}. ` +
+        `Must be less than playerCount (${MERCGame._pendingPlayerCount}).`
+      );
+    }
+    MERCGame._pendingDictatorPosition = dictatorPos;
     super(options);
 
     // Register all element classes for serialization
@@ -331,7 +349,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     // Safety check: ensure dictatorPlayer was created
     if (!this.dictatorPlayer) {
-      throw new Error(`DictatorPlayer not created. Players: ${this.players.length}, pendingCount: ${MERCGame._pendingPlayerCount}`);
+      const dictPos = MERCGame._pendingDictatorPosition >= 0
+        ? MERCGame._pendingDictatorPosition
+        : MERCGame._pendingPlayerCount - 1;
+      throw new Error(
+        `DictatorPlayer not created. Players: ${this.players.length}, ` +
+        `pendingCount: ${MERCGame._pendingPlayerCount}, dictatorPosition: ${dictPos}`
+      );
     }
 
     // MERC-exaf: Set dictator AI mode from options
@@ -381,11 +405,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   protected override createPlayer(position: number, name: string): MERCPlayer {
-    // Last player is the Dictator, others are Rebels
-    // This ensures that with --ai 1, the AI (last position) is the dictator
-    // and human players (earlier positions) are rebels
+    // MERC-pbx4: Determine which position is the dictator
+    // If dictatorPlayerPosition is set, use that; otherwise default to last player
     const totalPlayers = MERCGame._pendingPlayerCount;
-    const isDictator = position === totalPlayers - 1;
+    const dictatorPosition = MERCGame._pendingDictatorPosition >= 0
+      ? MERCGame._pendingDictatorPosition
+      : totalPlayers - 1;
+    const isDictator = position === dictatorPosition;
 
     if (isDictator) {
       const dictator = new DictatorPlayer(position, name);
