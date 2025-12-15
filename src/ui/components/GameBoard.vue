@@ -17,6 +17,18 @@ const props = defineProps<{
 }>();
 
 const showDebug = ref(false);
+const selectedMercs = ref<string[]>([]); // Track selected MERCs for hiring
+
+// Copy debug info to clipboard
+async function copyDebug() {
+  const debugInfo = `GameView Structure:\n${gameViewSummary.value}\n\nSectors found: ${sectors.value.length}\n\nAvailable Actions:\n${JSON.stringify(props.availableActions, null, 2)}\n\nAction Args:\n${JSON.stringify(props.actionArgs, null, 2)}\n\nHirable MERCs (${hirableMercs.value.length}):\n${JSON.stringify(hirableMercs.value.slice(0, 3), null, 2)}`;
+  try {
+    await navigator.clipboard.writeText(debugInfo);
+    alert('Copied to clipboard!');
+  } catch (e) {
+    console.error('Failed to copy:', e);
+  }
+}
 
 // Helper to find elements by className in gameView tree
 function findByClassName(className: string, root?: any): any {
@@ -324,9 +336,42 @@ const landingSectors = computed(() => {
   });
 });
 
-// Handle hiring a MERC
-async function hireMerc(mercId: string) {
-  await props.action('hireStartingMercs', { mercIds: [mercId] });
+// Get MERC ID from merc object (handles different data structures)
+function getMercId(merc: any): string {
+  return merc.attributes?.mercId || merc.mercId || merc.id || merc.ref || '';
+}
+
+// Check if a MERC is selected
+function isMercSelected(merc: any): boolean {
+  const id = getMercId(merc);
+  return selectedMercs.value.includes(id);
+}
+
+// Handle selecting/deselecting a MERC for hiring
+function toggleMercSelection(merc: any) {
+  const id = getMercId(merc);
+  if (!id) return;
+
+  const idx = selectedMercs.value.indexOf(id);
+  if (idx >= 0) {
+    // Deselect
+    selectedMercs.value.splice(idx, 1);
+  } else if (selectedMercs.value.length < 2) {
+    // Select (max 2)
+    selectedMercs.value.push(id);
+  }
+}
+
+// Confirm hiring selected MERCs
+async function confirmHire() {
+  if (selectedMercs.value.length === 0) return;
+
+  // Call the action for the first MERC
+  await props.action('hireStartingMercs', { firstMerc: selectedMercs.value[0] });
+
+  // Note: The second MERC selection will be handled by the next action step
+  // Clear selection after first hire
+  selectedMercs.value = [];
 }
 
 // Handle sector clicks for actions
@@ -388,6 +433,7 @@ const gameViewSummary = computed(() => {
 
     <!-- Debug panel -->
     <div v-if="showDebug" class="debug-panel">
+      <button class="copy-btn" @click="copyDebug">Copy to Clipboard</button>
       <h3>GameView Structure:</h3>
       <pre>{{ gameViewSummary }}</pre>
       <h3>Sectors found: {{ sectors.length }}</h3>
@@ -402,14 +448,20 @@ const gameViewSummary = computed(() => {
     <!-- Action Panel - shown when player needs to make a choice -->
     <div v-if="isHiringMercs" class="action-panel">
       <h2 class="action-title">Choose MERCs to Hire</h2>
-      <p class="action-subtitle">Select 2 MERCs for your starting team (first 2 are free)</p>
+      <p class="action-subtitle">
+        Select your MERCs ({{ selectedMercs.length }}/2 selected) - first 2 are free
+      </p>
       <div class="merc-choices">
         <div
           v-for="merc in hirableMercs"
-          :key="merc.mercId || merc.ref"
+          :key="getMercId(merc)"
           class="merc-choice"
-          @click="hireMerc(merc.mercId || merc.ref)"
+          :class="{ selected: isMercSelected(merc) }"
+          @click="toggleMercSelection(merc)"
         >
+          <div class="selection-indicator" v-if="isMercSelected(merc)">
+            &#10003;
+          </div>
           <MercCard
             :merc="merc"
             :player-color="currentPlayerColor"
@@ -417,6 +469,13 @@ const gameViewSummary = computed(() => {
           />
         </div>
       </div>
+      <button
+        class="confirm-btn"
+        :disabled="selectedMercs.length === 0"
+        @click="confirmHire"
+      >
+        Confirm Selection ({{ selectedMercs.length }})
+      </button>
     </div>
 
     <!-- Main content: Map + Squad Panel -->
@@ -492,6 +551,7 @@ const gameViewSummary = computed(() => {
   font-size: 0.75rem;
   max-height: 300px;
   overflow: auto;
+  position: relative;
 }
 
 .debug-panel h3 {
@@ -502,6 +562,24 @@ const gameViewSummary = computed(() => {
 .debug-panel pre {
   white-space: pre-wrap;
   margin: 0;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  background: #0f0;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.copy-btn:hover {
+  background: #0a0;
 }
 
 .action-panel {
@@ -531,11 +609,57 @@ const gameViewSummary = computed(() => {
 .merc-choice {
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  border-radius: 12px;
 }
 
 .merc-choice:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(212, 168, 75, 0.3);
+}
+
+.merc-choice.selected {
+  box-shadow: 0 0 0 3px v-bind('UI_COLORS.accent'), 0 8px 24px rgba(212, 168, 75, 0.4);
+}
+
+.selection-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  background: v-bind('UI_COLORS.accent');
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #1a1a2e;
+  z-index: 10;
+}
+
+.confirm-btn {
+  display: block;
+  margin: 20px auto 0;
+  padding: 12px 32px;
+  background: linear-gradient(90deg, v-bind('UI_COLORS.accent'), v-bind('UI_COLORS.accentLight'));
+  color: #1a1a2e;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .board-layout {

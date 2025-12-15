@@ -3,9 +3,11 @@ import { computed } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
 
 interface MercData {
-  // Can use either naming convention (JSON vs class)
+  // Data can be at root level or nested in 'attributes'
+  attributes?: Record<string, any>;
+  // Root level properties (may not exist if data is in attributes)
   mercId?: string;
-  id?: string;
+  id?: string | number;
   ref?: string;
   mercName?: string;
   name?: string;
@@ -34,40 +36,60 @@ const props = defineProps<{
   compact?: boolean;
 }>();
 
-// Helper to get MERC ID (handles both naming conventions)
-const mercId = computed(() => props.merc.mercId || props.merc.id || props.merc.ref || 'unknown');
-const mercName = computed(() => {
-  const name = props.merc.mercName || props.merc.name || mercId.value;
-  // Capitalize first letter
-  return name.charAt(0).toUpperCase() + name.slice(1);
+// Helper to get a property from either attributes or root level
+function getProp<T>(key: string, defaultVal: T): T {
+  const attrs = props.merc.attributes;
+  if (attrs && attrs[key] !== undefined) return attrs[key];
+  const rootVal = (props.merc as any)[key];
+  if (rootVal !== undefined) return rootVal;
+  return defaultVal;
+}
+
+// Helper to get MERC ID
+const mercId = computed(() => {
+  return getProp('mercId', '') || getProp('id', '') || props.merc.ref || 'unknown';
 });
 
-// Computed stats - use computed values if available, otherwise base values
-const training = computed(() => props.merc.training ?? props.merc.baseTraining ?? 0);
-const combat = computed(() => props.merc.combat ?? props.merc.baseCombat ?? 0);
-const initiative = computed(() => props.merc.initiative ?? props.merc.baseInitiative ?? 0);
+// Helper to get MERC name (properly formatted)
+const mercName = computed(() => {
+  const rawName = getProp('mercName', '') || getProp('name', '') || String(mercId.value);
+  // Remove "merc-" prefix if present and capitalize
+  const cleanName = rawName.replace(/^merc-/i, '');
+  return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+});
+
+// Computed stats - check attributes first, then root level
+const training = computed(() => getProp('training', 0) || getProp('baseTraining', 0));
+const combat = computed(() => getProp('combat', 0) || getProp('baseCombat', 0));
+const initiative = computed(() => getProp('initiative', 0) || getProp('baseInitiative', 0));
 const currentHealth = computed(() => {
-  if (props.merc.health !== undefined) return props.merc.health;
-  const max = props.merc.maxHealth ?? 3;
-  const dmg = props.merc.damage ?? 0;
+  const health = getProp('health', undefined);
+  if (health !== undefined) return health;
+  const max = getProp('maxHealth', 3);
+  const dmg = getProp('damage', 0);
   return Math.max(0, max - dmg);
 });
-const maxHealth = computed(() => props.merc.maxHealth ?? 3);
-const actionsRemaining = computed(() => props.merc.actionsRemaining ?? 2);
+const maxHealth = computed(() => getProp('maxHealth', 3));
+const actionsRemaining = computed(() => getProp('actionsRemaining', 2));
 const maxActions = computed(() => 2); // Standard is 2
 
-// Ability text (can be 'ability' or 'bio')
-const abilityText = computed(() => props.merc.ability || props.merc.bio || '');
+// Ability text
+const abilityText = computed(() => getProp('ability', '') || getProp('bio', ''));
 
 const borderColor = computed(() => getPlayerColor(props.playerColor));
 const imagePath = computed(() => {
-  if (props.merc.image) return props.merc.image;
+  const img = getProp('image', '');
+  if (img) return img;
   return `/mercs/${mercId.value}.jpg`;
 });
 
-const weaponName = computed(() => props.merc.weaponSlot?.equipmentName || props.merc.weaponSlot?.name || null);
-const armorName = computed(() => props.merc.armorSlot?.equipmentName || props.merc.armorSlot?.name || null);
-const accessoryName = computed(() => props.merc.accessorySlot?.equipmentName || props.merc.accessorySlot?.name || null);
+const weaponSlot = computed(() => getProp('weaponSlot', null));
+const armorSlot = computed(() => getProp('armorSlot', null));
+const accessorySlot = computed(() => getProp('accessorySlot', null));
+
+const weaponName = computed(() => weaponSlot.value?.equipmentName || weaponSlot.value?.name || null);
+const armorName = computed(() => armorSlot.value?.equipmentName || armorSlot.value?.name || null);
+const accessoryName = computed(() => accessorySlot.value?.equipmentName || accessorySlot.value?.name || null);
 </script>
 
 <template>
