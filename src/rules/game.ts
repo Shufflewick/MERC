@@ -147,7 +147,8 @@ export class RebelPlayer extends Player {
   }
 
   get teamSize(): number {
-    return this.team.length;
+    // MERC-0ue: Teresa doesn't count toward team limit
+    return this.team.filter(m => m.mercId !== 'teresa').length;
   }
 
   // Team limit: BASE_TEAM_LIMIT + controlled sectors (from game constants)

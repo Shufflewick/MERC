@@ -396,6 +396,100 @@ function hasArmor(combatant: Combatant): boolean {
 }
 
 /**
+ * MERC-qh3: Check if a combatant is Runde
+ */
+function isRunde(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'runde';
+  }
+  return false;
+}
+
+/**
+ * MERC-5yq: Check if a combatant is Sarge
+ */
+function isSarge(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'sarge';
+  }
+  return false;
+}
+
+/**
+ * MERC-581: Check if a combatant is Stumpy
+ */
+function isStumpy(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'stumpy';
+  }
+  return false;
+}
+
+/**
+ * MERC-581: Check if combatant has grenade or mortar equipped
+ */
+function hasExplosive(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    const weapon = combatant.sourceElement.weaponSlot;
+    if (!weapon) return false;
+    const name = weapon.equipmentName.toLowerCase();
+    return name.includes('grenade') || name.includes('mortar');
+  }
+  return false;
+}
+
+/**
+ * MERC-kmv: Check if a combatant is Tack
+ */
+function isTack(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'tack';
+  }
+  return false;
+}
+
+/**
+ * MERC-dxi: Check if a combatant is Tavisto
+ */
+function isTavisto(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'tavisto';
+  }
+  return false;
+}
+
+/**
+ * MERC-qbci: Check if a combatant is Valkyrie
+ */
+function isValkyrie(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'valkyrie';
+  }
+  return false;
+}
+
+/**
+ * MERC-x0jg: Check if a combatant is Vandradi
+ */
+function isVandradi(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    return combatant.sourceElement.mercId === 'vandradi';
+  }
+  return false;
+}
+
+/**
+ * MERC-x0jg: Check if combatant has multi-target weapon
+ */
+function hasMultiTargetWeapon(combatant: Combatant): boolean {
+  if (combatant.sourceElement instanceof MercCard) {
+    const weapon = combatant.sourceElement.weaponSlot;
+    return weapon?.targets !== undefined && weapon.targets > 0;
+  }
+  return false;
+}
+
+/**
  * MERC-s3x: Apply Mayhem's Uzi combat bonus (+2)
  */
 function applyMayhemBonus(combatants: Combatant[]): void {
@@ -441,6 +535,187 @@ function applyKhennInitiative(combatants: Combatant[], game: MERCGame): void {
       const roll = Math.floor(Math.random() * 6) + 1;
       combatant.initiative = roll;
       game.message(`Khenn rolls ${roll} for initiative`);
+    }
+  }
+}
+
+/**
+ * MERC-581: Apply Stumpy's explosive combat bonus (+1)
+ */
+function applyStumpyBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isStumpy(combatant) && hasExplosive(combatant) && combatant.health > 0) {
+      combatant.combat += 1;
+    }
+  }
+}
+
+/**
+ * MERC-x0jg: Apply Vandradi's multi-target weapon bonus (+1 combat)
+ */
+function applyVandradiBonus(combatants: Combatant[]): void {
+  for (const combatant of combatants) {
+    if (isVandradi(combatant) && hasMultiTargetWeapon(combatant) && combatant.health > 0) {
+      combatant.combat += 1;
+    }
+  }
+}
+
+/**
+ * MERC-5yq: Apply Sarge's highest initiative bonus
+ * Sarge gets +1 to all skills when he has the highest initiative in his squad
+ */
+function applySargeBonus(game: MERCGame, combatants: Combatant[]): void {
+  const sargeCombatants = combatants.filter(c => isSarge(c) && c.health > 0);
+  if (sargeCombatants.length === 0) return;
+
+  for (const sarge of sargeCombatants) {
+    const sargeMerc = sarge.sourceElement as MercCard;
+
+    // Find squad mates
+    for (const rebel of game.rebelPlayers) {
+      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
+      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+
+      let squadMates: MercCard[] | null = null;
+      if (primaryMercs.includes(sargeMerc)) {
+        squadMates = primaryMercs;
+      } else if (secondaryMercs.includes(sargeMerc)) {
+        squadMates = secondaryMercs;
+      }
+
+      if (squadMates) {
+        // Check if Sarge has highest initiative in squad
+        const maxInitiative = Math.max(...squadMates.map(m => m.initiative));
+        if (sargeMerc.initiative >= maxInitiative) {
+          sarge.initiative += 1;
+          sarge.combat += 1;
+          // Training bonus applied separately for train action
+        }
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * MERC-kmv: Apply Tack's initiative bonus to squad
+ * When Tack has highest initiative, all squad mates get +2 initiative
+ */
+function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
+  const tackCombatants = combatants.filter(c => isTack(c) && c.health > 0);
+  if (tackCombatants.length === 0) return;
+
+  for (const tack of tackCombatants) {
+    const tackMerc = tack.sourceElement as MercCard;
+
+    for (const rebel of game.rebelPlayers) {
+      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
+      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+
+      let squadMates: MercCard[] | null = null;
+      if (primaryMercs.includes(tackMerc)) {
+        squadMates = primaryMercs;
+      } else if (secondaryMercs.includes(tackMerc)) {
+        squadMates = secondaryMercs;
+      }
+
+      if (squadMates) {
+        // Check if Tack has highest initiative
+        const maxInitiative = Math.max(...squadMates.map(m => m.initiative));
+        if (tackMerc.initiative >= maxInitiative) {
+          // Apply +2 initiative to all squad mates (including Tack)
+          for (const combatant of combatants) {
+            if (combatant.sourceElement instanceof MercCard &&
+                squadMates.includes(combatant.sourceElement) &&
+                combatant.health > 0) {
+              combatant.initiative += 2;
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * MERC-qbci: Apply Valkyrie's initiative bonus to squad mates
+ * All squad mates get +1 initiative
+ */
+function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
+  const valkyrieCombatants = combatants.filter(c => isValkyrie(c) && c.health > 0);
+  if (valkyrieCombatants.length === 0) return;
+
+  for (const valkyrie of valkyrieCombatants) {
+    const valkyrieMerc = valkyrie.sourceElement as MercCard;
+
+    for (const rebel of game.rebelPlayers) {
+      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
+      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+
+      let squadMates: MercCard[] | null = null;
+      if (primaryMercs.includes(valkyrieMerc)) {
+        squadMates = primaryMercs;
+      } else if (secondaryMercs.includes(valkyrieMerc)) {
+        squadMates = secondaryMercs;
+      }
+
+      if (squadMates) {
+        // Apply +1 initiative to all squad mates (except Valkyrie herself)
+        for (const combatant of combatants) {
+          if (combatant.sourceElement instanceof MercCard &&
+              squadMates.includes(combatant.sourceElement) &&
+              combatant.sourceElement !== valkyrieMerc &&
+              combatant.health > 0) {
+            combatant.initiative += 1;
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * MERC-dxi: Apply Tavisto's bonus when woman is in squad
+ * Tavisto gets +1 to all skills when a woman is in his squad
+ */
+function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
+  const tavistoCombatants = combatants.filter(c => isTavisto(c) && c.health > 0);
+  if (tavistoCombatants.length === 0) return;
+
+  for (const tavisto of tavistoCombatants) {
+    const tavistoMerc = tavisto.sourceElement as MercCard;
+
+    for (const rebel of game.rebelPlayers) {
+      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
+      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+
+      let squadMates: MercCard[] | null = null;
+      if (primaryMercs.includes(tavistoMerc)) {
+        squadMates = primaryMercs;
+      } else if (secondaryMercs.includes(tavistoMerc)) {
+        squadMates = secondaryMercs;
+      }
+
+      if (squadMates) {
+        // Check if any woman in squad (check mercs.json sex field)
+        // We'll need to get MERC data from JSON which includes sex field
+        const hasWoman = squadMates.some(m => {
+          // Use the mercId to check against known female MERCs
+          // Female MERCs have "sex": "F" in mercs.json
+          const femaleMercs = ['ewok', 'faustina', 'natasha', 'sonia', 'tack', 'teresa', 'valkyrie', 'adelheid'];
+          return femaleMercs.includes(m.mercId) && m !== tavistoMerc;
+        });
+
+        if (hasWoman) {
+          tavisto.initiative += 1;
+          tavisto.combat += 1;
+          // Training bonus applied separately for train action
+        }
+        break;
+      }
     }
   }
 }
@@ -987,18 +1262,29 @@ function selectTargets(
     return buzzkillTargets;
   }
 
+  // MERC-qh3: Runde is always the last MERC targeted
+  // Sort targets so Runde is at the end (only targeted if no other MERCs available)
+  const sortedForRunde = [...aliveEnemies].sort((a, b) => {
+    const aIsRunde = isRunde(a);
+    const bIsRunde = isRunde(b);
+    if (aIsRunde && !bIsRunde) return 1;  // Runde goes to end
+    if (bIsRunde && !aIsRunde) return -1; // Non-Runde goes first
+    return 0;
+  });
+
   // If attacker is rebel and dictator is present, check protection rule
   if (!attacker.isDictatorSide) {
-    const canHitDictator = canTargetDictator(aliveEnemies);
+    const canHitDictator = canTargetDictator(sortedForRunde);
     const validTargets = canHitDictator
-      ? aliveEnemies
-      : aliveEnemies.filter(e => !e.isDictator);
+      ? sortedForRunde
+      : sortedForRunde.filter(e => !e.isDictator);
 
     return validTargets.slice(0, maxTargets);
   }
 
   // MERC-0q8: Dictator AI uses priority targeting
-  const prioritized = sortTargetsByAIPriority(aliveEnemies);
+  // Still apply Runde protection by sorting first
+  const prioritized = sortTargetsByAIPriority(sortedForRunde);
   return prioritized.slice(0, maxTargets);
 }
 
@@ -1170,6 +1456,24 @@ function executeCombatRound(
 
   // MERC-c1f: Apply Ra's target bonus
   applyRaBonus([...rebels, ...dictatorSide]);
+
+  // MERC-581: Apply Stumpy's explosive combat bonus
+  applyStumpyBonus([...rebels, ...dictatorSide]);
+
+  // MERC-x0jg: Apply Vandradi's multi-target weapon bonus
+  applyVandradiBonus([...rebels, ...dictatorSide]);
+
+  // MERC-5yq: Apply Sarge's highest initiative bonus
+  applySargeBonus(game, [...rebels, ...dictatorSide]);
+
+  // MERC-kmv: Apply Tack's squad initiative bonus
+  applyTackBonus(game, [...rebels, ...dictatorSide]);
+
+  // MERC-qbci: Apply Valkyrie's squad initiative bonus
+  applyValkyrieBonus(game, [...rebels, ...dictatorSide]);
+
+  // MERC-dxi: Apply Tavisto's woman-in-squad bonus
+  applyTavistoBonus(game, [...rebels, ...dictatorSide]);
 
   // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
   applyKhennInitiative([...rebels, ...dictatorSide], game);

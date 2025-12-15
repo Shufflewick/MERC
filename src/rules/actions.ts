@@ -292,6 +292,15 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             game.message(`${merc.mercName} equipped free ${freeEquipment.equipmentName}`);
           }
 
+          // MERC-9mxd: Vrbansk gets a free accessory when hired
+          if (merc.mercId === 'vrbansk' && !merc.accessorySlot) {
+            const freeAccessory = game.drawEquipment('Accessory');
+            if (freeAccessory) {
+              merc.equip(freeAccessory);
+              game.message(`${merc.mercName} receives bonus accessory: ${freeAccessory.equipmentName}`);
+            }
+          }
+
           hired.push(merc.mercName);
           currentSize++;
         } else {
