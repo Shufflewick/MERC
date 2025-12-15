@@ -287,6 +287,67 @@ export class MercCard extends BaseCard {
         return undefined;
     }
   }
+
+  /**
+   * Custom attributes getter to serialize equipment slots to game view.
+   * BoardSmith only serializes properties from this getter.
+   */
+  get attributes(): Record<string, unknown> {
+    return {
+      mercId: this.mercId,
+      mercName: this.mercName,
+      bio: this.bio,
+      ability: this.ability,
+      image: this.image,
+      baseInitiative: this.baseInitiative,
+      baseTraining: this.baseTraining,
+      baseCombat: this.baseCombat,
+      damage: this.damage,
+      actionsRemaining: this.actionsRemaining,
+      sectorId: this.sectorId,
+      // Computed stats
+      initiative: this.initiative,
+      training: this.training,
+      combat: this.combat,
+      health: this.health,
+      maxHealth: this.maxHealth,
+      targets: this.targets,
+      equipmentArmor: this.equipmentArmor,
+      isDead: this.isDead,
+      isFullyEquipped: this.isFullyEquipped,
+      // Equipment slots - serialize the equipment data for UI
+      weaponSlot: this.weaponSlot ? {
+        equipmentId: this.weaponSlot.equipmentId,
+        equipmentName: this.weaponSlot.equipmentName,
+        equipmentType: this.weaponSlot.equipmentType,
+        description: this.weaponSlot.description,
+        image: this.weaponSlot.image,
+        combatBonus: this.weaponSlot.combatBonus,
+        initiative: this.weaponSlot.initiative,
+        training: this.weaponSlot.training,
+        isDamaged: this.weaponSlot.isDamaged,
+      } : null,
+      armorSlot: this.armorSlot ? {
+        equipmentId: this.armorSlot.equipmentId,
+        equipmentName: this.armorSlot.equipmentName,
+        equipmentType: this.armorSlot.equipmentType,
+        description: this.armorSlot.description,
+        image: this.armorSlot.image,
+        combatBonus: this.armorSlot.combatBonus,
+        armorBonus: this.armorSlot.armorBonus,
+        isDamaged: this.armorSlot.isDamaged,
+      } : null,
+      accessorySlot: this.accessorySlot ? {
+        equipmentId: this.accessorySlot.equipmentId,
+        equipmentName: this.accessorySlot.equipmentName,
+        equipmentType: this.accessorySlot.equipmentType,
+        description: this.accessorySlot.description,
+        image: this.accessorySlot.image,
+        combatBonus: this.accessorySlot.combatBonus,
+        isDamaged: this.accessorySlot.isDamaged,
+      } : null,
+    };
+  }
 }
 
 // =============================================================================
