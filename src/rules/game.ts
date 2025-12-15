@@ -212,8 +212,10 @@ export class DictatorPlayer extends Player {
   tacticsHand!: TacticsHand;
   tacticsDiscard!: DiscardPile;
 
-  // Hired MERCs fighting for the Dictator
-  hiredMercs: MercCard[] = [];
+  // MERC-rwdv: Use a Squad to hold hired MERCs so they appear in game view
+  mercSquad!: Squad;
+  // Reference name for looking up squad after deserialization
+  mercSquadRef!: string;
 
   // Base state
   baseRevealed: boolean = false;
@@ -228,6 +230,11 @@ export class DictatorPlayer extends Player {
 
   // MERC-q4v: Privacy Player - Rebel designated to handle AI decisions
   privacyPlayerId?: string;
+
+  // MERC-rwdv: hiredMercs now returns MERCs from the squad
+  get hiredMercs(): MercCard[] {
+    return this.mercSquad?.getMercs() || [];
+  }
 
   get isDefeated(): boolean {
     return this.baseRevealed && this.dictator?.isDead;
@@ -417,6 +424,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       const dictator = new DictatorPlayer(position, name);
       dictator.game = this;
       this.dictatorPlayer = dictator;
+
+      // MERC-rwdv: Create squad for dictator MERCs so they appear in game view
+      const mercSquadRef = `squad-dictator-mercs`;
+      this.create(Squad, mercSquadRef, { isPrimary: true });
+      dictator.mercSquadRef = mercSquadRef;
+      dictator.mercSquad = this.first(Squad, s => s.name === mercSquadRef)!;
+
       return dictator;
     } else {
       const rebel = new RebelPlayer(position, name);

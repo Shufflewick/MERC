@@ -98,14 +98,15 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
     current.baseCombat > best.baseCombat ? current : best
   );
 
-  // Hire the selected MERC
-  game.dictatorPlayer.hiredMercs.push(bestMerc);
+  // MERC-rwdv: Put the hired MERC into the dictator's squad
+  bestMerc.putInto(game.dictatorPlayer.mercSquad);
 
   // MERC-2ay: Set MERC location per AI rules 4.3.2
   // Dictator-controlled sector closest to weakest rebel sector
   const targetSector = selectNewMercLocation(game);
   if (targetSector) {
     bestMerc.sectorId = targetSector.sectorId;
+    game.dictatorPlayer.mercSquad.sectorId = targetSector.sectorId;
   }
 
   // Discard the others

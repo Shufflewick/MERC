@@ -1978,24 +1978,7 @@ function applyCombatResults(
             }
           }
 
-          // Remove from owner's team and put in discard
-          if (combatant.isDictatorSide) {
-            // Remove from dictator's hired MERCs
-            const idx = game.dictatorPlayer.hiredMercs.indexOf(merc);
-            if (idx >= 0) {
-              game.dictatorPlayer.hiredMercs.splice(idx, 1);
-            }
-          } else {
-            // Remove from rebel's team
-            for (const rebel of game.rebelPlayers) {
-              const idx = rebel.team.indexOf(merc);
-              if (idx >= 0) {
-                rebel.team.splice(idx, 1);
-                break;
-              }
-            }
-          }
-
+          // MERC-rwdv: putInto automatically removes from current container
           // Put MERC card in discard pile
           merc.putInto(game.mercDiscard);
           game.message(`${merc.mercName} has been killed in combat!`);

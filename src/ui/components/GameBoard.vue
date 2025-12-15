@@ -164,6 +164,12 @@ const currentPlayerColor = computed(() => {
   return player?.playerColor || 'red';
 });
 
+// MERC-rwdv: Check if current player is the dictator
+const currentPlayerIsDictator = computed(() => {
+  const player = players.value.find((p) => p.position === props.playerPosition);
+  return player?.isDictator || false;
+});
+
 // Extract all MERCs with their locations
 const allMercs = computed(() => {
   const mercs: any[] = [];
@@ -319,6 +325,33 @@ const secondarySquad = computed(() => {
   return {
     squadId: squad.ref || 'secondary',
     isPrimary: false,
+    sectorId,
+    sectorName: sector?.sectorName,
+    mercs: (squad.children || [])
+      .filter((c: any) => getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard')
+      .map((c: any) => c),
+  };
+});
+
+// MERC-rwdv: Get dictator's merc squad
+const dictatorSquad = computed(() => {
+  if (!currentPlayerIsDictator.value) return undefined;
+
+  const squads = findAllByClassName('Squad');
+  // Find squad named "squad-dictator-mercs"
+  const squad = squads.find((s: any) => {
+    const name = getAttr(s, 'name', '') || s.ref || '';
+    return name.includes('dictator');
+  });
+
+  if (!squad) return undefined;
+
+  const sectorId = getAttr(squad, 'sectorId', '');
+  const sector = sectors.value.find((s) => s.sectorId === sectorId);
+
+  return {
+    squadId: squad.ref || 'dictator-squad',
+    isPrimary: true,
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
@@ -653,11 +686,11 @@ const clickableSectors = computed(() => {
       </div>
 
       <!-- Squad Panel -->
-      <div class="squad-section" v-if="primarySquad || secondarySquad">
+      <div class="squad-section" v-if="primarySquad || secondarySquad || dictatorSquad">
         <SquadPanel
-          :primary-squad="primarySquad"
-          :secondary-squad="secondarySquad"
-          :player-color="currentPlayerColor"
+          :primary-squad="currentPlayerIsDictator ? dictatorSquad : primarySquad"
+          :secondary-squad="currentPlayerIsDictator ? undefined : secondarySquad"
+          :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
         />
       </div>
     </div>
