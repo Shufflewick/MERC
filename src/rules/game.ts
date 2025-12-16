@@ -56,7 +56,6 @@ export type { SetupConfiguration } from './constants.js';
 // Per-player configuration from lobby
 export interface PlayerConfig {
   color?: string;
-  role?: 'rebel' | 'dictator';  // Player's role
   isAI?: boolean;
   aiLevel?: string;
 }
@@ -64,7 +63,7 @@ export interface PlayerConfig {
 export interface MERCOptions extends GameOptions {
   seed?: string;
   rebelCount?: number;  // 1-6 rebels
-  dictatorId?: string;  // Which dictator to use
+  dictatorId?: string;  // Which dictator character to use
   expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
   dictatorIsAI?: boolean;  // MERC-exaf: Explicitly set if dictator is AI-controlled
   // MERC-pbx4: Role selection - which player position is the dictator
@@ -73,6 +72,10 @@ export interface MERCOptions extends GameOptions {
   dictatorPlayerPosition?: number;
   // Player configurations from lobby (colors, AI settings)
   playerConfigs?: PlayerConfig[];
+  // Game options from lobby
+  gameOptions?: {
+    dictator?: string;  // 'last' or player position as string ('0', '1', etc.)
+  };
 }
 
 // =============================================================================
@@ -362,12 +365,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Store player configs from lobby
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
-    // Find dictator position from player configs (role: 'dictator')
-    // Fall back to dictatorPlayerPosition option, then default to last player
-    let dictatorPos = options.dictatorPlayerPosition ?? -1;
-    const configDictatorIndex = MERCGame._pendingPlayerConfigs.findIndex(c => c.role === 'dictator');
-    if (configDictatorIndex >= 0) {
-      dictatorPos = configDictatorIndex;
+    // Find dictator position from:
+    // 1. gameOptions.dictator from lobby ('last', '0', '1', etc.)
+    // 2. dictatorPlayerPosition option (legacy)
+    // 3. Default to last player
+    let dictatorPos = -1;  // -1 means last player
+
+    const lobbyDictator = options.gameOptions?.dictator;
+    if (lobbyDictator && lobbyDictator !== 'last') {
+      dictatorPos = parseInt(lobbyDictator, 10);
+    } else if (options.dictatorPlayerPosition !== undefined) {
+      dictatorPos = options.dictatorPlayerPosition;
     }
 
     // Validate position if explicitly set
