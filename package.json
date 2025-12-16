@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@boardsmith/engine": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/engine",
+    "@boardsmith/session": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/session",
     "@boardsmith/ui": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/ui",
     "vue": "^3.4.0"
   },

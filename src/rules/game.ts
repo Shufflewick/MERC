@@ -53,6 +53,13 @@ import setupData from '../../data/setup.json';
 // Re-export SetupConfiguration for external use
 export type { SetupConfiguration } from './constants.js';
 
+// Per-player configuration from lobby
+export interface PlayerConfig {
+  color?: string;
+  isAI?: boolean;
+  aiLevel?: string;
+}
+
 export interface MERCOptions extends GameOptions {
   seed?: string;
   rebelCount?: number;  // 1-6 rebels
@@ -63,6 +70,8 @@ export interface MERCOptions extends GameOptions {
   // Default: last player (position = playerCount - 1)
   // Set to 0 for first player, 1 for second player, etc.
   dictatorPlayerPosition?: number;
+  // Player configurations from lobby (colors, AI settings)
+  playerConfigs?: PlayerConfig[];
 }
 
 // =============================================================================
@@ -136,6 +145,7 @@ interface TacticsData {
 
 export class RebelPlayer extends Player {
   playerColor!: PlayerColor;
+  playerColorHex?: string;  // Hex color from lobby, if set
 
   // Squad refs - store IDs instead of direct references to avoid stale refs after deserialization
   primarySquadRef!: string;
@@ -253,6 +263,28 @@ export class DictatorPlayer extends Player {
 export type MERCPlayer = RebelPlayer | DictatorPlayer;
 
 // =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Map a hex color to our PlayerColor type.
+ * Uses the BoardSmith standard palette mapping.
+ */
+function hexToPlayerColor(hex: string): PlayerColor {
+  const colorMap: Record<string, PlayerColor> = {
+    '#e74c3c': 'red',
+    '#3498db': 'blue',
+    '#27ae60': 'green',
+    '#e67e22': 'orange',
+    '#9b59b6': 'purple',
+    '#f1c40f': 'yellow',
+    '#95a5a6': 'black',  // Gray/dictator color maps to black
+    '#ecf0f1': 'black',  // White also maps to black for now
+  };
+  return colorMap[hex.toLowerCase()] || 'red';
+}
+
+// =============================================================================
 // Main Game Class
 // =============================================================================
 
@@ -262,6 +294,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // MERC-pbx4: Static storage for dictator position during construction
   // -1 means "use default" (last player)
   private static _pendingDictatorPosition: number = -1;
+  // Player configurations from lobby (colors, AI settings)
+  private static _pendingPlayerConfigs: PlayerConfig[] = [];
 
   // Configuration
   rebelCount!: number;
@@ -334,6 +368,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       );
     }
     MERCGame._pendingDictatorPosition = dictatorPos;
+
+    // Store player configs from lobby
+    MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
+
     super(options);
 
     // Register all element classes for serialization
@@ -436,9 +474,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       const rebel = new RebelPlayer(position, name);
       rebel.game = this;
 
-      // Assign color based on position
-      const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
-      rebel.playerColor = colors[position % colors.length];
+      // Assign color from player config or default based on position
+      const playerConfig = MERCGame._pendingPlayerConfigs[position];
+      if (playerConfig?.color) {
+        // Store hex color directly - UI will use this
+        rebel.playerColorHex = playerConfig.color;
+        // Also set legacy PlayerColor for compatibility (map hex to name)
+        rebel.playerColor = hexToPlayerColor(playerConfig.color);
+      } else {
+        const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+        rebel.playerColor = colors[position % colors.length];
+      }
 
       // Create squads for rebel and store refs (not direct references)
       const primaryRef = `squad-${position}-primary`;

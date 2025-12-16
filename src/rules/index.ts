@@ -186,6 +186,7 @@ export {
 
 // Game definition for BoardSmith
 import { MERCGame } from './game.js';
+import { createColorOption } from '@boardsmith/session';
 
 export const gameDefinition = {
   gameClass: MERCGame,
@@ -193,4 +194,60 @@ export const gameDefinition = {
   displayName: 'MERC',
   minPlayers: 2,  // 1 Dictator + 1 Rebel
   maxPlayers: 7,  // 1 Dictator + 6 Rebels
+
+  // Game-level options
+  gameOptions: {
+    dictatorPlayerPosition: {
+      type: 'number',
+      label: 'Dictator Player',
+      description: 'Which player position plays as the dictator (-1 = last player)',
+      min: -1,
+      max: 6,
+      default: -1,
+    },
+  },
+
+  // Per-player options
+  playerOptions: {
+    color: createColorOption(),
+  },
+
+  // Quick-start presets
+  presets: [
+    {
+      name: 'Play as Rebel',
+      options: { dictatorPlayerPosition: -1 },
+      players: [
+        { color: '#e74c3c', isAI: false },  // Red rebel (you)
+        { color: '#95a5a6', isAI: true, aiLevel: 'medium' },  // Dictator AI
+      ],
+    },
+    {
+      name: 'Play as Dictator',
+      options: { dictatorPlayerPosition: 0 },
+      players: [
+        { color: '#95a5a6', isAI: false },  // Dictator (you)
+        { color: '#e74c3c', isAI: true, aiLevel: 'medium' },  // Red rebel AI
+      ],
+    },
+    {
+      name: '2 Rebels vs AI Dictator',
+      options: { dictatorPlayerPosition: -1 },
+      players: [
+        { color: '#e74c3c', isAI: false },  // Red rebel
+        { color: '#3498db', isAI: false },  // Blue rebel
+        { color: '#95a5a6', isAI: true, aiLevel: 'medium' },  // Dictator AI
+      ],
+    },
+    {
+      name: '3 Rebels vs AI Dictator',
+      options: { dictatorPlayerPosition: -1 },
+      players: [
+        { color: '#e74c3c', isAI: false },  // Red rebel
+        { color: '#3498db', isAI: false },  // Blue rebel
+        { color: '#27ae60', isAI: false },  // Green rebel
+        { color: '#95a5a6', isAI: true, aiLevel: 'hard' },  // Dictator AI
+      ],
+    },
+  ],
 } as const;
