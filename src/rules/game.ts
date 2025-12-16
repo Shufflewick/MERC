@@ -56,6 +56,7 @@ export type { SetupConfiguration } from './constants.js';
 // Per-player configuration from lobby
 export interface PlayerConfig {
   color?: string;
+  role?: boolean;  // true = dictator, false = rebel
   isAI?: boolean;
   aiLevel?: string;
 }
@@ -358,19 +359,25 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Default to 2 players if not specified (1 rebel + 1 dictator)
     MERCGame._pendingPlayerCount = options.playerCount ?? 2;
 
-    // MERC-pbx4: Store dictator position (-1 means use default: last player)
-    // Validate that the position is within valid range
-    const dictatorPos = options.dictatorPlayerPosition ?? -1;
+    // Store player configs from lobby
+    MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
+
+    // Find dictator position from player configs (role: true)
+    // Fall back to dictatorPlayerPosition option, then default to last player
+    let dictatorPos = options.dictatorPlayerPosition ?? -1;
+    const configDictatorIndex = MERCGame._pendingPlayerConfigs.findIndex(c => c.role === true);
+    if (configDictatorIndex >= 0) {
+      dictatorPos = configDictatorIndex;
+    }
+
+    // Validate position if explicitly set
     if (dictatorPos >= 0 && dictatorPos >= MERCGame._pendingPlayerCount) {
       throw new Error(
-        `Invalid dictatorPlayerPosition: ${dictatorPos}. ` +
+        `Invalid dictator position: ${dictatorPos}. ` +
         `Must be less than playerCount (${MERCGame._pendingPlayerCount}).`
       );
     }
     MERCGame._pendingDictatorPosition = dictatorPos;
-
-    // Store player configs from lobby
-    MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
     super(options);
 
