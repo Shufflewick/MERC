@@ -199,9 +199,9 @@ export const gameDefinition = {
   playerOptions: {
     color: createColorOption(),
     isDictator: {
-      type: 'checkbox',
+      type: 'toggle',
       label: 'Dictator',
-      description: 'Check to play as the dictator (only one player can be dictator)',
+      description: 'Toggle to play as the dictator (only one player can be dictator)',
       default: false,
     },
   },
