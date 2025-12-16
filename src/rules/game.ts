@@ -56,7 +56,7 @@ export type { SetupConfiguration } from './constants.js';
 // Per-player configuration from lobby
 export interface PlayerConfig {
   color?: string;
-  isDictator?: boolean;  // true = dictator, false = rebel
+  role?: 'rebel' | 'dictator';  // Player's role
   isAI?: boolean;
   aiLevel?: string;
 }
@@ -362,10 +362,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Store player configs from lobby
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
-    // Find dictator position from player configs (isDictator: true)
+    // Find dictator position from player configs (role: 'dictator')
     // Fall back to dictatorPlayerPosition option, then default to last player
     let dictatorPos = options.dictatorPlayerPosition ?? -1;
-    const configDictatorIndex = MERCGame._pendingPlayerConfigs.findIndex(c => c.isDictator === true);
+    const configDictatorIndex = MERCGame._pendingPlayerConfigs.findIndex(c => c.role === 'dictator');
     if (configDictatorIndex >= 0) {
       dictatorPos = configDictatorIndex;
     }
