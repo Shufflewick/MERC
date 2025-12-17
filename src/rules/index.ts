@@ -195,7 +195,22 @@ export const gameDefinition = {
   minPlayers: 2,  // 1 Dictator + 1 Rebel
   maxPlayers: 7,  // 1 Dictator + 6 Rebels
 
-  // Per-player options
+  // Game-level options (host configures)
+  gameOptions: {
+    dictatorCharacter: {
+      type: 'select',
+      label: 'Dictator Character',
+      description: 'Choose which dictator the rebels face',
+      default: 'random',
+      choices: [
+        { value: 'random', label: 'Random' },
+        { value: 'castro', label: 'Castro - Hire MERCs each turn' },
+        { value: 'kim', label: 'Kim - Extra militia reinforcements' },
+      ],
+    },
+  },
+
+  // Per-player options (each player configures their own)
   playerOptions: {
     color: createColorOption(),
     isDictator: {

@@ -74,7 +74,7 @@ export interface MERCOptions extends GameOptions {
   playerConfigs?: PlayerConfig[];
   // Game options from lobby
   gameOptions?: {
-    dictator?: string;  // 'last' or player position as string ('0', '1', etc.)
+    dictatorCharacter?: string;  // 'random', 'castro', 'kim'
   };
 }
 
@@ -366,14 +366,18 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
     // Find dictator position from:
-    // 1. gameOptions.dictator from lobby ('last', '0', '1', etc.)
+    // 1. playerConfigs with isDictator: true (from exclusive player option)
     // 2. dictatorPlayerPosition option (legacy)
     // 3. Default to last player
     let dictatorPos = -1;  // -1 means last player
 
-    const lobbyDictator = options.gameOptions?.dictator;
-    if (lobbyDictator && lobbyDictator !== 'last') {
-      dictatorPos = parseInt(lobbyDictator, 10);
+    // Check playerConfigs for isDictator flag (from exclusive player option in lobby)
+    const playerConfigs = options.playerConfigs || [];
+    const dictatorConfigIndex = playerConfigs.findIndex(
+      (config: any) => config.isDictator === true
+    );
+    if (dictatorConfigIndex >= 0) {
+      dictatorPos = dictatorConfigIndex;
     } else if (options.dictatorPlayerPosition !== undefined) {
       dictatorPos = options.dictatorPlayerPosition;
     }
@@ -461,7 +465,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.loadTacticsData(tacticsData as TacticsData[]);
 
     // Perform initial setup (build map, select dictator, etc.)
-    this.performSetup(options.dictatorId);
+    // Use dictatorCharacter from gameOptions, or dictatorId for legacy/direct API
+    const dictatorCharacter = options.gameOptions?.dictatorCharacter;
+    const dictatorId = dictatorCharacter && dictatorCharacter !== 'random'
+      ? dictatorCharacter
+      : options.dictatorId;
+    this.performSetup(dictatorId);
   }
 
   protected override createPlayer(position: number, name: string): MERCPlayer {
