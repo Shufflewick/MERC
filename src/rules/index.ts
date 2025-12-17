@@ -195,66 +195,48 @@ export const gameDefinition = {
   minPlayers: 2,  // 1 Dictator + 1 Rebel
   maxPlayers: 7,  // 1 Dictator + 6 Rebels
 
-  // Game-level options
-  gameOptions: {
-    dictator: {
-      type: 'select',
-      label: 'Dictator',
-      description: 'Which player is the Dictator (everyone else is a Rebel)',
-      default: 'last',
-      choices: [
-        { value: 'last', label: 'Last Player' },
-        { value: '0', label: 'Player 1' },
-        { value: '1', label: 'Player 2' },
-        { value: '2', label: 'Player 3' },
-        { value: '3', label: 'Player 4' },
-        { value: '4', label: 'Player 5' },
-        { value: '5', label: 'Player 6' },
-        { value: '6', label: 'Player 7' },
-      ],
-    },
-  },
-
   // Per-player options
   playerOptions: {
     color: createColorOption(),
+    isDictator: {
+      type: 'exclusive',
+      label: 'Dictator',
+      description: 'Select which player is the dictator',
+      default: 'last',  // Last player is dictator by default
+    },
   },
 
   // Quick-start presets
   presets: [
     {
       name: 'Play as Rebel',
-      options: { dictator: 'last' },
       players: [
-        { color: '#e74c3c', isAI: false },  // Red rebel (you)
-        { color: '#95a5a6', isAI: true, aiLevel: 'medium' },  // Dictator AI (last)
+        { color: '#e74c3c', isDictator: false, isAI: false },
+        { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'medium' },
       ],
     },
     {
       name: 'Play as Dictator',
-      options: { dictator: '0' },
       players: [
-        { color: '#95a5a6', isAI: false },  // Dictator (you, player 1)
-        { color: '#e74c3c', isAI: true, aiLevel: 'medium' },  // Red rebel AI
+        { color: '#95a5a6', isDictator: true, isAI: false },
+        { color: '#e74c3c', isDictator: false, isAI: true, aiLevel: 'medium' },
       ],
     },
     {
       name: '2 Rebels vs AI Dictator',
-      options: { dictator: 'last' },
       players: [
-        { color: '#e74c3c', isAI: false },  // Red rebel
-        { color: '#3498db', isAI: false },  // Blue rebel
-        { color: '#95a5a6', isAI: true, aiLevel: 'medium' },  // Dictator AI (last)
+        { color: '#e74c3c', isDictator: false, isAI: false },
+        { color: '#3498db', isDictator: false, isAI: false },
+        { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'medium' },
       ],
     },
     {
       name: '3 Rebels vs AI Dictator',
-      options: { dictator: 'last' },
       players: [
-        { color: '#e74c3c', isAI: false },  // Red rebel
-        { color: '#3498db', isAI: false },  // Blue rebel
-        { color: '#27ae60', isAI: false },  // Green rebel
-        { color: '#95a5a6', isAI: true, aiLevel: 'hard' },  // Dictator AI (last)
+        { color: '#e74c3c', isDictator: false, isAI: false },
+        { color: '#3498db', isDictator: false, isAI: false },
+        { color: '#27ae60', isDictator: false, isAI: false },
+        { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'hard' },
       ],
     },
   ],
