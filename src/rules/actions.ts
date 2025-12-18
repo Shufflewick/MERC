@@ -181,11 +181,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         const compatibleMercs = drawnMercs.filter(m =>
           canHireMercWithTeam(m.mercId, player.team)
         );
-        // Use { label, value } format for consistent BoardSmith rendering
-        const choices = compatibleMercs.map(m => ({
-          label: capitalize(m.mercName),
-          value: m.mercName,
-        }));
+        const choices = compatibleMercs.map(m => capitalize(m.mercName));
 
         // Add note about team limit
         if (canHire < compatibleMercs.length) {
@@ -269,8 +265,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       }
 
       for (const merc of drawnMercs) {
-        // selectedNames contains mercName values (not capitalized labels)
-        if (selectedNames.includes(merc.mercName) && currentSize < teamLimit) {
+        if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
           merc.putInto(targetSquad);
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
@@ -1915,13 +1910,9 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
-          return [{ label: 'No MERCs available', value: 'none' }];
+          return ['No MERCs available'];
         }
-        // Use { label, value } format for consistent BoardSmith rendering
-        return available.map((m) => ({
-          label: capitalize(m.mercName),
-          value: m.mercName,
-        }));
+        return available.map((m) => capitalize(m.mercName));
       },
     })
     .chooseFrom<string>('secondMerc', {
@@ -1932,14 +1923,10 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
-          return [{ label: 'No MERCs available', value: 'none' }];
+          return ['No MERCs available'];
         }
         // Show all choices - validation happens in execute
-        // Use { label, value } format for consistent BoardSmith rendering
-        return available.map((m) => ({
-          label: capitalize(m.mercName),
-          value: m.mercName,
-        }));
+        return available.map((m) => capitalize(m.mercName));
       },
     })
     .execute((args, ctx) => {
@@ -1954,8 +1941,7 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
       const firstName = args.firstMerc as string;
       const secondName = args.secondMerc as string;
 
-      // Values are mercName (not capitalized label), 'none' if no MERCs available
-      if (!firstName || !secondName || firstName === 'none' || secondName === 'none') {
+      if (!firstName || !secondName || firstName === 'No MERCs available' || secondName === 'No MERCs available') {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
@@ -1964,9 +1950,9 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'Please select two different MERCs' };
       }
 
-      // Find MERCs by mercName (value, not capitalized label)
-      const firstMerc = available.find(m => m.mercName === firstName);
-      const secondMerc = available.find(m => m.mercName === secondName);
+      // Find MERCs by capitalized name
+      const firstMerc = available.find(m => capitalize(m.mercName) === firstName);
+      const secondMerc = available.find(m => capitalize(m.mercName) === secondName);
 
       if (!firstMerc || !secondMerc) {
         return { success: false, message: 'Invalid selection' };
