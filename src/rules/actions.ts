@@ -872,13 +872,10 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
     .chooseFrom<string>('equipChoices', {
       prompt: 'Select equipment to take from stash (or skip)',
       multiSelect: true,
+      dependsOn: 'actingMerc',
       choices: (ctx) => {
-        // CRITICAL: Only do exploration if actingMerc has been selected
-        // This prevents side effects during action list evaluation
-        // Check both ctx.args and ctx.data for the merc selection
-        const actingMerc = (ctx.args?.actingMerc || ctx.data?.actingMerc) as MercCard;
+        const actingMerc = ctx.args?.actingMerc as MercCard;
         if (!actingMerc) {
-          // Return placeholder during action availability check
           return ['Skip (no equipment)'];
         }
 
