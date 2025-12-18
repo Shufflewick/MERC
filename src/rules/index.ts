@@ -45,6 +45,7 @@ export {
   createJoinCoordinatedAttackAction, // MERC-a2h: Join multi-player attack
   createExecuteCoordinatedAttackAction, // MERC-a2h: Execute multi-player attack
   createExploreAction,
+  createTakeFromStashAction,
   createTrainAction,
   // createAttackAction removed - combat triggers via movement only
   createReEquipAction,
