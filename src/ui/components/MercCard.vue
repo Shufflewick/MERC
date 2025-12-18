@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
+import DetailModal from './DetailModal.vue';
+import EquipmentCard from './EquipmentCard.vue';
 
 interface MercData {
   // Data can be at root level or nested in 'attributes'
@@ -106,6 +108,22 @@ function getEquipmentName(slot: any): string | null {
 const weaponName = computed(() => getEquipmentName(weaponSlot.value));
 const armorName = computed(() => getEquipmentName(armorSlot.value));
 const accessoryName = computed(() => getEquipmentName(accessorySlot.value));
+
+// Modal state for equipment details
+const showEquipmentModal = ref(false);
+const selectedEquipment = ref<any>(null);
+
+function showEquipmentDetails(slot: any) {
+  if (slot) {
+    selectedEquipment.value = slot;
+    showEquipmentModal.value = true;
+  }
+}
+
+function closeEquipmentModal() {
+  showEquipmentModal.value = false;
+  selectedEquipment.value = null;
+}
 </script>
 
 <template>
@@ -155,25 +173,45 @@ const accessoryName = computed(() => getEquipmentName(accessorySlot.value));
 
     <!-- Equipment Section -->
     <div class="equipment-section" v-if="showEquipment && !compact">
-      <div class="equipment-slot">
+      <div
+        class="equipment-slot"
+        :class="{ clickable: weaponSlot }"
+        @click="showEquipmentDetails(weaponSlot)"
+      >
         <span class="slot-icon">&#9881;</span>
         <span class="slot-label" :class="{ empty: !weaponName }">
           {{ weaponName || 'No weapon' }}
         </span>
+        <span class="click-hint" v-if="weaponSlot">ℹ</span>
       </div>
-      <div class="equipment-slot">
+      <div
+        class="equipment-slot"
+        :class="{ clickable: armorSlot }"
+        @click="showEquipmentDetails(armorSlot)"
+      >
         <span class="slot-icon">&#9830;</span>
         <span class="slot-label" :class="{ empty: !armorName }">
           {{ armorName || 'No armor' }}
         </span>
+        <span class="click-hint" v-if="armorSlot">ℹ</span>
       </div>
-      <div class="equipment-slot">
+      <div
+        class="equipment-slot"
+        :class="{ clickable: accessorySlot }"
+        @click="showEquipmentDetails(accessorySlot)"
+      >
         <span class="slot-icon">&#9632;</span>
         <span class="slot-label" :class="{ empty: !accessoryName }">
           {{ accessoryName || 'No accessory' }}
         </span>
+        <span class="click-hint" v-if="accessorySlot">ℹ</span>
       </div>
     </div>
+
+    <!-- Equipment Details Modal -->
+    <DetailModal :show="showEquipmentModal" @close="closeEquipmentModal">
+      <EquipmentCard v-if="selectedEquipment" :equipment="selectedEquipment" />
+    </DetailModal>
   </div>
 </template>
 
@@ -324,6 +362,28 @@ const accessoryName = computed(() => getEquipmentName(accessorySlot.value));
   padding: 6px 10px;
   background: v-bind('UI_COLORS.backgroundLight');
   border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.equipment-slot.clickable {
+  cursor: pointer;
+}
+
+.equipment-slot.clickable:hover {
+  background: v-bind('UI_COLORS.border');
+}
+
+.click-hint {
+  margin-left: auto;
+  color: v-bind('UI_COLORS.textMuted');
+  font-size: 0.8rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.equipment-slot.clickable:hover .click-hint {
+  opacity: 1;
+  color: v-bind('UI_COLORS.accent');
 }
 
 .slot-icon {

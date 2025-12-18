@@ -181,7 +181,11 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         const compatibleMercs = drawnMercs.filter(m =>
           canHireMercWithTeam(m.mercId, player.team)
         );
-        const choices = compatibleMercs.map(m => capitalize(m.mercName));
+        // Use { label, value } format for consistent BoardSmith rendering
+        const choices = compatibleMercs.map(m => ({
+          label: capitalize(m.mercName),
+          value: m.mercName,
+        }));
 
         // Add note about team limit
         if (canHire < compatibleMercs.length) {
@@ -265,7 +269,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       }
 
       for (const merc of drawnMercs) {
-        if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
+        // selectedNames contains mercName values (not capitalized labels)
+        if (selectedNames.includes(merc.mercName) && currentSize < teamLimit) {
           merc.putInto(targetSquad);
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
@@ -1840,79 +1845,8 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
     });
 }
 
-/**
- * Fire a MERC
- * Per rules (06-merc-actions.md lines 57-62): Can be done during hire action
- * Cost: Free action
- * - Drops MERC's equipment into current sector's stash
- * - Discards the MERC card
- */
-export function createFireMercAction(game: MERCGame): ActionDefinition {
-  return Action.create('fireMerc')
-    .prompt('Fire a MERC')
-    .condition((ctx) => {
-      // Only rebels can fire MERCs
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
-      // Must have at least 2 MERCs (can't fire your only MERC)
-      return player.teamSize >= 2;
-    })
-    .chooseElement<MercCard>('merc', {
-      prompt: 'Select MERC to fire',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        // Safety check - only rebels can fire MERCs
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc);
-      },
-    })
-    .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
-      const merc = args.merc as MercCard;
-
-      // Find current sector for equipment drop
-      const squad = player.primarySquad.getMercs().includes(merc) ? player.primarySquad : player.secondarySquad;
-      const sector = squad?.sectorId ? game.getSector(squad.sectorId) : null;
-
-      // Drop equipment to stash
-      const droppedEquipment: string[] = [];
-      if (merc.weaponSlot) {
-        const weapon = merc.unequip('Weapon');
-        if (weapon && sector) {
-          sector.addToStash(weapon);
-          droppedEquipment.push(weapon.equipmentName);
-        }
-      }
-      if (merc.armorSlot) {
-        const armor = merc.unequip('Armor');
-        if (armor && sector) {
-          sector.addToStash(armor);
-          droppedEquipment.push(armor.equipmentName);
-        }
-      }
-      if (merc.accessorySlot) {
-        const accessory = merc.unequip('Accessory');
-        if (accessory && sector) {
-          sector.addToStash(accessory);
-          droppedEquipment.push(accessory.equipmentName);
-        }
-      }
-
-      // Discard the MERC
-      merc.putInto(game.mercDiscard);
-
-      if (droppedEquipment.length > 0) {
-        game.message(`${player.name} fired ${merc.mercName}, dropped ${droppedEquipment.join(', ')} to stash`);
-      } else {
-        game.message(`${player.name} fired ${merc.mercName}`);
-      }
-
-      return { success: true, message: `Fired ${merc.mercName}`, data: { droppedEquipment } };
-    });
-}
+// Fire MERC is now only part of the hire action (MERC-yi7)
+// See createHireMercAction for implementation
 
 /**
  * End the current turn
@@ -1981,9 +1915,13 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
-          return ['No MERCs available'];
+          return [{ label: 'No MERCs available', value: 'none' }];
         }
-        return available.map((m) => capitalize(m.mercName));
+        // Use { label, value } format for consistent BoardSmith rendering
+        return available.map((m) => ({
+          label: capitalize(m.mercName),
+          value: m.mercName,
+        }));
       },
     })
     .chooseFrom<string>('secondMerc', {
@@ -1994,10 +1932,14 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
-          return ['No MERCs available'];
+          return [{ label: 'No MERCs available', value: 'none' }];
         }
         // Show all choices - validation happens in execute
-        return available.map((m) => capitalize(m.mercName));
+        // Use { label, value } format for consistent BoardSmith rendering
+        return available.map((m) => ({
+          label: capitalize(m.mercName),
+          value: m.mercName,
+        }));
       },
     })
     .execute((args, ctx) => {
@@ -2012,7 +1954,8 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
       const firstName = args.firstMerc as string;
       const secondName = args.secondMerc as string;
 
-      if (!firstName || !secondName || firstName === 'No MERCs available' || secondName === 'No MERCs available') {
+      // Values are mercName (not capitalized label), 'none' if no MERCs available
+      if (!firstName || !secondName || firstName === 'none' || secondName === 'none') {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
@@ -2021,9 +1964,9 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'Please select two different MERCs' };
       }
 
-      // Find MERCs by capitalized name
-      const firstMerc = available.find(m => capitalize(m.mercName) === firstName);
-      const secondMerc = available.find(m => capitalize(m.mercName) === secondName);
+      // Find MERCs by mercName (value, not capitalized label)
+      const firstMerc = available.find(m => m.mercName === firstName);
+      const secondMerc = available.find(m => m.mercName === secondName);
 
       if (!firstMerc || !secondMerc) {
         return { success: false, message: 'Invalid selection' };
@@ -3316,7 +3259,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createSplitSquadAction(game));
   game.registerAction(createMergeSquadsAction(game));
-  game.registerAction(createFireMercAction(game));
+  // Fire MERC is now only part of the hire action (MERC-yi7)
   game.registerAction(createEndTurnAction(game));
 
   // MERC-n1f: Combat actions

@@ -16,7 +16,7 @@ const bgColor = computed(() => {
 
 <template>
   <div class="militia-indicator" v-if="count > 0" :style="{ backgroundColor: bgColor }">
-    <span class="heart-icon">&#9829;</span>
+    <span class="shield-icon">🛡️</span>
     <span class="count">{{ count }}</span>
   </div>
 </template>
@@ -34,8 +34,8 @@ const bgColor = computed(() => {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-.heart-icon {
-  font-size: 0.7rem;
+.shield-icon {
+  font-size: 0.65rem;
 }
 
 .count {

@@ -53,7 +53,7 @@ export {
   createSplitSquadAction,
   createMergeSquadsAction,
   createEndTurnAction,
-  createFireMercAction, // Can also be done during hire (MERC-yi7)
+  // Fire MERC is now only part of hire action (MERC-yi7)
   createPlayTacticsAction,
   createReinforceAction,
   createMoveMilitiaAction,

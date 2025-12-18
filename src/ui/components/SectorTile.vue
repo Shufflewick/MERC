@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import { getPlayerColor } from '../colors';
 import MilitiaIndicator from './MilitiaIndicator.vue';
+import DetailModal from './DetailModal.vue';
+import MercCard from './MercCard.vue';
 
 interface SectorData {
   sectorId: string;
@@ -14,11 +16,26 @@ interface SectorData {
   rebelMilitia?: Record<string, number>;
 }
 
+// Extended interface to include full MERC data for card display
 interface MercInSector {
   mercId: string;
-  mercName: string;
+  mercName?: string;
   image?: string;
   playerColor?: string;
+  // Full MERC data (from gameView)
+  attributes?: Record<string, any>;
+  // Optional additional fields
+  training?: number;
+  combat?: number;
+  initiative?: number;
+  health?: number;
+  maxHealth?: number;
+  damage?: number;
+  actionsRemaining?: number;
+  ability?: string;
+  weaponSlot?: any;
+  armorSlot?: any;
+  accessorySlot?: any;
 }
 
 const props = defineProps<{
@@ -86,6 +103,21 @@ function getMercImagePath(merc: MercInSector) {
   if (merc.image) return merc.image;
   return `/mercs/${merc.mercId}.jpg`;
 }
+
+// Modal state for viewing MERC details
+const showMercModal = ref(false);
+const selectedMerc = ref<MercInSector | null>(null);
+
+function showMercDetails(merc: MercInSector, event: Event) {
+  event.stopPropagation(); // Don't trigger sector click
+  selectedMerc.value = merc;
+  showMercModal.value = true;
+}
+
+function closeMercModal() {
+  showMercModal.value = false;
+  selectedMerc.value = null;
+}
 </script>
 
 <template>
@@ -121,15 +153,17 @@ function getMercImagePath(merc: MercInSector) {
 
     <!-- Bottom row: MERCs and Militia -->
     <div class="bottom-row">
-      <!-- MERC portraits -->
+      <!-- MERC portraits (clickable) -->
       <div class="mercs-area">
         <div
           v-for="merc in mercsInSector.slice(0, 4)"
           :key="merc.mercId"
-          class="merc-portrait"
+          class="merc-portrait clickable"
           :style="{ borderColor: getPlayerColor(merc.playerColor) }"
+          @click="showMercDetails(merc, $event)"
+          :title="`Click to view ${merc.mercName || merc.mercId}`"
         >
-          <img :src="getMercImagePath(merc)" :alt="merc.mercName" />
+          <img :src="getMercImagePath(merc)" :alt="merc.mercName || merc.mercId" />
         </div>
         <div v-if="mercsInSector.length > 4" class="more-mercs">
           +{{ mercsInSector.length - 4 }}
@@ -157,17 +191,29 @@ function getMercImagePath(merc: MercInSector) {
       <div
         v-for="merc in mercsInSector"
         :key="merc.mercId"
-        class="tooltip-merc"
+        class="tooltip-merc clickable"
+        @click="showMercDetails(merc, $event)"
       >
         <div
           class="tooltip-portrait"
           :style="{ borderColor: getPlayerColor(merc.playerColor) }"
         >
-          <img :src="getMercImagePath(merc)" :alt="merc.mercName" />
+          <img :src="getMercImagePath(merc)" :alt="merc.mercName || merc.mercId" />
         </div>
-        <span class="tooltip-name">{{ merc.mercName }}</span>
+        <span class="tooltip-name">{{ merc.mercName || merc.mercId }}</span>
+        <span class="tooltip-hint">ℹ</span>
       </div>
     </div>
+
+    <!-- MERC Details Modal -->
+    <DetailModal :show="showMercModal" @close="closeMercModal">
+      <MercCard
+        v-if="selectedMerc"
+        :merc="selectedMerc"
+        :player-color="selectedMerc.playerColor"
+        :show-equipment="true"
+      />
+    </DetailModal>
   </div>
 </template>
 
@@ -297,6 +343,17 @@ function getMercImagePath(merc: MercInSector) {
   object-fit: cover;
 }
 
+.merc-portrait.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.merc-portrait.clickable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(212, 168, 75, 0.8);
+  z-index: 10;
+}
+
 .more-mercs {
   width: 28px;
   height: 28px;
@@ -354,5 +411,28 @@ function getMercImagePath(merc: MercInSector) {
 .tooltip-name {
   font-size: 0.85rem;
   color: white;
+  flex: 1;
+}
+
+.tooltip-merc.clickable {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.tooltip-merc.clickable:hover {
+  background: rgba(212, 168, 75, 0.2);
+}
+
+.tooltip-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tooltip-merc.clickable:hover .tooltip-hint {
+  opacity: 1;
 }
 </style>

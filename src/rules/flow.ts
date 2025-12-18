@@ -220,7 +220,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'armsDealer',
                   'splitSquad', // MERC-ttx: Free action available anytime
                   'mergeSquads',
-                  'fireMerc',
                   'endTurn',
                 ],
                 skipIf: () => game.isFinished(),
