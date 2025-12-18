@@ -339,7 +339,17 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
     .prompt('Move your squad')
     .condition((ctx) => {
       // Only rebels can use move action (dictator uses dictatorMove)
-      return game.isRebelPlayer(ctx.player as any);
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+
+      // Check if any squad has MERCs that can all move
+      const canSquadMove = (squad: Squad | null | undefined): boolean => {
+        if (!squad?.sectorId) return false;
+        const mercs = squad.getMercs();
+        return mercs.length > 0 && mercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
+      };
+
+      return canSquadMove(player.primarySquad) || canSquadMove(player.secondarySquad);
     })
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to move',
@@ -813,10 +823,17 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       // Only rebels can explore
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
-      const squad = player.primarySquad;
-      if (!squad?.sectorId) return false;
-      const sector = game.getSector(squad.sectorId);
-      if (!sector || sector.explored) return false;
+
+      // Check if any squad is in an unexplored sector
+      const canExploreFrom = (squad: Squad | null | undefined): boolean => {
+        if (!squad?.sectorId) return false;
+        const sector = game.getSector(squad.sectorId);
+        return !!(sector && !sector.explored);
+      };
+
+      const hasUnexploredSector = canExploreFrom(player.primarySquad) || canExploreFrom(player.secondarySquad);
+      if (!hasUnexploredSector) return false;
+
       return hasActionsRemaining(player, ACTION_COSTS.EXPLORE);
     })
     .chooseElement<MercCard>('actingMerc', {
