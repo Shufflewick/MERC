@@ -454,18 +454,22 @@ const allSelectionsComplete = computed(() => {
 });
 
 // Helper to find a MERC by name anywhere in the gameView tree
-function findMercByName(name: string, node?: any): any {
+function findMercByName(name: string | any, node?: any): any {
   if (!node) node = props.gameView;
   if (!node) return null;
 
+  // Ensure name is a string (handle object/undefined cases)
+  const searchName = typeof name === 'string' ? name : (name?.value || name?.label || String(name || ''));
+  if (!searchName) return null;
+
   const mercName = getAttr(node, 'mercName', '');
-  if (mercName.toLowerCase() === name.toLowerCase()) {
+  if (mercName && mercName.toLowerCase() === searchName.toLowerCase()) {
     return node;
   }
 
   if (node.children) {
     for (const child of node.children) {
-      const found = findMercByName(name, child);
+      const found = findMercByName(searchName, child);
       if (found) return found;
     }
   }
