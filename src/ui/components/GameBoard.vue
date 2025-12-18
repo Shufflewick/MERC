@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useBoardInteraction } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
+
+// Debug: log available actions when they change
 
 // Get board interaction for checking selectable elements
 const boardInteraction = useBoardInteraction();

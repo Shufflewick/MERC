@@ -94,6 +94,13 @@ function getMercsWithActions(player: RebelPlayer, cost: number): MercCard[] {
 }
 
 /**
+ * Check if a MERC is in a player's team (uses ID comparison to avoid object reference issues)
+ */
+function isInPlayerTeam(merc: MercCard, player: RebelPlayer): boolean {
+  return player.team.some(m => m.id === merc.id);
+}
+
+/**
  * Use an action from a MERC
  */
 function useAction(merc: MercCard, cost: number): boolean {
@@ -134,7 +141,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.HIRE_MERC;
+        return isInPlayerTeam(merc, player) && merc.actionsRemaining >= ACTION_COSTS.HIRE_MERC;
       },
     })
     // MERC-yi7: Optional fire a MERC during hire action
@@ -214,7 +221,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         const mercToFire = player.team.find(m => m.mercName === fireChoice);
         if (mercToFire && mercToFire !== actingMerc) {
           // Find current sector for equipment drop
-          const firedSquad = player.primarySquad.getMercs().includes(mercToFire)
+          const firedSquad = player.primarySquad.getMercs().some(m => m.id === mercToFire.id)
             ? player.primarySquad : player.secondarySquad;
           const sector = firedSquad?.sectorId ? game.getSector(firedSquad.sectorId) : null;
 
@@ -354,12 +361,15 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to move',
       elementClass: Squad,
+      display: (squad) => squad.isPrimary ? 'Primary Squad' : 'Secondary Squad',
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
-        if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
+        // Use name comparison instead of object reference (getters return different instances)
+        const isPlayerSquad = squad.name === player.primarySquadRef || squad.name === player.secondarySquadRef;
+        if (!isPlayerSquad) return false;
         if (!squad.sectorId) return false;
         // All MERCs in squad must have actions
         const mercs = squad.getMercs();
@@ -371,8 +381,14 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       elementClass: Sector,
       filter: (element, ctx) => {
         const sector = element as unknown as Sector;
-        const squad = ctx.args.squad as Squad;
-        if (!squad?.sectorId) return false;
+        const squad = ctx.args?.squad as Squad | undefined;
+        // During action availability check, squad might not be selected yet
+        // Return true to indicate destinations exist (actual filtering happens when squad is selected)
+        if (!squad) {
+          // Check if there are any sectors at all (basic sanity check)
+          return true;
+        }
+        if (!squad.sectorId) return false;
         const currentSector = game.getSector(squad.sectorId);
         if (!currentSector) return false;
         const adjacent = game.getAdjacentSectors(currentSector);
@@ -561,7 +577,9 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
-        if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
+        // Use name comparison instead of object reference
+        const isPlayerSquad = squad.name === player.primarySquadRef || squad.name === player.secondarySquadRef;
+        if (!isPlayerSquad) return false;
         if (squad.mercCount === 0 || !squad.sectorId) return false;
         // Must have MERCs with actions
         return squad.getMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
@@ -589,7 +607,7 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       const player = ctx.player as RebelPlayer;
       const squad = args.squad as Squad;
       const target = args.target as Sector;
-      const squadType = squad === player.primarySquad ? 'primary' : 'secondary';
+      const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
 
       // Declare the coordinated attack
       game.declareCoordinatedAttack(target.sectorId, `${player.position}`, squadType);
@@ -665,7 +683,9 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
         const targetId = ctx.data?.targetAttack as string;
-        if (squad !== player.primarySquad && squad !== player.secondarySquad) return false;
+        // Use name comparison instead of object reference
+        const isPlayerSquad = squad.name === player.primarySquadRef || squad.name === player.secondarySquadRef;
+        if (!isPlayerSquad) return false;
         if (squad.mercCount === 0 || !squad.sectorId) return false;
 
         // Must be adjacent to target
@@ -682,7 +702,7 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
       const player = ctx.player as RebelPlayer;
       const squad = args.squad as Squad;
       const targetId = args.targetAttack as string;
-      const squadType = squad === player.primarySquad ? 'primary' : 'secondary';
+      const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
 
       game.declareCoordinatedAttack(targetId, `${player.position}`, squadType);
 
@@ -845,19 +865,21 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.EXPLORE;
+        return isInPlayerTeam(merc, player) && merc.actionsRemaining >= ACTION_COSTS.EXPLORE;
       },
     })
     // Free Re-Equip: Select equipment from stash (multi-select)
     .chooseFrom<string>('equipChoices', {
-      prompt: 'Free Re-Equip: Select equipment to take (multi-select, or select none)',
+      prompt: 'Select equipment to take from stash (or skip)',
       multiSelect: true,
       choices: (ctx) => {
         // CRITICAL: Only do exploration if actingMerc has been selected
         // This prevents side effects during action list evaluation
-        const actingMerc = ctx.args?.actingMerc as MercCard;
+        // Check both ctx.args and ctx.data for the merc selection
+        const actingMerc = (ctx.args?.actingMerc || ctx.data?.actingMerc) as MercCard;
         if (!actingMerc) {
-          return []; // Not yet in action, return empty
+          // Return placeholder during action availability check
+          return ['Skip (no equipment)'];
         }
 
         const player = ctx.player as RebelPlayer;
@@ -1029,7 +1051,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) &&
+        return isInPlayerTeam(merc, player) &&
           merc.training > 0 &&
           merc.actionsRemaining >= ACTION_COSTS.TRAIN;
       },
@@ -1075,10 +1097,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       if (!squad?.sectorId) return false;
       if (!hasActionsRemaining(player, ACTION_COSTS.RE_EQUIP)) return false;
       const sector = game.getSector(squad.sectorId);
-      // Can re-equip if there's equipment in stash, MERCs have equipment, or can trade
-      return !!(sector && (sector.stash.length > 0 || player.team.some(m =>
-        m.weaponSlot || m.armorSlot || m.accessorySlot
-      )));
+      // Can re-equip if there's equipment in stash or MERCs have equipment
+      return !!(sector && (sector.stash.length > 0 || player.team.some(m => m.weaponSlot || m.armorSlot || m.accessorySlot)));
     })
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to equip',
@@ -1089,7 +1109,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
+        return isInPlayerTeam(merc, player) && merc.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
       },
     })
     .chooseFrom<string>('action', {
@@ -1131,7 +1151,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         const player = ctx.player as RebelPlayer;
         const selectedMerc = ctx.args?.merc as MercCard;
         // MERC-gu5: Trade partner must also have actions to spend
-        return player.team.includes(merc) &&
+        return isInPlayerTeam(merc, player) &&
           merc !== selectedMerc &&
           merc.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
       },
@@ -1423,7 +1443,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
 
       // Get Squidhead's sector
       const squad = [player.primarySquad, player.secondarySquad].find(s =>
-        s.getMercs().includes(squidhead)
+        s.getMercs().some(m => m.id === squidhead.id)
       );
       if (!squad?.sectorId) return false;
 
@@ -1440,7 +1460,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
 
       // Get Squidhead's sector
       const squad = [player.primarySquad, player.secondarySquad].find(s =>
-        s.getMercs().includes(squidhead)
+        s.getMercs().some(m => m.id === squidhead.id)
       )!;
       const sector = game.getSector(squad.sectorId!)!;
 
@@ -1499,7 +1519,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
 
       // Get Squidhead's sector
       const squad = [player.primarySquad, player.secondarySquad].find(s =>
-        s.getMercs().includes(squidhead)
+        s.getMercs().some(m => m.id === squidhead.id)
       );
       if (!squad?.sectorId) {
         return { success: false, message: 'Squidhead must be on the board' };
@@ -1661,7 +1681,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) &&
+        return isInPlayerTeam(merc, player) &&
           merc.damage > 0 &&
           merc.actionsRemaining >= ACTION_COSTS.HOSPITAL;
       },
@@ -1711,7 +1731,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
+        return isInPlayerTeam(merc, player) && merc.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -1807,7 +1827,7 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.primarySquad.getMercs().includes(merc);
+        return player.primarySquad.getMercs().some(m => m.id === merc.id);
       },
     })
     .execute((args, ctx) => {
@@ -2024,7 +2044,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) &&
+        return isInPlayerTeam(merc, player) &&
           !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot;
       },
     })
