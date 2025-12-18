@@ -870,7 +870,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
     })
     // Free Re-Equip: Select equipment from stash (multi-select)
     .chooseFrom<string>('equipChoices', {
-      prompt: 'Select equipment to take from stash (or skip)',
+      prompt: 'Select equipment to take from stash',
       multiSelect: true,
       dependsOn: 'actingMerc',
       choices: (ctx) => {
@@ -937,7 +937,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         if (sector.stash.length === 0) {
           return ['No equipment found'];
         }
-        return sector.stash.map((e, i) => `${i + 1}. ${e.equipmentName} (${e.equipmentType})`);
+        const equipmentChoices = sector.stash.map((e, i) => `${i + 1}. ${e.equipmentName} (${e.equipmentType})`);
+        return [...equipmentChoices, 'Skip'];
       },
     })
     // For each selected equipment, assign to a MERC
@@ -947,15 +948,19 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const equipChoices = (ctx.data?.equipChoices as string[]) || [];
-        // Skip if no equipment selected or only "No equipment found" selected
-        if (equipChoices.length === 0 || equipChoices[0] === 'No equipment found') {
+        // Skip if no equipment selected, only "No equipment found", or user chose Skip
+        if (equipChoices.length === 0 ||
+            equipChoices[0] === 'No equipment found' ||
+            (equipChoices.length === 1 && equipChoices[0] === 'Skip')) {
           return ['Skip'];
         }
         return player.team.map(m => capitalize(m.mercName));
       },
       skipIf: (ctx) => {
         const equipChoices = (ctx.data?.equipChoices as string[]) || [];
-        return equipChoices.length === 0 || equipChoices[0] === 'No equipment found';
+        return equipChoices.length === 0 ||
+               equipChoices[0] === 'No equipment found' ||
+               (equipChoices.length === 1 && equipChoices[0] === 'Skip');
       },
     })
     .execute((args, ctx) => {
@@ -982,7 +987,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
 
       for (let i = 0; i < equipChoices.length; i++) {
         const choice = equipChoices[i];
-        if (choice === 'No equipment found') continue;
+        if (choice === 'No equipment found' || choice === 'Skip') continue;
 
         const mercName = equipAssignments[i] || equipAssignments[0];
         if (!mercName || mercName === 'Skip') continue;
