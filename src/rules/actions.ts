@@ -796,15 +796,15 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
  * Explore an unexplored sector
  * Cost: 1 action
  * Per rules (06-merc-actions.md): After exploring, perform a free Re-Equip
- * MERC-gjw: Free re-equip allows equipping multiple items to multiple MERCs
- * MERC-6cu: Free re-equip includes trading between MERCs without action cost
+ *
+ * IMPORTANT: All state changes (exploration, equipment drawing) happen in execute()
+ * to avoid side effects in choices callbacks which may be called during action evaluation.
+ * After exploration, use the Re-Equip action (free when stash has equipment) to distribute.
  */
 export function createExploreAction(game: MERCGame): ActionDefinition {
-  // Cache drawn equipment for free re-equip selection
-  const explorationCache = new Map<string, { sector: Sector; equipment: Equipment[] }>();
-
   return Action.create('explore')
     .prompt('Explore the current sector')
+    .notUndoable() // Involves randomness (drawing equipment)
     .condition((ctx) => {
       // Only rebels can explore
       if (!game.isRebelPlayer(ctx.player as any)) return false;
@@ -827,152 +827,6 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         return player.team.includes(merc) && merc.actionsRemaining >= ACTION_COSTS.EXPLORE;
       },
     })
-    // MERC-gjw: Free Re-Equip - select multiple equipment items
-    .chooseFrom<string>('equipChoices', {
-      prompt: 'Free Re-Equip: Select equipment to distribute (multi-select)',
-      multiSelect: true,
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        const squad = player.primarySquad;
-        const sector = game.getSector(squad.sectorId!);
-        if (!sector) return [];
-
-        // If not explored yet, draw the equipment now
-        if (!sector.explored) {
-          sector.explore();
-
-          // Draw equipment based on loot icons
-          const drawnEquipment: Equipment[] = [];
-
-          for (let i = 0; i < sector.weaponLoot; i++) {
-            const weapon = game.drawEquipment('Weapon');
-            if (weapon) {
-              sector.addToStash(weapon);
-              drawnEquipment.push(weapon);
-            }
-          }
-
-          for (let i = 0; i < sector.armorLoot; i++) {
-            const armor = game.drawEquipment('Armor');
-            if (armor) {
-              sector.addToStash(armor);
-              drawnEquipment.push(armor);
-            }
-          }
-
-          for (let i = 0; i < sector.accessoryLoot; i++) {
-            const accessory = game.drawEquipment('Accessory');
-            if (accessory) {
-              sector.addToStash(accessory);
-              drawnEquipment.push(accessory);
-            }
-          }
-
-          // Industry bonus
-          if (sector.isIndustry) {
-            const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
-            const randomType = types[Math.floor(Math.random() * types.length)];
-            const bonusEquipment = game.drawEquipment(randomType);
-            if (bonusEquipment) {
-              sector.addToStash(bonusEquipment);
-              drawnEquipment.push(bonusEquipment);
-              game.message(`Industry bonus: found ${bonusEquipment.equipmentName}!`);
-            }
-          }
-
-          game.message(`Explored ${sector.sectorName} and found ${drawnEquipment.length} equipment`);
-          explorationCache.set(`${player.position}`, { sector, equipment: drawnEquipment });
-        }
-
-        // Build choices from stash with indices for unique identification
-        const choices: string[] = [];
-        for (let i = 0; i < sector.stash.length; i++) {
-          const equip = sector.stash[i];
-          choices.push(`${i + 1}. ${equip.equipmentName} (${equip.equipmentType})`);
-        }
-        return choices;
-      },
-    })
-    // For each selected equipment, player assigns to a MERC
-    // Using a single assignment field that maps equipment to MERCs
-    .chooseFrom<string>('equipAssignments', {
-      prompt: 'Assign selected equipment to MERCs (format: MERC name for each item)',
-      multiSelect: true,
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        const equipChoices = (ctx.data?.equipChoices as string[]) || [];
-        if (equipChoices.length === 0) {
-          return ['Skip'];
-        }
-        // Return MERC names as options - user selects one per equipment
-        return player.team.map(m => m.mercName);
-      },
-      skipIf: (ctx) => {
-        const equipChoices = (ctx.data?.equipChoices as string[]) || [];
-        return equipChoices.length === 0;
-      },
-    })
-    // MERC-6cu: Free trade option - trade equipment between MERCs without action cost
-    .chooseFrom<string>('freeTrade', {
-      prompt: 'Free Trade: Transfer equipment between MERCs? (no action cost)',
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        // Only offer trade if player has 2+ MERCs and at least one has equipment
-        const hasEquippedMercs = player.team.some(m =>
-          m.weaponSlot || m.armorSlot || m.accessorySlot
-        );
-        if (player.teamSize < 2 || !hasEquippedMercs) {
-          return [{ label: 'No trades needed', value: 'skip' }];
-        }
-        return [
-          { label: 'Yes, trade equipment', value: 'trade' },
-          { label: 'No trades needed', value: 'skip' },
-        ];
-      },
-    })
-    // Select MERC giving equipment (for free trade)
-    .chooseElement<MercCard>('tradeGiver', {
-      prompt: 'Select MERC to give equipment',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        // Safety check - only rebels can trade
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-        return player.team.includes(merc) &&
-          (merc.weaponSlot || merc.armorSlot || merc.accessorySlot);
-      },
-      skipIf: (ctx) => ctx.data?.freeTrade !== 'trade',
-    })
-    // Select which equipment to trade
-    .chooseFrom<string>('tradeEquipment', {
-      prompt: 'Which equipment to give?',
-      choices: (ctx) => {
-        const giver = ctx.args?.tradeGiver as MercCard;
-        const choices: string[] = [];
-        if (giver?.weaponSlot) choices.push(`Weapon: ${giver.weaponSlot.equipmentName}`);
-        if (giver?.armorSlot) choices.push(`Armor: ${giver.armorSlot.equipmentName}`);
-        if (giver?.accessorySlot) choices.push(`Accessory: ${giver.accessorySlot.equipmentName}`);
-        return choices;
-      },
-      skipIf: (ctx) => ctx.data?.freeTrade !== 'trade',
-    })
-    // Select MERC receiving equipment (for free trade)
-    .chooseElement<MercCard>('tradeReceiver', {
-      prompt: 'Select MERC to receive equipment',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        // Safety check - only rebels can trade
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-        const giver = ctx.args?.tradeGiver as MercCard;
-        return player.team.includes(merc) && merc !== giver;
-      },
-      skipIf: (ctx) => ctx.data?.freeTrade !== 'trade',
-    })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
@@ -986,96 +840,63 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       // Spend action
       useAction(actingMerc, ACTION_COSTS.EXPLORE);
 
-      // MERC-gjw: Handle multi-select free re-equip
-      const equipChoices = (args.equipChoices as string[]) || [];
-      const equipAssignments = (args.equipAssignments as string[]) || [];
+      // Mark sector as explored
+      sector.explore();
 
-      // Process each selected equipment item
-      const equipped: string[] = [];
-      for (let i = 0; i < equipChoices.length; i++) {
-        const choice = equipChoices[i];
-        const mercName = equipAssignments[i] || equipAssignments[0]; // Use first MERC if not enough assignments
+      // Draw equipment based on loot icons
+      const drawnEquipment: Equipment[] = [];
 
-        if (!mercName || mercName === 'Skip') continue;
-
-        // Parse equipment index from choice (format: "1. EquipName (Type)")
-        const equipIndex = parseInt(choice.split('.')[0], 10) - 1;
-        if (equipIndex < 0 || equipIndex >= sector.stash.length) continue;
-
-        const equipment = sector.stash[equipIndex];
-        const merc = player.team.find(m => m.mercName === mercName);
-
-        if (equipment && merc) {
-          // Remove from stash (adjust for already-removed items)
-          const currentIdx = sector.stash.indexOf(equipment);
-          if (currentIdx >= 0) {
-            sector.stash.splice(currentIdx, 1);
-
-            // Equip (may replace existing)
-            const replaced = merc.equip(equipment);
-            if (replaced) {
-              sector.addToStash(replaced);
-              game.message(`${merc.mercName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
-            } else {
-              game.message(`${merc.mercName} equipped ${equipment.equipmentName}`);
-            }
-            equipped.push(`${merc.mercName}: ${equipment.equipmentName}`);
-          }
+      for (let i = 0; i < sector.weaponLoot; i++) {
+        const weapon = game.drawEquipment('Weapon');
+        if (weapon) {
+          sector.addToStash(weapon);
+          drawnEquipment.push(weapon);
         }
       }
 
-      // MERC-6cu: Handle free trade during exploration (no action cost)
-      const freeTrade = args.freeTrade as string;
-      let tradeResult = '';
-      if (freeTrade === 'trade') {
-        const giver = args.tradeGiver as MercCard;
-        const receiver = args.tradeReceiver as MercCard;
-        const tradeEquipmentStr = args.tradeEquipment as string;
-
-        if (giver && receiver && tradeEquipmentStr) {
-          // Determine which slot to trade
-          let equipmentToTrade: Equipment | undefined;
-          let slot: 'Weapon' | 'Armor' | 'Accessory';
-
-          if (tradeEquipmentStr.startsWith('Weapon:')) {
-            equipmentToTrade = giver.weaponSlot;
-            slot = 'Weapon';
-          } else if (tradeEquipmentStr.startsWith('Armor:')) {
-            equipmentToTrade = giver.armorSlot;
-            slot = 'Armor';
-          } else {
-            equipmentToTrade = giver.accessorySlot;
-            slot = 'Accessory';
-          }
-
-          if (equipmentToTrade) {
-            // Remove from giver
-            giver.unequip(slot);
-
-            // Give to receiver (may replace their existing equipment)
-            const replaced = receiver.equip(equipmentToTrade);
-            if (replaced) {
-              // Receiver's old equipment goes to stash
-              sector.addToStash(replaced);
-              tradeResult = `${giver.mercName} gave ${equipmentToTrade.equipmentName} to ${receiver.mercName}, ${replaced.equipmentName} added to stash`;
-            } else {
-              tradeResult = `${giver.mercName} gave ${equipmentToTrade.equipmentName} to ${receiver.mercName}`;
-            }
-            game.message(`Free trade: ${tradeResult}`);
-          }
+      for (let i = 0; i < sector.armorLoot; i++) {
+        const armor = game.drawEquipment('Armor');
+        if (armor) {
+          sector.addToStash(armor);
+          drawnEquipment.push(armor);
         }
       }
 
-      // Clean up cache
-      explorationCache.delete(`${player.position}`);
+      for (let i = 0; i < sector.accessoryLoot; i++) {
+        const accessory = game.drawEquipment('Accessory');
+        if (accessory) {
+          sector.addToStash(accessory);
+          drawnEquipment.push(accessory);
+        }
+      }
+
+      // Industry bonus
+      if (sector.isIndustry) {
+        const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        const bonusEquipment = game.drawEquipment(randomType);
+        if (bonusEquipment) {
+          sector.addToStash(bonusEquipment);
+          drawnEquipment.push(bonusEquipment);
+          game.message(`Industry bonus: found ${bonusEquipment.equipmentName}!`);
+        }
+      }
+
+      game.message(`Explored ${sector.sectorName} and found ${drawnEquipment.length} equipment`);
+
+      if (drawnEquipment.length > 0) {
+        game.message(`Equipment in stash: ${drawnEquipment.map(e => e.equipmentName).join(', ')}`);
+        game.message(`Use Re-Equip action to distribute equipment (free while stash has items)`);
+      }
 
       return {
         success: true,
         message: `Explored ${sector.sectorName}`,
-        data: { stashRemaining: sector.stash.length, equipped, tradeResult },
+        data: { equipmentFound: drawnEquipment.map(e => e.equipmentName) },
       };
     });
 }
+
 
 /**
  * Train militia in the current sector
