@@ -3380,6 +3380,80 @@ export function registerAllActions(game: MERCGame): void {
 
   // MERC-xj2: Privacy Player setup
   game.registerAction(createDesignatePrivacyPlayerAction(game));
+
+  // Register debug data for development
+  registerDebugData(game);
+}
+
+/**
+ * Register custom debug data for the MERC game.
+ * This data appears in the BoardSmith debug panel under "Custom Debug".
+ */
+function registerDebugData(game: MERCGame): void {
+  // Sector information including stash contents
+  game.registerDebug('Sector Stashes', () => {
+    return game.getAllSectors().map(sector => ({
+      id: sector.sectorId,
+      name: sector.sectorName,
+      explored: sector.explored,
+      loot: {
+        weapon: sector.weaponLoot,
+        armor: sector.armorLoot,
+        accessory: sector.accessoryLoot,
+      },
+      stashCount: sector.stash.length,
+      stash: sector.stash.map(e => e.equipmentName),
+    }));
+  });
+
+  // Equipment deck status
+  game.registerDebug('Equipment Decks', () => ({
+    weapons: {
+      remaining: game.weaponsDeck?.children?.length ?? 0,
+      topCard: game.weaponsDeck?.children?.[0]?.equipmentName ?? 'empty',
+    },
+    armor: {
+      remaining: game.armorDeck?.children?.length ?? 0,
+      topCard: game.armorDeck?.children?.[0]?.equipmentName ?? 'empty',
+    },
+    accessories: {
+      remaining: game.accessoriesDeck?.children?.length ?? 0,
+      topCard: game.accessoriesDeck?.children?.[0]?.equipmentName ?? 'empty',
+    },
+  }));
+
+  // Squad locations and MERCs
+  game.registerDebug('Squad Locations', () => {
+    const result: any[] = [];
+    for (const player of game.players) {
+      if (game.isRebelPlayer(player)) {
+        const rebel = player as RebelPlayer;
+        if (rebel.primarySquad) {
+          result.push({
+            player: rebel.position,
+            squad: 'primary',
+            sectorId: rebel.primarySquad.sectorId,
+            mercs: rebel.primarySquad.getMercs().map(m => ({
+              name: m.mercName,
+              actions: m.actionsRemaining,
+            })),
+          });
+        }
+        if (rebel.secondarySquad) {
+          result.push({
+            player: rebel.position,
+            squad: 'secondary',
+            sectorId: rebel.secondarySquad.sectorId,
+            mercs: rebel.secondarySquad.getMercs().map(m => ({
+              name: m.mercName,
+              actions: m.actionsRemaining,
+            })),
+          });
+        }
+      }
+    }
+    return result;
+  });
 }
 
 // =============================================================================
