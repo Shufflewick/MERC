@@ -1326,6 +1326,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('equipment', {
       prompt: 'Select equipment to pick up',
+      dependsOn: 'actingMerc',
       choices: (ctx) => {
         const actingMerc = ctx.args?.actingMerc as MercCard;
         const player = ctx.player as RebelPlayer;
