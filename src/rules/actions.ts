@@ -832,22 +832,35 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
   return Action.create('explore')
     .prompt('Explore the current sector')
     .notUndoable() // Involves randomness (drawing equipment)
-    .condition((ctx) => {
+    .condition((ctx, tracer) => {
       // Only rebels can explore
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      if (tracer) tracer.check('isRebelPlayer', isRebel);
+      if (!isRebel) return false;
+
       const player = ctx.player as RebelPlayer;
 
       // Check if any squad is in an unexplored sector
-      const canExploreFrom = (squad: Squad | null | undefined): boolean => {
-        if (!squad?.sectorId) return false;
+      const canExploreFrom = (squad: Squad | null | undefined, name: string): boolean => {
+        if (!squad?.sectorId) {
+          if (tracer) tracer.check(`${name}.sectorId`, false, 'no sector');
+          return false;
+        }
         const sector = game.getSector(squad.sectorId);
-        return !!(sector && !sector.explored);
+        const unexplored = !!(sector && !sector.explored);
+        if (tracer) tracer.check(`${name}.sector.explored`, !unexplored, sector?.sectorName);
+        return unexplored;
       };
 
-      const hasUnexploredSector = canExploreFrom(player.primarySquad) || canExploreFrom(player.secondarySquad);
+      const primaryCanExplore = canExploreFrom(player.primarySquad, 'primarySquad');
+      const secondaryCanExplore = canExploreFrom(player.secondarySquad, 'secondarySquad');
+      const hasUnexploredSector = primaryCanExplore || secondaryCanExplore;
+      if (tracer) tracer.check('hasUnexploredSector', hasUnexploredSector);
       if (!hasUnexploredSector) return false;
 
-      return hasActionsRemaining(player, ACTION_COSTS.EXPLORE);
+      const hasActions = hasActionsRemaining(player, ACTION_COSTS.EXPLORE);
+      if (tracer) tracer.check('hasActionsRemaining', hasActions);
+      return hasActions;
     })
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC explores?',
@@ -963,18 +976,31 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
 export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
   return Action.create('takeFromStash')
     .prompt('Take equipment from stash')
-    .condition((ctx) => {
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+    .condition((ctx, tracer) => {
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      if (tracer) tracer.check('isRebelPlayer', isRebel);
+      if (!isRebel) return false;
+
       const player = ctx.player as RebelPlayer;
 
       // Check if any squad is in a sector with stash
-      const hasStash = (squad: Squad | null | undefined): boolean => {
-        if (!squad?.sectorId) return false;
+      const hasStash = (squad: Squad | null | undefined, name: string): boolean => {
+        if (!squad?.sectorId) {
+          if (tracer) tracer.check(`${name}.sectorId`, false, 'no sector');
+          return false;
+        }
         const sector = game.getSector(squad.sectorId);
-        return !!(sector && sector.stash.length > 0);
+        const stashLength = sector?.stash?.length ?? 0;
+        const hasItems = stashLength > 0;
+        if (tracer) tracer.check(`${name}.stash.length`, hasItems, `${stashLength} items in ${sector?.sectorName}`);
+        return hasItems;
       };
 
-      return hasStash(player.primarySquad) || hasStash(player.secondarySquad);
+      const primaryHasStash = hasStash(player.primarySquad, 'primarySquad');
+      const secondaryHasStash = hasStash(player.secondarySquad, 'secondarySquad');
+      const result = primaryHasStash || secondaryHasStash;
+      if (tracer) tracer.check('hasStashInAnySector', result);
+      return result;
     })
     .chooseElement<MercCard>('targetMerc', {
       prompt: 'Which MERC takes the equipment?',
