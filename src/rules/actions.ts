@@ -1247,13 +1247,19 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     // Select which equipment to trade
     .chooseFrom<string>('tradeEquipment', {
       prompt: 'Which equipment to give?',
+      dependsOn: 'action',
       choices: (ctx) => {
+        // Skip check - return placeholder if this step will be skipped
+        const action = ctx.args?.action || ctx.data?.action;
+        if (!action?.startsWith('Trade with teammate')) {
+          return ['(skipped)'];
+        }
         const selectedMerc = ctx.args?.merc as MercCard;
         const choices: string[] = [];
         if (selectedMerc?.weaponSlot) choices.push(`Weapon: ${selectedMerc.weaponSlot.equipmentName}`);
         if (selectedMerc?.armorSlot) choices.push(`Armor: ${selectedMerc.armorSlot.equipmentName}`);
         if (selectedMerc?.accessorySlot) choices.push(`Accessory: ${selectedMerc.accessorySlot.equipmentName}`);
-        return choices;
+        return choices.length > 0 ? choices : ['(no equipment)'];
       },
       skipIf: (ctx) => !ctx.data?.action?.startsWith('Trade with teammate'),
     })
