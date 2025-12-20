@@ -527,20 +527,14 @@ function getMercDisplayName(merc: any): string {
 
 // Handle clicking a MERC to hire - uses unified actionArgs with ActionPanel
 async function selectMercToHire(merc: any) {
-  console.log('selectMercToHire called with:', merc);
-
   const selection = currentSelection.value;
-  console.log('Current selection:', selection);
   if (!selection) {
-    console.log('No selection available, returning');
     return;
   }
 
   // Use the original choice value (attached during lookup)
   const choiceValue = merc._choiceValue;
-  console.log('Choice value:', choiceValue);
   if (!choiceValue) {
-    console.log('No choice value, returning');
     return;
   }
 
@@ -550,12 +544,10 @@ async function selectMercToHire(merc: any) {
   if (isFirstSelection) {
     // Use startAction with initial args (correct pattern per BoardSmith docs)
     // This starts the action in ActionPanel and pre-fills the first selection
-    console.log('Starting action with initial selection:', { [selection.name]: choiceValue });
     props.startAction('hireStartingMercs', { [selection.name]: choiceValue });
   } else {
     // Action already started - write directly to actionArgs for subsequent selections
     props.actionArgs[selection.name] = choiceValue;
-    console.log('Updated actionArgs:', { ...props.actionArgs });
 
     // Check if all selections are now complete and execute if so
     // (ActionPanel's auto-execute doesn't trigger when we write to actionArgs externally)
@@ -565,7 +557,6 @@ async function selectMercToHire(merc: any) {
         (sel: any) => props.actionArgs[sel.name] !== undefined
       );
       if (allFilled) {
-        console.log('All selections filled, executing action');
         await props.executeAction('hireStartingMercs');
       }
     }
@@ -581,8 +572,6 @@ async function handleSectorClick(sectorId: string) {
     const selectionName = selection?.name || 'sector';
     const selectionType = selection?.type;
 
-    console.log('Selection details:', { name: selectionName, type: selectionType, selection });
-
     // Find the sector
     const sector = sectors.value.find(s => s.sectorId === sectorId);
 
@@ -591,8 +580,6 @@ async function handleSectorClick(sectorId: string) {
 
     if (selectionType === 'element') {
       // Element selections expect element IDs - find the sector element ID
-      // The sectorId might need to be converted to an element ID
-      // For now, try using the sectorId directly or look up from validElements
       const validElements = selection?.validElements || [];
       const matchingElement = validElements.find((e: any) =>
         e.ref?.name === sectorId ||
@@ -600,7 +587,6 @@ async function handleSectorClick(sectorId: string) {
         e.display === sector?.sectorName
       );
       actionValue = matchingElement?.id || sectorId;
-      console.log('Element selection - validElements:', validElements, 'matched:', matchingElement, 'using:', actionValue);
     } else {
       // Choice selections - use sector name
       const choices = selection?.choices || [];
@@ -611,14 +597,10 @@ async function handleSectorClick(sectorId: string) {
                choiceValue.includes(sector?.sectorName);
       });
       actionValue = matchingChoice?.value || matchingChoice?.display || sector?.sectorName || sectorId;
-      console.log('Choice selection - choices:', choices, 'using:', actionValue);
     }
 
-    console.log('Executing placeLanding with:', { [selectionName]: actionValue });
-
     // Execute the action
-    const result = await props.action('placeLanding', { [selectionName]: actionValue });
-    console.log('placeLanding result:', result);
+    await props.action('placeLanding', { [selectionName]: actionValue });
   } else if (props.availableActions.includes('move')) {
     props.action('move', { sectorId });
   }
@@ -631,9 +613,6 @@ const clickableSectors = computed(() => {
     const metadata = landingZoneMetadata.value;
     const selection = metadata?.selections?.[0];
     const choices = selection?.choices || [];
-
-    console.log('placeLanding metadata:', metadata);
-    console.log('placeLanding choices:', choices);
 
     if (choices.length > 0) {
       // Find sectors that match the choices
@@ -649,16 +628,13 @@ const clickableSectors = computed(() => {
           validSectorIds.push(matchingSector.sectorId);
         }
       }
-      console.log('Valid sector IDs from choices:', validSectorIds);
       if (validSectorIds.length > 0) {
         return validSectorIds;
       }
     }
 
     // Fallback to edge sectors (all edge sectors are valid landing zones)
-    const edgeSectors = landingSectors.value.map((s) => s.sectorId);
-    console.log('Fallback to edge sectors:', edgeSectors);
-    return edgeSectors;
+    return landingSectors.value.map((s) => s.sectorId);
   }
   return [];
 });

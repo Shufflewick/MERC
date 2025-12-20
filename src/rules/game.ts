@@ -349,6 +349,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     dogs?: any[]; // Active dog combatants
   } | null = null;
 
+  // Track last explorer for "Take from stash" action
+  // Only the MERC who just explored can take from stash (until they do or action changes)
+  lastExplorer: { mercId: string; sectorId: string } | null = null;
+
+  // Pending loot cache for explore action
+  // Caches drawn equipment during selection phase to avoid multiple draws
+  pendingLoot: { sectorId: string; equipment: any[] } | null = null;
+
   // Data loaded from JSON
   private mercData: MercData[] = [];
   private equipmentData: EquipmentData[] = [];

@@ -513,6 +513,19 @@ export class Sector extends GridCell {
   }
 
   /**
+   * Remove specific equipment from stash by reference
+   * @returns true if removed, false if not found
+   */
+  removeFromStash(equipment: Equipment): boolean {
+    const index = this.stash.findIndex(e => e.id === equipment.id);
+    if (index >= 0) {
+      this.stash.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Find equipment in stash by type
    */
   findInStash(type: EquipmentType): Equipment | undefined {
