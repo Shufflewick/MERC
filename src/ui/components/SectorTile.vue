@@ -42,6 +42,7 @@ const props = defineProps<{
   sector: SectorData;
   controllingPlayerColor?: string;
   mercsInSector: MercInSector[];
+  playerColorMap?: Record<string, string>; // Maps player ID to color name
   isClickable?: boolean;
 }>();
 
@@ -87,10 +88,17 @@ const mercsByPlayer = computed(() => {
   return grouped;
 });
 
-// Rebel militia entries (filter out zeros)
+// Rebel militia entries with color mapping (filter out zeros)
 const rebelMilitiaEntries = computed(() => {
   const rm = props.sector.rebelMilitia || {};
-  return Object.entries(rm).filter(([, count]) => count > 0);
+  const colorMap = props.playerColorMap || {};
+  return Object.entries(rm)
+    .filter(([, count]) => count > 0)
+    .map(([playerId, count]) => ({
+      playerId,
+      count,
+      color: colorMap[playerId] || 'unknown', // Map player ID to color name
+    }));
 });
 
 function handleClick() {
@@ -178,10 +186,10 @@ function closeMercModal() {
           :is-dictator="true"
         />
         <MilitiaIndicator
-          v-for="[color, count] in rebelMilitiaEntries"
-          :key="color"
-          :count="count"
-          :player-color="color"
+          v-for="entry in rebelMilitiaEntries"
+          :key="entry.playerId"
+          :count="entry.count"
+          :player-color="entry.color"
         />
       </div>
     </div>

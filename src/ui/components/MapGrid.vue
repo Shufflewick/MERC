@@ -65,6 +65,17 @@ function getMercsInSector(sectorId: string) {
   return props.mercs.filter((m) => m.sectorId === sectorId);
 }
 
+// Map player positions to colors (for rebel militia display)
+const playerColorMap = computed(() => {
+  const map: Record<string, string> = {};
+  for (const player of props.players) {
+    if (player.playerColor && !player.isDictator) {
+      map[String(player.position)] = player.playerColor;
+    }
+  }
+  return map;
+});
+
 // Check if sector is clickable
 function isClickable(sectorId: string) {
   if (!props.clickableSectors) return false;
@@ -90,6 +101,7 @@ function handleSectorClick(sectorId: string) {
       :sector="sector"
       :controlling-player-color="controlMap[sector.sectorId]"
       :mercs-in-sector="getMercsInSector(sector.sectorId)"
+      :player-color-map="playerColorMap"
       :is-clickable="isClickable(sector.sectorId)"
       @click="handleSectorClick"
     />

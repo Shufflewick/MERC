@@ -9,6 +9,7 @@ import { UI_COLORS } from './colors';
     game-type="MERC"
     display-name="MERC"
     :player-count="2"
+    :default-a-i-players="[1]"
   >
     <template #game-board="{ state, gameView, playerPosition, isMyTurn, availableActions, action, actionArgs, executeAction, setBoardPrompt, startAction }">
       <GameBoard
@@ -41,18 +42,46 @@ import { UI_COLORS } from './colors';
 </template>
 
 <script lang="ts">
+// Helper to normalize class names for comparison
+function normalizeClassName(name: string | undefined): string {
+  if (!name) return '';
+  return name.replace(/^_/, '');
+}
+
 // Helper functions for player stats
 function getMercCount(player: any, gameView: any): number {
   if (!gameView?.children) return 0;
 
-  // Find squads belonging to this player
+  // For rebel players, count MERCs in their squads (identified by squadRef names)
+  const playerAttrs = player.attributes || player;
+  const primaryRef = playerAttrs.primarySquadRef;
+  const secondaryRef = playerAttrs.secondarySquadRef;
+
   let count = 0;
   function search(node: any) {
     if (!node) return;
-    if (node.attributes?.$type === 'squad' &&
-        node.attributes?.player?.position === player.position) {
-      count += (node.children?.filter((c: any) => c.attributes?.mercId) || []).length;
+    const attrs = node.attributes || {};
+    const className = normalizeClassName(node.className);
+
+    // Check if this is one of the player's squads
+    if (className === 'Squad' && (attrs.name === primaryRef || attrs.name === secondaryRef)) {
+      // Count MERCs in this squad (children with mercId)
+      if (node.children) {
+        count += node.children.filter((c: any) =>
+          c.attributes?.mercId || normalizeClassName(c.className) === 'MercCard'
+        ).length;
+      }
     }
+
+    // Also check for dictator's hired mercs squad
+    if (className === 'Squad' && attrs.name === playerAttrs.hiredMercsSquadRef) {
+      if (node.children) {
+        count += node.children.filter((c: any) =>
+          c.attributes?.mercId || normalizeClassName(c.className) === 'MercCard'
+        ).length;
+      }
+    }
+
     if (node.children) {
       for (const child of node.children) {
         search(child);
@@ -66,28 +95,61 @@ function getMercCount(player: any, gameView: any): number {
 function getControlledSectors(player: any, gameView: any): number {
   if (!gameView?.children) return 0;
 
-  // Find map and count sectors controlled by this player
-  // This is a simplified version - actual control logic is more complex
-  let count = 0;
-  function search(node: any) {
+  const playerAttrs = player.attributes || player;
+  const playerId = String(playerAttrs.position);
+  const primaryRef = playerAttrs.primarySquadRef;
+  const secondaryRef = playerAttrs.secondarySquadRef;
+
+  // First, find sector IDs where player's squads are located
+  const squadSectorIds = new Set<string>();
+  function findSquadSectors(node: any) {
     if (!node) return;
-    if (node.attributes?.$type === 'map' && node.children) {
-      for (const sector of node.children) {
-        // Check if player has units in sector
-        const playerColor = player.playerColor;
-        const rebelMilitia = sector.attributes?.rebelMilitia || {};
-        if (rebelMilitia[playerColor] > 0) {
+    const attrs = node.attributes || {};
+    const className = normalizeClassName(node.className);
+
+    if (className === 'Squad' && (attrs.name === primaryRef || attrs.name === secondaryRef)) {
+      if (attrs.sectorId) {
+        squadSectorIds.add(attrs.sectorId);
+      }
+    }
+    if (node.children) {
+      for (const child of node.children) {
+        findSquadSectors(child);
+      }
+    }
+  }
+  findSquadSectors(gameView);
+
+  // Count sectors where player has presence (militia or squad)
+  let count = 0;
+  const countedSectors = new Set<string>();
+  function countSectors(node: any) {
+    if (!node) return;
+    const attrs = node.attributes || {};
+    const className = normalizeClassName(node.className);
+
+    if (className === 'Sector' && attrs.sectorId) {
+      const sectorId = attrs.sectorId;
+      if (!countedSectors.has(sectorId)) {
+        // Check if player has militia in this sector
+        const rebelMilitia = attrs.rebelMilitia || {};
+        const hasMilitia = rebelMilitia[playerId] > 0;
+        // Check if player's squad is in this sector
+        const hasSquad = squadSectorIds.has(sectorId);
+
+        if (hasMilitia || hasSquad) {
           count++;
+          countedSectors.add(sectorId);
         }
       }
     }
     if (node.children) {
       for (const child of node.children) {
-        search(child);
+        countSectors(child);
       }
     }
   }
-  search(gameView);
+  countSectors(gameView);
   return count;
 }
 </script>

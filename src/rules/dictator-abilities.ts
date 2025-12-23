@@ -16,6 +16,7 @@ import {
   selectMilitiaPlacementSector,
   getRebelControlledSectors,
 } from './ai-helpers.js';
+import { executeCombat } from './combat.js';
 
 // =============================================================================
 // Dictator Ability Types
@@ -189,6 +190,29 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
 
   const placed = targetSector.addDictatorMilitia(rebelSectorCount);
   game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
+
+  // Check if any rebel has units at this sector and trigger combat
+  for (const rebel of game.rebelPlayers) {
+    const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+      rebel.secondarySquad.sectorId === targetSector.sectorId;
+    const hasMilitia = targetSector.getRebelMilitia(`${rebel.position}`) > 0;
+
+    if (hasSquad || hasMilitia) {
+      game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+      const outcome = executeCombat(game, targetSector, rebel);
+      return {
+        success: true,
+        message: `Placed ${placed} militia and engaged in combat`,
+        data: {
+          militiaPlaced: placed,
+          targetSector: targetSector.sectorName,
+          combatTriggered: true,
+          rebelVictory: outcome.rebelVictory,
+          dictatorVictory: outcome.dictatorVictory,
+        },
+      };
+    }
+  }
 
   return {
     success: true,

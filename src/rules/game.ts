@@ -197,11 +197,12 @@ export class RebelPlayer extends Player {
   }
 
   get team(): MercCard[] {
+    // Return only living MERCs (dead MERCs can't take actions)
     const mercs: MercCard[] = [];
     const primary = this.primarySquad;
     const secondary = this.secondarySquad;
-    if (primary) mercs.push(...primary.getMercs());
-    if (secondary) mercs.push(...secondary.getMercs());
+    if (primary) mercs.push(...primary.getLivingMercs());
+    if (secondary) mercs.push(...secondary.getLivingMercs());
     return mercs;
   }
 
@@ -245,8 +246,13 @@ export class DictatorPlayer extends Player {
   // MERC-q4v: Privacy Player - Rebel designated to handle AI decisions
   privacyPlayerId?: string;
 
-  // MERC-rwdv: hiredMercs now returns MERCs from the squad
+  // MERC-rwdv: hiredMercs returns living MERCs from the squad (excludes dead)
   get hiredMercs(): MercCard[] {
+    return this.mercSquad?.getLivingMercs() || [];
+  }
+
+  // Get all MERCs including dead ones (for certain game logic)
+  get allMercs(): MercCard[] {
     return this.mercSquad?.getMercs() || [];
   }
 
@@ -255,7 +261,8 @@ export class DictatorPlayer extends Player {
   }
 
   get team(): MercCard[] {
-    return this.hiredMercs.filter(m => !m.isDead);
+    // Now same as hiredMercs since both filter dead MERCs
+    return this.hiredMercs;
   }
 
   get teamSize(): number {

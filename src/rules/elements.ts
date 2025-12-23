@@ -38,6 +38,23 @@ export interface EquipmentBonuses {
   actions?: number;
 }
 
+// Equipment data for UI serialization (includes all stats for modals)
+export interface EquipmentSlotData {
+  equipmentId: string;
+  equipmentName: string;
+  equipmentType: string;
+  description?: string;
+  combatBonus?: number;
+  initiative?: number;
+  training?: number;
+  targets?: number;
+  armorBonus?: number;
+  negatesArmor?: boolean;
+  isOneUse?: boolean;
+  isDamaged?: boolean;
+  serial?: number;
+}
+
 // =============================================================================
 // MERC Card - The mercenary characters
 // =============================================================================
@@ -68,9 +85,9 @@ export class MercCard extends BaseCard {
 
   // Serialized equipment data for UI (updated when equipment changes)
   // BoardSmith doesn't serialize element references, only plain data
-  weaponSlotData?: { equipmentId: string; equipmentName: string; equipmentType: string } | null;
-  armorSlotData?: { equipmentId: string; equipmentName: string; equipmentType: string } | null;
-  accessorySlotData?: { equipmentId: string; equipmentName: string; equipmentType: string } | null;
+  weaponSlotData?: EquipmentSlotData | null;
+  armorSlotData?: EquipmentSlotData | null;
+  accessorySlotData?: EquipmentSlotData | null;
 
   // Constants (imported from game constants)
   static readonly BASE_HEALTH = MercConstants.BASE_HEALTH;
@@ -215,21 +232,27 @@ export class MercCard extends BaseCard {
    * Called after equip/unequip to ensure UI gets updated data.
    */
   private syncEquipmentData(): void {
-    this.weaponSlotData = this.weaponSlot ? {
-      equipmentId: this.weaponSlot.equipmentId,
-      equipmentName: this.weaponSlot.equipmentName,
-      equipmentType: this.weaponSlot.equipmentType,
-    } : null;
-    this.armorSlotData = this.armorSlot ? {
-      equipmentId: this.armorSlot.equipmentId,
-      equipmentName: this.armorSlot.equipmentName,
-      equipmentType: this.armorSlot.equipmentType,
-    } : null;
-    this.accessorySlotData = this.accessorySlot ? {
-      equipmentId: this.accessorySlot.equipmentId,
-      equipmentName: this.accessorySlot.equipmentName,
-      equipmentType: this.accessorySlot.equipmentType,
-    } : null;
+    const toSlotData = (equip: Equipment | undefined): EquipmentSlotData | null => {
+      if (!equip) return null;
+      return {
+        equipmentId: equip.equipmentId,
+        equipmentName: equip.equipmentName,
+        equipmentType: equip.equipmentType,
+        description: equip.description,
+        combatBonus: equip.combatBonus,
+        initiative: equip.initiative,
+        training: equip.training,
+        targets: equip.targets,
+        armorBonus: equip.armorBonus,
+        negatesArmor: equip.negatesArmor,
+        isOneUse: equip.isOneUse,
+        isDamaged: equip.isDamaged,
+        serial: equip.serial,
+      };
+    };
+    this.weaponSlotData = toSlotData(this.weaponSlot);
+    this.armorSlotData = toSlotData(this.armorSlot);
+    this.accessorySlotData = toSlotData(this.accessorySlot);
   }
 
   equip(equipment: Equipment): Equipment | undefined {
@@ -402,7 +425,7 @@ export class Sector extends GridCell {
 
   // Militia counts per faction
   dictatorMilitia: number = 0;
-  rebelMilitia: Map<string, number> = new Map(); // playerId -> count
+  rebelMilitia: Record<string, number> = {}; // playerId -> count
 
   // Equipment stash
   stash: Equipment[] = [];
@@ -439,12 +462,14 @@ export class Sector extends GridCell {
 
   getTotalRebelMilitia(): number {
     let total = 0;
-    this.rebelMilitia.forEach(count => total += count);
+    for (const count of Object.values(this.rebelMilitia)) {
+      total += count;
+    }
     return total;
   }
 
   getRebelMilitia(playerId: string): number {
-    return this.rebelMilitia.get(playerId) || 0;
+    return this.rebelMilitia[playerId] || 0;
   }
 
   /**
@@ -470,7 +495,7 @@ export class Sector extends GridCell {
     const current = this.getRebelMilitia(playerId);
     const totalRebel = this.getTotalRebelMilitia();
     const canAdd = Math.min(count, Sector.MAX_MILITIA_PER_SIDE - totalRebel);
-    this.rebelMilitia.set(playerId, current + canAdd);
+    this.rebelMilitia[playerId] = current + canAdd;
     return canAdd;
   }
 
@@ -483,7 +508,7 @@ export class Sector extends GridCell {
   removeRebelMilitia(playerId: string, count: number): number {
     const current = this.getRebelMilitia(playerId);
     const removed = Math.min(count, current);
-    this.rebelMilitia.set(playerId, current - removed);
+    this.rebelMilitia[playerId] = current - removed;
     return removed;
   }
 
@@ -757,7 +782,16 @@ export class Squad extends Space {
   }
 
   get mercCount(): number {
-    return this.count(MercCard);
+    return this.getMercs().length;
+  }
+
+  // Get only living MERCs (for UI and certain game logic)
+  getLivingMercs(): MercCard[] {
+    return this.all(MercCard).filter(m => !m.isDead);
+  }
+
+  get livingMercCount(): number {
+    return this.getLivingMercs().length;
   }
 
   get hasNoMercs(): boolean {

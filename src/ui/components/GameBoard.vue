@@ -94,6 +94,24 @@ function getAttr<T>(node: any, key: string, defaultVal: T): T {
   return defaultVal;
 }
 
+// Helper to check if a MERC is dead (health <= 0 OR isDead flag)
+// Note: isDead is a getter that may not serialize, so we check health directly
+function isMercDead(merc: any): boolean {
+  const isDead = getAttr(merc, 'isDead', false);
+  if (isDead) return true;
+
+  // Check health directly since isDead getter might not serialize
+  const health = getAttr(merc, 'health', -1);
+  if (health >= 0 && health <= 0) return true;
+
+  // Check damage vs maxHealth
+  const damage = getAttr(merc, 'damage', 0);
+  const maxHealth = getAttr(merc, 'maxHealth', 3);
+  if (damage >= maxHealth) return true;
+
+  return false;
+}
+
 // Extract map sectors from gameView
 const sectors = computed(() => {
   // Try to find GameMap element
@@ -213,6 +231,9 @@ const allMercs = computed(() => {
     if (squad.children) {
       for (const merc of squad.children) {
         const mercId = getAttr(merc, 'mercId', '');
+        // Skip dead MERCs
+        if (isMercDead(merc)) continue;
+
         if (mercId || merc.className === 'MercCard') {
           mercs.push({
             ...merc,
@@ -228,6 +249,9 @@ const allMercs = computed(() => {
   // Find dictator MERCs
   const dictatorMercs = findAllByClassName('MercCard');
   for (const merc of dictatorMercs) {
+    // Skip dead MERCs
+    if (isMercDead(merc)) continue;
+
     const mercId = getAttr(merc, 'mercId', '') || merc.ref;
     const sectorId = getAttr(merc, 'sectorId', '');
     if (mercId && sectorId) {
@@ -245,6 +269,16 @@ const allMercs = computed(() => {
   return mercs;
 });
 
+// Helper to convert player position to color name
+function positionToColor(position: string | number): string {
+  const pos = typeof position === 'string' ? parseInt(position, 10) : position;
+  const player = players.value.find(p => p.position === pos);
+  if (player?.playerColor) return player.playerColor;
+  // Fallback to default colors by position
+  const defaultColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+  return defaultColors[pos] || 'unknown';
+}
+
 // Build control map
 const controlMap = computed(() => {
   const map: Record<string, string | undefined> = {};
@@ -258,7 +292,9 @@ const controlMap = computed(() => {
     );
     dictatorUnits += dictatorMercsInSector.length;
 
-    for (const [color, count] of Object.entries(sector.rebelMilitia || {})) {
+    // Militia uses player position as key - convert to color name
+    for (const [positionKey, count] of Object.entries(sector.rebelMilitia || {})) {
+      const color = positionToColor(positionKey);
       rebelUnits[color] = (rebelUnits[color] || 0) + (count as number);
     }
 
@@ -332,7 +368,11 @@ const primarySquad = computed(() => {
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard')
+      .filter((c: any) => {
+        // Skip dead MERCs
+        if (isMercDead(c)) return false;
+        return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+      })
       .map((c: any) => c),
   };
 });
@@ -356,7 +396,11 @@ const secondarySquad = computed(() => {
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard')
+      .filter((c: any) => {
+        // Skip dead MERCs
+        if (isMercDead(c)) return false;
+        return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+      })
       .map((c: any) => c),
   };
 });
@@ -383,7 +427,11 @@ const dictatorSquad = computed(() => {
     sectorId,
     sectorName: sector?.sectorName,
     mercs: (squad.children || [])
-      .filter((c: any) => getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard')
+      .filter((c: any) => {
+        // Skip dead MERCs
+        if (isMercDead(c)) return false;
+        return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+      })
       .map((c: any) => c),
   };
 });

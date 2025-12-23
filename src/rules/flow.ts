@@ -211,6 +211,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'train',
                   'hireMerc',
                   'reEquip',
+                  'dropEquipment',
                   'hospital',
                   'docHeal', // MERC-m4k: Doc's free heal ability
                   'feedbackDiscard', // MERC-24h: Feedback discard retrieval

@@ -196,18 +196,34 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
   );
 
   let totalPlaced = 0;
+  const combatsTriggered: string[] = [];
+
   for (const sector of industries) {
     const placed = sector.addDictatorMilitia(game.rebelCount);
     totalPlaced += placed;
     if (placed > 0) {
       game.message(`Reinforced ${sector.sectorName} with ${placed} militia`);
+
+      // Check for combat with any rebel in this sector
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+          rebel.secondarySquad.sectorId === sector.sectorId;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.position}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+          combatsTriggered.push(sector.sectorName);
+          executeCombat(game, sector, rebel);
+          break; // Only trigger combat once per sector
+        }
+      }
     }
   }
 
   return {
     success: true,
     message: `Reinforcements: ${totalPlaced} militia placed`,
-    data: { totalPlaced, industriesReinforced: industries.length },
+    data: { totalPlaced, industriesReinforced: industries.length, combatsTriggered },
   };
 }
 
@@ -302,6 +318,21 @@ export function applyConscriptsEffect(game: MERCGame): void {
     if (sector.dictatorMilitia > 0) {
       const placed = sector.addDictatorMilitia(amount);
       totalPlaced += placed;
+
+      // Check for combat with any rebel in this sector
+      if (placed > 0) {
+        for (const rebel of game.rebelPlayers) {
+          const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+            rebel.secondarySquad.sectorId === sector.sectorId;
+          const hasMilitia = sector.getRebelMilitia(`${rebel.position}`) > 0;
+
+          if (hasSquad || hasMilitia) {
+            game.message(`Conscripts triggered combat at ${sector.sectorName}!`);
+            executeCombat(game, sector, rebel);
+            break; // Only trigger combat once per sector
+          }
+        }
+      }
     }
   }
 

@@ -53,12 +53,12 @@ function handleBackdropClick(e: Event) {
 
 .close-button {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  top: 8px;
+  right: 8px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: v-bind('UI_COLORS.cardBg');
+  background: rgba(0, 0, 0, 0.6);
   border: 2px solid v-bind('UI_COLORS.border');
   color: v-bind('UI_COLORS.text');
   font-size: 1.5rem;
@@ -67,8 +67,9 @@ function handleBackdropClick(e: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;
+  z-index: 10;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .close-button:hover {
