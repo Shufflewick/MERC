@@ -26,6 +26,7 @@ import {
   getAIEquipmentSelection,
 } from '../ai-executor.js';
 import { ACTION_COSTS, capitalize } from './helpers.js';
+import { isHealingItem, getHealAmount } from '../equipment-effects.js';
 
 // =============================================================================
 // Dictator Unit Type and Helpers
@@ -95,19 +96,16 @@ function hasBeneficialMilitiaMove(game: MERCGame): boolean {
 }
 
 // MERC-7fy: Helper to check if a MERC has a healing item equipped
-function hasHealingItem(merc: MercCard): boolean {
+// Uses equipment registry instead of string matching
+function hasHealingItemEquipped(merc: MercCard): boolean {
   const accessory = merc.accessorySlot;
-  if (!accessory) return false;
-  const name = accessory.equipmentName.toLowerCase();
-  return name.includes('medical kit') || name.includes('first aid kit');
+  return accessory ? isHealingItem(accessory.equipmentId) : false;
 }
 
 // MERC-7fy: Helper to get healing amount from item
-function getHealingAmount(itemName: string): number {
-  const name = itemName.toLowerCase();
-  if (name.includes('medical kit')) return 3; // Medical Kit heals 3
-  if (name.includes('first aid kit')) return 1; // First Aid Kit heals 1
-  return 0;
+// Uses equipment registry instead of string matching
+function getHealingAmountForItem(equipmentId: string): number {
+  return getHealAmount(equipmentId);
 }
 
 // =============================================================================
@@ -820,7 +818,7 @@ export function createDictatorHealAction(game: MERCGame): ActionDefinition {
       const mercs = game.dictatorPlayer?.hiredMercs || [];
 
       // Check if any MERC has a healing item
-      const hasHealer = mercs.some(m => !m.isDead && hasHealingItem(m));
+      const hasHealer = mercs.some(m => !m.isDead && hasHealingItemEquipped(m));
       if (!hasHealer) return false;
 
       // Check if any MERC needs healing
@@ -834,7 +832,7 @@ export function createDictatorHealAction(game: MERCGame): ActionDefinition {
         if (!(element instanceof MercCard)) return false;
         const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
         if (!dictatorMercs.some(m => m.id === element.id)) return false;
-        return !element.isDead && hasHealingItem(element);
+        return !element.isDead && hasHealingItemEquipped(element);
       },
       // MERC-7fy: AI auto-selection based on healing priority
       aiSelect: () => {
@@ -846,7 +844,7 @@ export function createDictatorHealAction(game: MERCGame): ActionDefinition {
           return healingAction.merc;
         }
         // Fallback to first healer
-        return mercs.find(m => hasHealingItem(m));
+        return mercs.find(m => hasHealingItemEquipped(m));
       },
     })
     .chooseElement<MercCard>('target', {
@@ -880,7 +878,7 @@ export function createDictatorHealAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No healing item equipped' };
       }
 
-      const healAmount = getHealingAmount(healingItem.equipmentName);
+      const healAmount = getHealingAmountForItem(healingItem.equipmentId);
       const actualHealed = Math.min(healAmount, target.damage);
 
       // Heal the target

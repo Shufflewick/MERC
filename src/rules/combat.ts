@@ -45,6 +45,14 @@ import {
   getEnemyCombatDebuff,
   FEMALE_MERCS,
 } from './merc-abilities.js';
+import {
+  isHandgun as checkIsHandgun,
+  isUzi as checkIsUzi,
+  isExplosive as checkIsExplosive,
+  isSword as checkIsSword,
+  isSmaw as checkIsSmaw,
+  isAttackDog as checkIsAttackDog,
+} from './equipment-effects.js';
 
 // =============================================================================
 // Combat Types
@@ -319,11 +327,12 @@ function isBouba(combatant: Combatant): boolean {
 
 /**
  * MERC-16f: Check if combatant has a handgun equipped
+ * Uses equipment registry instead of string matching
  */
 function hasHandgun(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
     const weapon = combatant.sourceElement.weaponSlot;
-    return weapon?.equipmentName.toLowerCase().includes('handgun') ?? false;
+    return weapon ? checkIsHandgun(weapon.equipmentId) : false;
   }
   return false;
 }
@@ -371,11 +380,12 @@ function isMayhem(combatant: Combatant): boolean {
 
 /**
  * MERC-s3x: Check if combatant has an Uzi equipped
+ * Uses equipment registry instead of string matching
  */
 function hasUzi(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
     const weapon = combatant.sourceElement.weaponSlot;
-    return weapon?.equipmentName.toLowerCase().includes('uzi') ?? false;
+    return weapon ? checkIsUzi(weapon.equipmentId) : false;
   }
   return false;
 }
@@ -462,13 +472,12 @@ function isStumpy(combatant: Combatant): boolean {
 
 /**
  * MERC-581: Check if combatant has grenade or mortar equipped
+ * Uses equipment registry instead of string matching
  */
 function hasExplosive(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
     const weapon = combatant.sourceElement.weaponSlot;
-    if (!weapon) return false;
-    const name = weapon.equipmentName.toLowerCase();
-    return name.includes('grenade') || name.includes('mortar');
+    return weapon ? checkIsExplosive(weapon.equipmentId) : false;
   }
   return false;
 }
@@ -566,14 +575,14 @@ function isDutch(combatant: Combatant): boolean {
 
 /**
  * MERC-ddq4: Check if Dutch is using a sword (or unarmed)
+ * Uses equipment registry instead of string matching
  */
 function isDutchUsingFists(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
     const weapon = combatant.sourceElement.weaponSlot;
     // No weapon or sword equipped
     if (!weapon) return true;
-    const name = weapon.equipmentName.toLowerCase();
-    return name.includes('sword');
+    return checkIsSword(weapon.equipmentId);
   }
   return false;
 }
@@ -590,11 +599,12 @@ function isMoe(combatant: Combatant): boolean {
 
 /**
  * MERC-adnu: Check if combatant has SMAW equipped
+ * Uses equipment registry instead of string matching
  */
 function hasSmaw(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
     const weapon = combatant.sourceElement.weaponSlot;
-    return weapon?.equipmentName.toLowerCase().includes('smaw') ?? false;
+    return weapon ? checkIsSmaw(weapon.equipmentId) : false;
   }
   return false;
 }

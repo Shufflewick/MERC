@@ -14,6 +14,7 @@ import {
   isInPlayerTeam,
   useAction,
 } from './helpers.js';
+import { isLandMine } from '../equipment-effects.js';
 
 // =============================================================================
 // Re-Equip Action
@@ -457,7 +458,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
 
       // Check for land mines in stash
       const stash = sector.getStashContents();
-      return stash.some(e => e.equipmentName.toLowerCase().includes('land mine'));
+      return stash.some(e => isLandMine(e.equipmentId));
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
@@ -471,7 +472,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
 
       // Find and remove the land mine
       const stash = sector.getStashContents();
-      const mineIndex = stash.findIndex(e => e.equipmentName.toLowerCase().includes('land mine'));
+      const mineIndex = stash.findIndex(e => isLandMine(e.equipmentId));
       if (mineIndex === -1) {
         return { success: false, message: 'No land mines to disarm' };
       }
@@ -517,7 +518,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
 
       // Check if Squidhead has a land mine equipped
       const hasLandMine = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot].some(
-        slot => slot && slot.equipmentName.toLowerCase().includes('land mine')
+        slot => slot && isLandMine(slot.equipmentId)
       );
 
       return hasLandMine;
@@ -540,11 +541,11 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
 
       // Find and unequip the land mine
       let mine: Equipment | undefined;
-      if (squidhead.accessorySlot?.equipmentName.toLowerCase().includes('land mine')) {
+      if (squidhead.accessorySlot && isLandMine(squidhead.accessorySlot.equipmentId)) {
         mine = squidhead.unequip('Accessory');
-      } else if (squidhead.weaponSlot?.equipmentName.toLowerCase().includes('land mine')) {
+      } else if (squidhead.weaponSlot && isLandMine(squidhead.weaponSlot.equipmentId)) {
         mine = squidhead.unequip('Weapon');
-      } else if (squidhead.armorSlot?.equipmentName.toLowerCase().includes('land mine')) {
+      } else if (squidhead.armorSlot && isLandMine(squidhead.armorSlot.equipmentId)) {
         mine = squidhead.unequip('Armor');
       }
 
