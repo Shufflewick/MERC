@@ -16,6 +16,8 @@
   },
   "devDependencies": {
     "@boardsmith/cli": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/cli",
+    "@boardsmith/runtime": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/runtime",
+    "@boardsmith/testing": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/testing",
     "@vitejs/plugin-vue": "^5.0.0",
     "puppeteer": "^24.34.0",
     "typescript": "^5.7.0",
