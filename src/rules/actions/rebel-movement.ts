@@ -289,8 +289,9 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const sector = element as unknown as Sector;
         const player = ctx.player as RebelPlayer;
-        const squad = ctx.args.squad as Squad;
-        if (!squad?.sectorId) return false;
+        const squad = ctx.args?.squad as Squad | undefined;
+        // During availability check, squad may not be selected yet
+        if (!squad?.sectorId) return true;
         const currentSector = game.getSector(squad.sectorId);
         if (!currentSector) return false;
         // Must be adjacent and have enemies

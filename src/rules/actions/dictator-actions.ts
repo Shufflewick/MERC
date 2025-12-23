@@ -324,8 +324,9 @@ export function createMoveMilitiaAction(game: MERCGame): ActionDefinition {
       elementClass: Sector,
       filter: (element, ctx) => {
         const sector = element as unknown as Sector;
-        const fromSector = ctx.args.fromSector as Sector;
-        if (!fromSector) return false;
+        const fromSector = ctx.args?.fromSector as Sector | undefined;
+        // During availability check, fromSector may not be selected yet
+        if (!fromSector) return true;
         const adjacent = game.getAdjacentSectors(fromSector);
         return adjacent.some(s => s.sectorId === sector.sectorId) &&
           sector.dictatorMilitia < SectorConstants.MAX_MILITIA_PER_SIDE;
@@ -470,9 +471,9 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
       elementClass: Sector,
       filter: (element, ctx) => {
         const sector = element as unknown as Sector;
-        const unit = ctx.args.merc as DictatorUnit;
-        // Use the unit's current sector for adjacency check
-        if (!unit?.sectorId) return false;
+        const unit = ctx.args?.merc as DictatorUnit | undefined;
+        // During availability check, unit may not be selected yet
+        if (!unit?.sectorId) return true;
         const currentSector = game.getSector(unit.sectorId);
         if (!currentSector) return false;
         const adjacent = game.getAdjacentSectors(currentSector);
@@ -761,8 +762,9 @@ export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
       elementClass: Equipment,
       filter: (element, ctx) => {
         const equipment = element as unknown as Equipment;
-        const unit = ctx.args.merc as DictatorUnit;
-        if (!unit?.sectorId) return false;
+        const unit = ctx.args?.merc as DictatorUnit | undefined;
+        // During availability check, unit may not be selected yet
+        if (!unit?.sectorId) return true;
         const sector = game.getSector(unit.sectorId);
         return sector?.stash.some(e => e.id === equipment.id) ?? false;
       },
@@ -975,8 +977,9 @@ export function createDictatorMortarAction(game: MERCGame): ActionDefinition {
       elementClass: Sector,
       filter: (element, ctx) => {
         const sector = element as unknown as Sector;
-        const unit = ctx.args.merc as DictatorUnit;
-        if (!unit?.sectorId) return false;
+        const unit = ctx.args?.merc as DictatorUnit | undefined;
+        // During availability check, unit may not be selected yet
+        if (!unit?.sectorId) return true;
 
         const fromSector = game.getSector(unit.sectorId);
         if (!fromSector) return false;

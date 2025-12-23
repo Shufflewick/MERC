@@ -4,6 +4,10 @@ import {
   simulateAction,
   assertFlowState,
   assertActionAvailable,
+  toDebugString,
+  traceAction,
+  logAvailableActions,
+  diffSnapshots,
 } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import { MercCard, Sector, Equipment } from '../src/rules/elements.js';
@@ -370,6 +374,87 @@ describe('MERC Smoke Tests', () => {
       expect(game.players.length).toBe(2);
       expect(game.rebelPlayers.length).toBe(1);
       expect(game.dictatorPlayer).toBeDefined();
+    });
+  });
+
+  describe('Debug Utilities (examples)', () => {
+    it('demonstrates toDebugString for game state inspection', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'debug-demo',
+      });
+
+      // Useful when debugging test failures
+      const stateString = toDebugString(testGame.game);
+      expect(stateString).toContain('MERCGame');
+      expect(stateString).toContain('Rebel1');
+      expect(stateString).toContain('Dictator');
+
+      // Uncomment to see the full debug output:
+      // console.log(stateString);
+    });
+
+    it('demonstrates traceAction for understanding action availability', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'trace-demo',
+      });
+
+      const rebel = testGame.game.rebelPlayers[0];
+      const trace = traceAction(testGame.game, 'hireStartingMercs', rebel);
+
+      // traceAction returns structured info about action availability
+      expect(trace.actionName).toBe('hireStartingMercs');
+      expect(typeof trace.available).toBe('boolean');
+      expect(trace.reason).toBeDefined();
+      expect(Array.isArray(trace.details)).toBe(true);
+
+      // When debugging, uncomment to see full trace:
+      // console.log('Action available:', trace.available);
+      // console.log('Reason:', trace.reason);
+      // trace.details.forEach(d => console.log(`${d.step}: ${d.passed ? '✓' : '✗'} ${d.info}`));
+    });
+
+    it('demonstrates logAvailableActions for quick action overview', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'log-demo',
+      });
+
+      const rebel = testGame.game.rebelPlayers[0];
+      const actionLog = logAvailableActions(testGame.game, rebel);
+
+      // Returns a string summarizing available actions
+      expect(actionLog).toContain('Rebel1');
+      expect(typeof actionLog).toBe('string');
+
+      // Uncomment to see the full action log:
+      // console.log(actionLog);
+    });
+
+    it('demonstrates diffSnapshots for tracking state changes', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'diff-demo',
+      });
+
+      const before = JSON.stringify(testGame.runner.getSnapshot());
+
+      // Simulate a game state change
+      testGame.game.currentDay = 5;
+
+      const after = JSON.stringify(testGame.runner.getSnapshot());
+      const diff = diffSnapshots(before, after);
+
+      // Diff shows what changed
+      expect(typeof diff).toBe('string');
+
+      // Uncomment to see the diff:
+      // console.log(diff);
     });
   });
 });
