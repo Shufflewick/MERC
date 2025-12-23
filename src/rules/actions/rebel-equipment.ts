@@ -333,7 +333,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
 
       // Find Doc's squad using helper method
       const docSquad = player.getSquadContaining(doc);
-      const squadMercs = docSquad?.getMercs().filter(m => !m.isDead) || [];
+      const squadMercs = docSquad?.getLivingMercs() || [];
 
       // Heal all MERCs in squad (including Doc himself)
       let healed = 0;
@@ -597,7 +597,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         const hagnessSquad = player.getSquadContaining(hagness);
         if (!hagnessSquad) return false;
 
-        const squadMates = hagnessSquad.getMercs().filter(m => !m.isDead);
+        const squadMates = hagnessSquad.getLivingMercs();
         return squadMates.some(m => m.id === merc.id);
       },
     })

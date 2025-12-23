@@ -12,6 +12,14 @@
 
 import type { MERCGame, RebelPlayer } from './game.js';
 import { Sector, MercCard, Equipment } from './elements.js';
+import {
+  isLandMine,
+  isRepairKit,
+  isEpinephrine,
+  isAttackDog,
+  isHealingItem,
+  hasRangedAttack,
+} from './equipment-effects.js';
 
 // =============================================================================
 // Rebel Strength Calculation (Section 4.5)
@@ -467,8 +475,7 @@ export function selectMilitiaPlacementSector(
  * Per rules 4.7.2: Always leave Land Mines and Repair Kits.
  */
 export function shouldLeaveInStash(equipment: Equipment): boolean {
-  const name = equipment.equipmentName.toLowerCase();
-  return name.includes('land mine') || name.includes('repair kit');
+  return isLandMine(equipment.equipmentId) || isRepairKit(equipment.equipmentId);
 }
 
 /**
@@ -589,7 +596,7 @@ export function detonateLandMines(
 
   // Find land mines in stash
   const stash = sector.getStashContents();
-  const landMines = stash.filter(e => e.equipmentName.toLowerCase().includes('land mine'));
+  const landMines = stash.filter(e => isLandMine(e.equipmentId));
 
   if (landMines.length === 0) {
     return { detonated: 0, damageDealt: 0 };
@@ -672,7 +679,7 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
   for (const unit of sortedUnits) {
     for (const equipment of prioritizedEquipment) {
       // Skip if already removed from stash
-      if (!sector.getStashContents().includes(equipment)) continue;
+      if (!sector.getStashContents().some(e => e.id === equipment.id)) continue;
 
       // Check if unit can equip this type
       if (!unit.canEquip(equipment.equipmentType)) continue;
@@ -1038,11 +1045,8 @@ export function getAIHealingPriority(
   // 4.8.2 - Then try Medical Kit or First Aid Kit
   for (const merc of allMercs) {
     const accessory = merc.accessorySlot;
-    if (accessory) {
-      const name = accessory.equipmentName.toLowerCase();
-      if (name.includes('medical kit') || name.includes('first aid kit')) {
-        return { type: 'item', merc, item: accessory.equipmentName, target };
-      }
+    if (accessory && isHealingItem(accessory.equipmentId)) {
+      return { type: 'item', merc, item: accessory.equipmentName, target };
     }
   }
 
@@ -1050,7 +1054,7 @@ export function getAIHealingPriority(
   // Check if the damaged MERC's sector has a repair kit
   if (target.sectorId) {
     const sector = game.getSector(target.sectorId);
-    if (sector && hasRepairKit(sector)) {
+    if (sector && hasRepairKitInStash(sector)) {
       return { type: 'repairKit', target, sector };
     }
   }
@@ -1065,7 +1069,7 @@ export function getAIHealingPriority(
 export function hasEpinephrineShot(mercs: MercCard[]): MercCard | null {
   for (const merc of mercs) {
     const accessory = merc.accessorySlot;
-    if (accessory?.equipmentName.toLowerCase().includes('epinephrine')) {
+    if (accessory && isEpinephrine(accessory.equipmentId)) {
       return merc;
     }
   }
@@ -1117,9 +1121,9 @@ export function getAIAbilityActivations(mercs: MercCard[]): MercCard[] {
  * Check if a unit has Attack Dogs.
  * MERC-dol: Per rules 4.11, AI always assigns Attack Dogs to Rebel MERCs.
  */
-export function hasAttackDog(unit: MercCard): boolean {
+export function hasAttackDogEquipped(unit: MercCard): boolean {
   const accessory = unit.accessorySlot;
-  return accessory?.equipmentName.toLowerCase().includes('attack dog') ?? false;
+  return accessory ? isAttackDog(accessory.equipmentId) : false;
 }
 
 /**
@@ -1127,7 +1131,7 @@ export function hasAttackDog(unit: MercCard): boolean {
  * MERC-dol: Returns units that can assign dogs to enemies.
  */
 export function getUnitsWithAttackDogs(mercs: MercCard[]): MercCard[] {
-  return mercs.filter(m => !m.isDead && hasAttackDog(m));
+  return mercs.filter(m => !m.isDead && hasAttackDogEquipped(m));
 }
 
 /**
@@ -1147,10 +1151,8 @@ export function selectAttackDogTarget(
 /**
  * Check if stash has a repair kit.
  */
-export function hasRepairKit(sector: Sector): boolean {
-  return sector.getStashContents().some(e =>
-    e.equipmentName.toLowerCase().includes('repair kit')
-  );
+export function hasRepairKitInStash(sector: Sector): boolean {
+  return sector.getStashContents().some(e => isRepairKit(e.equipmentId));
 }
 
 /**
@@ -1160,9 +1162,7 @@ export function hasRepairKit(sector: Sector): boolean {
  */
 export function useRepairKit(game: MERCGame, sector: Sector, merc: MercCard): boolean {
   const stash = sector.getStashContents();
-  const repairKitIdx = stash.findIndex(e =>
-    e.equipmentName.toLowerCase().includes('repair kit')
-  );
+  const repairKitIdx = stash.findIndex(e => isRepairKit(e.equipmentId));
 
   if (repairKitIdx < 0) return false;
 
@@ -1231,11 +1231,17 @@ export function findNearestHospital(game: MERCGame, fromSector: Sector): Sector 
 // =============================================================================
 
 /**
- * Check if a unit has a mortar equipped.
+ * Check if a unit has a mortar or ranged weapon equipped.
  */
-export function hasMortar(unit: MercCard | { weaponSlot?: Equipment }): boolean {
+export function hasMortar(unit: MercCard | { weaponSlot?: Equipment; accessorySlot?: Equipment }): boolean {
+  // Mortar is an accessory, not a weapon
+  const accessory = 'accessorySlot' in unit ? unit.accessorySlot : undefined;
+  if (accessory && hasRangedAttack(accessory.equipmentId)) {
+    return true;
+  }
+  // Also check weapon slot for SMAW
   const weapon = unit.weaponSlot;
-  return weapon?.equipmentName.toLowerCase().includes('mortar') ?? false;
+  return weapon ? hasRangedAttack(weapon.equipmentId) : false;
 }
 
 /**
@@ -1265,10 +1271,10 @@ export function countTargetsInSector(game: MERCGame, sector: Sector): number {
   // Count rebel MERCs
   for (const rebel of game.rebelPlayers) {
     if (rebel.primarySquad?.sectorId === sector.sectorId) {
-      count += rebel.primarySquad.getMercs().filter(m => !m.isDead).length;
+      count += rebel.primarySquad.getLivingMercs().length;
     }
     if (rebel.secondarySquad?.sectorId === sector.sectorId) {
-      count += rebel.secondarySquad.getMercs().filter(m => !m.isDead).length;
+      count += rebel.secondarySquad.getLivingMercs().length;
     }
   }
 

@@ -213,6 +213,14 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
     consumable: true,
     discardAfterAttack: true,
   },
+  'mortar': {
+    id: 'mortar',
+    weaponCategory: 'explosive',
+    consumable: true,
+    discardAfterAttack: true,
+    rangedAttack: true,
+    rangedRange: 1,
+  },
 
   // --- Healing Items ---
   'medical-kit': {
