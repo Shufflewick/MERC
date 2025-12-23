@@ -219,6 +219,28 @@ export class RebelPlayer extends Player {
   canHireMerc(game: MERCGame): boolean {
     return this.teamSize < this.getTeamLimit(game);
   }
+
+  /**
+   * Find which squad contains a specific MERC.
+   * Returns null if the MERC is not in either squad.
+   */
+  getSquadContaining(merc: MercCard): Squad | null {
+    if (this.primarySquad.getMercs().some(m => m.id === merc.id)) {
+      return this.primarySquad;
+    }
+    if (this.secondarySquad.getMercs().some(m => m.id === merc.id)) {
+      return this.secondarySquad;
+    }
+    return null;
+  }
+
+  /**
+   * Check if a squad belongs to this player.
+   */
+  ownsSquad(squad: Squad): boolean {
+    return squad.name === this.primarySquadRef ||
+           squad.name === this.secondarySquadRef;
+  }
 }
 
 export class DictatorPlayer extends Player {
