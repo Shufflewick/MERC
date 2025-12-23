@@ -23,6 +23,28 @@ import {
   shouldUseEpinephrine,
   hasEpinephrineShot,
 } from './ai-helpers.js';
+import {
+  getMercAbility,
+  getHitThreshold,
+  canRerollOnce,
+  canSacrificeDieToHeal,
+  alwaysGoesFirst,
+  alwaysBeforesMilitia,
+  rollsForInitiative,
+  isTargetedLast,
+  ignoresInitiativePenalties,
+  prioritizesMercs,
+  eachHitNewMilitiaTarget,
+  canRetargetSixes,
+  canPreemptiveStrike,
+  firesSecondShot,
+  canConvertMilitia,
+  isImmuneToAttackDogs as checkImmuneToAttackDogs,
+  willNotHarmDogs as checkWillNotHarmDogs,
+  requiresAccessory,
+  getEnemyCombatDebuff,
+  FEMALE_MERCS,
+} from './merc-abilities.js';
 
 // =============================================================================
 // Combat Types
@@ -105,23 +127,35 @@ function countHits(rolls: number[]): number {
 }
 
 /**
+ * Get mercId from a combatant (undefined if not a MERC)
+ */
+function getCombatantMercId(combatant: Combatant): string | undefined {
+  return combatant.sourceElement instanceof MercCard
+    ? combatant.sourceElement.mercId
+    : undefined;
+}
+
+/**
+ * Check if combatant has a specific mercId
+ */
+function isMerc(combatant: Combatant, mercId: string): boolean {
+  return getCombatantMercId(combatant) === mercId;
+}
+
+/**
  * MERC-dac: Check if a combatant is Badger
+ * @deprecated Use alwaysBeforesMilitia(getCombatantMercId(c)) from registry
  */
 function isBadger(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
-    return combatant.sourceElement.mercId === 'badger';
-  }
-  return false;
+  return isMerc(combatant, 'badger');
 }
 
 /**
  * MERC-nvr: Check if a combatant is Kastern
+ * @deprecated Use alwaysGoesFirst(getCombatantMercId(c)) from registry
  */
 function isKastern(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
-    return combatant.sourceElement.mercId === 'kastern';
-  }
-  return false;
+  return isMerc(combatant, 'kastern');
 }
 
 /**
@@ -146,22 +180,29 @@ function isBasic(combatant: Combatant): boolean {
 
 /**
  * Count hits from dice rolls
- * MERC-cpb: Lucid hits on 3+ instead of 4+
+ * Uses registry to get hit threshold (e.g., Lucid hits on 3+)
  */
 function countHitsForCombatant(rolls: number[], combatant: Combatant): number {
-  const threshold = isLucid(combatant) ? 3 : CombatConstants.HIT_THRESHOLD;
+  const mercId = combatant.sourceElement instanceof MercCard
+    ? combatant.sourceElement.mercId
+    : undefined;
+  const threshold = mercId ? getHitThreshold(mercId) : CombatConstants.HIT_THRESHOLD;
   return rolls.filter(r => r >= threshold).length;
 }
 
 /**
- * MERC-5l3: Check if Basic should use reroll
- * Basic may reroll all dice once per combat
+ * MERC-5l3: Check if combatant should use reroll
+ * Uses registry to check if MERC can reroll (Basic)
  * AI decision: reroll if hits are below expected value (50% hit rate)
  */
-function shouldBasicReroll(combatant: Combatant, rolls: number[], hits: number): boolean {
-  if (!isBasic(combatant) || combatant.hasUsedReroll) {
-    return false;
-  }
+function shouldUseReroll(combatant: Combatant, rolls: number[], hits: number): boolean {
+  if (combatant.hasUsedReroll) return false;
+
+  const mercId = combatant.sourceElement instanceof MercCard
+    ? combatant.sourceElement.mercId
+    : undefined;
+  if (!mercId || !canRerollOnce(mercId)) return false;
+
   // Expected hits at 50% hit rate
   const expectedHits = rolls.length * 0.5;
   // Reroll if significantly below expected (fewer than expected - 1)
@@ -169,29 +210,23 @@ function shouldBasicReroll(combatant: Combatant, rolls: number[], hits: number):
 }
 
 /**
- * MERC-9gl: Check if a combatant is Max
+ * Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
+ * Uses registry to check for enemyDebuff abilities
  */
-function isMax(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
-    return combatant.sourceElement.mercId === 'max';
-  }
-  return false;
-}
+function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
+  // Check each ally for debuff abilities
+  for (const ally of allies) {
+    if (ally.health <= 0) continue;
+    if (!(ally.sourceElement instanceof MercCard)) continue;
 
-/**
- * MERC-9gl: Apply Max's debuff to enemy attackers
- * Per rules: "-1 to enemy MERCs attacking his squad"
- * Only affects MERCs, not militia
- */
-function applyMaxDebuff(enemies: Combatant[], allies: Combatant[]): void {
-  // Check if Max is in the allies (defenders)
-  const maxInSquad = allies.some(c => isMax(c) && c.health > 0);
-  if (!maxInSquad) return;
+    const debuff = getEnemyCombatDebuff(ally.sourceElement.mercId);
+    if (debuff === 0) continue;
 
-  // Apply -1 combat to enemy MERCs (not militia)
-  for (const enemy of enemies) {
-    if (!enemy.isMilitia && !enemy.isDictator && !enemy.isAttackDog) {
-      enemy.combat = Math.max(0, enemy.combat - 1);
+    // Apply debuff to enemy MERCs (not militia, dictator, or dogs)
+    for (const enemy of enemies) {
+      if (!enemy.isMilitia && !enemy.isDictator && !enemy.isAttackDog) {
+        enemy.combat = Math.max(0, enemy.combat + debuff); // debuff is negative
+      }
     }
   }
 }
@@ -649,13 +684,13 @@ function applySargeBonus(game: MERCGame, combatants: Combatant[]): void {
 
     // Find squad mates
     for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
-      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+      const primaryMercs = rebel.primarySquad.getLivingMercs();
+      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
       let squadMates: MercCard[] | null = null;
-      if (primaryMercs.includes(sargeMerc)) {
+      if (primaryMercs.some(m => m.id === sargeMerc.id)) {
         squadMates = primaryMercs;
-      } else if (secondaryMercs.includes(sargeMerc)) {
+      } else if (secondaryMercs.some(m => m.id === sargeMerc.id)) {
         squadMates = secondaryMercs;
       }
 
@@ -685,13 +720,13 @@ function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
     const tackMerc = tack.sourceElement as MercCard;
 
     for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
-      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+      const primaryMercs = rebel.primarySquad.getLivingMercs();
+      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
       let squadMates: MercCard[] | null = null;
-      if (primaryMercs.includes(tackMerc)) {
+      if (primaryMercs.some(m => m.id === tackMerc.id)) {
         squadMates = primaryMercs;
-      } else if (secondaryMercs.includes(tackMerc)) {
+      } else if (secondaryMercs.some(m => m.id === tackMerc.id)) {
         squadMates = secondaryMercs;
       }
 
@@ -702,7 +737,7 @@ function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
           // Apply +2 initiative to all squad mates (including Tack)
           for (const combatant of combatants) {
             if (combatant.sourceElement instanceof MercCard &&
-                squadMates.includes(combatant.sourceElement) &&
+                squadMates.some(m => m.id === combatant.sourceElement.id) &&
                 combatant.health > 0) {
               combatant.initiative += 2;
             }
@@ -726,13 +761,13 @@ function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
     const valkyrieMerc = valkyrie.sourceElement as MercCard;
 
     for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
-      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+      const primaryMercs = rebel.primarySquad.getLivingMercs();
+      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
       let squadMates: MercCard[] | null = null;
-      if (primaryMercs.includes(valkyrieMerc)) {
+      if (primaryMercs.some(m => m.id === valkyrieMerc.id)) {
         squadMates = primaryMercs;
-      } else if (secondaryMercs.includes(valkyrieMerc)) {
+      } else if (secondaryMercs.some(m => m.id === valkyrieMerc.id)) {
         squadMates = secondaryMercs;
       }
 
@@ -740,8 +775,8 @@ function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
         // Apply +1 initiative to all squad mates (except Valkyrie herself)
         for (const combatant of combatants) {
           if (combatant.sourceElement instanceof MercCard &&
-              squadMates.includes(combatant.sourceElement) &&
-              combatant.sourceElement !== valkyrieMerc &&
+              squadMates.some(m => m.id === combatant.sourceElement.id) &&
+              combatant.sourceElement.id !== valkyrieMerc.id &&
               combatant.health > 0) {
             combatant.initiative += 1;
           }
@@ -764,13 +799,13 @@ function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
     const tavistoMerc = tavisto.sourceElement as MercCard;
 
     for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getMercs().filter(m => !m.isDead);
-      const secondaryMercs = rebel.secondarySquad.getMercs().filter(m => !m.isDead);
+      const primaryMercs = rebel.primarySquad.getLivingMercs();
+      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
       let squadMates: MercCard[] | null = null;
-      if (primaryMercs.includes(tavistoMerc)) {
+      if (primaryMercs.some(m => m.id === tavistoMerc.id)) {
         squadMates = primaryMercs;
-      } else if (secondaryMercs.includes(tavistoMerc)) {
+      } else if (secondaryMercs.some(m => m.id === tavistoMerc.id)) {
         squadMates = secondaryMercs;
       }
 
@@ -833,7 +868,7 @@ function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
   const walterMerc = walterCombatant.sourceElement as MercCard;
   let walterOwnerId: string | undefined;
   for (const rebel of game.rebelPlayers) {
-    if (rebel.team.includes(walterMerc)) {
+    if (rebel.team.some(m => m.id === walterMerc.id)) {
       walterOwnerId = `${rebel.position}`;
       break;
     }
@@ -917,22 +952,24 @@ function executeGolemPreCombat(
 /**
  * Sort combatants by initiative (highest first)
  * Dictator wins ties
- * MERC-nvr: Kastern always goes first in combat
- * MERC-dac: Badger always has initiative over militia
+ * Uses registry for special initiative abilities (Kastern, Badger)
  */
 function sortByInitiative(combatants: Combatant[]): Combatant[] {
   return [...combatants].sort((a, b) => {
-    // MERC-nvr: Kastern ALWAYS goes first in combat (highest priority)
-    const aIsKastern = isKastern(a);
-    const bIsKastern = isKastern(b);
-    if (aIsKastern && !bIsKastern) return -1; // Kastern before everyone
-    if (bIsKastern && !aIsKastern) return 1;  // Everyone after Kastern
+    const aMercId = getCombatantMercId(a);
+    const bMercId = getCombatantMercId(b);
 
-    // MERC-dac: Badger always goes before militia
-    const aIsBadger = isBadger(a);
-    const bIsBadger = isBadger(b);
-    if (aIsBadger && b.isMilitia) return -1; // Badger before militia
-    if (bIsBadger && a.isMilitia) return 1;  // Militia after Badger
+    // Check for "always goes first" ability (Kastern)
+    const aFirst = aMercId ? alwaysGoesFirst(aMercId) : false;
+    const bFirst = bMercId ? alwaysGoesFirst(bMercId) : false;
+    if (aFirst && !bFirst) return -1;
+    if (bFirst && !aFirst) return 1;
+
+    // Check for "always before militia" ability (Badger)
+    const aBeforeMilitia = aMercId ? alwaysBeforesMilitia(aMercId) : false;
+    const bBeforeMilitia = bMercId ? alwaysBeforesMilitia(bMercId) : false;
+    if (aBeforeMilitia && b.isMilitia) return -1;
+    if (bBeforeMilitia && a.isMilitia) return 1;
 
     if (b.initiative !== a.initiative) {
       return b.initiative - a.initiative;
@@ -1208,9 +1245,9 @@ function applySnakeBonus(game: MERCGame, allCombatants: Combatant[]): void {
     for (const rebel of game.rebelPlayers) {
       // Check primary squad
       const primaryMercs = rebel.primarySquad.getMercs();
-      if (primaryMercs.includes(snakeMerc)) {
+      if (primaryMercs.some(m => m.id === snakeMerc.id)) {
         // Snake is in primary squad - check if alone
-        if (primaryMercs.filter(m => !m.isDead).length === 1) {
+        if (rebel.primarySquad.getLivingMercs().length === 1) {
           // Snake is alone in his squad - apply +1 to all stats
           snake.initiative += 1;
           snake.combat += 1;
@@ -1221,9 +1258,9 @@ function applySnakeBonus(game: MERCGame, allCombatants: Combatant[]): void {
 
       // Check secondary squad
       const secondaryMercs = rebel.secondarySquad.getMercs();
-      if (secondaryMercs.includes(snakeMerc)) {
+      if (secondaryMercs.some(m => m.id === snakeMerc.id)) {
         // Snake is in secondary squad - check if alone
-        if (secondaryMercs.filter(m => !m.isDead).length === 1) {
+        if (rebel.secondarySquad.getLivingMercs().length === 1) {
           // Snake is alone in his squad - apply +1 to all stats
           snake.initiative += 1;
           snake.combat += 1;
@@ -1424,29 +1461,30 @@ function selectTargets(
     return buzzkillTargets;
   }
 
-  // MERC-qh3: Runde is always the last MERC targeted
-  // Sort targets so Runde is at the end (only targeted if no other MERCs available)
-  const sortedForRunde = [...aliveEnemies].sort((a, b) => {
-    const aIsRunde = isRunde(a);
-    const bIsRunde = isRunde(b);
-    if (aIsRunde && !bIsRunde) return 1;  // Runde goes to end
-    if (bIsRunde && !aIsRunde) return -1; // Non-Runde goes first
+  // Sort targets so "targeted last" MERCs (Runde) are at the end
+  const sortedForTargeting = [...aliveEnemies].sort((a, b) => {
+    const aMercId = getCombatantMercId(a);
+    const bMercId = getCombatantMercId(b);
+    const aLast = aMercId ? isTargetedLast(aMercId) : false;
+    const bLast = bMercId ? isTargetedLast(bMercId) : false;
+    if (aLast && !bLast) return 1;  // Targeted-last goes to end
+    if (bLast && !aLast) return -1; // Others go first
     return 0;
   });
 
   // If attacker is rebel and dictator is present, check protection rule
   if (!attacker.isDictatorSide) {
-    const canHitDictator = canTargetDictator(sortedForRunde);
+    const canHitDictator = canTargetDictator(sortedForTargeting);
     const validTargets = canHitDictator
-      ? sortedForRunde
-      : sortedForRunde.filter(e => !e.isDictator);
+      ? sortedForTargeting
+      : sortedForTargeting.filter(e => !e.isDictator);
 
     return validTargets.slice(0, maxTargets);
   }
 
   // MERC-0q8: Dictator AI uses priority targeting
-  // Still apply Runde protection by sorting first
-  const prioritized = sortTargetsByAIPriority(sortedForRunde);
+  // "Targeted last" MERCs already sorted to end
+  const prioritized = sortTargetsByAIPriority(sortedForTargeting);
   return prioritized.slice(0, maxTargets);
 }
 
@@ -1601,11 +1639,9 @@ function executeCombatRound(
   // MERC-r2k: Apply Snake's solo bonus (needs game for squad context)
   applySnakeBonus(game, [...rebels, ...dictatorSide]);
 
-  // MERC-9gl: Apply Max's debuff to enemy attackers
-  // Rebels attacking dictator side: if Max is in dictator side, debuff rebel MERCs
-  applyMaxDebuff(rebels, dictatorSide);
-  // Dictator attacking rebels: if Max is in rebel side, debuff dictator MERCs
-  applyMaxDebuff(dictatorSide, rebels);
+  // Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
+  applyEnemyDebuffs(rebels, dictatorSide);
+  applyEnemyDebuffs(dictatorSide, rebels);
 
   // MERC-16f: Apply Bouba's handgun combat bonus
   applyBoubaBonus([...rebels, ...dictatorSide]);
@@ -1719,8 +1755,8 @@ function executeCombatRound(
     let hits = countHitsForCombatant(rolls, attacker);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
-    // MERC-5l3: Basic may reroll all dice once per combat
-    if (shouldBasicReroll(attacker, rolls, hits)) {
+    // MERC-5l3: Basic may reroll all dice once per combat (uses registry)
+    if (shouldUseReroll(attacker, rolls, hits)) {
       game.message(`${attacker.name} uses reroll ability!`);
       attacker.hasUsedReroll = true;
       rolls = rollDice(attacker.combat);
@@ -1785,7 +1821,7 @@ function executeCombatRound(
           // Convert militia to rebel's side
           const attackerMerc = attacker.sourceElement as MercCard;
           const ownerPlayer = game.rebelPlayers.find(p =>
-            p.team.includes(attackerMerc)
+            p.team.some(m => m.id === attackerMerc.id)
           );
           if (ownerPlayer && sector) {
             // Remove dictator militia
@@ -1835,9 +1871,9 @@ function executeCombatRound(
                 const secondaryMercs = rebel.secondarySquad.getMercs();
                 const allMercs = [...primaryMercs, ...secondaryMercs];
 
-                if (allMercs.includes(merc)) {
+                if (allMercs.some(m => m.id === merc.id)) {
                   // Get living squadmates who might have epinephrine
-                  const squadMercs = allMercs.filter(m => !m.isDead && m !== merc);
+                  const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
                   const mercWithEpi = hasEpinephrineShot(squadMercs);
                   if (mercWithEpi) {
                     const epiShot = mercWithEpi.accessorySlot;
@@ -2039,9 +2075,9 @@ function applyCombatResults(
             const secondaryMercs = rebel.secondarySquad.getMercs();
             const allMercs = [...primaryMercs, ...secondaryMercs];
 
-            if (allMercs.includes(merc)) {
+            if (allMercs.some(m => m.id === merc.id)) {
               // Get living squadmates who might have epinephrine
-              const squadMercs = allMercs.filter(m => !m.isDead && m !== merc);
+              const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
               const mercWithEpi = hasEpinephrineShot(squadMercs);
               if (mercWithEpi) {
                 // Use the epinephrine shot
