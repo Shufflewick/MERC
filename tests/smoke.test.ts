@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestGame, simulateAction } from '@boardsmith/testing';
+import {
+  createTestGame,
+  simulateAction,
+  assertFlowState,
+  assertActionAvailable,
+} from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import { MercCard, Sector, Equipment } from '../src/rules/elements.js';
 
@@ -79,10 +84,10 @@ describe('MERC Smoke Tests', () => {
         seed: 'flow-test-2',
       });
 
-      const flowState = testGame.getFlowState();
-
-      // First action should be for rebel (player 0)
-      expect(flowState?.currentPlayer).toBe(0);
+      // Use assertFlowState helper for cleaner assertions
+      assertFlowState(testGame, {
+        currentPlayer: 0, // Rebel player
+      });
     });
 
     it('should have hireStartingMercs as available action', () => {
@@ -92,9 +97,8 @@ describe('MERC Smoke Tests', () => {
         seed: 'action-test',
       });
 
-      const flowState = testGame.getFlowState();
-
-      expect(flowState?.availableActions).toContain('hireStartingMercs');
+      // Use assertActionAvailable helper (playerIndex, then actionName)
+      assertActionAvailable(testGame, 0, 'hireStartingMercs');
     });
   });
 

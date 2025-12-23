@@ -11,7 +11,7 @@
  * - mergeSquads: Merge secondary squad back into primary
  */
 
-import { Action, type ActionDefinition } from '@boardsmith/engine';
+import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { MercCard, Sector, Squad } from '../elements.js';
 import { executeCombat, hasEnemies } from '../combat.js';
@@ -62,36 +62,34 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
     .chooseElement<Sector>('destination', {
       prompt: 'Select destination sector',
       elementClass: Sector,
-      filter: (element, ctx) => {
-        const sector = element as unknown as Sector;
-        const selectedSquad = ctx.args?.squad as Squad | undefined;
+      filter: dependentFilter<Sector, Squad>({
+        dependsOn: 'squad',
+        // Availability check: sector valid for ANY movable squad
+        whenUndefined: (sector, ctx) => {
+          if (!game.isRebelPlayer(ctx.player as any)) return false;
+          const player = ctx.player as RebelPlayer;
 
-        // If a squad has been selected, only show adjacent sectors to that squad
-        if (selectedSquad?.sectorId) {
+          const isAdjacentToMovableSquad = (squad: Squad | null | undefined): boolean => {
+            if (!squad?.sectorId) return false;
+            const mercs = squad.getLivingMercs();
+            if (mercs.length === 0 || !mercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+            const squadSector = game.getSector(squad.sectorId);
+            if (!squadSector) return false;
+            const adjacent = game.getAdjacentSectors(squadSector);
+            return adjacent.some(s => s.sectorId === sector.sectorId);
+          };
+
+          return isAdjacentToMovableSquad(player.primarySquad) || isAdjacentToMovableSquad(player.secondarySquad);
+        },
+        // Selection made: sector must be adjacent to selected squad
+        whenSelected: (sector, selectedSquad) => {
+          if (!selectedSquad?.sectorId) return false;
           const currentSector = game.getSector(selectedSquad.sectorId);
           if (!currentSector) return false;
           const adjacent = game.getAdjacentSectors(currentSector);
           return adjacent.some(s => s.sectorId === sector.sectorId);
-        }
-
-        // No squad selected yet (availability check phase)
-        // Check if this sector would be valid for ANY movable squad
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const player = ctx.player as RebelPlayer;
-
-        const isAdjacentToMovableSquad = (squad: Squad | null | undefined): boolean => {
-          if (!squad?.sectorId) return false;
-          // Use living mercs - dead mercs don't affect movement
-          const mercs = squad.getLivingMercs();
-          if (mercs.length === 0 || !mercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
-          const squadSector = game.getSector(squad.sectorId);
-          if (!squadSector) return false;
-          const adjacent = game.getAdjacentSectors(squadSector);
-          return adjacent.some(s => s.sectorId === sector.sectorId);
-        };
-
-        return isAdjacentToMovableSquad(player.primarySquad) || isAdjacentToMovableSquad(player.secondarySquad);
-      },
+        },
+      }),
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
     })
     .execute((args, ctx) => {
