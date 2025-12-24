@@ -498,6 +498,13 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
       unit.useAction(ACTION_COSTS.MOVE);
       // Update unit's location
       unit.sectorId = destination.sectorId;
+
+      // Also update the squad's sectorId to keep in sync with MERCs
+      // This ensures the UI displays MERCs in the correct sector
+      if (unit instanceof MercCard && game.dictatorPlayer?.mercSquad) {
+        game.dictatorPlayer.mercSquad.sectorId = destination.sectorId;
+      }
+
       game.message(`${getDictatorUnitName(unit)} moved to ${destination.sectorName}`);
 
       // MERC-pcf: Per rules "Combat triggers when: An enemy moves into your sector"
