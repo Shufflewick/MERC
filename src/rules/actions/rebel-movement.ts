@@ -45,6 +45,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       prompt: 'Select squad to move',
       elementClass: Squad,
       display: (squad) => squad.isPrimary ? 'Primary Squad' : 'Secondary Squad',
+      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
         if (!game.isRebelPlayer(ctx.player as any)) return false;
@@ -268,6 +269,7 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to stage for coordinated attack',
       elementClass: Squad,
+      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
         if (!game.isRebelPlayer(ctx.player as any)) return false;
@@ -374,6 +376,7 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to join the attack',
       elementClass: Squad,
+      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
         if (!game.isRebelPlayer(ctx.player as any)) return false;

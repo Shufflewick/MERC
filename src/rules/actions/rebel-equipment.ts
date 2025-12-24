@@ -59,6 +59,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       prompt: 'Select MERC to equip',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
+      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
