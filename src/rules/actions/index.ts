@@ -218,7 +218,7 @@ function registerDebugData(game: MERCGame): void {
             player: rebel.position,
             squad: 'primary',
             sectorId: rebel.primarySquad.sectorId,
-            mercs: rebel.primarySquad.getMercs().map(m => ({
+            mercs: rebel.primarySquad.getLivingMercs().map(m => ({
               name: m.mercName,
               actions: m.actionsRemaining,
             })),
@@ -229,7 +229,7 @@ function registerDebugData(game: MERCGame): void {
             player: rebel.position,
             squad: 'secondary',
             sectorId: rebel.secondarySquad.sectorId,
-            mercs: rebel.secondarySquad.getMercs().map(m => ({
+            mercs: rebel.secondarySquad.getLivingMercs().map(m => ({
               name: m.mercName,
               actions: m.actionsRemaining,
             })),

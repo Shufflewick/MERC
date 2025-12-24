@@ -1408,10 +1408,11 @@ export function getCombatants(
     dictator.push(mercToCombatant(merc, true));
   }
 
-  // Add dictator card if base is revealed and at this sector
-  if (game.dictatorPlayer.baseRevealed && game.dictatorPlayer.baseSectorId === sector.sectorId) {
+  // Add dictator card if in this sector (base revealed and dictator actually present)
+  if (game.dictatorPlayer.baseRevealed) {
     const dictatorCard = game.dictatorPlayer.dictator;
-    if (dictatorCard && !dictatorCard.isDead) {
+    // Dictator must be alive AND actually in this sector
+    if (dictatorCard && !dictatorCard.isDead && dictatorCard.sectorId === sector.sectorId) {
       dictator.push(dictatorToCombatant(dictatorCard));
     }
   }
@@ -2215,6 +2216,14 @@ export function executeCombat(
 
     game.message(`Rebels: ${rebels.length} units`);
     game.message(`Dictator: ${dictator.length} units`);
+
+    // Log initiative order for transparency
+    const allUnits = sortByInitiative([...rebels, ...dictator]);
+    const initiativeOrder = allUnits
+      .filter(u => !u.isAttackDog)
+      .map(u => `${u.name} (${u.initiative})`)
+      .join(' > ');
+    game.message(`Initiative order: ${initiativeOrder}`);
 
     // MERC-b65: AI detonates land mines before combat begins
     detonateLandMines(game, sector, attackingPlayer);
