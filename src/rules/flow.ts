@@ -268,11 +268,21 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               }),
 
+              // Log that MERC actions phase completed
+              execute(() => {
+                game.message('Dictator MERC actions complete');
+              }),
+
               // Move militia (free action)
               actionStep({
                 name: 'dictator-militia-movement',
                 actions: ['moveMilitia', 'skipMilitiaMove'],
                 skipIf: () => game.isFinished(),
+              }),
+
+              // Log militia movement complete
+              execute(() => {
+                game.message('Militia movement phase complete');
               }),
 
               // Step 3: Apply per-turn dictator special ability

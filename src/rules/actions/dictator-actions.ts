@@ -408,10 +408,16 @@ export function createSkipMilitiaMoveAction(game: MERCGame): ActionDefinition {
     .prompt('Skip militia movement')
     .condition((ctx) => {
       // Only the dictator player can skip militia movement
-      return game.isDictatorPlayer(ctx.player as any);
+      if (ctx.player) {
+        return game.isDictatorPlayer(ctx.player as any);
+      }
+      // Fallback when ctx.player is undefined: check if current player is NOT a rebel
+      // This handles edge cases where player context might be lost
+      const currentIsRebel = game.rebelPlayers.some(r => r.position === (ctx as any).currentPlayerPosition);
+      return !currentIsRebel && !!game.dictatorPlayer;
     })
     .execute(() => {
-      game.message('Dictator holds position');
+      game.message('Dictator skips militia movement');
       return { success: true, message: 'Militia held' };
     });
 }
