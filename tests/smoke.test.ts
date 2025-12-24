@@ -94,15 +94,15 @@ describe('MERC Smoke Tests', () => {
       });
     });
 
-    it('should have hireStartingMercs as available action', () => {
+    it('should have placeLanding as first available action', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
         seed: 'action-test',
       });
 
-      // Use assertActionAvailable helper (playerIndex, then actionName)
-      assertActionAvailable(testGame, 0, 'hireStartingMercs');
+      // Landing zone is now chosen first, before hiring MERCs
+      assertActionAvailable(testGame, 0, 'placeLanding');
     });
   });
 
@@ -117,7 +117,8 @@ describe('MERC Smoke Tests', () => {
       const game = testGame.game;
 
       // Day 1 rebel actions
-      expect(game.getAction('hireStartingMercs')).toBeDefined();
+      expect(game.getAction('hireFirstMerc')).toBeDefined();
+      expect(game.getAction('hireSecondMerc')).toBeDefined();
       expect(game.getAction('placeLanding')).toBeDefined();
       expect(game.getAction('equipStarting')).toBeDefined();
 
@@ -403,10 +404,10 @@ describe('MERC Smoke Tests', () => {
       });
 
       const rebel = testGame.game.rebelPlayers[0];
-      const trace = traceAction(testGame.game, 'hireStartingMercs', rebel);
+      const trace = traceAction(testGame.game, 'placeLanding', rebel);
 
       // traceAction returns structured info about action availability
-      expect(trace.actionName).toBe('hireStartingMercs');
+      expect(trace.actionName).toBe('placeLanding');
       expect(typeof trace.available).toBe('boolean');
       expect(trace.reason).toBeDefined();
       expect(Array.isArray(trace.details)).toBe(true);

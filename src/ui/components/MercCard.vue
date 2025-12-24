@@ -60,10 +60,58 @@ const mercName = computed(() => {
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
 });
 
-// Computed stats - check attributes first, then root level
-const training = computed(() => getProp('training', 0) || getProp('baseTraining', 0));
-const combat = computed(() => getProp('combat', 0) || getProp('baseCombat', 0));
-const initiative = computed(() => getProp('initiative', 0) || getProp('baseInitiative', 0));
+// Equipment slots - defined first so stats can use them
+// Try weaponSlotData first (serialized data), fall back to weaponSlot (legacy)
+const weaponSlot = computed(() => getProp('weaponSlotData', null) || getProp('weaponSlot', null));
+const armorSlot = computed(() => getProp('armorSlotData', null) || getProp('armorSlot', null));
+const accessorySlot = computed(() => getProp('accessorySlotData', null) || getProp('accessorySlot', null));
+
+// Helper to get equipment stat bonus
+function getEquipmentBonus(slot: any, statKey: string): number {
+  if (!slot) return 0;
+  // Check direct property
+  if (slot[statKey] !== undefined) return slot[statKey];
+  // Check combatBonus for combat stat
+  if (statKey === 'combat' && slot.combatBonus !== undefined) return slot.combatBonus;
+  // Check armorBonus for armor stat
+  if (statKey === 'armor' && slot.armorBonus !== undefined) return slot.armorBonus;
+  // Check nested in attributes
+  if (slot.attributes?.[statKey] !== undefined) return slot.attributes[statKey];
+  if (statKey === 'combat' && slot.attributes?.combatBonus !== undefined) return slot.attributes.combatBonus;
+  if (statKey === 'armor' && slot.attributes?.armorBonus !== undefined) return slot.attributes.armorBonus;
+  return 0;
+}
+
+// Computed stats - base stats plus equipment bonuses
+const baseTraining = computed(() => getProp('training', 0) || getProp('baseTraining', 0));
+const baseCombat = computed(() => getProp('combat', 0) || getProp('baseCombat', 0));
+const baseInitiative = computed(() => getProp('initiative', 0) || getProp('baseInitiative', 0));
+
+// Total stats with equipment
+const training = computed(() => {
+  const base = baseTraining.value;
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'training');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'training');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'training');
+  return base + weaponBonus + armorBonus + accessoryBonus;
+});
+
+const combat = computed(() => {
+  const base = baseCombat.value;
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'combat');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'combat');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'combat');
+  return base + weaponBonus + armorBonus + accessoryBonus;
+});
+
+const initiative = computed(() => {
+  const base = baseInitiative.value;
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'initiative');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'initiative');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'initiative');
+  return base + weaponBonus + armorBonus + accessoryBonus;
+});
+
 const currentHealth = computed(() => {
   const health = getProp('health', undefined);
   if (health !== undefined) return health;
@@ -84,11 +132,6 @@ const imagePath = computed(() => {
   if (img) return img;
   return `/mercs/${mercId.value}.jpg`;
 });
-
-// Try weaponSlotData first (serialized data), fall back to weaponSlot (legacy)
-const weaponSlot = computed(() => getProp('weaponSlotData', null) || getProp('weaponSlot', null));
-const armorSlot = computed(() => getProp('armorSlotData', null) || getProp('armorSlot', null));
-const accessorySlot = computed(() => getProp('accessorySlotData', null) || getProp('accessorySlot', null));
 
 // Helper to extract equipment name from slot data
 // Equipment might be: { equipmentName: "..." } or { attributes: { equipmentName: "..." } }

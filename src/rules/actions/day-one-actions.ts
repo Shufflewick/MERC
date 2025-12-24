@@ -24,25 +24,23 @@ import { capitalize, isInPlayerTeam } from './helpers.js';
 // Rebel Day 1 Actions
 // =============================================================================
 
-/**
- * Hire starting MERCs on Day 1.
- * Draw 3 MERCs, player picks 2 to hire in a single action (first 2 are free).
- * Per rules (04-day-one-the-landing.md): "Draw 3 cards, choose which to hire"
- */
-export function createHireStartingMercsAction(game: MERCGame): ActionDefinition {
-  // Store drawn MERCs per player for consistency across the action
-  const drawnMercsCache = new Map<string, MercCard[]>();
+// Module-level cache for drawn MERCs - persists between hire actions
+const drawnMercsCache = new Map<string, MercCard[]>();
 
-  return Action.create('hireStartingMercs')
-    .prompt('Hire your starting MERCs')
-    .notUndoable() // Involves randomness (drawing cards) - disables undo for rest of Day 1
+/**
+ * Hire first MERC on Day 1.
+ * Draw 3 MERCs, player picks 1 to hire, then picks their starting equipment.
+ */
+export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
+  return Action.create('hireFirstMerc')
+    .prompt('Hire your first MERC')
+    .notUndoable() // Involves randomness (drawing cards)
     .condition((ctx) => {
-      // Only rebels hire starting MERCs
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
-      return player.teamSize === 0; // Only show if player hasn't hired yet
+      return player.teamSize === 0;
     })
-    .chooseFrom<string>('firstMerc', {
+    .chooseFrom<string>('merc', {
       prompt: 'Select your FIRST MERC to hire',
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
@@ -60,19 +58,9 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return available.map((m) => capitalize(m.mercName));
       },
     })
-    .chooseFrom<string>('secondMerc', {
-      prompt: 'Select your SECOND MERC to hire',
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        const playerId = `${player.position}`;
-        const available = drawnMercsCache.get(playerId) || [];
-
-        if (available.length === 0) {
-          return ['No MERCs available'];
-        }
-        // Show all choices - validation happens in execute
-        return available.map((m) => capitalize(m.mercName));
-      },
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
@@ -83,46 +71,112 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const firstName = args.firstMerc as string;
-      const secondName = args.secondMerc as string;
-
-      if (!firstName || !secondName || firstName === 'No MERCs available' || secondName === 'No MERCs available') {
+      const mercName = args.merc as string;
+      if (!mercName || mercName === 'No MERCs available') {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      // Validate different MERCs selected
-      if (firstName === secondName) {
-        return { success: false, message: 'Please select two different MERCs' };
-      }
-
-      // Find MERCs by capitalized name
-      const firstMerc = available.find(m => capitalize(m.mercName) === firstName);
-      const secondMerc = available.find(m => capitalize(m.mercName) === secondName);
-
-      if (!firstMerc || !secondMerc) {
+      const merc = available.find(m => capitalize(m.mercName) === mercName);
+      if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
 
-      // Hire both selected MERCs
-      firstMerc.putInto(player.primarySquad);
-      secondMerc.putInto(player.primarySquad);
-      game.message(`${player.name} hired ${firstMerc.mercName} and ${secondMerc.mercName}`);
+      // Hire the selected MERC
+      merc.putInto(player.primarySquad);
+      game.message(`${player.name} hired ${merc.mercName}`);
 
-      // Discard the unselected MERC
-      for (const merc of available) {
-        if (merc !== firstMerc && merc !== secondMerc) {
-          merc.putInto(game.mercDiscard);
-          game.message(`${merc.mercName} was not selected and returns to the deck`);
+      // Equip starting equipment
+      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const equipment = equipStartingEquipment(game, merc, equipmentType);
+
+      // Remove from cache (keep remaining for second hire)
+      const remaining = available.filter(m => m !== merc);
+      drawnMercsCache.set(playerId, remaining);
+
+      return {
+        success: true,
+        message: equipment
+          ? `Hired ${merc.mercName}, equipped ${equipment.equipmentName}`
+          : `Hired ${merc.mercName}`,
+        data: { hiredMerc: merc.mercName },
+      };
+    });
+}
+
+/**
+ * Hire second MERC on Day 1.
+ * Pick from remaining 2 MERCs, discard the unchosen one, then pick their starting equipment.
+ */
+export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
+  return Action.create('hireSecondMerc')
+    .prompt('Hire your second MERC')
+    .notUndoable()
+    .condition((ctx) => {
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+      return player.teamSize === 1;
+    })
+    .chooseFrom<string>('merc', {
+      prompt: 'Select your SECOND MERC to hire',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const playerId = `${player.position}`;
+        const available = drawnMercsCache.get(playerId) || [];
+
+        if (available.length === 0) {
+          return ['No MERCs available'];
+        }
+        return available.map((m) => capitalize(m.mercName));
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const playerId = `${player.position}`;
+      const available = drawnMercsCache.get(playerId) || [];
+
+      if (available.length === 0) {
+        return { success: false, message: 'No MERCs available in deck' };
+      }
+
+      const mercName = args.merc as string;
+      if (!mercName || mercName === 'No MERCs available') {
+        return { success: false, message: 'No MERCs available in deck' };
+      }
+
+      const merc = available.find(m => capitalize(m.mercName) === mercName);
+      if (!merc) {
+        return { success: false, message: 'Invalid selection' };
+      }
+
+      // Hire the selected MERC
+      merc.putInto(player.primarySquad);
+      game.message(`${player.name} hired ${merc.mercName}`);
+
+      // Equip starting equipment
+      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const equipment = equipStartingEquipment(game, merc, equipmentType);
+
+      // Discard the remaining MERC(s)
+      for (const other of available) {
+        if (other !== merc) {
+          other.putInto(game.mercDiscard);
+          game.message(`${other.mercName} was not selected and returns to the deck`);
         }
       }
 
-      // Clean up cache for this player
+      // Clean up cache
       drawnMercsCache.delete(playerId);
 
       return {
         success: true,
-        message: `Hired ${firstMerc.mercName} and ${secondMerc.mercName}`,
-        data: { hiredMercs: [firstMerc.mercName, secondMerc.mercName] },
+        message: equipment
+          ? `Hired ${merc.mercName}, equipped ${equipment.equipmentName}`
+          : `Hired ${merc.mercName}`,
+        data: { hiredMerc: merc.mercName },
       };
     });
 }
@@ -130,10 +184,17 @@ export function createHireStartingMercsAction(game: MERCGame): ActionDefinition 
 /**
  * Equip starting equipment on Day 1.
  * Each MERC gets 1 free equipment from any deck.
+ * Auto-selects the unequipped MERC (no need to ask - we just hired them).
  */
 export function createEquipStartingAction(game: MERCGame): ActionDefinition {
   return Action.create('equipStarting')
-    .prompt('Equip starting equipment')
+    .prompt((ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const unequippedMerc = player.team.find(m =>
+        !m.weaponSlot && !m.armorSlot && !m.accessorySlot
+      );
+      return `Equip ${unequippedMerc?.mercName || 'MERC'}`;
+    })
     .notUndoable() // Involves randomness (drawing equipment)
     .condition((ctx) => {
       // Only rebels equip starting equipment
@@ -143,27 +204,28 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
         !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot
       );
     })
-    .chooseElement<MercCard>('merc', {
-      prompt: 'Select MERC to equip',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        // Safety check - only rebels equip starting equipment
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-        return isInPlayerTeam(merc, player) &&
-          !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot;
-      },
-    })
     .chooseFrom<string>('equipmentType', {
-      prompt: 'Choose equipment type to draw',
+      prompt: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const unequippedMerc = player.team.find(m =>
+          !m.weaponSlot && !m.armorSlot && !m.accessorySlot
+        );
+        return `Choose equipment type for ${unequippedMerc?.mercName || 'MERC'}`;
+      },
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     .execute((args, ctx) => {
-      const merc = args.merc as MercCard;
-      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const player = ctx.player as RebelPlayer;
+      // Auto-select the unequipped MERC
+      const merc = player.team.find(m =>
+        !m.weaponSlot && !m.armorSlot && !m.accessorySlot
+      );
 
+      if (!merc) {
+        return { success: false, message: 'No MERC needs equipment' };
+      }
+
+      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const equipment = equipStartingEquipment(game, merc, equipmentType);
 
       if (equipment) {

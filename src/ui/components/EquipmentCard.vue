@@ -58,10 +58,10 @@ const typeIcon = computed(() => {
 
 const typeColor = computed(() => {
   switch (equipmentType.value) {
-    case 'Weapon': return '#e63946';
-    case 'Armor': return '#457b9d';
-    case 'Accessory': return '#2a9d8f';
-    default: return '#888';
+    case 'Weapon': return '#ff6b8a';  // bright pink
+    case 'Armor': return '#64b5f6';   // light blue
+    case 'Accessory': return '#81d4a8'; // mint green
+    default: return '#ccc';
   }
 });
 
@@ -138,12 +138,12 @@ const hasStats = computed(() =>
 
 <style scoped>
 .equipment-card {
-  background: v-bind('UI_COLORS.cardBg');
+  background: rgba(70, 85, 70, 0.98);
   border-radius: 12px;
   padding: 12px;
   min-width: 240px;
   max-width: 320px;
-  color: v-bind('UI_COLORS.text');
+  color: #ffffff;
   font-family: inherit;
 }
 
@@ -154,6 +154,7 @@ const hasStats = computed(() =>
   gap: 10px;
   margin-bottom: 12px;
   padding-bottom: 10px;
+  padding-right: 32px; /* Room for modal close button */
   border-bottom: 1px solid v-bind('UI_COLORS.border');
 }
 
@@ -171,7 +172,7 @@ const hasStats = computed(() =>
 .equipment-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: v-bind('UI_COLORS.accent');
+  color: #ffffff;
 }
 
 .equipment-type {
@@ -182,11 +183,11 @@ const hasStats = computed(() =>
 }
 
 .serial-badge {
-  background: v-bind('UI_COLORS.backgroundLight');
+  background: rgba(255, 255, 255, 0.15);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.75rem;
-  color: v-bind('UI_COLORS.textMuted');
+  color: #c0c0c0;
 }
 
 /* Stats Grid */
@@ -209,34 +210,34 @@ const hasStats = computed(() =>
 .stat.special {
   grid-column: span 2;
   justify-content: center;
-  background: rgba(230, 57, 70, 0.15);
+  background: rgba(255, 107, 138, 0.25);  /* bright pink tint */
   padding: 4px 8px;
   border-radius: 4px;
 }
 
 .stat-icon {
-  color: v-bind('UI_COLORS.accent');
+  color: #ffd54f;  /* bright yellow */
   font-size: 0.9rem;
   width: 18px;
 }
 
 .stat-label {
-  color: v-bind('UI_COLORS.textMuted');
+  color: #e0e0e0;
   font-size: 0.85rem;
 }
 
 .stat-value {
-  color: v-bind('UI_COLORS.text');
+  color: #ffffff;
   font-weight: 600;
   margin-left: auto;
 }
 
 .stat-value.positive {
-  color: #2a9d8f;
+  color: #69f0ae;  /* bright mint green */
 }
 
 .stat-value.negative {
-  color: #e63946;
+  color: #ff6b8a;  /* bright pink */
 }
 
 /* Description Section */

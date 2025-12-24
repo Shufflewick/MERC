@@ -179,15 +179,16 @@ describe('MERCGame', () => {
       expect(flowState?.awaitingInput).toBe(true);
     });
 
-    it('should have hireStartingMercs action available initially', () => {
+    it('should have placeLanding action available initially', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
         seed: 'test-seed',
       });
 
+      // Landing zone is now chosen first, before hiring MERCs
       const flowState = testGame.getFlowState();
-      expect(flowState?.availableActions).toContain('hireStartingMercs');
+      expect(flowState?.availableActions).toContain('placeLanding');
     });
   });
 

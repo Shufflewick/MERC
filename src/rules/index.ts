@@ -60,7 +60,8 @@ export {
   createMoveMilitiaAction,
   createSkipMilitiaMoveAction,
   // Day 1 specific actions
-  createHireStartingMercsAction,
+  createHireFirstMercAction,
+  createHireSecondMercAction,
   createEquipStartingAction,
   createPlaceLandingDay1Action,
   // Dictator MERC actions

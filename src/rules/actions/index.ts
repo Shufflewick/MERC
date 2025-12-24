@@ -89,7 +89,8 @@ import {
 } from './dictator-actions.js';
 
 import {
-  createHireStartingMercsAction,
+  createHireFirstMercAction,
+  createHireSecondMercAction,
   createEquipStartingAction,
   createPlaceLandingAction,
   createDictatorPlaceInitialMilitiaAction,
@@ -135,7 +136,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatRetreatAction(game));
 
   // Day 1 specific actions (Rebel)
-  game.registerAction(createHireStartingMercsAction(game));
+  game.registerAction(createHireFirstMercAction(game));
+  game.registerAction(createHireSecondMercAction(game));
   game.registerAction(createEquipStartingAction(game));
 
   // Day 1 specific actions (Dictator) - MERC-mtoq

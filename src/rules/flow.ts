@@ -19,9 +19,9 @@ import { applyConscriptsEffect } from './tactics-effects.js';
  *
  * Day 1 (The Landing):
  * - Rebel Phase:
- *   1. Each rebel draws 3 MERCs, chooses 1-3 to hire (first 2 are free)
- *   2. Each rebel places primary squad on an edge sector
- *   3. Each MERC gets 1 free starting equipment
+ *   1. Each rebel chooses their landing zone (edge sector)
+ *   2. Draw 3 MERCs, pick first MERC and their equipment
+ *   3. Pick second MERC (from remaining 2) and their equipment
  *   4. Each rebel now controls their landing sector
  *
  * - Dictator Phase:
@@ -72,34 +72,25 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             name: 'rebel-landing',
             filter: (player) => game.isRebelPlayer(player as any), // Only rebels, skip dictator
             do: sequence(
-              // Step 1: Hire starting MERCs (draw 3, pick 2 in single action, first 2 are free)
-              actionStep({
-                name: 'hire-starting-mercs',
-                actions: ['hireStartingMercs'],
-                prompt: 'Draw 3 MERCs and choose 2 to hire',
-              }),
-
-              // Step 2: Choose landing sector
+              // Step 1: Choose landing sector first
               actionStep({
                 name: 'place-landing',
                 actions: ['placeLanding'],
                 prompt: 'Choose an edge sector for your landing zone',
               }),
 
-              // Step 3: Equip starting equipment for each MERC
+              // Step 2: Hire first MERC (draw 3, pick 1) and equip
               actionStep({
-                name: 'equip-first-merc',
-                actions: ['equipStarting'],
-                prompt: 'Choose starting equipment for your first MERC',
+                name: 'hire-first-merc',
+                actions: ['hireFirstMerc'],
+                prompt: 'Hire your first MERC',
               }),
+
+              // Step 3: Hire second MERC (pick from remaining 2) and equip
               actionStep({
-                name: 'equip-second-merc',
-                actions: ['equipStarting'],
-                prompt: 'Choose starting equipment for your second MERC',
-                skipIf: (ctx) => {
-                  const player = ctx.player as any;
-                  return player.teamSize < 2;
-                },
+                name: 'hire-second-merc',
+                actions: ['hireSecondMerc'],
+                prompt: 'Hire your second MERC',
               }),
             ),
           }),

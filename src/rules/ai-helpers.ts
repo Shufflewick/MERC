@@ -293,13 +293,11 @@ export function getDictatorBaseActions(): AIActionType[] {
 
 /**
  * Select base location for AI dictator.
- * Per rules 4.1:
- * 1. Furthest from Rebels
- * 2. If tied, most defended (most Dictator forces)
- * 3. If tied, highest value Industry
- * 4. If still tied, random
+ * Chooses the most valuable industry not occupied by rebels.
+ * If there are multiple industries with the same value, chooses randomly.
  */
 export function selectAIBaseLocation(game: MERCGame): Sector | null {
+  // Get industries with dictator militia (not chosen by rebels)
   const controlledIndustries = game.gameMap.getAllSectors()
     .filter(s => s.isIndustry && s.dictatorMilitia > 0);
 
@@ -315,28 +313,22 @@ export function selectAIBaseLocation(game: MERCGame): Sector | null {
     return controlledIndustries[0];
   }
 
-  // Sort by priority criteria
-  const sorted = [...controlledIndustries].sort((a, b) => {
-    // 4.1.1 - Furthest from rebels (higher distance = better)
-    const distA = distanceToNearestRebel(game, a);
-    const distB = distanceToNearestRebel(game, b);
-    if (distA !== distB) return distB - distA;
+  // Find the highest industry value
+  const maxValue = Math.max(...controlledIndustries.map(s => s.industryValue || 0));
 
-    // 4.1.2 - Most defended (higher militia = better)
-    if (a.dictatorMilitia !== b.dictatorMilitia) {
-      return b.dictatorMilitia - a.dictatorMilitia;
-    }
+  // Get all industries with the highest value
+  const highestValueIndustries = controlledIndustries.filter(
+    s => (s.industryValue || 0) === maxValue
+  );
 
-    // 4.1.3 - Highest value (higher value = better)
-    if (a.industryValue !== b.industryValue) {
-      return (b.industryValue || 0) - (a.industryValue || 0);
-    }
+  // If only one, return it; otherwise pick randomly
+  if (highestValueIndustries.length === 1) {
+    return highestValueIndustries[0];
+  }
 
-    // 4.1.4 - Random tie-breaker
-    return Math.random() - 0.5;
-  });
-
-  return sorted[0];
+  // Random selection among ties
+  const randomIndex = Math.floor(Math.random() * highestValueIndustries.length);
+  return highestValueIndustries[randomIndex];
 }
 
 // =============================================================================

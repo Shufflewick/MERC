@@ -49,19 +49,20 @@ function handleBackdropClick(e: Event) {
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .close-button {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid v-bind('UI_COLORS.border');
-  color: v-bind('UI_COLORS.text');
-  font-size: 1.5rem;
+  background: v-bind('UI_COLORS.accent');
+  border: none;
+  color: #1a1a1a;
+  font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -69,12 +70,12 @@ function handleBackdropClick(e: Event) {
   justify-content: center;
   z-index: 10;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .close-button:hover {
-  background: v-bind('UI_COLORS.accent');
-  color: white;
+  background: v-bind('UI_COLORS.accentLight');
+  color: #1a1a1a;
   border-color: v-bind('UI_COLORS.accent');
 }
 
