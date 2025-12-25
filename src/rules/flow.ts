@@ -11,6 +11,7 @@ import type { MERCGame, RebelPlayer } from './game.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect } from './tactics-effects.js';
+import { executeCombat } from './combat.js';
 
 /**
  * MERC Game Flow
@@ -174,6 +175,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               name: 'rebel-action-loop',
               while: (ctx) => {
                 if (game.isFinished()) return false;
+                // MERC-t5k: Keep player in loop while combat is active or pending
+                if (game.activeCombat !== null) return true;
+                if (game.pendingCombat !== null) return true; // Combat about to start
                 // Check if current player has any MERCs with actions remaining
                 const player = ctx?.player as RebelPlayer | undefined;
                 if (player) {
@@ -183,39 +187,71 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 return true; // Continue if no player context (shouldn't happen)
               },
               maxIterations: 30, // Safety limit per turn
-              do: actionStep({
-                name: 'rebel-action',
-                // Per rules (05-main-game-loop.md): Combat triggers via movement, not as separate action
-                // MERC-wrq: Added coordinatedAttack for same-player multi-squad attacks
-                // MERC-a2h: Added multi-player coordinated attack actions
-                // MERC-ttx: splitSquad is free action, available anytime including combat
-                // MERC-n1f: Combat actions for interactive retreat choice
-                actions: [
-                  'combatContinue', // MERC-n1f: Continue active combat (highest priority)
-                  'combatRetreat', // MERC-n1f: Retreat from active combat
-                  'move',
-                  'coordinatedAttack', // MERC-wrq: Same player, both squads
-                  'declareCoordinatedAttack', // MERC-a2h: Stage for multi-player attack
-                  'joinCoordinatedAttack', // MERC-a2h: Join declared attack
-                  'executeCoordinatedAttack', // MERC-a2h: Execute multi-player attack
-                  'explore',
-                  'train',
-                  'hireMerc',
-                  'reEquip',
-                  'dropEquipment',
-                  'hospital',
-                  'docHeal', // MERC-m4k: Doc's free heal ability
-                  'feedbackDiscard', // MERC-24h: Feedback discard retrieval
-                  'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
-                  'squidheadArm', // MERC-4qd: Squidhead arm mines
-                  'hagnessDraw', // MERC-jrph: Hagness draw equipment
-                  'armsDealer',
-                  'splitSquad', // MERC-ttx: Free action available anytime
-                  'mergeSquads',
-                  'endTurn',
-                ],
-                skipIf: () => game.isFinished(),
-              }),
+              do: sequence(
+                // MERC-t5k: Check for pending combat (from move action) and initiate it
+                // This execute step runs BEFORE the action step, ensuring UI refresh
+                execute((ctx) => {
+                  if (game.pendingCombat && !game.activeCombat) {
+                    const sector = game.getSector(game.pendingCombat.sectorId);
+                    const player = game.rebelPlayers.find(
+                      p => `${p.position}` === game.pendingCombat!.playerId
+                    );
+                    if (sector && player) {
+                      executeCombat(game, sector, player);
+                    }
+                    game.pendingCombat = null;
+                  }
+                }),
+
+                // MERC-t5k: Combat resolution loop - runs when combat is active
+                // This ensures combat actions are shown in a separate step from regular actions
+                loop({
+                  name: 'combat-resolution',
+                  while: () => game.activeCombat !== null && !game.isFinished(),
+                  maxIterations: 50, // Multiple rounds of combat
+                  do: actionStep({
+                    name: 'combat-action',
+                    actions: [
+                      'combatSelectTarget', // MERC-t5k: Select targets during combat
+                      'combatContinue', // MERC-n1f: Continue active combat
+                      'combatRetreat', // MERC-n1f: Retreat from active combat
+                    ],
+                    skipIf: () => game.isFinished() || game.activeCombat === null,
+                  }),
+                }),
+
+                // Regular action step - only runs when not in combat
+                actionStep({
+                  name: 'rebel-action',
+                  // Per rules (05-main-game-loop.md): Combat triggers via movement, not as separate action
+                  // MERC-wrq: Added coordinatedAttack for same-player multi-squad attacks
+                  // MERC-a2h: Added multi-player coordinated attack actions
+                  // MERC-ttx: splitSquad is free action, available anytime
+                  actions: [
+                    'move',
+                    'coordinatedAttack', // MERC-wrq: Same player, both squads
+                    'declareCoordinatedAttack', // MERC-a2h: Stage for multi-player attack
+                    'joinCoordinatedAttack', // MERC-a2h: Join declared attack
+                    'executeCoordinatedAttack', // MERC-a2h: Execute multi-player attack
+                    'explore',
+                    'train',
+                    'hireMerc',
+                    'reEquip',
+                    'dropEquipment',
+                    'hospital',
+                    'docHeal', // MERC-m4k: Doc's free heal ability
+                    'feedbackDiscard', // MERC-24h: Feedback discard retrieval
+                    'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
+                    'squidheadArm', // MERC-4qd: Squidhead arm mines
+                    'hagnessDraw', // MERC-jrph: Hagness draw equipment
+                    'armsDealer',
+                    'splitSquad', // MERC-ttx: Free action available anytime
+                    'mergeSquads',
+                    'endTurn',
+                  ],
+                  skipIf: () => game.isFinished() || game.activeCombat !== null,
+                }),
+              ),
             }),
           }),
 
@@ -231,6 +267,14 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             filter: (player) => game.isDictatorPlayer(player as any) && !game.isFinished(),
             do: sequence(
               execute(() => {
+                // Safety: Clear any stale rebel combat state (shouldn't happen but defensive)
+                if (game.activeCombat) {
+                  game.message('Warning: Clearing stale combat state');
+                  game.activeCombat = null;
+                }
+                if (game.pendingCombat) {
+                  game.pendingCombat = null;
+                }
                 game.message('--- Dictator Turn ---');
               }),
 

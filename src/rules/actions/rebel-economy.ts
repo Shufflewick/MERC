@@ -906,12 +906,10 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Cannot end turn during combat - must retreat or continue
       if (game.activeCombat) return false;
+      // Only available during main game (Day 2+)
+      if (game.currentDay < 2) return false;
       // Only rebels can end turn (dictator uses dictatorEndMercActions)
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
-      // Only show end turn if player has MERCs with actions remaining
-      // This prevents the flow from auto-ending when no actions are taken
-      return player.team.some(m => m.actionsRemaining > 0);
+      return game.isRebelPlayer(ctx.player as any);
     })
     .chooseFrom<string>('confirm', {
       prompt: 'End your turn?',

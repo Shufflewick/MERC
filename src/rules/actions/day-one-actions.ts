@@ -251,11 +251,17 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Cannot place landing during combat
       if (game.activeCombat) return false;
+      // Only available during Day 1
+      if (game.currentDay !== 1) return false;
       // Only rebels place landing zones
-      return game.isRebelPlayer(ctx.player as any);
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+      // Cannot place if already landed (has a sector)
+      if (player.primarySquad.sectorId) return false;
+      return true;
     })
     .chooseElement<Sector>('sector', {
-      prompt: 'Select an edge sector to land',
+      prompt: 'Select an edge industry to land',
       elementClass: Sector,
       filter: (element) => {
         const sector = element as unknown as Sector;

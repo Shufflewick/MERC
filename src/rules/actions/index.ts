@@ -52,6 +52,7 @@ import {
 import {
   createCombatContinueAction,
   createCombatRetreatAction,
+  createCombatSelectTargetAction,
 } from './rebel-combat.js';
 
 import {
@@ -134,6 +135,7 @@ export function registerAllActions(game: MERCGame): void {
   // MERC-n1f: Combat actions
   game.registerAction(createCombatContinueAction(game));
   game.registerAction(createCombatRetreatAction(game));
+  game.registerAction(createCombatSelectTargetAction(game)); // MERC-t5k: Target selection
 
   // Day 1 specific actions (Rebel)
   game.registerAction(createHireFirstMercAction(game));
@@ -299,6 +301,15 @@ function registerDebugData(game: MERCGame): void {
       dictatorCombatants: (game.activeCombat.dictatorCombatants as any[])?.length ?? 0,
       rebelCasualties: (game.activeCombat.rebelCasualties as any[])?.length ?? 0,
       dictatorCasualties: (game.activeCombat.dictatorCasualties as any[])?.length ?? 0,
+      // MERC-t5k: Target selection state
+      pendingTargetSelection: game.activeCombat.pendingTargetSelection ? {
+        attackerId: game.activeCombat.pendingTargetSelection.attackerId,
+        attackerName: game.activeCombat.pendingTargetSelection.attackerName,
+        validTargetCount: game.activeCombat.pendingTargetSelection.validTargets?.length ?? 0,
+        maxTargets: game.activeCombat.pendingTargetSelection.maxTargets,
+      } : null,
+      currentAttackerIndex: game.activeCombat.currentAttackerIndex,
+      selectedTargetsCount: game.activeCombat.selectedTargets?.size ?? 0,
     };
   });
 

@@ -1439,6 +1439,54 @@ function isRizen(combatant: Combatant): boolean {
 }
 
 /**
+ * MERC-t5k: Get valid targets that a rebel attacker can select
+ * This is used to present choices to the player for target selection
+ */
+export function getValidTargetsForPlayer(
+  attacker: Combatant,
+  enemies: Combatant[]
+): Combatant[] {
+  const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+
+  // Sort targets so "targeted last" MERCs (Runde) are at the end
+  const sortedForTargeting = [...aliveEnemies].sort((a, b) => {
+    const aMercId = getCombatantMercId(a);
+    const bMercId = getCombatantMercId(b);
+    const aLast = aMercId ? isTargetedLast(aMercId) : false;
+    const bLast = bMercId ? isTargetedLast(bMercId) : false;
+    if (aLast && !bLast) return 1;
+    if (bLast && !aLast) return -1;
+    return 0;
+  });
+
+  // Check dictator protection rule
+  const canHitDictator = canTargetDictator(sortedForTargeting);
+  return canHitDictator
+    ? sortedForTargeting
+    : sortedForTargeting.filter(e => !e.isDictator);
+}
+
+/**
+ * MERC-t5k: Select targets using player selections if available
+ */
+function selectTargetsWithPlayerChoice(
+  attacker: Combatant,
+  enemies: Combatant[],
+  maxTargets: number,
+  selectedTargetIds?: string[]
+): Combatant[] {
+  // If player has selected targets, use those
+  if (selectedTargetIds && selectedTargetIds.length > 0 && !attacker.isDictatorSide) {
+    const selectedTargets = enemies.filter(e => selectedTargetIds.includes(e.id) && e.health > 0);
+    // Ensure we don't exceed maxTargets
+    return selectedTargets.slice(0, maxTargets);
+  }
+
+  // Fall back to automatic selection
+  return selectTargets(attacker, enemies, maxTargets);
+}
+
+/**
  * Select targets for an attacker
  * MERC-0q8: AI (dictator side) uses priority targeting per rules 4.6:
  * 1. Lowest health + armor
@@ -1596,13 +1644,15 @@ function assignAttackDog(
 
 /**
  * MERC-l09: Select targets considering Attack Dog assignment
+ * MERC-t5k: Also supports player-selected targets
  * If combatant has a dog assigned to them, they MUST target the dog
  */
 function selectTargetsWithDogs(
   attacker: Combatant,
   enemies: Combatant[],
   maxTargets: number,
-  dogState: AttackDogState
+  dogState: AttackDogState,
+  selectedTargetIds?: string[]
 ): Combatant[] {
   // Check if this attacker has a dog assigned to them
   const assignedDog = dogState.assignments.get(attacker.id);
@@ -1615,21 +1665,51 @@ function selectTargetsWithDogs(
     return [assignedDog];
   }
 
-  // Normal target selection
-  return selectTargets(attacker, enemies, maxTargets);
+  // MERC-t5k: Use player selections if available for rebel MERCs
+  return selectTargetsWithPlayerChoice(attacker, enemies, maxTargets, selectedTargetIds);
+}
+
+/**
+ * MERC-t5k: Result from executing a combat round (may be partial)
+ */
+interface CombatRoundResult {
+  round: CombatRound;
+  complete: boolean; // True if round finished, false if paused for player input
+  pausedForTargetSelection?: {
+    attackerId: string;
+    attackerName: string;
+    attackerIndex: number;
+    validTargets: Combatant[];
+    maxTargets: number;
+  };
 }
 
 /**
  * Execute a single combat round
  * MERC-l09: Includes Attack Dog mechanics
+ * MERC-t5k: Supports turn-by-turn player target selections
  */
 function executeCombatRound(
   roundNumber: number,
   rebels: Combatant[],
   dictatorSide: Combatant[],
   game: MERCGame,
-  dogState?: AttackDogState
-): CombatRound {
+  dogState?: AttackDogState,
+  options?: {
+    startIndex?: number; // Resume from this attacker index
+    partialResults?: CombatResult[]; // Results from attackers already processed
+    partialCasualties?: Combatant[]; // Casualties from attackers already processed
+    playerSelectedTargets?: Map<string, string[]>;
+    interactive?: boolean; // Whether to pause for player target selection
+  }
+): CombatRoundResult {
+  const {
+    startIndex = 0,
+    partialResults = [],
+    partialCasualties = [],
+    playerSelectedTargets,
+    interactive = true,
+  } = options || {};
   // MERC-l09: Initialize dog state if not provided
   const activeDogState: AttackDogState = dogState || {
     assignments: new Map(),
@@ -1703,11 +1783,16 @@ function executeCombatRound(
   executeGolemPreCombat(game, rebels, dictatorSide);
 
   const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
-  const results: CombatResult[] = [];
-  const casualties: Combatant[] = [];
-  let dogIndex = 0;
 
-  for (const attacker of allCombatants) {
+  // MERC-t5k: Start with partial results if resuming mid-round
+  const results: CombatResult[] = [...partialResults];
+  const casualties: Combatant[] = [...partialCasualties];
+  let dogIndex = startIndex; // Approximate dog index based on where we're resuming
+
+  // MERC-t5k: Loop through combatants starting from specified index
+  for (let i = startIndex; i < allCombatants.length; i++) {
+    const attacker = allCombatants[i];
+
     // Skip dead combatants and attack dogs (dogs don't attack)
     if (attacker.health <= 0 || attacker.isAttackDog) continue;
 
@@ -1730,13 +1815,46 @@ function executeCombatRound(
 
     if (aliveEnemies.length === 0) continue;
 
+    // MERC-t5k: Check if this rebel MERC needs player target selection
+    // Note: instanceof check can fail in bundled code, so also check for mercId property
+    const hasMercSource = attacker.sourceElement instanceof MercCard ||
+                          (attacker.sourceElement && 'mercId' in attacker.sourceElement);
+    const isRebelMerc = !attacker.isDictatorSide && !attacker.isMilitia && hasMercSource;
+    const hasSelectedTargets = playerSelectedTargets?.has(attacker.id);
+
+    if (interactive && isRebelMerc && !hasSelectedTargets) {
+      // Check if dog forces targets (no player choice needed)
+      const assignedDog = activeDogState.assignments.get(attacker.id);
+      const dogForcesTarget = assignedDog && assignedDog.health > 0;
+
+      if (!dogForcesTarget) {
+        // Need player input - pause and return
+        const validTargets = getValidTargetsForPlayer(attacker, enemies);
+        if (validTargets.length > 0) {
+          return {
+            round: { roundNumber, results, casualties },
+            complete: false,
+            pausedForTargetSelection: {
+              attackerId: attacker.id,
+              attackerName: attacker.name,
+              attackerIndex: i,
+              validTargets,
+              maxTargets: attacker.targets,
+            },
+          };
+        }
+      }
+    }
+
     // MERC-l09: Before attacking, assign Attack Dog if available
     if (attacker.hasAttackDog) {
       assignAttackDog(attacker, enemies, activeDogState, game, dogIndex++);
     }
 
     // MERC-l09: Select targets considering dog assignments
-    const targets = selectTargetsWithDogs(attacker, enemies, attacker.targets, activeDogState);
+    // MERC-t5k: Use player selections if available
+    const attackerSelectedTargets = playerSelectedTargets?.get(attacker.id);
+    const targets = selectTargetsWithDogs(attacker, enemies, attacker.targets, activeDogState, attackerSelectedTargets);
 
     // MERC-l09: Handle Tao ability - can't attack when dog assigned
     if (targets.length === 0) {
@@ -2024,7 +2142,11 @@ function executeCombatRound(
     }
   }
 
-  return { roundNumber, results, casualties };
+  // MERC-t5k: Round completed successfully
+  return {
+    round: { roundNumber, results, casualties },
+    complete: true,
+  };
 }
 
 /**
@@ -2142,6 +2264,20 @@ function applyCombatResults(
     }
   }
 
+  // Update militia counts
+  syncMilitiaCasualties(game, sector, rebels, dictatorSide);
+}
+
+/**
+ * MERC-t5k: Sync militia casualties to sector counts
+ * Called both during combat pause and at combat end to keep UI in sync
+ */
+function syncMilitiaCasualties(
+  game: MERCGame,
+  sector: Sector,
+  rebels: Combatant[],
+  dictatorSide: Combatant[]
+): void {
   // Update dictator militia count
   const survivingDictatorMilitia = dictatorSide.filter(c => c.isMilitia && c.health > 0).length;
   sector.dictatorMilitia = survivingDictatorMilitia;
@@ -2152,7 +2288,7 @@ function applyCombatResults(
     const survivingMilitia = rebels.filter(
       c => c.isMilitia && c.health > 0 && c.ownerId === playerId
     ).length;
-    sector.rebelMilitia.set(playerId, survivingMilitia);
+    sector.rebelMilitia[playerId] = survivingMilitia;
   }
 }
 
@@ -2188,7 +2324,13 @@ export function executeCombat(
     rounds = [];
     allRebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
     allDictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
-    startRound = game.activeCombat.round + 1;
+    // MERC-t5k: If resuming mid-round (has partial round data or pending targets), stay on same round
+    // Otherwise (between rounds after retreat decision), start next round
+    const hasPartialRoundData = (game.activeCombat.roundResults?.length ?? 0) > 0 ||
+                                 (game.activeCombat.roundCasualties?.length ?? 0) > 0 ||
+                                 (game.activeCombat.currentAttackerIndex ?? 0) > 0 ||
+                                 game.activeCombat.selectedTargets?.size > 0;
+    startRound = hasPartialRoundData ? game.activeCombat.round : game.activeCombat.round + 1;
 
     // MERC-l09: Restore dog state
     dogState = {
@@ -2234,15 +2376,98 @@ export function executeCombat(
   let combatPending = false;
   let retreatAvailable = false;
 
+  // MERC-t5k: Track player-selected targets and mid-round state
+  let playerSelectedTargets: Map<string, string[]> = new Map();
+  let currentAttackerIndex = 0;
+  let roundResults: CombatResult[] = [];
+  let roundCasualties: Combatant[] = [];
+
+  if (isResuming && game.activeCombat) {
+    if (game.activeCombat.selectedTargets) {
+      playerSelectedTargets = new Map(game.activeCombat.selectedTargets);
+    }
+    if (game.activeCombat.currentAttackerIndex !== undefined) {
+      currentAttackerIndex = game.activeCombat.currentAttackerIndex;
+    }
+    if (game.activeCombat.roundResults) {
+      roundResults = game.activeCombat.roundResults as CombatResult[];
+    }
+    if (game.activeCombat.roundCasualties) {
+      roundCasualties = game.activeCombat.roundCasualties as Combatant[];
+    }
+  }
+
   for (let round = startRound; round <= maxRounds; round++) {
-    game.message(`--- Round ${round} ---`);
+    // MERC-t5k: Only show round message if starting fresh (not resuming mid-round)
+    if (currentAttackerIndex === 0) {
+      game.message(`--- Round ${round} ---`);
+    }
 
     // MERC-l09: Pass dog state to combat round
-    const roundResult = executeCombatRound(round, rebels, dictator, game, dogState);
-    rounds.push(roundResult);
+    // MERC-t5k: Execute round with turn-by-turn target selection
+    const roundResult = executeCombatRound(round, rebels, dictator, game, dogState, {
+      startIndex: currentAttackerIndex,
+      partialResults: roundResults,
+      partialCasualties: roundCasualties,
+      playerSelectedTargets,
+      interactive,
+    });
+
+    // MERC-t5k: Check if round paused for target selection
+    if (!roundResult.complete && roundResult.pausedForTargetSelection) {
+      const pause = roundResult.pausedForTargetSelection;
+
+      // Save state for resuming
+      game.activeCombat = {
+        sectorId: sector.sectorId,
+        attackingPlayerId: `${attackingPlayer.position}`,
+        round,
+        rebelCombatants: rebels,
+        dictatorCombatants: dictator,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        dogAssignments: Array.from(dogState.assignments.entries()),
+        dogs: dogState.dogs,
+        selectedTargets: playerSelectedTargets,
+        currentAttackerIndex: pause.attackerIndex,
+        roundResults: roundResult.round.results,
+        roundCasualties: roundResult.round.casualties,
+        pendingTargetSelection: {
+          attackerId: pause.attackerId,
+          attackerName: pause.attackerName,
+          validTargets: pause.validTargets,
+          maxTargets: pause.maxTargets,
+        },
+      };
+
+      // MERC-t5k: Sync militia casualties so UI reflects kills during combat
+      syncMilitiaCasualties(game, sector, rebels, dictator);
+
+      game.message(`${pause.attackerName} is ready to attack. Select targets.`);
+
+      return {
+        rounds,
+        rebelVictory: false,
+        dictatorVictory: false,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        retreated: false,
+        combatPending: true,
+        canRetreat: false,
+      };
+    }
+
+    // Round completed - add to results
+    rounds.push(roundResult.round);
+
+    // Clear mid-round state for next round
+    currentAttackerIndex = 0;
+    roundResults = [];
+    roundCasualties = [];
+    playerSelectedTargets.clear();
 
     // Track casualties
-    for (const casualty of roundResult.casualties) {
+    for (const casualty of roundResult.round.casualties) {
       if (casualty.isDictatorSide) {
         allDictatorCasualties.push(casualty);
       } else {
@@ -2261,6 +2486,9 @@ export function executeCombat(
     // MERC-n1f: Check if retreat is possible and pause for player decision
     retreatAvailable = canRetreat(game, sector, attackingPlayer);
     if (interactive && retreatAvailable) {
+      // MERC-t5k: Sync militia casualties to sector before pausing
+      syncMilitiaCasualties(game, sector, rebels, dictator);
+
       // Save combat state and pause for player decision
       game.activeCombat = {
         sectorId: sector.sectorId,
@@ -2270,7 +2498,6 @@ export function executeCombat(
         dictatorCombatants: dictator,
         rebelCasualties: allRebelCasualties,
         dictatorCasualties: allDictatorCasualties,
-        // MERC-l09: Save dog state
         dogAssignments: Array.from(dogState.assignments.entries()),
         dogs: dogState.dogs,
       };

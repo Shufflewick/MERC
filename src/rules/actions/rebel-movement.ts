@@ -14,7 +14,7 @@
 import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { MercCard, Sector, Squad } from '../elements.js';
-import { executeCombat, hasEnemies } from '../combat.js';
+import { hasEnemies } from '../combat.js';
 import { ACTION_COSTS, useAction, capitalize } from './helpers.js';
 
 /**
@@ -125,18 +125,14 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       game.message(`${player.name} moved ${mercs.length} MERC(s) to ${destination.sectorName}`);
 
       // Per rules: "Combat triggers when: A squad moves into an enemy-occupied sector"
-      // Check for enemies and auto-trigger combat
+      // Combat initiation is now handled by the flow's execute step to ensure proper UI refresh
+      // Just detect and flag enemies here
       if (hasEnemies(game, destination, player)) {
         game.message(`Enemies detected at ${destination.sectorName} - combat begins!`);
-        const outcome = executeCombat(game, destination, player);
-        return {
-          success: true,
-          message: `Moved to ${destination.sectorName} and engaged in combat`,
-          data: {
-            combatTriggered: true,
-            rebelVictory: outcome.rebelVictory,
-            dictatorVictory: outcome.dictatorVictory,
-          },
+        // Set a pending combat flag that the flow will pick up
+        game.pendingCombat = {
+          sectorId: destination.sectorId,
+          playerId: `${player.position}`,
         };
       }
 
@@ -222,19 +218,12 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
       const totalMercs = primaryMercs.length + secondaryMercs.length;
       game.message(`${player.name} launches coordinated attack with ${totalMercs} MERC(s) on ${target.sectorName}!`);
 
-      // Check for enemies and trigger combat with combined force
+      // Check for enemies and flag for combat (handled by flow)
       if (hasEnemies(game, target, player)) {
         game.message(`Combat begins with coordinated rebel forces!`);
-        const outcome = executeCombat(game, target, player);
-        return {
-          success: true,
-          message: `Coordinated attack on ${target.sectorName}`,
-          data: {
-            combatTriggered: true,
-            coordinatedAttack: true,
-            rebelVictory: outcome.rebelVictory,
-            dictatorVictory: outcome.dictatorVictory,
-          },
+        game.pendingCombat = {
+          sectorId: target.sectorId,
+          playerId: `${player.position}`,
         };
       }
 
@@ -482,19 +471,12 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
 
       game.message(`Coordinated attack launched on ${target.sectorName} with ${totalMercs} MERC(s)!`);
 
-      // Trigger combat - use first participant's player for context
+      // Flag for combat - use first participant's player for context
       const firstRebel = game.rebelPlayers.find(p => `${p.position}` === participants[0].playerId);
       if (firstRebel && hasEnemies(game, target, firstRebel)) {
-        const outcome = executeCombat(game, target, firstRebel);
-        return {
-          success: true,
-          message: `Coordinated attack executed`,
-          data: {
-            combatTriggered: true,
-            participantCount: participants.length,
-            rebelVictory: outcome.rebelVictory,
-            dictatorVictory: outcome.dictatorVictory,
-          },
+        game.pendingCombat = {
+          sectorId: target.sectorId,
+          playerId: `${firstRebel.position}`,
         };
       }
 
@@ -516,6 +498,8 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Cannot split squad during combat
       if (game.activeCombat) return false;
+      // Not available during Day 1 setup
+      if (game.currentDay < 2) return false;
       // Only rebels can split squads
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
@@ -560,6 +544,8 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Cannot merge squads during combat
       if (game.activeCombat) return false;
+      // Not available during Day 1 setup
+      if (game.currentDay < 2) return false;
       // Only rebels can merge squads
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;

@@ -376,6 +376,24 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // MERC-l09: Attack Dog state
     dogAssignments?: Array<[string, any]>; // [targetId, dog Combatant][] - serializable form
     dogs?: any[]; // Active dog combatants
+    // MERC-t5k: Player target selection - turn-by-turn
+    currentAttackerIndex?: number; // Position in initiative order (for mid-round pause)
+    roundResults?: any[]; // CombatResult[] - partial results from current round
+    roundCasualties?: any[]; // Combatant[] - casualties from current round so far
+    pendingTargetSelection?: {
+      attackerId: string; // ID of the attacking combatant
+      attackerName: string;
+      validTargets: any[]; // Combatant[] - enemies that can be targeted
+      maxTargets: number;
+    };
+    selectedTargets?: Map<string, string[]>; // attackerId -> targetIds
+  } | null = null;
+
+  // MERC-t5k: Pending combat - set by move action, initiated by flow
+  // This allows proper UI refresh between move and combat
+  pendingCombat: {
+    sectorId: string;
+    playerId: string;
   } | null = null;
 
   // Track last explorer for "Take from stash" action

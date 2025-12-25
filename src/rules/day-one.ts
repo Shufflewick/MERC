@@ -65,11 +65,17 @@ export function hireSelectedMercs(
 
 /**
  * Check if a sector is a valid landing zone.
+ * - Must be an industry
  * - Must be on the map edge
  * - Cannot be claimed by another rebel
  * - Cannot be the dictator's base
  */
 export function isValidLandingSector(game: MERCGame, sector: Sector): boolean {
+  // Must be an industry (per rules: rebels land at edge industries)
+  if (!sector.isIndustry) {
+    return false;
+  }
+
   // Must be an edge sector
   if (!game.gameMap.isEdgeSector(sector)) {
     return false;

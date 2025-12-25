@@ -100,7 +100,7 @@
   },
   {
     "id": "wilderness9",
-    "name": "Wilderness",
+    "name": "Wilderness: Timberland",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -111,7 +111,7 @@
   },
   {
     "id": "wilderness10",
-    "name": "Wilderness",
+    "name": "Wilderness: Lone Copse",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -122,7 +122,7 @@
   },
   {
     "id": "wilderness11",
-    "name": "Wilderness",
+    "name": "Wilderness: Twin Groves",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -133,7 +133,7 @@
   },
   {
     "id": "wilderness12",
-    "name": "Wilderness",
+    "name": "Wilderness: Grassland",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -144,7 +144,7 @@
   },
   {
     "id": "wilderness13",
-    "name": "Wilderness",
+    "name": "Wilderness: Woodland Edge",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -155,7 +155,7 @@
   },
   {
     "id": "wilderness14",
-    "name": "Wilderness",
+    "name": "Wilderness: Lakeshore",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -166,7 +166,7 @@
   },
   {
     "id": "wilderness20",
-    "name": "Wilderness",
+    "name": "Wilderness: Ravine",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -254,7 +254,7 @@
   },
   {
     "id": "wilderness",
-    "name": "Wilderness",
+    "name": "Wilderness: Open Plains",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -265,7 +265,7 @@
   },
   {
     "id": "wilderness2",
-    "name": "Wilderness",
+    "name": "Wilderness: Dense Forest",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -276,7 +276,7 @@
   },
   {
     "id": "wilderness3",
-    "name": "Wilderness",
+    "name": "Wilderness: Forest Pass",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -287,7 +287,7 @@
   },
   {
     "id": "wilderness4",
-    "name": "Wilderness",
+    "name": "Wilderness: Forest Heart",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -298,7 +298,7 @@
   },
   {
     "id": "wilderness5",
-    "name": "Wilderness",
+    "name": "Wilderness: Meadow",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -309,7 +309,7 @@
   },
   {
     "id": "wilderness7",
-    "name": "Wilderness",
+    "name": "Wilderness: Valley",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
@@ -320,7 +320,7 @@
   },
   {
     "id": "wilderness8",
-    "name": "Wilderness",
+    "name": "Wilderness: River Bend",
     "quantity": 1,
     "type": "Wilderness",
     "value": 1,
