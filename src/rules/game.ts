@@ -402,6 +402,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Pending loot cache for explore action
   // Caches drawn equipment during selection phase to avoid multiple draws
+  // Changed to Map to support multiple MERCs in different unexplored sectors
+  pendingLootMap: Map<string, any[]> = new Map();
+
+  // Legacy pendingLoot for backward compatibility (deprecated)
   pendingLoot: { sectorId: string; equipment: any[] } | null = null;
 
   // Data loaded from JSON

@@ -203,20 +203,27 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }
                 }),
 
-                // MERC-t5k: Combat resolution loop - runs when combat is active
-                // This ensures combat actions are shown in a separate step from regular actions
+                // MERC-t5k: Combat target selection - only when targets need to be selected
                 loop({
-                  name: 'combat-resolution',
-                  while: () => game.activeCombat !== null && !game.isFinished(),
-                  maxIterations: 50, // Multiple rounds of combat
+                  name: 'combat-target-selection',
+                  while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
+                  maxIterations: 50,
                   do: actionStep({
-                    name: 'combat-action',
-                    actions: [
-                      'combatSelectTarget', // MERC-t5k: Select targets during combat
-                      'combatContinue', // MERC-n1f: Continue active combat
-                      'combatRetreat', // MERC-n1f: Retreat from active combat
-                    ],
-                    skipIf: () => game.isFinished() || game.activeCombat === null,
+                    name: 'select-targets',
+                    actions: ['combatSelectTarget'],
+                    skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
+                  }),
+                }),
+
+                // MERC-n1f: Combat continue/retreat - only when no target selection pending
+                loop({
+                  name: 'combat-decision',
+                  while: () => game.activeCombat !== null && game.activeCombat.pendingTargetSelection == null && !game.isFinished(),
+                  maxIterations: 50,
+                  do: actionStep({
+                    name: 'continue-or-retreat',
+                    actions: ['combatContinue', 'combatRetreat'],
+                    skipIf: () => game.isFinished() || game.activeCombat === null || game.activeCombat.pendingTargetSelection != null,
                   }),
                 }),
 

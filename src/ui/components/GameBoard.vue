@@ -445,9 +445,10 @@ const actionChoices = computed(() => {
   return props.actionArgs || {};
 });
 
-// Check if we're in MERC hiring mode
+// Check if we're in MERC hiring mode (Day 1)
 const isHiringMercs = computed(() => {
-  return props.availableActions.includes('hireStartingMercs');
+  return props.availableActions.includes('hireFirstMerc') ||
+         props.availableActions.includes('hireSecondMerc');
 });
 
 // Check if we're in landing placement mode
@@ -469,10 +470,12 @@ const isEquipping = computed(() => {
 // Use the shared actionArgs from GameShell (props.actionArgs) instead of local state
 // This allows both custom UI and ActionPanel to potentially share state
 
-// Get action metadata for the current action
+// Get action metadata for the current hiring action
 const currentActionMetadata = computed(() => {
   if (!isHiringMercs.value) return null;
-  return props.state?.state?.actionMetadata?.hireStartingMercs;
+  // Check for both first and second merc hiring actions
+  return props.state?.state?.actionMetadata?.hireFirstMerc ||
+         props.state?.state?.actionMetadata?.hireSecondMerc;
 });
 
 // Get the current selection (first one that hasn't been filled yet)
@@ -586,13 +589,18 @@ async function selectMercToHire(merc: any) {
     return;
   }
 
+  // Determine which action is available
+  const actionName = props.availableActions.includes('hireFirstMerc')
+    ? 'hireFirstMerc'
+    : 'hireSecondMerc';
+
   // Check if this is the first selection (action not yet started)
   const isFirstSelection = Object.keys(props.actionArgs).length === 0;
 
   if (isFirstSelection) {
     // Use startAction with initial args (correct pattern per BoardSmith docs)
     // This starts the action in ActionPanel and pre-fills the first selection
-    props.startAction('hireStartingMercs', { [selection.name]: choiceValue });
+    props.startAction(actionName, { [selection.name]: choiceValue });
   } else {
     // Action already started - write directly to actionArgs for subsequent selections
     props.actionArgs[selection.name] = choiceValue;
@@ -605,7 +613,7 @@ async function selectMercToHire(merc: any) {
         (sel: any) => props.actionArgs[sel.name] !== undefined
       );
       if (allFilled) {
-        await props.executeAction('hireStartingMercs');
+        await props.executeAction(actionName);
       }
     }
   }

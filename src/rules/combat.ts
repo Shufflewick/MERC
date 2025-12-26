@@ -2027,9 +2027,8 @@ function executeCombatRound(
               }
             }
 
-            // If not saved, mark MERC as dead and discard equipment
+            // If not saved, discard equipment (isDead is computed from health)
             if (!savedByEpinephrine) {
-              merc.isDead = true;
               // Discard all equipment
               for (const slotName of ['Weapon', 'Armor', 'Accessory'] as const) {
                 const equip = merc.unequip(slotName);
@@ -2237,7 +2236,7 @@ function applyCombatResults(
         }
 
         if (!savedByEpinephrine) {
-          merc.isDead = true;
+          // isDead is computed from health, no need to set it
 
           // Discard all equipment
           const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
@@ -2260,9 +2259,8 @@ function applyCombatResults(
       const damageTaken = combatant.maxHealth - combatant.health;
       dictator.damage = damageTaken;
 
-      // Handle dictator death
+      // Handle dictator death (isDead is computed from health)
       if (combatant.health <= 0) {
-        dictator.isDead = true;
         game.message(`THE DICTATOR HAS BEEN KILLED! REBELS WIN!`);
       }
     }
