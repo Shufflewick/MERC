@@ -242,6 +242,8 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
     .condition((ctx) => {
       // Only rebels can declare coordinated attacks
       if (!game.isRebelPlayer(ctx.player as any)) return false;
+      // Only available in multi-player games (need another rebel to coordinate with)
+      if (game.rebelPlayers.length <= 1) return false;
       const player = ctx.player as RebelPlayer;
       // Need at least one squad with MERCs adjacent to an enemy sector
       const hasValidSquad = [player.primarySquad, player.secondarySquad].some(squad => {
@@ -320,6 +322,8 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
     .condition((ctx) => {
       // Only rebels can join coordinated attacks
       if (!game.isRebelPlayer(ctx.player as any)) return false;
+      // Only available in multi-player games
+      if (game.rebelPlayers.length <= 1) return false;
       const player = ctx.player as RebelPlayer;
       // Must have pending coordinated attacks that this player can join
       if (game.pendingCoordinatedAttacks.size === 0) return false;
@@ -415,6 +419,8 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
     .condition((ctx) => {
       // Only rebels can execute coordinated attacks
       if (!game.isRebelPlayer(ctx.player as any)) return false;
+      // Only available in multi-player games
+      if (game.rebelPlayers.length <= 1) return false;
       // Must have pending coordinated attacks
       return game.pendingCoordinatedAttacks.size > 0;
     })
