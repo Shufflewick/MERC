@@ -112,6 +112,15 @@ const initiative = computed(() => {
   return base + weaponBonus + armorBonus + accessoryBonus;
 });
 
+// Targets - base is 1, plus any equipment bonuses
+const targets = computed(() => {
+  const base = 1; // All MERCs have 1 target by default
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'targets');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'targets');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'targets');
+  return base + weaponBonus + armorBonus + accessoryBonus;
+});
+
 const currentHealth = computed(() => {
   const health = getProp('health', undefined);
   if (health !== undefined) return health;
@@ -205,6 +214,11 @@ function closeEquipmentModal() {
         <span class="stat-value" :class="{ damaged: currentHealth < maxHealth }">
           {{ currentHealth }}/{{ maxHealth }}
         </span>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">&#8982;</span>
+        <span class="stat-label">Targets:</span>
+        <span class="stat-value" :class="{ bonus: targets > 1 }">{{ targets }}</span>
       </div>
     </div>
 
@@ -369,6 +383,10 @@ function closeEquipmentModal() {
 
 .stat-value.damaged {
   color: #e63946;
+}
+
+.stat-value.bonus {
+  color: #4caf50;
 }
 
 /* Ability Section */

@@ -899,6 +899,7 @@ const clickableSectors = computed(() => {
 
 .board-layout {
   display: flex;
+  flex-direction: column;
   gap: 20px;
   flex: 1;
   min-height: 0;
@@ -907,20 +908,12 @@ const clickableSectors = computed(() => {
 .map-section {
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .squad-section {
   flex-shrink: 0;
-}
-
-@media (max-width: 900px) {
-  .board-layout {
-    flex-direction: column;
-  }
-
-  .squad-section {
-    width: 100%;
-  }
+  width: 100%;
 }
 
 .no-data {

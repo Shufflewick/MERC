@@ -106,11 +106,7 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
   background: v-bind('UI_COLORS.cardBg');
   border-radius: 12px;
   padding: 16px;
-  min-width: 280px;
-  max-width: 360px;
   color: v-bind('UI_COLORS.text');
-  max-height: 100%;
-  overflow-y: auto;
 }
 
 .panel-header {
@@ -161,7 +157,8 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
 
 .mercs-list {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
