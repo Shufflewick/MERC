@@ -717,9 +717,10 @@ async function selectMercToHire(merc: any) {
   }
 
   // Determine which action is available
-  const actionName = props.availableActions.includes('hireFirstMerc')
-    ? 'hireFirstMerc'
-    : 'hireSecondMerc';
+  const actionName = getCurrentHiringAction();
+  if (!actionName) {
+    return;
+  }
 
   // Check if this is the first selection (action not yet started)
   const isFirstSelection = Object.keys(props.actionArgs).length === 0;
