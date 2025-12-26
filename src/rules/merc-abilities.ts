@@ -280,7 +280,7 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
   haarg: {
     id: 'haarg',
     // Special: +1 to any skill someone in squad has higher
-    // This requires runtime calculation, flagged here for reference
+    // Implemented in elements.ts MercCard.getHaargBonus()
     passive: {},
   },
 

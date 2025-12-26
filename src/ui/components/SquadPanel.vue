@@ -35,7 +35,16 @@ const props = defineProps<{
   primarySquad?: SquadData;
   secondarySquad?: SquadData;
   playerColor: string;
+  canDropEquipment?: boolean;
 }>();
+
+const emit = defineEmits<{
+  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
+}>();
+
+function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
+  emit('dropEquipment', mercId, slotType);
+}
 
 const borderColor = computed(() => getPlayerColor(props.playerColor));
 
@@ -65,6 +74,8 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
           :merc="merc"
           :player-color="playerColor"
           :show-equipment="true"
+          :can-drop-equipment="canDropEquipment"
+          @drop-equipment="handleDropEquipment"
         />
       </div>
       <div class="empty-squad" v-else>
@@ -87,6 +98,8 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
           :merc="merc"
           :player-color="playerColor"
           :show-equipment="true"
+          :can-drop-equipment="canDropEquipment"
+          @drop-equipment="handleDropEquipment"
         />
       </div>
       <div class="empty-squad" v-else>

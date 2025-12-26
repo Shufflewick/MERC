@@ -78,6 +78,17 @@ export class MercCard extends BaseCard {
   // Location tracking (used for dictator MERCs; rebel MERCs use Squad.sectorId)
   sectorId?: string;
 
+  // Haarg's ability bonuses (stored explicitly since parent isn't available during serialization)
+  haargTrainingBonus: number = 0;
+  haargInitiativeBonus: number = 0;
+  haargCombatBonus: number = 0;
+
+  // Computed stat caches (updated when equipment/abilities change)
+  // These are serialized and sent to the UI since getters aren't serialized by BoardSmith
+  effectiveTraining: number = 0;
+  effectiveInitiative: number = 0;
+  effectiveCombat: number = 0;
+
   // Equipment slots (references to equipped cards)
   weaponSlot?: Equipment;
   armorSlot?: Equipment;
@@ -113,12 +124,108 @@ export class MercCard extends BaseCard {
     return 0;
   }
 
-  // Computed stats including equipment bonuses
+  // Helper to get base stat + equipment (without Haarg bonus) for comparison
+  private getBaseStatWithEquip(stat: 'initiative' | 'training' | 'combat'): number {
+    if (stat === 'initiative') {
+      let value = this.baseInitiative;
+      value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
+      value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
+      value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
+      return value;
+    } else if (stat === 'training') {
+      let value = this.baseTraining;
+      value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
+      value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
+      value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
+      return value;
+    } else {
+      let value = this.baseCombat;
+      value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
+      value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
+      value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
+      return value;
+    }
+  }
+
+  /**
+   * Update computed stat caches.
+   * Call this whenever equipment or abilities change.
+   */
+  updateComputedStats(): void {
+    // Training
+    let t = this.baseTraining;
+    t += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
+    t += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
+    t += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
+    if (this.mercId === 'haarg') {
+      t += this.haargTrainingBonus || 0;
+    }
+    this.effectiveTraining = t;
+
+    // Initiative
+    let i = this.baseInitiative;
+    i += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
+    i += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
+    i += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
+    if (this.mercId === 'haarg') {
+      i += this.haargInitiativeBonus || 0;
+    }
+    this.effectiveInitiative = i;
+
+    // Combat
+    let c = this.baseCombat;
+    c += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
+    c += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
+    c += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
+    if (this.mercId === 'haarg') {
+      c += this.haargCombatBonus || 0;
+    }
+    this.effectiveCombat = Math.max(0, c);
+  }
+
+  /**
+   * Update Haarg's ability bonuses based on squad mates.
+   * Call this whenever squad composition changes.
+   * @param squadMates - Array of other MERCs in the same squad
+   */
+  updateHaargBonus(squadMates: MercCard[]): void {
+    if (this.mercId !== 'haarg') return;
+
+    // Reset bonuses
+    this.haargTrainingBonus = 0;
+    this.haargInitiativeBonus = 0;
+    this.haargCombatBonus = 0;
+
+    // Check each stat against squad mates' BASE stats
+    for (const mate of squadMates) {
+      if (mate.mercId === 'haarg' || mate.isDead) continue;
+
+      if (mate.baseTraining > this.baseTraining) {
+        this.haargTrainingBonus = 1;
+      }
+      if (mate.baseInitiative > this.baseInitiative) {
+        this.haargInitiativeBonus = 1;
+      }
+      if (mate.baseCombat > this.baseCombat) {
+        this.haargCombatBonus = 1;
+      }
+    }
+
+    // Update computed stats after changing bonuses
+    this.updateComputedStats();
+  }
+
+  // Computed stats including equipment bonuses and Haarg's ability
+  // Note: Getters are inlined to ensure they work during BoardSmith serialization
   get initiative(): number {
     let value = this.baseInitiative;
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
+    // Haarg's ability bonus
+    if (this.mercId === 'haarg') {
+      value += this.haargInitiativeBonus || 0;
+    }
     return value;
   }
 
@@ -127,6 +234,10 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
+    // Haarg's ability bonus
+    if (this.mercId === 'haarg') {
+      value += this.haargTrainingBonus || 0;
+    }
     return value;
   }
 
@@ -135,6 +246,10 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
+    // Haarg's ability bonus
+    if (this.mercId === 'haarg') {
+      value += this.haargCombatBonus || 0;
+    }
     return Math.max(0, value);
   }
 
@@ -291,6 +406,7 @@ export class MercCard extends BaseCard {
         this.accessorySlot = equipment;
       }
       this.syncEquipmentData();
+      this.updateComputedStats();
       return replaced;
     }
 
@@ -307,6 +423,7 @@ export class MercCard extends BaseCard {
         this.weaponSlot = equipment;
       }
       this.syncEquipmentData();
+      this.updateComputedStats();
       return replaced;
     }
 
@@ -325,6 +442,7 @@ export class MercCard extends BaseCard {
         break;
     }
     this.syncEquipmentData();
+    this.updateComputedStats();
     return replaced;
   }
 
@@ -345,6 +463,7 @@ export class MercCard extends BaseCard {
         break;
     }
     this.syncEquipmentData();
+    this.updateComputedStats();
     return equipment;
   }
 

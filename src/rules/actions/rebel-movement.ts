@@ -532,6 +532,9 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
       // Secondary squad starts at same location
       player.secondarySquad.sectorId = player.primarySquad.sectorId;
 
+      // Update Haarg's ability bonuses (squad composition changed)
+      game.updateAllHaargBonuses();
+
       game.message(`${player.name} split off ${merc.mercName} into secondary squad`);
       return { success: true, message: `Split ${merc.mercName} to secondary squad` };
     });
@@ -567,6 +570,9 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
 
       // Clear secondary squad location
       player.secondarySquad.sectorId = undefined;
+
+      // Update Haarg's ability bonuses (squad composition changed)
+      game.updateAllHaargBonuses();
 
       game.message(`${player.name} merged squads (${mercs.length} MERC(s) rejoined)`);
       return { success: true, message: `Merged ${mercs.length} MERC(s)` };

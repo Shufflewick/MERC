@@ -790,6 +790,54 @@ async function handleSectorClick(sectorId: string) {
   }
 }
 
+// Check if equipment can be dropped (player's turn, dropEquipment action available)
+const canDropEquipment = computed(() => {
+  return props.isMyTurn && props.availableActions.includes('dropEquipment');
+});
+
+// Handle dropping equipment from a MERC to sector stash
+async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
+  if (!canDropEquipment.value) return;
+
+  // Find the merc in the game view by mercId
+  const squads = findAllByClassName('Squad');
+  let mercElement: any = null;
+
+  for (const squad of squads) {
+    if (squad.children) {
+      for (const child of squad.children) {
+        const childMercId = getAttr(child, 'mercId', '');
+        if (childMercId === mercId) {
+          mercElement = child;
+          break;
+        }
+      }
+    }
+    if (mercElement) break;
+  }
+
+  if (!mercElement) {
+    console.error('Could not find merc element for mercId:', mercId);
+    return;
+  }
+
+  // Get the equipment name for the slot selection
+  const slotKey = slotType === 'Weapon' ? 'weaponSlotData'
+                : slotType === 'Armor' ? 'armorSlotData'
+                : 'accessorySlotData';
+  const slotData = mercElement.attributes?.[slotKey] || mercElement[slotKey];
+  const equipmentName = slotData?.equipmentName || slotData?.attributes?.equipmentName || 'Equipment';
+
+  // Format the slot choice as the action expects
+  const slotChoice = `${slotType}: ${equipmentName}`;
+
+  // Execute the dropEquipment action directly with both args
+  await props.action('dropEquipment', {
+    actingMerc: mercElement,
+    slot: slotChoice,
+  });
+}
+
 // Clickable sectors based on available actions
 const clickableSectors = computed(() => {
   if (isPlacingLanding.value) {
@@ -893,6 +941,8 @@ const clickableSectors = computed(() => {
           :primary-squad="currentPlayerIsDictator ? dictatorSquad : primarySquad"
           :secondary-squad="currentPlayerIsDictator ? undefined : secondarySquad"
           :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+          :can-drop-equipment="canDropEquipment"
+          @drop-equipment="handleDropEquipment"
         />
       </div>
     </div>

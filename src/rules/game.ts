@@ -684,7 +684,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     for (const merc of data) {
       for (let i = 0; i < merc.quantity; i++) {
         const suffix = merc.quantity > 1 ? `-${i + 1}` : '';
-        this.mercDeck.create(MercCard, `merc-${merc.id}${suffix}`, {
+        const mercCard = this.mercDeck.create(MercCard, `merc-${merc.id}${suffix}`, {
           mercId: merc.id,
           mercName: merc.name,
           bio: merc.bio,
@@ -694,6 +694,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
           baseTraining: merc.training,
           baseCombat: merc.combat,
         });
+        // Initialize computed stats (no equipment yet, so just base stats)
+        mercCard.updateComputedStats();
       }
     }
   }
@@ -959,6 +961,43 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     return mercs;
+  }
+
+  /**
+   * Update Haarg's ability bonuses for all squads.
+   * Call this whenever squad composition changes (hiring, movement, death, etc.)
+   */
+  updateAllHaargBonuses(): void {
+    // Check all rebel squads
+    for (const rebel of this.rebelPlayers) {
+      try {
+        this.updateHaargBonusForSquad(rebel.primarySquad);
+      } catch { /* squad not initialized */ }
+      try {
+        this.updateHaargBonusForSquad(rebel.secondarySquad);
+      } catch { /* squad not initialized */ }
+    }
+    // Check dictator squads (in case Haarg is hired by dictator)
+    if (this.dictatorPlayer) {
+      try {
+        this.updateHaargBonusForSquad(this.dictatorPlayer.primarySquad);
+      } catch { /* squad not initialized */ }
+      try {
+        this.updateHaargBonusForSquad(this.dictatorPlayer.secondarySquad);
+      } catch { /* squad not initialized */ }
+    }
+  }
+
+  /**
+   * Update Haarg's bonus for a specific squad
+   */
+  updateHaargBonusForSquad(squad: Squad): void {
+    if (!squad) return;
+    const mercs = squad.getMercs();
+    const haarg = mercs.find(m => m.mercId === 'haarg');
+    if (haarg) {
+      haarg.updateHaargBonus(mercs);
+    }
   }
 
   getDictatorMercsInSector(sector: Sector): MercCard[] {
