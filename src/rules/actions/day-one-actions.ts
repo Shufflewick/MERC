@@ -42,7 +42,8 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat) return false;
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
-      return player.teamSize === 0;
+      // Use team.length (not teamSize) since Teresa doesn't count toward teamSize
+      return player.team.length === 0;
     })
     .chooseFrom<string>('merc', {
       prompt: 'Select your FIRST MERC to hire',
@@ -176,14 +177,28 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       const remaining = available.filter(m => m !== merc);
       drawnMercsCache.set(playerId, remaining);
 
-      // Only discard remaining if at team limit (Teresa doesn't count toward limit)
-      // If teamSize < BASE_TEAM_LIMIT (2), we can hire more
-      if (player.teamSize >= 2) {
+      const hasTeresa = player.team.some(m => m.mercId === 'teresa');
+      console.log('[hireSecondMerc.execute] After hiring:', {
+        hiredMerc: merc.mercName,
+        teamLength: player.team.length,
+        teamSize: player.teamSize,
+        teamMembers: player.team.map(m => m.mercName),
+        hasTeresa,
+        remainingInCache: remaining.length,
+        remainingNames: remaining.map(m => m.mercName),
+        willDiscard: !hasTeresa,
+      });
+
+      // Only discard remaining if Teresa is NOT on the team
+      // Teresa doesn't count toward limit, so player can hire a 3rd MERC
+      if (!hasTeresa) {
         for (const other of remaining) {
           other.putInto(game.mercDiscard);
           game.message(`${other.mercName} was not selected and returns to the deck`);
         }
         drawnMercsCache.delete(playerId);
+      } else {
+        game.message(`Teresa bonus: ${remaining.length} MERC(s) available for third hire!`);
       }
 
       return {
@@ -212,38 +227,66 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       const player = ctx.player as RebelPlayer;
       const playerId = `${player.position}`;
       const remaining = drawnMercsCache.get(playerId) || [];
-      // Available when: 2 MERCs hired, teamSize < 2 (meaning Teresa is on team), and cache has MERCs
-      return player.team.length === 2 && player.teamSize < 2 && remaining.length > 0;
+      // Check if Teresa is on the team (she doesn't count toward limit)
+      const hasTeresa = player.team.some(m => m.mercId === 'teresa');
+      // Available when: 2 MERCs hired, Teresa is on team, and cache has MERCs to hire
+      const result = player.team.length === 2 && hasTeresa && remaining.length > 0;
+      console.log('[hireThirdMerc.condition]', {
+        teamLength: player.team.length,
+        teamSize: player.teamSize,
+        hasTeresa,
+        remainingLength: remaining.length,
+        remainingNames: remaining.map(m => m.mercName),
+        result,
+      });
+      return result;
     })
     .chooseFrom<string>('merc', {
-      prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC',
+      prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
         const available = drawnMercsCache.get(playerId) || [];
 
-        if (available.length === 0) {
-          return ['No MERCs available'];
-        }
-        return available.map((m) => capitalize(m.mercName));
+        const choices = available.map((m) => capitalize(m.mercName));
+        choices.push('Skip (no third hire)');
+        return choices;
       },
     })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
-      choices: () => ['Weapon', 'Armor', 'Accessory'],
+      choices: (ctx) => {
+        const mercChoice = ctx.args?.merc as string;
+        // Skip equipment selection if skipping third hire
+        if (mercChoice === 'Skip (no third hire)') {
+          return ['N/A'];
+        }
+        return ['Weapon', 'Armor', 'Accessory'];
+      },
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const playerId = `${player.position}`;
       const available = drawnMercsCache.get(playerId) || [];
+      const mercName = args.merc as string;
+
+      // Handle skip option
+      if (mercName === 'Skip (no third hire)') {
+        // Discard remaining MERCs
+        for (const other of available) {
+          other.putInto(game.mercDiscard);
+        }
+        drawnMercsCache.delete(playerId);
+        game.message(`${player.name} skipped third hire`);
+        return { success: true, message: 'Skipped third hire' };
+      }
 
       if (available.length === 0) {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const mercName = args.merc as string;
-      if (!mercName || mercName === 'No MERCs available') {
-        return { success: false, message: 'No MERCs available in deck' };
+      if (!mercName) {
+        return { success: false, message: 'No MERC selected' };
       }
 
       const merc = available.find(m => capitalize(m.mercName) === mercName);
