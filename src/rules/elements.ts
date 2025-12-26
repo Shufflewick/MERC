@@ -95,28 +95,46 @@ export class MercCard extends BaseCard {
   static readonly BASE_ARMOR = MercConstants.BASE_ARMOR;
   static readonly BASE_ACTIONS = MercConstants.ACTIONS_PER_DAY;
 
+  // Helper to get equipment value with fallback to serialized data
+  // BoardSmith doesn't serialize element references, so we need to check *SlotData
+  private getEquipValue(
+    slot: Equipment | undefined,
+    slotData: EquipmentSlotData | null | undefined,
+    prop: keyof EquipmentSlotData
+  ): number {
+    // Try the slot reference first (available during session)
+    if (slot && typeof slot[prop as keyof Equipment] === 'number') {
+      return slot[prop as keyof Equipment] as number;
+    }
+    // Fall back to serialized data (available after restore)
+    if (slotData && typeof slotData[prop] === 'number') {
+      return slotData[prop] as number;
+    }
+    return 0;
+  }
+
   // Computed stats including equipment bonuses
   get initiative(): number {
     let value = this.baseInitiative;
-    if (this.weaponSlot?.initiative) value += this.weaponSlot.initiative;
-    if (this.armorSlot?.initiative) value += this.armorSlot.initiative;
-    if (this.accessorySlot?.initiative) value += this.accessorySlot.initiative;
+    value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
+    value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
+    value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
     return value;
   }
 
   get training(): number {
     let value = this.baseTraining;
-    if (this.weaponSlot?.training) value += this.weaponSlot.training;
-    if (this.armorSlot?.training) value += this.armorSlot.training;
-    if (this.accessorySlot?.training) value += this.accessorySlot.training;
+    value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
+    value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
+    value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
     return value;
   }
 
   get combat(): number {
     let value = this.baseCombat;
-    if (this.weaponSlot?.combatBonus) value += this.weaponSlot.combatBonus;
-    if (this.armorSlot?.combatBonus) value += this.armorSlot.combatBonus;
-    if (this.accessorySlot?.combatBonus) value += this.accessorySlot.combatBonus;
+    value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
+    value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
+    value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
     return Math.max(0, value);
   }
 
@@ -137,17 +155,17 @@ export class MercCard extends BaseCard {
 
   get targets(): number {
     let value = MercCard.BASE_TARGETS;
-    if (this.weaponSlot?.targets) value += this.weaponSlot.targets;
-    if (this.armorSlot?.targets) value += this.armorSlot.targets;
-    if (this.accessorySlot?.targets) value += this.accessorySlot.targets;
+    value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'targets');
+    value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'targets');
+    value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'targets');
     return value;
   }
 
   get equipmentArmor(): number {
     let value = MercCard.BASE_ARMOR;
-    if (this.weaponSlot?.armorBonus) value += this.weaponSlot.armorBonus;
-    if (this.armorSlot?.armorBonus) value += this.armorSlot.armorBonus;
-    if (this.accessorySlot?.armorBonus) value += this.accessorySlot.armorBonus;
+    value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'armorBonus');
+    value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'armorBonus');
+    value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'armorBonus');
     return value;
   }
 

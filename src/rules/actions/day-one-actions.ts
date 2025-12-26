@@ -36,6 +36,10 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
     .prompt('Hire your first MERC')
     .notUndoable() // Involves randomness (drawing cards)
     .condition((ctx) => {
+      // Only available during Day 1 setup
+      if (game.currentDay !== 1) return false;
+      // Not available during combat
+      if (game.activeCombat) return false;
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       return player.teamSize === 0;
@@ -112,6 +116,10 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
     .prompt('Hire your second MERC')
     .notUndoable()
     .condition((ctx) => {
+      // Only available during Day 1 setup
+      if (game.currentDay !== 1) return false;
+      // Not available during combat
+      if (game.activeCombat) return false;
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
       return player.teamSize === 1;

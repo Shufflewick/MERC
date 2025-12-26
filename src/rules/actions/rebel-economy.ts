@@ -98,7 +98,6 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       prompt: 'Which MERC spends the actions?',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
-      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels can hire MERCs
         if (!game.isRebelPlayer(ctx.player as any)) return false;
@@ -347,7 +346,6 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       prompt: 'Which MERC explores?',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
-      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
@@ -681,7 +679,6 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       prompt: 'Select MERC to train militia',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
-      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels can train militia
         if (!game.isRebelPlayer(ctx.player as any)) return false;
@@ -756,7 +753,6 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       prompt: 'Select MERC to heal',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
-      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels can visit hospital
         if (!game.isRebelPlayer(ctx.player as any)) return false;
@@ -813,7 +809,6 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       prompt: 'Which MERC visits the dealer?',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
-      skipIfOnlyOne: true,
       filter: (element, ctx) => {
         // Safety check - only rebels can visit arms dealer
         if (!game.isRebelPlayer(ctx.player as any)) return false;

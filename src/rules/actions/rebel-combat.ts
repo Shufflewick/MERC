@@ -133,9 +133,18 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       // Only rebels can select targets (this is a rebel combat action)
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       // Must have active combat with pending target selection and at least one valid target
-      return game.activeCombat !== null &&
-             game.activeCombat.pendingTargetSelection !== undefined &&
-             (game.activeCombat.pendingTargetSelection.validTargets?.length || 0) > 0;
+      const hasActiveCombat = game.activeCombat !== null;
+      const hasPending = game.activeCombat?.pendingTargetSelection != null;
+      const targetCount = game.activeCombat?.pendingTargetSelection?.validTargets?.length || 0;
+      const result = hasActiveCombat && hasPending && targetCount > 0;
+      console.log('[combatSelectTarget.condition]', {
+        hasActiveCombat,
+        hasPending,
+        targetCount,
+        result,
+        attackerName: game.activeCombat?.pendingTargetSelection?.attackerName,
+      });
+      return result;
     })
     .chooseFrom<string>('targets', {
       prompt: (ctx) => {
@@ -146,21 +155,44 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       },
       choices: () => {
         const pending = game.activeCombat?.pendingTargetSelection;
-        if (!pending) return [];
+        console.log('[combatSelectTarget.choices]', {
+          hasPending: !!pending,
+          attackerName: pending?.attackerName,
+          targetCount: pending?.validTargets?.length || 0,
+          maxTargets: pending?.maxTargets,
+          targets: pending?.validTargets?.map((t: Combatant) => t.name),
+        });
+        if (!pending) {
+          console.log('[combatSelectTarget.choices] returning [] - no pending state');
+          return [];
+        }
 
-        // Build choice strings for all valid targets
         return pending.validTargets.map((t: Combatant) =>
           buildTargetChoice(t, pending.validTargets)
         );
       },
       // Use multi-select when MERC can target multiple enemies
       multiSelect: (ctx) => {
+        console.log('[combatSelectTarget.multiSelect] CALLED');
         const pending = game.activeCombat?.pendingTargetSelection;
-        if (!pending || pending.maxTargets <= 1) return undefined;
-        return { min: 1, max: pending.maxTargets };
+        const result = (!pending || pending.maxTargets <= 1)
+          ? undefined
+          : { min: 1, max: pending.maxTargets };
+        console.log('[combatSelectTarget.multiSelect]', {
+          hasPending: !!pending,
+          maxTargets: pending?.maxTargets,
+          result,
+        });
+        return result;
       },
     })
     .execute((args, ctx) => {
+      console.log('[combatSelectTarget.execute] START', {
+        hasActiveCombat: !!game.activeCombat,
+        hasPending: !!game.activeCombat?.pendingTargetSelection,
+        args,
+      });
+
       if (!game.activeCombat || !game.activeCombat.pendingTargetSelection) {
         return { success: false, message: 'No target selection pending' };
       }
@@ -200,6 +232,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       game.activeCombat.selectedTargets.set(pending.attackerId, selectedIds);
 
       // Clear pending and continue combat
+      console.log('[combatSelectTarget.execute] Clearing pendingTargetSelection');
       game.activeCombat.pendingTargetSelection = undefined;
 
       const targetMsg = targetNames.length === 1
@@ -222,6 +255,14 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       }
 
       const outcome = executeCombat(game, sector, player);
+
+      console.log('[combatSelectTarget.execute] After executeCombat', {
+        combatPending: outcome.combatPending,
+        rebelVictory: outcome.rebelVictory,
+        dictatorVictory: outcome.dictatorVictory,
+        hasActiveCombat: !!game.activeCombat,
+        hasPending: !!game.activeCombat?.pendingTargetSelection,
+      });
 
       return {
         success: true,
