@@ -92,6 +92,7 @@ import {
 import {
   createHireFirstMercAction,
   createHireSecondMercAction,
+  createHireThirdMercAction,
   createEquipStartingAction,
   createPlaceLandingAction,
   createDictatorPlaceInitialMilitiaAction,
@@ -140,6 +141,7 @@ export function registerAllActions(game: MERCGame): void {
   // Day 1 specific actions (Rebel)
   game.registerAction(createHireFirstMercAction(game));
   game.registerAction(createHireSecondMercAction(game));
+  game.registerAction(createHireThirdMercAction(game));
   game.registerAction(createEquipStartingAction(game));
 
   // Day 1 specific actions (Dictator) - MERC-mtoq

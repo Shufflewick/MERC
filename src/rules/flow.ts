@@ -93,6 +93,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['hireSecondMerc'],
                 prompt: 'Hire your second MERC',
               }),
+
+              // Step 4: Optional third MERC (if Teresa was hired - she doesn't count toward limit)
+              actionStep({
+                name: 'hire-third-merc',
+                actions: ['hireThirdMerc'],
+                prompt: 'Hire your third MERC (Teresa bonus)',
+                skipIf: (ctx) => {
+                  const player = ctx?.player as RebelPlayer | undefined;
+                  if (!player) return true;
+                  // Skip if teamSize >= 2 (Teresa wasn't hired) or no MERCs left to hire
+                  return player.teamSize >= 2 || player.team.length < 2;
+                },
+              }),
             ),
           }),
 

@@ -109,7 +109,8 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
 
 /**
  * Hire second MERC on Day 1.
- * Pick from remaining 2 MERCs, discard the unchosen one, then pick their starting equipment.
+ * Pick from remaining 2 MERCs, then pick their starting equipment.
+ * If Teresa was hired (doesn't count toward limit), a third hire may be available.
  */
 export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireSecondMerc')
@@ -122,7 +123,10 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat) return false;
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
-      return player.teamSize === 1;
+      // Available when teamSize is 1 OR when teamSize is 0 but have 1+ MERCs (Teresa was first)
+      const playerId = `${player.position}`;
+      const remaining = drawnMercsCache.get(playerId) || [];
+      return player.team.length === 1 && remaining.length >= 2;
     })
     .chooseFrom<string>('merc', {
       prompt: 'Select your SECOND MERC to hire',
@@ -168,15 +172,94 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const equipment = equipStartingEquipment(game, merc, equipmentType);
 
-      // Discard the remaining MERC(s)
-      for (const other of available) {
-        if (other !== merc) {
+      // Update cache with remaining MERCs
+      const remaining = available.filter(m => m !== merc);
+      drawnMercsCache.set(playerId, remaining);
+
+      // Only discard remaining if at team limit (Teresa doesn't count toward limit)
+      // If teamSize < BASE_TEAM_LIMIT (2), we can hire more
+      if (player.teamSize >= 2) {
+        for (const other of remaining) {
           other.putInto(game.mercDiscard);
           game.message(`${other.mercName} was not selected and returns to the deck`);
         }
+        drawnMercsCache.delete(playerId);
       }
 
-      // Clean up cache
+      return {
+        success: true,
+        message: equipment
+          ? `Hired ${merc.mercName}, equipped ${equipment.equipmentName}`
+          : `Hired ${merc.mercName}`,
+        data: { hiredMerc: merc.mercName },
+      };
+    });
+}
+
+/**
+ * Hire third MERC on Day 1 (only available if Teresa was hired).
+ * Teresa doesn't count toward team limit, so you can hire an extra MERC.
+ */
+export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
+  return Action.create('hireThirdMerc')
+    .prompt('Hire your third MERC (Teresa bonus)')
+    .notUndoable()
+    .condition((ctx) => {
+      // Only available during Day 1 setup
+      if (game.currentDay !== 1) return false;
+      if (game.activeCombat) return false;
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+      const playerId = `${player.position}`;
+      const remaining = drawnMercsCache.get(playerId) || [];
+      // Available when: 2 MERCs hired, teamSize < 2 (meaning Teresa is on team), and cache has MERCs
+      return player.team.length === 2 && player.teamSize < 2 && remaining.length > 0;
+    })
+    .chooseFrom<string>('merc', {
+      prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const playerId = `${player.position}`;
+        const available = drawnMercsCache.get(playerId) || [];
+
+        if (available.length === 0) {
+          return ['No MERCs available'];
+        }
+        return available.map((m) => capitalize(m.mercName));
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const playerId = `${player.position}`;
+      const available = drawnMercsCache.get(playerId) || [];
+
+      if (available.length === 0) {
+        return { success: false, message: 'No MERCs available in deck' };
+      }
+
+      const mercName = args.merc as string;
+      if (!mercName || mercName === 'No MERCs available') {
+        return { success: false, message: 'No MERCs available in deck' };
+      }
+
+      const merc = available.find(m => capitalize(m.mercName) === mercName);
+      if (!merc) {
+        return { success: false, message: 'Invalid selection' };
+      }
+
+      // Hire the selected MERC
+      merc.putInto(player.primarySquad);
+      game.message(`${player.name} hired ${merc.mercName} (Teresa bonus)`);
+
+      // Equip starting equipment
+      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const equipment = equipStartingEquipment(game, merc, equipmentType);
+
+      // Clean up cache - no more hiring available
       drawnMercsCache.delete(playerId);
 
       return {
