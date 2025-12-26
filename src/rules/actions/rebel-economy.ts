@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, Squad } from '../elements.js';
+import { MercCard, Sector, Equipment, Squad, isGrenadeOrMortar } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { executeCombat } from '../combat.js';
@@ -171,7 +171,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       // Spend action
       if (!useAction(actingMerc, ACTION_COSTS.HIRE_MERC)) {
-        // Return mercs to deck/discard if failed
+        // Discard mercs if action failed
         for (const merc of drawnMercs) {
           merc.putInto(game.mercDiscard);
         }
@@ -254,7 +254,33 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             equipType = types[Math.floor(Math.random() * types.length)];
           }
 
-          const freeEquipment = game.drawEquipment(equipType);
+          let freeEquipment = game.drawEquipment(equipType);
+
+          // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
+          if (merc.mercId === 'apeiron' && freeEquipment && isGrenadeOrMortar(freeEquipment)) {
+            const discard = game.getEquipmentDiscard(equipType);
+            if (discard) {
+              freeEquipment.putInto(discard);
+              game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
+            }
+            freeEquipment = game.drawEquipment(equipType);
+            // Keep redrawing up to 3 times if still getting grenades
+            for (let attempts = 0; attempts < 3 && freeEquipment && isGrenadeOrMortar(freeEquipment); attempts++) {
+              if (discard) {
+                freeEquipment.putInto(discard);
+                game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
+              }
+              freeEquipment = game.drawEquipment(equipType);
+            }
+            // If still a grenade after multiple attempts, skip equipping
+            if (freeEquipment && isGrenadeOrMortar(freeEquipment)) {
+              const disc = game.getEquipmentDiscard(equipType);
+              if (disc) freeEquipment.putInto(disc);
+              freeEquipment = undefined;
+              game.message(`${merc.mercName} could not find acceptable equipment`);
+            }
+          }
+
           if (freeEquipment) {
             const replaced = merc.equip(freeEquipment);
             if (replaced) {
@@ -413,9 +439,19 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           return ['Done'];
         }
 
+        // MERC-70a: Filter out grenades/mortars if Apeiron is the acting MERC
+        let availableEquipment = equipment;
+        if (actingMerc.mercId === 'apeiron') {
+          availableEquipment = equipment.filter(e => !isGrenadeOrMortar(e));
+        }
+
+        if (availableEquipment.length === 0) {
+          return ['Done'];
+        }
+
         // The equipment array is the source of truth - items are removed when equipped
         // and added back when replaced, so we just show whatever is currently available
-        const equipmentChoices = equipment.map(e => `${e.equipmentName} (${e.equipmentType})`);
+        const equipmentChoices = availableEquipment.map(e => `${e.equipmentName} (${e.equipmentType})`);
         return [...equipmentChoices, 'Done'];
       },
       repeat: {
@@ -858,7 +894,17 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
           }
         }
 
-        const choices = player.team.map(m => ({
+        const drawnEquip = drawnEquipmentCache.get(cacheKey);
+
+        // MERC-70a: Filter out Apeiron if equipment is a grenade/mortar
+        const eligibleMercs = player.team.filter(m => {
+          if (m.mercId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
+            return false;
+          }
+          return true;
+        });
+
+        const choices = eligibleMercs.map(m => ({
           label: `${m.mercName}`,
           value: m.mercName,
         }));

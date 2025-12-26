@@ -106,6 +106,10 @@ export interface EquipmentEffect {
   rangedAttack?: boolean;
   /** Range in sectors */
   rangedRange?: number;
+
+  // --- Armor Items ---
+  /** Equipment is armor (provides armorBonus stat) */
+  isArmor?: boolean;
 }
 
 // =============================================================================
@@ -195,9 +199,6 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
   'smaw': {
     id: 'smaw',
     weaponCategory: 'smaw',
-    // SMAW can be used for ranged attack on adjacent sector
-    rangedAttack: true,
-    rangedRange: 1,
   },
 
   // --- Explosives (Grenades/Mortars) ---
@@ -333,6 +334,54 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
     id: 'explosives',
     isExplosivesComponent: true,
     matchingComponent: 'detonator',
+  },
+
+  // --- Armor Items ---
+  // Armor provides stat bonuses (armorBonus, combat penalty, initiative penalty)
+  // These are defined here for registry completeness
+  'body-armor': {
+    id: 'body-armor',
+    isArmor: true,
+  },
+  'body-armor-with-ceramic-plates': {
+    id: 'body-armor-with-ceramic-plates',
+    isArmor: true,
+  },
+  'body-armor-with-ceramic-plates-and-kevlar-helmet': {
+    id: 'body-armor-with-ceramic-plates-and-kevlar-helmet',
+    isArmor: true,
+  },
+  'flak-vest': {
+    id: 'flak-vest',
+    isArmor: true,
+  },
+  'flak-vest-with-ceramic-plates-and-kevlar-helmet': {
+    id: 'flak-vest-with-ceramic-plates-and-kevlar-helmet',
+    isArmor: true,
+  },
+  'flak-vest-with-kevlar-helmet': {
+    id: 'flak-vest-with-kevlar-helmet',
+    isArmor: true,
+  },
+  'full-body-armor': {
+    id: 'full-body-armor',
+    isArmor: true,
+  },
+  'ghillie-suit': {
+    id: 'ghillie-suit',
+    isArmor: true,
+  },
+  'kevlar-vest': {
+    id: 'kevlar-vest',
+    isArmor: true,
+  },
+  'kevlar-vest-with-ceramic-plates': {
+    id: 'kevlar-vest-with-ceramic-plates',
+    isArmor: true,
+  },
+  'kevlar-vest-with-ceramic-plates-and-kevlar-helmet': {
+    id: 'kevlar-vest-with-ceramic-plates-and-kevlar-helmet',
+    isArmor: true,
   },
 };
 
@@ -532,4 +581,12 @@ export function getMatchingComponent(equipmentId: string): string | undefined {
 export function getExtraAccessorySlots(equipmentId: string): number {
   const effect = EQUIPMENT_EFFECTS[equipmentId];
   return effect?.extraAccessorySlots ?? 0;
+}
+
+/**
+ * Check if equipment is armor
+ */
+export function isArmor(equipmentId: string): boolean {
+  const effect = EQUIPMENT_EFFECTS[equipmentId];
+  return effect?.isArmor ?? false;
 }

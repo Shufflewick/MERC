@@ -51,11 +51,26 @@ export const MERC_INCOMPATIBILITIES: Record<string, string[]> = {
 };
 
 /**
- * Check if a MERC can be hired given the current team composition
+ * Check if a MERC can be hired given the current team composition.
+ * Checks both directions: the new MERC's incompatibilities AND
+ * whether any team member has an incompatibility with the new MERC.
  */
 export function canHireMercWithTeam(mercId: string, team: MercCard[]): boolean {
-  const incompatible = MERC_INCOMPATIBILITIES[mercId] || [];
-  return !team.some(m => incompatible.includes(m.mercId));
+  // Check if new MERC is incompatible with anyone on team
+  const newMercIncompat = MERC_INCOMPATIBILITIES[mercId] || [];
+  if (team.some(m => newMercIncompat.includes(m.mercId))) {
+    return false;
+  }
+
+  // Check if anyone on team is incompatible with the new MERC
+  for (const member of team) {
+    const memberIncompat = MERC_INCOMPATIBILITIES[member.mercId] || [];
+    if (memberIncompat.includes(mercId)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // =============================================================================

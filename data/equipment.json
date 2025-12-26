@@ -431,6 +431,19 @@
     "image": "{$medicalkit}"
   },
   {
+    "id": "mortar",
+    "name": "Mortar",
+    "quantity": 2,
+    "type": "Accessory",
+    "serial": 950,
+    "combat": 5,
+    "targets": 4,
+    "initiative": -2,
+    "negatesArmor": false,
+    "description": "Spend an action to bombard an adjacent sector with damage without entering the sector, or use as normal during combat. Either way, discard after 1 attack.",
+    "image": "https://s3.amazonaws.com/files.component.studio/F43BFF40-0C1C-11E8-829E-E1B0E261B13A/mortar.png"
+  },
+  {
     "id": "repair-kit",
     "name": "Repair Kit",
     "quantity": 2,

@@ -8,7 +8,7 @@
  */
 
 import type { MERCGame, RebelPlayer } from './game.js';
-import { MercCard, Equipment, Sector, TacticsCard } from './elements.js';
+import { MercCard, Equipment, Sector, TacticsCard, isGrenadeOrMortar } from './elements.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 import { selectNewMercLocation } from './ai-helpers.js';
@@ -124,13 +124,39 @@ export function placeLanding(
 /**
  * Equip starting equipment on a MERC.
  * Each newly hired MERC gets 1 free equipment from any deck.
+ * MERC-70a: Apeiron won't use grenades or mortars - redraw if he gets one.
  */
 export function equipStartingEquipment(
   game: MERCGame,
   merc: MercCard,
   equipmentType: 'Weapon' | 'Armor' | 'Accessory'
 ): Equipment | undefined {
-  const equipment = game.drawEquipment(equipmentType);
+  let equipment = game.drawEquipment(equipmentType);
+
+  // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
+  if (merc.mercId === 'apeiron' && equipment && isGrenadeOrMortar(equipment)) {
+    const discard = game.getEquipmentDiscard(equipmentType);
+    if (discard) {
+      equipment.putInto(discard);
+      game.message(`${merc.mercName} refuses to use ${equipment.equipmentName} - discarding and drawing again`);
+    }
+    // Redraw (up to 3 attempts to avoid infinite loop if deck is all grenades)
+    for (let i = 0; i < 3; i++) {
+      equipment = game.drawEquipment(equipmentType);
+      if (!equipment || !isGrenadeOrMortar(equipment)) break;
+      if (discard && equipment) {
+        equipment.putInto(discard);
+        game.message(`${merc.mercName} refuses to use ${equipment.equipmentName} - discarding and drawing again`);
+      }
+    }
+    // If still a grenade after 3 attempts, just skip equipping
+    if (equipment && isGrenadeOrMortar(equipment)) {
+      const disc = game.getEquipmentDiscard(equipmentType);
+      if (disc) equipment.putInto(disc);
+      game.message(`${merc.mercName} could not find acceptable equipment`);
+      return undefined;
+    }
+  }
 
   if (equipment) {
     merc.equip(equipment);

@@ -18,7 +18,7 @@ import {
   autoPlaceExtraMilitia,
 } from '../day-one.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -143,7 +143,16 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         if (available.length === 0) {
           return ['No MERCs available'];
         }
-        return available.map((m) => capitalize(m.mercName));
+
+        // Filter out MERCs incompatible with current team
+        const compatible = available.filter(m =>
+          canHireMercWithTeam(m.mercId, player.team)
+        );
+
+        if (compatible.length === 0) {
+          return ['No compatible MERCs available'];
+        }
+        return compatible.map((m) => capitalize(m.mercName));
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -160,13 +169,18 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       }
 
       const mercName = args.merc as string;
-      if (!mercName || mercName === 'No MERCs available') {
-        return { success: false, message: 'No MERCs available in deck' };
+      if (!mercName || mercName === 'No MERCs available' || mercName === 'No compatible MERCs available') {
+        return { success: false, message: 'No compatible MERCs available' };
       }
 
       const merc = available.find(m => capitalize(m.mercName) === mercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
+      }
+
+      // Double-check compatibility (safety check)
+      if (!canHireMercWithTeam(merc.mercId, player.team)) {
+        return { success: false, message: `${merc.mercName} is incompatible with your current team` };
       }
 
       // Hire the selected MERC
@@ -191,7 +205,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       if (!hasTeresa) {
         for (const other of remaining) {
           other.putInto(game.mercDiscard);
-          game.message(`${other.mercName} was not selected and returns to the deck`);
+          game.message(`${other.mercName} was not selected and is discarded`);
         }
         drawnMercsCache.delete(playerId);
       } else {
@@ -236,7 +250,12 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         const playerId = `${player.position}`;
         const available = drawnMercsCache.get(playerId) || [];
 
-        const choices = available.map((m) => capitalize(m.mercName));
+        // Filter out MERCs incompatible with current team
+        const compatible = available.filter(m =>
+          canHireMercWithTeam(m.mercId, player.team)
+        );
+
+        const choices = compatible.map((m) => capitalize(m.mercName));
         choices.push('Skip (no third hire)');
         return choices;
       },
@@ -280,6 +299,11 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       const merc = available.find(m => capitalize(m.mercName) === mercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
+      }
+
+      // Double-check compatibility (safety check)
+      if (!canHireMercWithTeam(merc.mercId, player.team)) {
+        return { success: false, message: `${merc.mercName} is incompatible with your current team` };
       }
 
       // Hire the selected MERC

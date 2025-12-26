@@ -26,6 +26,7 @@ import {
   isExplosivesComponent,
   getMatchingComponent,
   getExtraAccessorySlots,
+  isArmor,
 } from '../src/rules/equipment-effects.js';
 
 /**
@@ -84,9 +85,10 @@ describe('Equipment Effects Registry', () => {
     });
 
     describe('Explosives', () => {
-      it('should identify grenades as explosives', () => {
+      it('should identify grenades and mortar as explosives', () => {
         expect(isExplosive('grenade')).toBe(true);
         expect(isExplosive('fragmentation-grenade')).toBe(true);
+        expect(isExplosive('mortar')).toBe(true);
       });
 
       it('should not identify non-explosives', () => {
@@ -285,15 +287,26 @@ describe('Equipment Effects Registry', () => {
   });
 
   describe('Ranged Attack', () => {
-    it('should identify SMAW as having ranged attack', () => {
-      expect(hasRangedAttack('smaw')).toBe(true);
-      expect(getRangedRange('smaw')).toBe(1);
+    it('should identify Mortar as having ranged attack', () => {
+      expect(hasRangedAttack('mortar')).toBe(true);
+      expect(getRangedRange('mortar')).toBe(1);
     });
 
     it('should not identify regular weapons as ranged attack', () => {
       expect(hasRangedAttack('m16')).toBe(false);
       expect(hasRangedAttack('grenade')).toBe(false);
+      expect(hasRangedAttack('smaw')).toBe(false);
       expect(getRangedRange('m16')).toBe(0);
+    });
+
+    it('should allow mortar to bombard adjacent sector without entering', () => {
+      // Mortar description: "Spend an action to bombard an adjacent sector
+      // with damage without entering the sector"
+      const mortarEffect = getEquipmentEffect('mortar');
+      expect(mortarEffect?.rangedAttack).toBe(true);
+      expect(mortarEffect?.rangedRange).toBe(1);
+      expect(mortarEffect?.consumable).toBe(true);
+      expect(mortarEffect?.discardAfterAttack).toBe(true);
     });
   });
 
@@ -339,6 +352,74 @@ describe('Equipment Effects Registry', () => {
     });
   });
 
+  describe('Armor Items', () => {
+    describe('Body Armor variants', () => {
+      it('should identify body armor as armor', () => {
+        expect(isArmor('body-armor')).toBe(true);
+      });
+
+      it('should identify body armor with ceramic plates as armor', () => {
+        expect(isArmor('body-armor-with-ceramic-plates')).toBe(true);
+      });
+
+      it('should identify body armor with ceramic plates and kevlar helmet as armor', () => {
+        expect(isArmor('body-armor-with-ceramic-plates-and-kevlar-helmet')).toBe(true);
+      });
+    });
+
+    describe('Flak Vest variants', () => {
+      it('should identify flak vest as armor', () => {
+        expect(isArmor('flak-vest')).toBe(true);
+      });
+
+      it('should identify flak vest with kevlar helmet as armor', () => {
+        expect(isArmor('flak-vest-with-kevlar-helmet')).toBe(true);
+      });
+
+      it('should identify flak vest with ceramic plates and kevlar helmet as armor', () => {
+        expect(isArmor('flak-vest-with-ceramic-plates-and-kevlar-helmet')).toBe(true);
+      });
+    });
+
+    describe('Kevlar Vest variants', () => {
+      it('should identify kevlar vest as armor', () => {
+        expect(isArmor('kevlar-vest')).toBe(true);
+      });
+
+      it('should identify kevlar vest with ceramic plates as armor', () => {
+        expect(isArmor('kevlar-vest-with-ceramic-plates')).toBe(true);
+      });
+
+      it('should identify kevlar vest with ceramic plates and kevlar helmet as armor', () => {
+        expect(isArmor('kevlar-vest-with-ceramic-plates-and-kevlar-helmet')).toBe(true);
+      });
+    });
+
+    describe('Other Armor', () => {
+      it('should identify full body armor as armor', () => {
+        expect(isArmor('full-body-armor')).toBe(true);
+      });
+
+      it('should identify ghillie suit as armor', () => {
+        expect(isArmor('ghillie-suit')).toBe(true);
+      });
+    });
+
+    describe('Non-armor items', () => {
+      it('should not identify weapons as armor', () => {
+        expect(isArmor('9mm-handgun')).toBe(false);
+        expect(isArmor('m16')).toBe(false);
+        expect(isArmor('uzi')).toBe(false);
+      });
+
+      it('should not identify accessories as armor', () => {
+        expect(isArmor('medical-kit')).toBe(false);
+        expect(isArmor('bandolier')).toBe(false);
+        expect(isArmor('grenade')).toBe(false);
+      });
+    });
+  });
+
   describe('Registry Completeness', () => {
     it('should have entries for all handguns', () => {
       const handguns = Object.keys(EQUIPMENT_EFFECTS).filter(id =>
@@ -359,6 +440,20 @@ describe('Equipment Effects Registry', () => {
         EQUIPMENT_EFFECTS[id].healing !== undefined
       );
       expect(healingItems.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should have entries for all armor items', () => {
+      const armorItems = Object.keys(EQUIPMENT_EFFECTS).filter(id =>
+        EQUIPMENT_EFFECTS[id].isArmor === true
+      );
+      expect(armorItems.length).toBe(11);
+    });
+
+    it('should have entries for explosives including mortar', () => {
+      const explosives = Object.keys(EQUIPMENT_EFFECTS).filter(id =>
+        EQUIPMENT_EFFECTS[id].weaponCategory === 'explosive'
+      );
+      expect(explosives.length).toBe(3); // grenade, fragmentation-grenade, mortar
     });
   });
 });

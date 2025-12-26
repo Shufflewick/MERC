@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, Equipment } from '../elements.js';
+import { MercCard, Sector, Equipment, isGrenadeOrMortar } from '../elements.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -107,7 +107,14 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         const sector = findMercSector();
         if (!sector) return ['Done'];
 
-        const stash = sector.stash;
+        // MERC-70a: Filter out grenades/mortars if Apeiron is the acting MERC
+        let stash = sector.stash;
+        if (actingMerc.mercId === 'apeiron') {
+          stash = stash.filter(e => !isGrenadeOrMortar(e));
+        }
+
+        if (stash.length === 0) return ['Done'];
+
         const equipmentChoices = stash.map(e => `${e.equipmentName} (${e.equipmentType})`);
         return [...equipmentChoices, 'Done'];
       },

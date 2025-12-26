@@ -12,6 +12,17 @@ import {
 // =============================================================================
 
 export type EquipmentType = 'Weapon' | 'Armor' | 'Accessory';
+
+/**
+ * Check if equipment is a grenade or mortar (restricted for Apeiron).
+ * MERC-70a: Apeiron won't use grenades or mortars.
+ */
+export function isGrenadeOrMortar(equipment: Equipment | { equipmentName?: string; equipmentId?: string } | null | undefined): boolean {
+  if (!equipment) return false;
+  const name = (equipment.equipmentName || '').toLowerCase();
+  return name.includes('grenade') || name.includes('mortar');
+}
+
 export type SectorType = 'Wilderness' | 'City' | 'Industry';
 export type PlayerColor = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'black';
 
