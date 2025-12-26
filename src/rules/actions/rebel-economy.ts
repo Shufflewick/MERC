@@ -372,9 +372,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       dependsOn: 'actingMerc',
       choices: (ctx) => {
         const actingMerc = ctx.args?.actingMerc as MercCard;
-        console.log('[explore.choices] actingMerc:', actingMerc?.mercName || actingMerc, 'type:', typeof actingMerc);
         if (!actingMerc) {
-          console.log('[explore.choices] No actingMerc, returning Done');
           return ['Done'];
         }
 
@@ -393,50 +391,38 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         };
 
         const sector = findMercSector();
-        console.log('[explore.choices] sector:', sector?.sectorName || 'null');
         if (!sector) {
-          console.log('[explore.choices] No sector found, returning Done');
           return ['Done'];
         }
 
         // Draw and cache equipment (or get from cache/stash)
         // Using Map-based cache to support multiple MERCs in different unexplored sectors
         let equipment: Equipment[];
-        let source: string;
         const cachedLoot = game.pendingLootMap.get(sector.sectorId);
         if (cachedLoot) {
           equipment = cachedLoot;
-          source = 'pendingLootMap';
         } else if (sector.explored) {
           // Already explored, use stash
           equipment = sector.stash;
-          source = 'stash';
         } else {
           // Draw new equipment
           equipment = drawAndCacheLoot(game, sector);
-          source = 'freshDraw';
         }
-        console.log('[explore.choices] equipment from', source, ':', equipment.length, 'items');
-        console.log('[explore.choices] pendingLootMap has:', sector.sectorId, '?', game.pendingLootMap.has(sector.sectorId), 'sector.explored:', sector.explored);
 
         if (equipment.length === 0) {
-          console.log('[explore.choices] No equipment, returning Done');
           return ['Done'];
         }
 
         // The equipment array is the source of truth - items are removed when equipped
         // and added back when replaced, so we just show whatever is currently available
         const equipmentChoices = equipment.map(e => `${e.equipmentName} (${e.equipmentType})`);
-        console.log('[explore.choices] Returning', equipmentChoices.length + 1, 'choices');
         return [...equipmentChoices, 'Done'];
       },
       repeat: {
         until: (_ctx, choice) => {
-          console.log('[explore.until] choice:', choice, 'isDone:', choice === 'Done');
           return choice === 'Done';
         },
         onEach: (ctx, choice) => {
-          console.log('[explore.onEach] choice:', choice);
           if (choice === 'Done') return;
 
           const actingMerc = ctx.args?.actingMerc as MercCard;

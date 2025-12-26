@@ -47,11 +47,12 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('merc', {
       prompt: 'Select your FIRST MERC to hire',
+      defer: true, // Choices evaluated when clicked, enabling deck manipulation
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
 
-        // Draw MERCs only once per player
+        // Draw MERCs when action is clicked (defer: true enables this)
         if (!drawnMercsCache.has(playerId)) {
           drawnMercsCache.set(playerId, drawMercsForHiring(game, 3));
         }
@@ -178,16 +179,6 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       drawnMercsCache.set(playerId, remaining);
 
       const hasTeresa = player.team.some(m => m.mercId === 'teresa');
-      console.log('[hireSecondMerc.execute] After hiring:', {
-        hiredMerc: merc.mercName,
-        teamLength: player.team.length,
-        teamSize: player.teamSize,
-        teamMembers: player.team.map(m => m.mercName),
-        hasTeresa,
-        remainingInCache: remaining.length,
-        remainingNames: remaining.map(m => m.mercName),
-        willDiscard: !hasTeresa,
-      });
 
       // Only discard remaining if Teresa is NOT on the team
       // Teresa doesn't count toward limit, so player can hire a 3rd MERC
@@ -230,16 +221,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       // Check if Teresa is on the team (she doesn't count toward limit)
       const hasTeresa = player.team.some(m => m.mercId === 'teresa');
       // Available when: 2 MERCs hired, Teresa is on team, and cache has MERCs to hire
-      const result = player.team.length === 2 && hasTeresa && remaining.length > 0;
-      console.log('[hireThirdMerc.condition]', {
-        teamLength: player.team.length,
-        teamSize: player.teamSize,
-        hasTeresa,
-        remainingLength: remaining.length,
-        remainingNames: remaining.map(m => m.mercName),
-        result,
-      });
-      return result;
+      return player.team.length === 2 && hasTeresa && remaining.length > 0;
     })
     .chooseFrom<string>('merc', {
       prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',

@@ -1,10 +1,29 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, inject, reactive } from 'vue';
 import { useBoardInteraction } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
+
+// Type for deferred choices fetch function (injected from GameShell)
+type FetchDeferredChoicesFn = (
+  actionName: string,
+  selectionName: string,
+  playerPosition: number,
+  currentArgs: Record<string, unknown>
+) => Promise<{
+  success: boolean;
+  choices?: Array<{ value: unknown; display: string }>;
+  error?: string;
+}>;
+
+// Inject deferred choices fetch function from GameShell
+const fetchDeferredChoicesFn = inject<FetchDeferredChoicesFn | undefined>('fetchDeferredChoicesFn', undefined);
+
+// State for fetched deferred choices
+const fetchedDeferredChoices = reactive<Record<string, Array<{ value: unknown; display: string }>>>({});
+const deferredChoicesLoading = ref(false);
 
 // Debug: log available actions when they change
 
@@ -448,7 +467,8 @@ const actionChoices = computed(() => {
 // Check if we're in MERC hiring mode (Day 1)
 const isHiringMercs = computed(() => {
   return props.availableActions.includes('hireFirstMerc') ||
-         props.availableActions.includes('hireSecondMerc');
+         props.availableActions.includes('hireSecondMerc') ||
+         props.availableActions.includes('hireThirdMerc');
 });
 
 // Check if we're in landing placement mode
@@ -473,9 +493,10 @@ const isEquipping = computed(() => {
 // Get action metadata for the current hiring action
 const currentActionMetadata = computed(() => {
   if (!isHiringMercs.value) return null;
-  // Check for both first and second merc hiring actions
+  // Check for first, second, and third merc hiring actions
   return props.state?.state?.actionMetadata?.hireFirstMerc ||
-         props.state?.state?.actionMetadata?.hireSecondMerc;
+         props.state?.state?.actionMetadata?.hireSecondMerc ||
+         props.state?.state?.actionMetadata?.hireThirdMerc;
 });
 
 // Get the current selection (first one that hasn't been filled yet)
@@ -506,6 +527,47 @@ const allSelectionsComplete = computed(() => {
   return true;
 });
 
+// Get current hiring action name
+function getCurrentHiringAction(): string | null {
+  if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
+  if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
+  if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
+  return null;
+}
+
+// Watch for deferred selections and fetch choices when needed
+watch(
+  () => currentSelection.value,
+  async (selection) => {
+    if (!selection?.deferred || !fetchDeferredChoicesFn) return;
+
+    const actionName = getCurrentHiringAction();
+    if (!actionName) return;
+    const key = `${actionName}:${selection.name}`;
+
+    // Skip if already fetched
+    if (fetchedDeferredChoices[key]?.length > 0) return;
+
+    deferredChoicesLoading.value = true;
+    try {
+      const result = await fetchDeferredChoicesFn(
+        actionName,
+        selection.name,
+        props.playerPosition,
+        props.actionArgs
+      );
+      if (result.success && result.choices) {
+        fetchedDeferredChoices[key] = result.choices;
+      }
+    } catch (err) {
+      console.error('Error fetching deferred choices:', err);
+    } finally {
+      deferredChoicesLoading.value = false;
+    }
+  },
+  { immediate: true }
+);
+
 // Helper to find a MERC by name anywhere in the gameView tree
 function findMercByName(name: string | any, node?: any): any {
   if (!node) node = props.gameView;
@@ -532,16 +594,31 @@ function findMercByName(name: string | any, node?: any): any {
 // Get MERCs available for hiring from action metadata
 const hirableMercs = computed(() => {
   const selection = currentSelection.value;
-  if (!selection?.choices) return [];
+  if (!selection) return [];
+
+  // For deferred selections, use fetched choices
+  let choices: any[];
+  if (selection.deferred) {
+    const actionName = getCurrentHiringAction();
+    if (!actionName) return [];
+    const key = `${actionName}:${selection.name}`;
+    choices = fetchedDeferredChoices[key] || [];
+  } else {
+    choices = selection.choices || [];
+  }
+
+  if (choices.length === 0) return [];
 
   // Get already-selected merc names from shared actionArgs to filter them out
   const selectedMercs = Object.values(props.actionArgs || {}) as string[];
 
   // Find MERCs anywhere in the gameView and attach the original choice value
-  // Filter out MERCs that have already been selected
-  return selection.choices
+  // Filter out MERCs that have already been selected AND filter out skip option
+  return choices
     .filter((choice: any) => {
       const choiceValue = choice.value || choice.display || choice;
+      // Filter out skip option - it's handled separately
+      if (typeof choiceValue === 'string' && choiceValue.toLowerCase().includes('skip')) return false;
       return !selectedMercs.includes(choiceValue);
     })
     .map((choice: any) => {
@@ -552,6 +629,56 @@ const hirableMercs = computed(() => {
       return result;
     });
 });
+
+// Check if skip option is available (for third hire)
+const hasSkipOption = computed(() => {
+  const selection = currentSelection.value;
+  if (!selection) return false;
+
+  // For deferred selections, use fetched choices
+  let choices: any[];
+  if (selection.deferred) {
+    const actionName = getCurrentHiringAction();
+    if (!actionName) return false;
+    const key = `${actionName}:${selection.name}`;
+    choices = fetchedDeferredChoices[key] || [];
+  } else {
+    choices = selection.choices || [];
+  }
+
+  return choices.some((choice: any) => {
+    const choiceValue = choice.value || choice.display || choice;
+    return typeof choiceValue === 'string' && choiceValue.toLowerCase().includes('skip');
+  });
+});
+
+// Handle skip button click
+function skipThirdHire() {
+  const selection = currentSelection.value;
+  if (!selection) return;
+
+  // For deferred selections, use fetched choices
+  let choices: any[];
+  if (selection.deferred) {
+    const actionName = getCurrentHiringAction();
+    if (!actionName) return;
+    const key = `${actionName}:${selection.name}`;
+    choices = fetchedDeferredChoices[key] || [];
+  } else {
+    choices = selection.choices || [];
+  }
+
+  // Find the skip choice value
+  const skipChoice = choices.find((choice: any) => {
+    const choiceValue = choice.value || choice.display || choice;
+    return typeof choiceValue === 'string' && choiceValue.toLowerCase().includes('skip');
+  });
+
+  if (skipChoice) {
+    const choiceValue = skipChoice.value || skipChoice.display || skipChoice;
+    selectMercToHire({ _choiceValue: choiceValue });
+  }
+}
 
 // Get available landing sectors (edge sectors)
 const landingSectors = computed(() => {
@@ -717,14 +844,24 @@ const clickableSectors = computed(() => {
         </span>
       </div>
 
-      <div class="merc-choices" v-if="hirableMercs.length > 0">
-        <div
-          v-for="merc in hirableMercs"
-          :key="getMercId(merc)"
-          class="merc-choice"
-          @click="selectMercToHire(merc)"
-        >
-          <MercCard :merc="merc" :player-color="currentPlayerColor" />
+      <div class="merc-choices-container" v-if="hirableMercs.length > 0 || hasSkipOption">
+        <div class="merc-choices">
+          <div
+            v-for="merc in hirableMercs"
+            :key="getMercId(merc)"
+            class="merc-choice"
+            @click="selectMercToHire(merc)"
+          >
+            <MercCard :merc="merc" :player-color="currentPlayerColor" />
+          </div>
+        </div>
+
+        <!-- Skip button for third hire (optional) -->
+        <div v-if="hasSkipOption" class="skip-hire-section">
+          <button class="skip-hire-button" @click="skipThirdHire">
+            Skip Third Hire
+          </button>
+          <p class="skip-hint">You can hire a third MERC thanks to Teresa, or skip</p>
         </div>
       </div>
 
@@ -842,6 +979,14 @@ const clickableSectors = computed(() => {
   font-size: 0.9rem;
 }
 
+.merc-choices-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
 .merc-choices {
   display: flex;
   flex-wrap: wrap;
@@ -858,6 +1003,37 @@ const clickableSectors = computed(() => {
 .merc-choice:hover {
   transform: translateY(-4px);
   box-shadow: 0 0 0 3px v-bind('UI_COLORS.accent'), 0 8px 24px rgba(212, 168, 75, 0.4);
+}
+
+.skip-hire-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.skip-hire-button {
+  background: v-bind('UI_COLORS.backgroundLight');
+  color: v-bind('UI_COLORS.text');
+  border: 2px solid v-bind('UI_COLORS.textMuted');
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skip-hire-button:hover {
+  border-color: v-bind('UI_COLORS.accent');
+  background: v-bind('UI_COLORS.cardBg');
+}
+
+.skip-hint {
+  color: v-bind('UI_COLORS.textMuted');
+  font-size: 0.85rem;
+  margin: 0;
+  font-style: italic;
 }
 
 .no-mercs-message {

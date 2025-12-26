@@ -2305,11 +2305,6 @@ export function executeCombat(
   options: { maxRounds?: number; interactive?: boolean } = {}
 ): CombatOutcome {
   const { maxRounds = 10, interactive = true } = options;
-  console.log('[executeCombat] BEFORE', {
-    sectorId: sector.sectorId,
-    hasActiveCombat: game.activeCombat !== null,
-    hasPendingTargetSelection: !!game.activeCombat?.pendingTargetSelection,
-  });
 
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
@@ -2447,24 +2442,10 @@ export function executeCombat(
         },
       };
 
-      console.log('[executeCombat] Setting pendingTargetSelection', {
-        attackerId: pause.attackerId,
-        attackerName: pause.attackerName,
-        maxTargets: pause.maxTargets,
-        validTargetCount: pause.validTargets.length,
-        validTargets: pause.validTargets.map((t: Combatant) => t.name),
-      });
-
       // MERC-t5k: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
 
       game.message(`${pause.attackerName} is ready to attack. Select targets.`);
-
-      console.log('[executeCombat] AFTER - paused for target selection', {
-        combatPending: true,
-        attackerName: pause.attackerName,
-        maxTargets: pause.maxTargets,
-      });
 
       return {
         rounds,
@@ -2530,10 +2511,6 @@ export function executeCombat(
 
   // If combat is pending, don't apply final results yet
   if (combatPending) {
-    console.log('[executeCombat] AFTER - paused for retreat decision', {
-      combatPending: true,
-      canRetreat: retreatAvailable,
-    });
     return {
       rounds,
       rebelVictory: false,
@@ -2547,7 +2524,6 @@ export function executeCombat(
   }
 
   // Clear any saved combat state
-  console.log('[executeCombat] Clearing activeCombat');
   game.activeCombat = null;
 
   // Apply results to game state
@@ -2577,13 +2553,6 @@ export function executeCombat(
   }
 
   game.message(`=== Combat Complete ===`);
-
-  console.log('[executeCombat] AFTER - combat complete', {
-    rebelVictory: outcome.rebelVictory,
-    dictatorVictory: outcome.dictatorVictory,
-    combatPending: outcome.combatPending,
-    hasActiveCombat: game.activeCombat !== null,
-  });
 
   return outcome;
 }
