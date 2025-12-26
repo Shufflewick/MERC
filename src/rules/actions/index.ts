@@ -35,7 +35,7 @@ export * from './day-one-actions.js';
 
 // Import for registration function
 import type { MERCGame } from '../game.js';
-import { TacticsCard } from '../elements.js';
+import { TacticsCard, Squad } from '../elements.js';
 import type { RebelPlayer } from '../game.js';
 
 // Import all action creators
@@ -248,8 +248,33 @@ function registerDebugData(game: MERCGame): void {
     if (!dictator) return { error: 'No dictator player' };
 
     const dictatorCard = dictator.dictator;
-    const allMercs = dictator.mercSquad?.getMercs() || [];
+    const allMercs = dictator.allMercs;
     const livingMercs = dictator.hiredMercs;
+
+    // Helper to format squad info
+    const formatSquad = (squad: Squad | null, name: string) => {
+      if (!squad) return { name, error: 'Squad not found' };
+      const mercs = squad.getMercs();
+      return {
+        name,
+        sectorId: squad.sectorId,
+        mercCount: mercs.length,
+        mercs: mercs.map(m => ({
+          name: m.mercName,
+          isDead: m.isDead,
+          health: m.health,
+          damage: m.damage,
+          maxHealth: m.maxHealth,
+          actionsRemaining: m.actionsRemaining,
+          sectorId: m.sectorId,
+        })),
+      };
+    };
+
+    let primarySquad: Squad | null = null;
+    let secondarySquad: Squad | null = null;
+    try { primarySquad = dictator.primarySquad; } catch { /* not initialized */ }
+    try { secondarySquad = dictator.secondarySquad; } catch { /* not initialized */ }
 
     return {
       isAI: dictator.isAI,
@@ -264,20 +289,10 @@ function registerDebugData(game: MERCGame): void {
         actionsRemaining: dictatorCard.actionsRemaining,
         sectorId: dictatorCard.sectorId,
       } : null,
-      mercSquad: {
-        sectorId: dictator.mercSquad?.sectorId,
-        totalMercs: allMercs.length,
-        livingMercs: livingMercs.length,
-        mercs: allMercs.map(m => ({
-          name: m.mercName,
-          isDead: m.isDead,
-          health: m.health,
-          damage: m.damage,
-          maxHealth: m.maxHealth,
-          actionsRemaining: m.actionsRemaining,
-          sectorId: m.sectorId,
-        })),
-      },
+      primarySquad: formatSquad(primarySquad, 'primary'),
+      secondarySquad: formatSquad(secondarySquad, 'secondary'),
+      totalMercs: allMercs.length,
+      livingMercs: livingMercs.length,
       tactics: {
         deckCount: dictator.tacticsDeck?.count(TacticsCard) ?? 0,
         handCount: dictator.tacticsHand?.count(TacticsCard) ?? 0,

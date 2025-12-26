@@ -99,15 +99,15 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
     current.baseCombat > best.baseCombat ? current : best
   );
 
-  // MERC-rwdv: Put the hired MERC into the dictator's squad
-  bestMerc.putInto(game.dictatorPlayer.mercSquad);
+  // Put the hired MERC into the dictator's primary squad
+  bestMerc.putInto(game.dictatorPlayer.primarySquad);
 
   // MERC-2ay: Set MERC location per AI rules 4.3.2
   // Dictator-controlled sector closest to weakest rebel sector
   const targetSector = selectNewMercLocation(game);
   if (targetSector) {
     bestMerc.sectorId = targetSector.sectorId;
-    game.dictatorPlayer.mercSquad.sectorId = targetSector.sectorId;
+    game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
   }
 
   // All hired MERCs get 1 free equipment - prioritize weapon

@@ -209,14 +209,14 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
   const merc = game.drawMerc();
 
   if (merc) {
-    // MERC-rwdv: Put the hired MERC into the dictator's squad
-    merc.putInto(game.dictatorPlayer.mercSquad);
+    // Put the hired MERC into the dictator's primary squad
+    merc.putInto(game.dictatorPlayer.primarySquad);
 
     // MERC-2ay: Place at sector closest to weakest rebel per AI rules 4.3.2
     const targetSector = selectNewMercLocation(game);
     if (targetSector) {
       merc.sectorId = targetSector.sectorId;
-      game.dictatorPlayer.mercSquad.sectorId = targetSector.sectorId;
+      game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
       game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
       game.message(`Dictator hired ${merc.mercName} (stationed at ${targetSector.sectorName})`);
     } else {

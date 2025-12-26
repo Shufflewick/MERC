@@ -249,9 +249,13 @@ export class DictatorPlayer extends Player {
   tacticsHand!: TacticsHand;
   tacticsDiscard!: DiscardPile;
 
-  // MERC-rwdv: Use a Squad to hold hired MERCs so they appear in game view
+  // Squad refs - store IDs instead of direct references to avoid stale refs after deserialization
+  // Dictator has 2 squads just like rebels
+  primarySquadRef!: string;
+  secondarySquadRef!: string;
+
+  // Legacy mercSquad for backward compatibility during migration
   mercSquad!: Squad;
-  // Reference name for looking up squad after deserialization
   mercSquadRef!: string;
 
   // Base state
@@ -268,14 +272,53 @@ export class DictatorPlayer extends Player {
   // MERC-q4v: Privacy Player - Rebel designated to handle AI decisions
   privacyPlayerId?: string;
 
-  // MERC-rwdv: hiredMercs returns living MERCs from the squad (excludes dead)
+  // Getters that look up elements fresh from the game tree
+  get primarySquad(): Squad {
+    const game = this.game as MERCGame;
+    if (!game) {
+      throw new Error(`primarySquad: game not set for dictator`);
+    }
+    const squad = game.first(Squad, s => s.name === this.primarySquadRef);
+    if (!squad) {
+      throw new Error(`primarySquad: could not find squad "${this.primarySquadRef}" for dictator`);
+    }
+    return squad;
+  }
+
+  get secondarySquad(): Squad {
+    const game = this.game as MERCGame;
+    if (!game) {
+      throw new Error(`secondarySquad: game not set for dictator`);
+    }
+    const squad = game.first(Squad, s => s.name === this.secondarySquadRef);
+    if (!squad) {
+      throw new Error(`secondarySquad: could not find squad "${this.secondarySquadRef}" for dictator`);
+    }
+    return squad;
+  }
+
+  // hiredMercs returns living MERCs from both squads (excludes dead)
   get hiredMercs(): MercCard[] {
-    return this.mercSquad?.getLivingMercs() || [];
+    const mercs: MercCard[] = [];
+    try {
+      mercs.push(...this.primarySquad.getLivingMercs());
+    } catch { /* Squad not initialized yet */ }
+    try {
+      mercs.push(...this.secondarySquad.getLivingMercs());
+    } catch { /* Squad not initialized yet */ }
+    return mercs;
   }
 
   // Get all MERCs including dead ones (for certain game logic)
   get allMercs(): MercCard[] {
-    return this.mercSquad?.getMercs() || [];
+    const mercs: MercCard[] = [];
+    try {
+      mercs.push(...this.primarySquad.getMercs());
+    } catch { /* Squad not initialized yet */ }
+    try {
+      mercs.push(...this.secondarySquad.getMercs());
+    } catch { /* Squad not initialized yet */ }
+    return mercs;
   }
 
   get isDefeated(): boolean {
@@ -283,12 +326,37 @@ export class DictatorPlayer extends Player {
   }
 
   get team(): MercCard[] {
-    // Now same as hiredMercs since both filter dead MERCs
     return this.hiredMercs;
   }
 
   get teamSize(): number {
     return this.team.length;
+  }
+
+  /**
+   * Get the squad containing a specific MERC.
+   * Returns null if the MERC is not in either squad.
+   */
+  getSquadContaining(merc: MercCard): Squad | null {
+    try {
+      if (this.primarySquad.getMercs().some(m => m.id === merc.id)) {
+        return this.primarySquad;
+      }
+    } catch { /* Squad not initialized */ }
+    try {
+      if (this.secondarySquad.getMercs().some(m => m.id === merc.id)) {
+        return this.secondarySquad;
+      }
+    } catch { /* Squad not initialized */ }
+    return null;
+  }
+
+  /**
+   * Check if a squad belongs to this player.
+   */
+  ownsSquad(squad: Squad): boolean {
+    return squad.name === this.primarySquadRef ||
+           squad.name === this.secondarySquadRef;
   }
 }
 
@@ -546,11 +614,18 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       dictator.game = this;
       this.dictatorPlayer = dictator;
 
-      // MERC-rwdv: Create squad for dictator MERCs so they appear in game view
-      const mercSquadRef = `squad-dictator-mercs`;
-      this.create(Squad, mercSquadRef, { isPrimary: true });
-      dictator.mercSquadRef = mercSquadRef;
-      dictator.mercSquad = this.first(Squad, s => s.name === mercSquadRef)!;
+      // Create two squads for dictator (just like rebels)
+      const primaryRef = `squad-dictator-primary`;
+      const secondaryRef = `squad-dictator-secondary`;
+      this.create(Squad, primaryRef, { isPrimary: true });
+      this.create(Squad, secondaryRef, { isPrimary: false });
+
+      dictator.primarySquadRef = primaryRef;
+      dictator.secondarySquadRef = secondaryRef;
+
+      // Legacy mercSquad points to primary for backward compatibility
+      dictator.mercSquadRef = primaryRef;
+      dictator.mercSquad = this.first(Squad, s => s.name === primaryRef)!;
 
       return dictator;
     } else {

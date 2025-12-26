@@ -502,13 +502,25 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
       const destination = args.destination as Sector;
 
       unit.useAction(ACTION_COSTS.MOVE);
-      // Update unit's location
-      unit.sectorId = destination.sectorId;
 
-      // Also update the squad's sectorId to keep in sync with MERCs
-      // This ensures the UI displays MERCs in the correct sector
-      if (unit instanceof MercCard && game.dictatorPlayer?.mercSquad) {
-        game.dictatorPlayer.mercSquad.sectorId = destination.sectorId;
+      // Update unit's location and their squad's location
+      // All MERCs in a squad move together
+      if (unit instanceof MercCard && game.dictatorPlayer) {
+        const squad = game.dictatorPlayer.getSquadContaining(unit);
+        if (squad) {
+          // Move all MERCs in the squad
+          for (const merc of squad.getMercs()) {
+            merc.sectorId = destination.sectorId;
+          }
+          // Update the squad's sectorId
+          squad.sectorId = destination.sectorId;
+        } else {
+          // Fallback: just move this MERC
+          unit.sectorId = destination.sectorId;
+        }
+      } else {
+        // Non-MERC unit (like dictator card) just moves themselves
+        unit.sectorId = destination.sectorId;
       }
 
       game.message(`${getDictatorUnitName(unit)} moved to ${destination.sectorName}`);
