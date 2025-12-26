@@ -505,11 +505,8 @@ export function createDictatorMoveAction(game: MERCGame): ActionDefinition {
       // Update unit's location
       unit.sectorId = destination.sectorId;
 
-      // Also update the squad's sectorId to keep in sync with MERCs
-      // This ensures the UI displays MERCs in the correct sector
-      if (unit instanceof MercCard && game.dictatorPlayer?.mercSquad) {
-        game.dictatorPlayer.mercSquad.sectorId = destination.sectorId;
-      }
+      // Note: Dictator MERCs use individual sectorId (not squad.sectorId)
+      // because they can be in different locations
 
       game.message(`${getDictatorUnitName(unit)} moved to ${destination.sectorName}`);
 

@@ -107,7 +107,6 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   const targetSector = selectNewMercLocation(game);
   if (targetSector) {
     bestMerc.sectorId = targetSector.sectorId;
-    game.dictatorPlayer.mercSquad.sectorId = targetSector.sectorId;
   }
 
   // All hired MERCs get 1 free equipment - prioritize weapon

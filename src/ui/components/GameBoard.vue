@@ -235,10 +235,15 @@ const allMercs = computed(() => {
         if (isMercDead(merc)) continue;
 
         if (mercId || merc.className === 'MercCard') {
+          // For dictator MERCs, use their individual sectorId (they can be in different locations)
+          // For rebel MERCs, use the squad's sectorId (they move together)
+          const mercSectorId = isDictatorSquad
+            ? getAttr(merc, 'sectorId', '') || sectorId
+            : sectorId;
           mercs.push({
             ...merc,
             mercId: mercId || merc.ref,
-            sectorId,
+            sectorId: mercSectorId,
             playerColor,
           });
         }

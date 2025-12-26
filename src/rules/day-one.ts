@@ -216,7 +216,6 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
     const targetSector = selectNewMercLocation(game);
     if (targetSector) {
       merc.sectorId = targetSector.sectorId;
-      game.dictatorPlayer.mercSquad.sectorId = targetSector.sectorId;
       game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
       game.message(`Dictator hired ${merc.mercName} (stationed at ${targetSector.sectorName})`);
     } else {
