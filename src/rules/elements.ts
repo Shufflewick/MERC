@@ -7,7 +7,7 @@ import {
   AdjacencyConstants,
 } from './constants.js';
 import { getExtraAccessorySlots } from './equipment-effects.js';
-import { getMercAbility } from './merc-abilities.js';
+import { getMercAbility, ignoresInitiativePenalties } from './merc-abilities.js';
 
 // =============================================================================
 // Types and Interfaces
@@ -96,6 +96,11 @@ export class MercCard extends BaseCard {
   haargTrainingBonus: number = 0;
   haargInitiativeBonus: number = 0;
   haargCombatBonus: number = 0;
+
+  // Sarge's ability bonuses (+1 to all when highest initiative in squad)
+  sargeTrainingBonus: number = 0;
+  sargeInitiativeBonus: number = 0;
+  sargeCombatBonus: number = 0;
 
   // Computed stat caches (updated when equipment/abilities change)
   // These are serialized and sent to the UI since getters aren't serialized by BoardSmith
@@ -247,21 +252,13 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'haarg') {
       t += this.haargTrainingBonus || 0;
     }
+    if (this.mercId === 'sarge') {
+      t += this.sargeTrainingBonus || 0;
+    }
     this.effectiveTraining = t;
 
-    // Initiative
-    let i = this.baseInitiative;
-    i += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
-    i += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
-    i += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
-    // Add bandolier slot bonuses (use data length as source of truth)
-    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
-      i += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative');
-    }
-    if (this.mercId === 'haarg') {
-      i += this.haargInitiativeBonus || 0;
-    }
-    this.effectiveInitiative = i;
+    // Initiative - use getEffectiveInitiative() which accounts for Vulture's ability
+    this.effectiveInitiative = this.getEffectiveInitiative();
 
     // Combat
     let c = this.baseCombat;
@@ -275,6 +272,11 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'haarg') {
       c += this.haargCombatBonus || 0;
     }
+    if (this.mercId === 'sarge') {
+      c += this.sargeCombatBonus || 0;
+    }
+    // Add ability-based combat bonus (e.g., Shooter's +3 combat)
+    c += ability?.passive?.extraCombat || 0;
     this.effectiveCombat = Math.max(0, c);
   }
 
@@ -310,6 +312,43 @@ export class MercCard extends BaseCard {
     this.updateComputedStats();
   }
 
+  /**
+   * Update Sarge's ability bonuses based on squad mates.
+   * Sarge gets +1 to all skills when his BASE initiative is highest in the squad.
+   * Call this whenever squad composition changes.
+   * @param squadMates - Array of all MERCs in the same squad (including Sarge)
+   */
+  updateSargeBonus(squadMates: MercCard[]): void {
+    if (this.mercId !== 'sarge') return;
+
+    // Reset bonuses
+    this.sargeTrainingBonus = 0;
+    this.sargeInitiativeBonus = 0;
+    this.sargeCombatBonus = 0;
+
+    // Check if Sarge has highest BASE initiative in squad
+    let hasHighest = true;
+    for (const mate of squadMates) {
+      if (mate.mercId === 'sarge' || mate.isDead) continue;
+
+      // Compare BASE initiatives only (no equipment)
+      if (mate.baseInitiative >= this.baseInitiative) {
+        hasHighest = false;
+        break;
+      }
+    }
+
+    // If Sarge has highest base initiative, give +1 to all skills
+    if (hasHighest && squadMates.filter(m => !m.isDead && m.mercId !== 'sarge').length > 0) {
+      this.sargeTrainingBonus = 1;
+      this.sargeInitiativeBonus = 1;
+      this.sargeCombatBonus = 1;
+    }
+
+    // Update computed stats after changing bonuses
+    this.updateComputedStats();
+  }
+
   // Computed stats including equipment bonuses and Haarg's ability
   // Note: Getters are inlined to ensure they work during BoardSmith serialization
   get initiative(): number {
@@ -325,6 +364,51 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'haarg') {
       value += this.haargInitiativeBonus || 0;
     }
+    // Sarge's ability bonus
+    if (this.mercId === 'sarge') {
+      value += this.sargeInitiativeBonus || 0;
+    }
+    return value;
+  }
+
+  /**
+   * Get effective initiative for combat, accounting for Vulture's ability.
+   * Vulture ignores initiative PENALTIES (negative values) from equipment,
+   * but still receives initiative BONUSES (positive values).
+   */
+  getEffectiveInitiative(): number {
+    let value = this.baseInitiative;
+
+    // Check if this MERC ignores initiative penalties (Vulture)
+    const ignoresPenalties = ignoresInitiativePenalties(this.mercId);
+
+    // Helper to add initiative value, filtering out penalties if needed
+    const addInitiative = (initValue: number) => {
+      if (ignoresPenalties && initValue < 0) {
+        return; // Vulture ignores negative initiative from equipment
+      }
+      value += initValue;
+    };
+
+    // Add equipment initiative (filtering penalties for Vulture)
+    addInitiative(this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative'));
+    addInitiative(this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative'));
+    addInitiative(this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative'));
+
+    // Add bandolier slot bonuses
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      addInitiative(this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative'));
+    }
+
+    // Haarg's ability bonus (not equipment, so always applied)
+    if (this.mercId === 'haarg') {
+      value += this.haargInitiativeBonus || 0;
+    }
+    // Sarge's ability bonus (not equipment, so always applied)
+    if (this.mercId === 'sarge') {
+      value += this.sargeInitiativeBonus || 0;
+    }
+
     return value;
   }
 
@@ -341,6 +425,10 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'haarg') {
       value += this.haargTrainingBonus || 0;
     }
+    // Sarge's ability bonus
+    if (this.mercId === 'sarge') {
+      value += this.sargeTrainingBonus || 0;
+    }
     return value;
   }
 
@@ -356,6 +444,10 @@ export class MercCard extends BaseCard {
     // Haarg's ability bonus
     if (this.mercId === 'haarg') {
       value += this.haargCombatBonus || 0;
+    }
+    // Sarge's ability bonus
+    if (this.mercId === 'sarge') {
+      value += this.sargeCombatBonus || 0;
     }
     return Math.max(0, value);
   }

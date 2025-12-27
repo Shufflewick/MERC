@@ -36,14 +36,26 @@ const props = defineProps<{
   secondarySquad?: SquadData;
   playerColor: string;
   canDropEquipment?: boolean;
+  mercAbilitiesAvailable?: string[]; // List of mercIds that have abilities available
 }>();
 
 const emit = defineEmits<{
   dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
+  activateAbility: [mercId: string];
 }>();
 
 function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
   emit('dropEquipment', mercId, slotType);
+}
+
+function handleActivateAbility(mercId: string) {
+  emit('activateAbility', mercId);
+}
+
+// Check if a MERC has their ability available
+function isMercAbilityAvailable(merc: MercData): boolean {
+  const mercId = merc.mercId || (merc as any).attributes?.mercId;
+  return props.mercAbilitiesAvailable?.includes(mercId) || false;
 }
 
 // Get unique key for merc - never returns empty to prevent Vue warnings
@@ -81,7 +93,9 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
           :player-color="playerColor"
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
+          :ability-available="isMercAbilityAvailable(merc)"
           @drop-equipment="handleDropEquipment"
+          @activate-ability="handleActivateAbility"
         />
       </div>
       <div class="empty-squad" v-else>
@@ -105,7 +119,9 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
           :player-color="playerColor"
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
+          :ability-available="isMercAbilityAvailable(merc)"
           @drop-equipment="handleDropEquipment"
+          @activate-ability="handleActivateAbility"
         />
       </div>
       <div class="empty-squad" v-else>

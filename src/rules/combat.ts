@@ -848,17 +848,24 @@ function applyVultureBonus(combatants: Combatant[]): void {
   for (const combatant of combatants) {
     if (isVulture(combatant) && combatant.health > 0) {
       const merc = combatant.sourceElement as MercCard;
-      // Calculate total negative initiative from equipment
+      // Calculate total negative initiative from equipment (use slotData as fallback)
       let penalty = 0;
-      if (merc.weaponSlot?.initiative && merc.weaponSlot.initiative < 0) {
-        penalty += merc.weaponSlot.initiative;
+
+      const weaponInit = merc.weaponSlot?.initiative ?? merc.weaponSlotData?.initiative ?? 0;
+      if (weaponInit < 0) penalty += weaponInit;
+
+      const armorInit = merc.armorSlot?.initiative ?? merc.armorSlotData?.initiative ?? 0;
+      if (armorInit < 0) penalty += armorInit;
+
+      const accessoryInit = merc.accessorySlot?.initiative ?? merc.accessorySlotData?.initiative ?? 0;
+      if (accessoryInit < 0) penalty += accessoryInit;
+
+      // Include bandolier slots
+      for (let i = 0; i < merc.bandolierSlotsData.length; i++) {
+        const bandolierInit = merc.bandolierSlots[i]?.initiative ?? merc.bandolierSlotsData[i]?.initiative ?? 0;
+        if (bandolierInit < 0) penalty += bandolierInit;
       }
-      if (merc.armorSlot?.initiative && merc.armorSlot.initiative < 0) {
-        penalty += merc.armorSlot.initiative;
-      }
-      if (merc.accessorySlot?.initiative && merc.accessorySlot.initiative < 0) {
-        penalty += merc.accessorySlot.initiative;
-      }
+
       // Add back the penalty (negate it)
       combatant.initiative -= penalty;
     }
@@ -2249,6 +2256,8 @@ function applyCombatResults(
           }
 
           // MERC-rwdv: putInto automatically removes from current container
+          // Clear sectorId so dead MERC doesn't show on map
+          merc.sectorId = undefined;
           // Put MERC card in discard pile
           merc.putInto(game.mercDiscard);
           game.message(`${merc.mercName} has been killed in combat!`);

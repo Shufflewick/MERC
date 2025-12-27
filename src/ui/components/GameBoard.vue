@@ -4,6 +4,7 @@ import { useBoardInteraction } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
+import EquipmentCard from './EquipmentCard.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -113,20 +114,27 @@ function getAttr<T>(node: any, key: string, defaultVal: T): T {
   return defaultVal;
 }
 
-// Helper to check if a MERC is dead (health <= 0 OR isDead flag)
-// Note: isDead is a getter that may not serialize, so we check health directly
+// Helper to check if a MERC is dead (damage >= maxHealth or in discard pile)
+// Note: isDead and health are getters that may not serialize, so we check damage directly
 function isMercDead(merc: any): boolean {
+  // First check isDead if it was explicitly serialized
   const isDead = getAttr(merc, 'isDead', false);
-  if (isDead) return true;
+  if (isDead === true) return true;
 
-  // Check health directly since isDead getter might not serialize
+  // Check health directly if available (may be explicitly serialized in some views)
   const health = getAttr(merc, 'health', -1);
-  if (health >= 0 && health <= 0) return true;
+  if (health === 0) return true;
 
-  // Check damage vs maxHealth
+  // Primary check: damage vs maxHealth (these are actual properties that serialize)
   const damage = getAttr(merc, 'damage', 0);
-  const maxHealth = getAttr(merc, 'maxHealth', 3);
-  if (damage >= maxHealth) return true;
+  // Use effectiveMaxHealth (serialized property) with fallback to maxHealth or default 3
+  const maxHealth = getAttr(merc, 'effectiveMaxHealth', 0) || getAttr(merc, 'maxHealth', 3);
+  if (damage > 0 && damage >= maxHealth) return true;
+
+  // Check if MERC is in a discard pile (dead MERCs are moved there)
+  // This handles cases where the MERC hasn't been fully cleaned up
+  const parentRef = merc._container || merc.parent?.ref || '';
+  if (parentRef.includes('discard')) return true;
 
   return false;
 }
@@ -471,6 +479,54 @@ const isHiringMercs = computed(() => {
          props.availableActions.includes('hireThirdMerc');
 });
 
+// Use boardInteraction to detect when hagnessDraw action is active
+// This is the proper way to sync with ActionPanel (per BoardSmith team)
+const isHagnessDrawActive = computed(() => {
+  return boardInteraction?.currentAction === 'hagnessDraw';
+});
+
+// Watch for when hagnessDraw becomes active to load choices
+watch(() => boardInteraction?.currentAction, (action, prevAction) => {
+  console.log('[HAGNESS UI] boardInteraction.currentAction changed:', { action, prevAction });
+
+  if (action === 'hagnessDraw') {
+    console.log('[HAGNESS UI] Hagness action started via ActionPanel');
+  }
+  if (prevAction === 'hagnessDraw' && !action) {
+    console.log('[HAGNESS UI] Hagness action completed or cancelled');
+  }
+});
+
+// When equipmentType is selected, load the recipient choices from metadata
+watch(() => props.actionArgs['equipmentType'], (val, oldVal) => {
+  console.log('[HAGNESS UI] equipmentType changed:', { val, oldVal });
+
+  if (val !== undefined && props.availableActions.includes('hagnessDraw')) {
+    // For dependsOn selections, choices are in metadata.choicesByDependentValue[equipmentType]
+    const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
+    const recipientSel = metadata?.selections?.find((s: any) => s.name === 'recipient');
+
+    console.log('[HAGNESS UI] Looking for choices in choicesByDependentValue:', {
+      hasMetadata: !!metadata,
+      hasRecipientSel: !!recipientSel,
+      hasDependsOn: recipientSel?.dependsOn,
+      hasChoicesByDependentValue: !!recipientSel?.choicesByDependentValue,
+      dependentValueKeys: Object.keys(recipientSel?.choicesByDependentValue || {})
+    });
+
+    if (recipientSel?.choicesByDependentValue) {
+      const key = String(val);
+      const choices = recipientSel.choicesByDependentValue[key];
+      console.log('[HAGNESS UI] Found choices for key', key, ':', choices?.length || 0, 'items');
+
+      if (choices && choices.length > 0) {
+        fetchedDeferredChoices['hagnessDraw:recipient'] = choices;
+        console.log('[HAGNESS UI] Stored choices:', choices);
+      }
+    }
+  }
+});
+
 // Check if we're in landing placement mode
 const isPlacingLanding = computed(() => {
   return props.availableActions.includes('placeLanding');
@@ -509,10 +565,139 @@ const equipmentTypeChoices = computed(() => {
   });
 });
 
+// Check if Hagness is selecting equipment type (first step)
+const isHagnessSelectingType = computed(() => {
+  if (!isHagnessDrawActive.value) return false;
+  const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
+  if (!metadata?.selections?.length) return false;
+  // Check if equipmentType selection exists and is unfilled
+  const equipmentTypeSelection = metadata.selections.find((s: any) => s.name === 'equipmentType');
+  return equipmentTypeSelection && props.actionArgs['equipmentType'] === undefined;
+});
+
+// Get Hagness equipment type choices
+const hagnessEquipmentTypeChoices = computed(() => {
+  if (!isHagnessSelectingType.value) return [];
+  const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
+  const selection = metadata?.selections?.find((s: any) => s.name === 'equipmentType');
+  const choices = selection?.choices || [];
+  return choices.map((choice: any) => {
+    if (typeof choice === 'string') {
+      return { value: choice, label: choice };
+    }
+    return { value: choice.value || choice, label: choice.display || choice.value || String(choice) };
+  });
+});
+
+// Check if Hagness is selecting recipient (second step - after equipment drawn)
+const isHagnessSelectingRecipient = computed(() => {
+  if (!isHagnessDrawActive.value) {
+    console.log('[HAGNESS UI] isHagnessSelectingRecipient: false (not active)');
+    return false;
+  }
+  const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
+  if (!metadata?.selections?.length) {
+    console.log('[HAGNESS UI] isHagnessSelectingRecipient: false (no selections)', metadata);
+    return false;
+  }
+  // Check if recipient selection exists and is unfilled (and equipmentType is filled)
+  const recipientSelection = metadata.selections.find((s: any) => s.name === 'recipient');
+  const result = recipientSelection &&
+         props.actionArgs['equipmentType'] !== undefined &&
+         props.actionArgs['recipient'] === undefined;
+  console.log('[HAGNESS UI] isHagnessSelectingRecipient:', result, {
+    hasRecipientSelection: !!recipientSelection,
+    equipmentType: props.actionArgs['equipmentType'],
+    recipient: props.actionArgs['recipient'],
+    selectionsCount: metadata.selections.length,
+    selectionNames: metadata.selections.map((s: any) => s.name),
+    recipientChoices: recipientSelection?.choices?.length || 0
+  });
+  return result;
+});
+
+// Get Hagness's drawn equipment from choices or game state
+const hagnessDrawnEquipment = computed(() => {
+  if (!isHagnessDrawActive.value) return null;
+
+  // First, try to get from fetched deferred choices
+  const key = 'hagnessDraw:recipient';
+  let choices: any[] = fetchedDeferredChoices[key] || [];
+
+  // If no fetched choices, try metadata choices (for dependsOn flow)
+  if (choices.length === 0) {
+    const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
+    const recipientSelection = metadata?.selections?.find((s: any) => s.name === 'recipient');
+    choices = recipientSelection?.choices || [];
+  }
+
+  if (choices.length > 0) {
+    // Equipment might be nested in choice.value.equipment or choice.equipment
+    const choice = choices[0];
+    const equipment = choice.value?.equipment || choice.equipment;
+    if (equipment) {
+      return equipment;
+    }
+  }
+
+  // Fallback to game state locations
+  const playerKey = `${props.playerPosition}`;
+  const equipmentType = props.actionArgs['equipmentType'] as string | undefined;
+
+  // Try typed key first (playerKey:equipmentType), then plain playerKey for backwards compat
+  const typedKey = equipmentType ? `${playerKey}:${equipmentType}` : playerKey;
+
+  // Try multiple locations where the data might be
+  // 1. Direct on gameView (plain object should serialize here)
+  let data = props.gameView?.hagnessDrawnEquipmentData?.[typedKey] ||
+             props.gameView?.hagnessDrawnEquipmentData?.[playerKey];
+
+  // 2. In attributes (BoardSmith element structure)
+  if (!data) {
+    data = props.gameView?.attributes?.hagnessDrawnEquipmentData?.[typedKey] ||
+           props.gameView?.attributes?.hagnessDrawnEquipmentData?.[playerKey];
+  }
+
+  // 3. In state
+  if (!data) {
+    data = props.state?.state?.hagnessDrawnEquipmentData?.[typedKey] ||
+           props.state?.state?.hagnessDrawnEquipmentData?.[playerKey];
+  }
+
+  console.log('[HAGNESS UI] hagnessDrawnEquipment lookup:', { typedKey, playerKey, data, gameViewKeys: Object.keys(props.gameView?.hagnessDrawnEquipmentData || {}) });
+
+  return data || null;
+});
+
+// Get Hagness's squad mates from fetched choices (since that's where the data is)
+const hagnessSquadMates = computed(() => {
+  if (!isHagnessSelectingRecipient.value) {
+    console.log('[HAGNESS UI] hagnessSquadMates: empty (not selecting recipient)');
+    return [];
+  }
+
+  // Get choices from fetchedDeferredChoices (populated by our watcher when equipmentType is selected)
+  const key = 'hagnessDraw:recipient';
+  const choices = fetchedDeferredChoices[key] || [];
+
+  console.log('[HAGNESS UI] hagnessSquadMates: fetched choices count:', choices.length);
+
+  if (choices.length === 0) {
+    console.log('[HAGNESS UI] hagnessSquadMates: no fetched choices yet');
+    return [];
+  }
+
+  // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName ← Equipment" }
+  return choices.map((choice: any) => {
+    const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' ←')[0] || 'Unknown');
+    return { displayName, choice }; // Keep the full choice for when user clicks
+  }).sort((a, b) => a.displayName.localeCompare(b.displayName));
+});
+
 // Use the shared actionArgs from GameShell (props.actionArgs) instead of local state
 // This allows both custom UI and ActionPanel to potentially share state
 
-// Get action metadata for the current action (hiring or explore)
+// Get action metadata for the current action (hiring, hagnessDraw, or explore)
 const currentActionMetadata = computed(() => {
   const metadata = props.state?.state?.actionMetadata;
   if (!metadata) return null;
@@ -522,6 +707,12 @@ const currentActionMetadata = computed(() => {
     return metadata.hireFirstMerc ||
            metadata.hireSecondMerc ||
            metadata.hireThirdMerc;
+  }
+
+  // Check for Hagness draw action FIRST (when user is actively interacting with it)
+  // This takes precedence over explore since hagnessDraw requires specific user action
+  if (isHagnessDrawActive.value) {
+    return metadata.hagnessDraw;
   }
 
   // Check for explore action
@@ -560,12 +751,15 @@ const allSelectionsComplete = computed(() => {
   return true;
 });
 
-// Get current action name that needs custom UI handling (hiring or explore)
+// Get current action name that needs custom UI handling (hiring, hagnessDraw, or explore)
 function getCurrentActionName(): string | null {
   if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
   if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
   if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
+  // Check hagnessDraw FIRST (when user is actively interacting with it)
+  if (isHagnessDrawActive.value && props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
   if (props.availableActions.includes('explore')) return 'explore';
+  if (props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
   return null;
 }
 
@@ -813,6 +1007,43 @@ async function selectEquipmentType(equipType: string) {
   }
 }
 
+// Handle Hagness selecting a recipient for equipment
+async function selectHagnessRecipient(choice: any) {
+  console.log('[HAGNESS UI] selectHagnessRecipient called with:', choice);
+
+  // Verify hagnessDraw action is available
+  if (!props.availableActions.includes('hagnessDraw')) {
+    console.log('[HAGNESS UI] selectHagnessRecipient: hagnessDraw not in availableActions');
+    return;
+  }
+
+  // Verify we have equipmentType already selected
+  if (props.actionArgs['equipmentType'] === undefined) {
+    console.log('[HAGNESS UI] selectHagnessRecipient: equipmentType not selected yet');
+    return;
+  }
+
+  // Extract the recipient value from the choice
+  // Choice can be: string | { value: string, display: string, equipment?: object }
+  let recipientValue: string;
+  if (typeof choice === 'string') {
+    recipientValue = choice;
+  } else if (choice && typeof choice === 'object') {
+    recipientValue = choice.value || choice.display?.split(' ←')[0] || String(choice);
+  } else {
+    recipientValue = String(choice);
+  }
+
+  console.log('[HAGNESS UI] selectHagnessRecipient: setting recipient to:', recipientValue);
+
+  // Set the recipient in actionArgs
+  props.actionArgs['recipient'] = recipientValue;
+
+  // Execute the action
+  console.log('[HAGNESS UI] selectHagnessRecipient: executing hagnessDraw action');
+  await props.executeAction('hagnessDraw');
+}
+
 // Handle sector clicks for actions
 async function handleSectorClick(sectorId: string) {
   if (isPlacingLanding.value) {
@@ -860,6 +1091,36 @@ async function handleSectorClick(sectorId: string) {
 const canDropEquipment = computed(() => {
   return props.isMyTurn && props.availableActions.includes('dropEquipment');
 });
+
+// Get list of MERC IDs that have their ability available
+// Currently only Hagness has a UI-activatable ability
+const mercAbilitiesAvailable = computed(() => {
+  const available: string[] = [];
+  // Hagness ability is available if hagnessDraw action is available
+  if (props.isMyTurn && props.availableActions.includes('hagnessDraw')) {
+    available.push('hagness');
+  }
+  // Add more MERCs here as their abilities get UI buttons
+  // Doc heal, Feedback discard, etc.
+  if (props.isMyTurn && props.availableActions.includes('docHeal')) {
+    available.push('doc');
+  }
+  return available;
+});
+
+// Handle ability activation from MERC card
+async function handleActivateAbility(mercId: string) {
+  if (mercId === 'hagness' && props.availableActions.includes('hagnessDraw')) {
+    // Start the Hagness draw action - this sets boardInteraction.currentAction
+    props.startAction('hagnessDraw');
+    // Scroll to top where the Hagness UI appears
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (mercId === 'doc' && props.availableActions.includes('docHeal')) {
+    // Execute Doc heal immediately (no selections needed)
+    await props.action('docHeal', {});
+  }
+  // Add more MERC ability handlers as needed
+}
 
 // Handle dropping equipment from a MERC to sector stash
 async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory' | `Bandolier:${number}`) {
@@ -1012,6 +1273,60 @@ const clickableSectors = computed(() => {
       </div>
     </div>
 
+    <!-- Hagness Draw Equipment UI (only when action is actively being executed) -->
+    <div v-if="isHagnessDrawActive" class="hagness-phase">
+      <div class="hagness-header">
+        <div class="hagness-icon">🎒</div>
+        <div class="hagness-content">
+          <h2 class="hagness-title">Hagness: Draw Equipment</h2>
+          <p class="hagness-prompt">{{ isHagnessSelectingType ? 'Choose equipment type to draw' : isHagnessSelectingRecipient ? 'Choose who receives the equipment' : 'Drawing equipment...' }}</p>
+        </div>
+      </div>
+
+      <!-- Step 1: Equipment type selection -->
+      <div class="equipment-type-choices" v-if="isHagnessSelectingType && hagnessEquipmentTypeChoices.length > 0">
+        <p class="step-label">Choose equipment type:</p>
+        <div class="equipment-type-buttons">
+          <button
+            v-for="choice in hagnessEquipmentTypeChoices"
+            :key="choice.value"
+            class="equipment-type-button"
+            :class="choice.label.toLowerCase()"
+            @click="selectEquipmentType(choice.value)"
+          >
+            <span class="equip-icon">{{ choice.label === 'Weapon' ? '⚔️' : choice.label === 'Armor' ? '🛡️' : '📦' }}</span>
+            <span class="equip-label">{{ choice.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Show drawn equipment and recipient selection -->
+      <div class="hagness-equipment-display" v-else-if="isHagnessSelectingRecipient">
+        <!-- Show drawn equipment card -->
+        <div class="hagness-drawn-section" v-if="hagnessDrawnEquipment">
+          <EquipmentCard :equipment="hagnessDrawnEquipment" />
+        </div>
+        <div v-else class="no-equipment">
+          <p>No equipment was drawn from the deck.</p>
+        </div>
+
+        <!-- Recipient selection buttons -->
+        <div class="hagness-recipient-section" v-if="hagnessSquadMates.length > 0">
+          <p class="recipient-label">Give to:</p>
+          <div class="recipient-button-row">
+            <button
+              v-for="mate in hagnessSquadMates"
+              :key="mate.displayName"
+              class="recipient-button"
+              @click="selectHagnessRecipient(mate.choice)"
+            >
+              {{ mate.displayName }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Main content: Map + Squad Panel -->
     <div class="board-layout" v-if="sectors.length > 0 || isPlacingLanding">
       <!-- Map Section -->
@@ -1037,7 +1352,9 @@ const clickableSectors = computed(() => {
           :secondary-squad="currentPlayerIsDictator ? undefined : secondarySquad"
           :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
           :can-drop-equipment="canDropEquipment"
+          :merc-abilities-available="mercAbilitiesAvailable"
           @drop-equipment="handleDropEquipment"
+          @activate-ability="handleActivateAbility"
         />
       </div>
     </div>
@@ -1243,6 +1560,186 @@ const clickableSectors = computed(() => {
   font-size: 0.85rem;
   margin: 0;
   font-style: italic;
+}
+
+/* Hagness Draw Equipment UI */
+.hagness-phase {
+  background: v-bind('UI_COLORS.cardBg');
+  border: 2px solid #81d4a8; /* mint green for Hagness */
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.hagness-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.hagness-icon {
+  font-size: 2.5rem;
+}
+
+.hagness-content {
+  flex: 1;
+}
+
+.hagness-title {
+  color: #81d4a8; /* mint green */
+  font-size: 1.4rem;
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.hagness-prompt {
+  color: v-bind('UI_COLORS.text');
+  margin: 0;
+  font-size: 1rem;
+}
+
+.step-label {
+  color: v-bind('UI_COLORS.text');
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.hagness-equipment-display {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawn-equipment-card {
+  display: flex;
+  justify-content: center;
+}
+
+.recipient-buttons-inline {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.recipient-label-inline {
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.no-equipment {
+  text-align: center;
+  padding: 20px;
+  color: v-bind('UI_COLORS.textMuted');
+  font-style: italic;
+}
+
+.recipient-buttons {
+  text-align: center;
+  padding-top: 12px;
+  border-top: 1px solid v-bind('UI_COLORS.border');
+}
+
+.recipient-label {
+  color: v-bind('UI_COLORS.text');
+  font-size: 1rem;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.recipient-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .recipient-button-row {
+    justify-content: center;
+  }
+}
+
+.recipient-button {
+  background: v-bind('UI_COLORS.backgroundLight');
+  border: 2px solid #81d4a8;
+  border-radius: 8px;
+  color: v-bind('UI_COLORS.text');
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recipient-button:hover {
+  background: #81d4a8;
+  color: #1a1a1a;
+}
+
+.hagness-loading {
+  text-align: center;
+  padding: 20px;
+  color: v-bind('UI_COLORS.textMuted');
+}
+
+.hagness-equipment-display {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+}
+
+.hagness-drawn-section {
+  display: flex;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 280px;
+}
+
+.hagness-recipient-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: auto;
+  text-align: right;
+}
+
+/* On narrow screens, stack vertically and center */
+@media (max-width: 600px) {
+  .hagness-equipment-display {
+    flex-direction: column;
+  }
+
+  .hagness-recipient-section {
+    align-items: center;
+    margin-left: 0;
+    text-align: center;
+    width: 100%;
+  }
+}
+
+.no-equipment {
+  text-align: center;
+  padding: 20px;
+  color: v-bind('UI_COLORS.textMuted');
+}
+
+.hagness-recipient-prompt {
+  text-align: center;
+  padding: 20px;
+}
+
+.recipient-message {
+  color: #81d4a8;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
 }
 
 .no-mercs-message {

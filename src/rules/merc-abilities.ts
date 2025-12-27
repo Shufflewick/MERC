@@ -138,6 +138,8 @@ export interface PassiveAbility {
   extraTrainingActions?: number;
   /** Extra health (Juicer) */
   extraHealth?: number;
+  /** Extra combat bonus (Shooter) */
+  extraCombat?: number;
   /** Can carry weapon in accessory slot (Genesis) */
   weaponInAccessorySlot?: boolean;
   /** All slots can be accessories (Gunther) */
@@ -510,7 +512,7 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   shooter: {
     id: 'shooter',
-    // Just has high combat (6), no special ability
+    passive: { extraCombat: 3 },
   },
 };
 

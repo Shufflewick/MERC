@@ -121,6 +121,10 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       }
 
       squad.sectorId = destination.sectorId;
+      // Sync individual MERC sectorIds for consistency with map display
+      for (const merc of squad.getMercs()) {
+        merc.sectorId = destination.sectorId;
+      }
       game.message(`${player.name} moved ${mercs.length} MERC(s) to ${destination.sectorName}`);
 
       // Per rules: "Combat triggers when: A squad moves into an enemy-occupied sector"
@@ -213,6 +217,10 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
       // Move both squads to target
       player.primarySquad.sectorId = target.sectorId;
       player.secondarySquad.sectorId = target.sectorId;
+      // Sync individual MERC sectorIds for consistency with map display
+      for (const merc of [...player.primarySquad.getMercs(), ...player.secondarySquad.getMercs()]) {
+        merc.sectorId = target.sectorId;
+      }
 
       const totalMercs = primaryMercs.length + secondaryMercs.length;
       game.message(`${player.name} launches coordinated attack with ${totalMercs} MERC(s) on ${target.sectorName}!`);
@@ -466,6 +474,10 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
         }
 
         squad.sectorId = target.sectorId;
+        // Sync individual MERC sectorIds for consistency with map display
+        for (const merc of squad.getMercs()) {
+          merc.sectorId = target.sectorId;
+        }
         totalMercs += mercs.length;
       }
 
@@ -531,9 +543,12 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
 
       // Secondary squad starts at same location
       player.secondarySquad.sectorId = player.primarySquad.sectorId;
+      // Ensure MERC's sectorId is synced
+      merc.sectorId = player.primarySquad.sectorId;
 
       // Update Haarg's ability bonuses (squad composition changed)
       game.updateAllHaargBonuses();
+      game.updateAllSargeBonuses();
 
       game.message(`${player.name} split off ${merc.mercName} into secondary squad`);
       return { success: true, message: `Split ${merc.mercName} to secondary squad` };
@@ -573,6 +588,7 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
 
       // Update Haarg's ability bonuses (squad composition changed)
       game.updateAllHaargBonuses();
+      game.updateAllSargeBonuses();
 
       game.message(`${player.name} merged squads (${mercs.length} MERC(s) rejoined)`);
       return { success: true, message: `Merged ${mercs.length} MERC(s)` };

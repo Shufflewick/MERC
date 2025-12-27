@@ -14,6 +14,7 @@ import {
   TacticsDeck,
   TacticsHand,
   DiscardPile,
+  MercCard,
   type SectorType,
 } from './elements.js';
 import { DictatorConstants } from './constants.js';

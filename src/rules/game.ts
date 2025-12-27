@@ -475,6 +475,24 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Using persistentMap to survive HMR - stores equipment IDs (numbers) not element refs
   pendingLootMap = this.persistentMap<string, number[]>('pendingLootMap');
 
+  // Hagness ability staging - holds drawn equipment during selection
+  // Plain object to ensure it serializes to clients
+  // Key: player position (string), Value: serialized equipment data for UI display
+  hagnessDrawnEquipmentData: Record<string, {
+    equipmentId: number;
+    equipmentName: string;
+    equipmentType: string;
+    description: string;
+    combatBonus: number;
+    initiative: number;
+    training: number;
+    targets: number;
+    armorBonus: number;
+    negatesArmor: boolean;
+    serial: number;
+    image: string;
+  }> = {};
+
   // Legacy pendingLoot for backward compatibility (deprecated)
   pendingLoot: { sectorId: string; equipment: any[] } | null = null;
 
@@ -1035,6 +1053,44 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const haarg = mercs.find(m => m.mercId === 'haarg');
     if (haarg) {
       haarg.updateHaargBonus(mercs);
+    }
+  }
+
+  /**
+   * Update Sarge's ability bonuses for all squads.
+   * Sarge gets +1 to all skills when his initiative is highest in the squad.
+   * Call this whenever squad composition changes (hiring, movement, death, etc.)
+   */
+  updateAllSargeBonuses(): void {
+    // Check all rebel squads
+    for (const rebel of this.rebelPlayers) {
+      try {
+        this.updateSargeBonusForSquad(rebel.primarySquad);
+      } catch { /* squad not initialized */ }
+      try {
+        this.updateSargeBonusForSquad(rebel.secondarySquad);
+      } catch { /* squad not initialized */ }
+    }
+    // Check dictator squads (in case Sarge is hired by dictator)
+    if (this.dictatorPlayer) {
+      try {
+        this.updateSargeBonusForSquad(this.dictatorPlayer.primarySquad);
+      } catch { /* squad not initialized */ }
+      try {
+        this.updateSargeBonusForSquad(this.dictatorPlayer.secondarySquad);
+      } catch { /* squad not initialized */ }
+    }
+  }
+
+  /**
+   * Update Sarge's bonus for a specific squad
+   */
+  updateSargeBonusForSquad(squad: Squad): void {
+    if (!squad) return;
+    const mercs = squad.getMercs();
+    const sarge = mercs.find(m => m.mercId === 'sarge');
+    if (sarge) {
+      sarge.updateSargeBonus(mercs);
     }
   }
 

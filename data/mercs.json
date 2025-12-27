@@ -326,7 +326,7 @@
     "name": "shooter",
     "quantity": 1,
     "training": 0,
-    "combat": 6,
+    "combat": 3,
     "initiative": 1,
     "ability": "Is an extremely good shot.",
     "bio": "Volunteered for two tours in a hot zone.",

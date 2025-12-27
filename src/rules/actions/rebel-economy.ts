@@ -232,6 +232,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             }
           }
 
+          // Clear sectorId so fired MERC doesn't show on map
+          mercToFire.sectorId = undefined;
           mercToFire.putInto(game.mercDiscard);
           if (droppedEquipment.length > 0) {
             game.message(`Fired ${mercToFire.mercName}, dropped ${droppedEquipment.join(', ')} to stash`);

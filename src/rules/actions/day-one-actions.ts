@@ -89,10 +89,15 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
 
       // Hire the selected MERC
       merc.putInto(player.primarySquad);
+      // Sync MERC's sectorId with squad's location
+      if (player.primarySquad.sectorId) {
+        merc.sectorId = player.primarySquad.sectorId;
+      }
       game.message(`${player.name} hired ${merc.mercName}`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
+      game.updateAllSargeBonuses();
 
       // Equip starting equipment
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -185,10 +190,15 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
 
       // Hire the selected MERC
       merc.putInto(player.primarySquad);
+      // Sync MERC's sectorId with squad's location
+      if (player.primarySquad.sectorId) {
+        merc.sectorId = player.primarySquad.sectorId;
+      }
       game.message(`${player.name} hired ${merc.mercName}`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
+      game.updateAllSargeBonuses();
 
       // Equip starting equipment
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -308,10 +318,15 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
 
       // Hire the selected MERC
       merc.putInto(player.primarySquad);
+      // Sync MERC's sectorId with squad's location
+      if (player.primarySquad.sectorId) {
+        merc.sectorId = player.primarySquad.sectorId;
+      }
       game.message(`${player.name} hired ${merc.mercName} (Teresa bonus)`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
+      game.updateAllSargeBonuses();
 
       // Equip starting equipment
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';

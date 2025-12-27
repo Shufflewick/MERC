@@ -44,11 +44,18 @@ const props = defineProps<{
   showEquipment?: boolean;
   compact?: boolean;
   canDropEquipment?: boolean;
+  abilityAvailable?: boolean; // Whether the MERC's ability action can be used
 }>();
 
 const emit = defineEmits<{
   dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory' | `Bandolier:${number}`];
+  activateAbility: [mercId: string];
 }>();
+
+// Handle ability button click
+function onAbilityClick() {
+  emit('activateAbility', mercId.value as string);
+}
 
 // Helper to get a property from either attributes or root level
 function getProp<T>(key: string, defaultVal: T): T {
@@ -161,6 +168,17 @@ function buildStatBreakdown(statKey: string, baseStatKey: string): StatBreakdown
     const haargBonus = getProp(haargBonusKey, 0);
     if (haargBonus !== 0) {
       breakdown.push({ label: "Haarg's Ability", value: haargBonus });
+    }
+  }
+
+  // Check for ability-based stat bonuses by comparing effective to base + equipment
+  // This catches abilities like Shooter's +3 combat
+  if (statKey === 'combat') {
+    const effectiveCombat = getProp('effectiveCombat', 0);
+    const sumSoFar = breakdown.reduce((sum, item) => sum + item.value, 0);
+    const abilityBonus = effectiveCombat - sumSoFar;
+    if (abilityBonus > 0) {
+      breakdown.push({ label: 'Ability', value: abilityBonus });
     }
   }
 
@@ -457,6 +475,13 @@ function confirmDropEquipment() {
     <div class="ability-section" v-if="abilityText && !compact">
       <div class="ability-header">Ability:</div>
       <div class="ability-text">{{ abilityText }}</div>
+      <button
+        v-if="abilityAvailable"
+        class="ability-button"
+        @click.stop="onAbilityClick"
+      >
+        Use Ability
+      </button>
     </div>
 
     <!-- Equipment Section -->
@@ -753,6 +778,25 @@ function confirmDropEquipment() {
   font-size: 0.9rem;
   line-height: 1.4;
   color: v-bind('UI_COLORS.text');
+}
+
+.ability-button {
+  margin-top: 10px;
+  background: #81d4a8;
+  color: #1a1a1a;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.ability-button:hover {
+  background: #6bc494;
+  transform: translateY(-1px);
 }
 
 /* Equipment Section */
