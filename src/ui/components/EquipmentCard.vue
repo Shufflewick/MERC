@@ -46,6 +46,16 @@ const targets = computed(() => getProp('targets', 0));
 const armorBonus = computed(() => getProp('armorBonus', 0) || getProp('armor', 0));
 const negatesArmor = computed(() => getProp('negatesArmor', false));
 const serial = computed(() => getProp('serial', 0));
+const equipmentId = computed(() => getProp('equipmentId', ''));
+const image = computed(() => {
+  const explicitImage = getProp('image', '');
+  if (explicitImage) return explicitImage;
+  // Fallback: construct path from equipmentId
+  if (equipmentId.value) {
+    return `/equipment/${equipmentId.value}.png`;
+  }
+  return '';
+});
 
 const typeIcon = computed(() => {
   switch (equipmentType.value) {
@@ -78,83 +88,137 @@ const hasStats = computed(() =>
 
 <template>
   <div class="equipment-card">
-    <!-- Header -->
-    <div class="equipment-header">
-      <span class="type-icon" :style="{ color: typeColor }">{{ typeIcon }}</span>
-      <div class="name-section">
-        <span class="equipment-name">{{ equipmentName }}</span>
-        <span class="equipment-type" :style="{ color: typeColor }">{{ equipmentType }}</span>
+    <!-- Content (left side) -->
+    <div class="equipment-content">
+
+      <!-- Header -->
+      <div class="equipment-header">
+        <span class="type-icon" :style="{ color: typeColor }">{{ typeIcon }}</span>
+        <div class="name-section">
+          <span class="equipment-name">{{ equipmentName }}</span>
+          <span class="equipment-type" :style="{ color: typeColor }">{{ equipmentType }}</span>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" v-if="hasStats">
+        <div class="stat" v-if="combatBonus !== 0">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-label">Combat:</span>
+          <span class="stat-value" :class="{ positive: combatBonus > 0, negative: combatBonus < 0 }">
+            {{ combatBonus > 0 ? '+' : '' }}{{ combatBonus }}
+          </span>
+        </div>
+        <div class="stat" v-if="initiative !== 0">
+          <span class="stat-icon">»</span>
+          <span class="stat-label">Initiative:</span>
+          <span class="stat-value" :class="{ positive: initiative > 0, negative: initiative < 0 }">
+            {{ initiative > 0 ? '+' : '' }}{{ initiative }}
+          </span>
+        </div>
+        <div class="stat" v-if="training !== 0">
+          <span class="stat-icon">♡</span>
+          <span class="stat-label">Training:</span>
+          <span class="stat-value" :class="{ positive: training > 0, negative: training < 0 }">
+            {{ training > 0 ? '+' : '' }}{{ training }}
+          </span>
+        </div>
+        <div class="stat" v-if="targets !== 0">
+          <span class="stat-icon">🎯</span>
+          <span class="stat-label">Targets:</span>
+          <span class="stat-value">{{ targets }}</span>
+        </div>
+        <div class="stat" v-if="armorBonus !== 0">
+          <span class="stat-icon">🛡️</span>
+          <span class="stat-label">Armor:</span>
+          <span class="stat-value" :class="{ positive: armorBonus > 0 }">
+            {{ armorBonus > 0 ? '+' : '' }}{{ armorBonus }}
+          </span>
+        </div>
+        <div class="stat special" v-if="negatesArmor">
+          <span class="stat-icon">💥</span>
+          <span class="stat-label">Armor Piercing</span>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="description-section" v-if="description">
+        <div class="description-text">{{ description }}</div>
+      </div>
+
+      <!-- Slot for action buttons -->
+      <slot name="actions"></slot>
+    </div>
+
+    <!-- Image (right side) -->
+    <div class="equipment-image-section" v-if="image">
+      <div class="equipment-image-wrapper">
+        <img :src="image" :alt="equipmentName" class="equipment-image" />
       </div>
       <span class="serial-badge" v-if="serial">#{{ serial }}</span>
-    </div>
-
-    <!-- Stats Grid -->
-    <div class="stats-grid" v-if="hasStats">
-      <div class="stat" v-if="combatBonus !== 0">
-        <span class="stat-icon">⚡</span>
-        <span class="stat-label">Combat:</span>
-        <span class="stat-value" :class="{ positive: combatBonus > 0, negative: combatBonus < 0 }">
-          {{ combatBonus > 0 ? '+' : '' }}{{ combatBonus }}
-        </span>
-      </div>
-      <div class="stat" v-if="initiative !== 0">
-        <span class="stat-icon">»</span>
-        <span class="stat-label">Initiative:</span>
-        <span class="stat-value" :class="{ positive: initiative > 0, negative: initiative < 0 }">
-          {{ initiative > 0 ? '+' : '' }}{{ initiative }}
-        </span>
-      </div>
-      <div class="stat" v-if="training !== 0">
-        <span class="stat-icon">♡</span>
-        <span class="stat-label">Training:</span>
-        <span class="stat-value" :class="{ positive: training > 0, negative: training < 0 }">
-          {{ training > 0 ? '+' : '' }}{{ training }}
-        </span>
-      </div>
-      <div class="stat" v-if="targets !== 0">
-        <span class="stat-icon">🎯</span>
-        <span class="stat-label">Targets:</span>
-        <span class="stat-value">{{ targets }}</span>
-      </div>
-      <div class="stat" v-if="armorBonus !== 0">
-        <span class="stat-icon">🛡️</span>
-        <span class="stat-label">Armor:</span>
-        <span class="stat-value" :class="{ positive: armorBonus > 0 }">
-          {{ armorBonus > 0 ? '+' : '' }}{{ armorBonus }}
-        </span>
-      </div>
-      <div class="stat special" v-if="negatesArmor">
-        <span class="stat-icon">💥</span>
-        <span class="stat-label">Armor Piercing</span>
-      </div>
-    </div>
-
-    <!-- Description -->
-    <div class="description-section" v-if="description">
-      <div class="description-text">{{ description }}</div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .equipment-card {
+  display: flex;
+  gap: 16px;
   background: rgba(70, 85, 70, 0.98);
   border-radius: 12px;
   padding: 12px;
-  min-width: 240px;
-  max-width: 320px;
   color: #ffffff;
   font-family: inherit;
+}
+
+/* Equipment Image (right side) */
+.equipment-image-section {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.equipment-image-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.equipment-image {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.serial-badge {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #c0c0c0;
+}
+
+/* Content (left side) */
+.equipment-content {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header */
 .equipment-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  padding-right: 32px; /* Room for modal close button */
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid v-bind('UI_COLORS.border');
 }
 
@@ -182,23 +246,15 @@ const hasStats = computed(() =>
   letter-spacing: 0.5px;
 }
 
-.serial-badge {
-  background: rgba(255, 255, 255, 0.15);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  color: #c0c0c0;
-}
-
 /* Stats Grid */
 .stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
   background: v-bind('UI_COLORS.backgroundLight');
   border-radius: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .stat {
@@ -208,7 +264,6 @@ const hasStats = computed(() =>
 }
 
 .stat.special {
-  grid-column: span 2;
   justify-content: center;
   background: rgba(255, 107, 138, 0.25);  /* bright pink tint */
   padding: 4px 8px;

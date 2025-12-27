@@ -28,7 +28,7 @@ import { isLandMine } from '../equipment-effects.js';
  */
 export function createReEquipAction(game: MERCGame): ActionDefinition {
   return Action.create('reEquip')
-    .prompt('Re-equip from stash')
+    .prompt('Equip')
     .condition((ctx, tracer) => {
       // Cannot re-equip during combat
       if (game.activeCombat) return false;
@@ -203,7 +203,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
  */
 export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
   return Action.create('dropEquipment')
-    .prompt('Drop equipment')
+    .prompt('Unequip')
     .condition((ctx, tracer) => {
       // Cannot drop equipment during combat
       if (game.activeCombat) return false;
@@ -213,9 +213,15 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       if (!isRebel) return false;
       const player = ctx.player as RebelPlayer;
 
-      // Check if any MERC has equipment to drop
+      // Check if any MERC has equipment to drop (including bandolier slots)
+      // Use both slot refs and slotData since element refs aren't serialized
       const hasEquippedMerc = player.team.some(m =>
-        !m.isDead && (m.weaponSlot || m.armorSlot || m.accessorySlot)
+        !m.isDead && (
+          m.weaponSlot || m.weaponSlotData ||
+          m.armorSlot || m.armorSlotData ||
+          m.accessorySlot || m.accessorySlotData ||
+          m.bandolierSlotsData.length > 0
+        )
       );
       if (tracer) tracer.check('hasEquippedMerc', hasEquippedMerc);
       return hasEquippedMerc;
@@ -229,29 +235,69 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
 
-        // MERC must be in player's team and have equipment
+        // MERC must be in player's team and have equipment (including bandolier slots)
+        // Use both slot refs and slotData since element refs aren't serialized
         if (!isInPlayerTeam(merc, player)) return false;
-        return !!(merc.weaponSlot || merc.armorSlot || merc.accessorySlot);
+        return !!(
+          merc.weaponSlot || merc.weaponSlotData ||
+          merc.armorSlot || merc.armorSlotData ||
+          merc.accessorySlot || merc.accessorySlotData ||
+          merc.bandolierSlotsData.length > 0
+        );
       },
     })
     .chooseFrom<string>('slot', {
       prompt: 'Select equipment to drop',
       dependsOn: 'actingMerc',
+      // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
       choices: (ctx) => {
-        const actingMerc = ctx.args?.actingMerc as MercCard;
-        if (!actingMerc) return [];
+        const mercRef = ctx.args?.actingMerc;
+        // During availability check, actingMerc won't be set yet - return placeholder
+        if (!mercRef) return ['(select MERC first)'];
+
+        // BoardSmith may pass the element ID (number) or the element object
+        let actualMerc: MercCard | undefined;
+        if (typeof mercRef === 'number') {
+          // It's an element ID - look up using game.getElementById
+          actualMerc = game.getElementById(mercRef) as MercCard | undefined;
+        } else {
+          // It's an object - get the ID and look up the actual element
+          const mercId = (mercRef as any).id;
+          if (typeof mercId === 'number') {
+            actualMerc = game.getElementById(mercId) as MercCard | undefined;
+          } else {
+            // Try to find by mercId string
+            const mercIdStr = (mercRef as any).mercId;
+            actualMerc = game.first(MercCard, m => m.mercId === mercIdStr);
+          }
+        }
+
+        if (!actualMerc) return ['(select MERC first)'];
 
         const choices: string[] = [];
-        if (actingMerc.weaponSlot) {
-          choices.push(`Weapon: ${actingMerc.weaponSlot.equipmentName}`);
+        // Use slot references if available, otherwise fall back to slotData (element refs aren't serialized)
+        const weaponName = actualMerc.weaponSlot?.equipmentName || actualMerc.weaponSlotData?.equipmentName;
+        const armorName = actualMerc.armorSlot?.equipmentName || actualMerc.armorSlotData?.equipmentName;
+        const accessoryName = actualMerc.accessorySlot?.equipmentName || actualMerc.accessorySlotData?.equipmentName;
+
+        if (weaponName) {
+          choices.push(`Weapon: ${weaponName}`);
         }
-        if (actingMerc.armorSlot) {
-          choices.push(`Armor: ${actingMerc.armorSlot.equipmentName}`);
+        if (armorName) {
+          choices.push(`Armor: ${armorName}`);
         }
-        if (actingMerc.accessorySlot) {
-          choices.push(`Accessory: ${actingMerc.accessorySlot.equipmentName}`);
+        if (accessoryName) {
+          choices.push(`Accessory: ${accessoryName}`);
         }
-        return choices;
+        // Add bandolier slot items (use data as source of truth)
+        for (let i = 0; i < actualMerc.bandolierSlotsData.length; i++) {
+          const itemData = actualMerc.bandolierSlotsData[i];
+          if (itemData?.equipmentName) {
+            choices.push(`Bandolier:${i}: ${itemData.equipmentName}`);
+          }
+        }
+        // Return at least one choice to prevent action from being marked unavailable
+        return choices.length > 0 ? choices : ['(no equipment)'];
       },
     })
     .execute((args, ctx) => {
@@ -276,17 +322,21 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'MERC is not in a valid sector' };
       }
 
-      // Parse the slot choice and drop the equipment
-      let droppedItem: Equipment | null = null;
-      if (slotChoice.startsWith('Weapon:') && actingMerc.weaponSlot) {
-        droppedItem = actingMerc.weaponSlot;
-        actingMerc.weaponSlot = null;
-      } else if (slotChoice.startsWith('Armor:') && actingMerc.armorSlot) {
-        droppedItem = actingMerc.armorSlot;
-        actingMerc.armorSlot = null;
-      } else if (slotChoice.startsWith('Accessory:') && actingMerc.accessorySlot) {
-        droppedItem = actingMerc.accessorySlot;
-        actingMerc.accessorySlot = null;
+      // Parse the slot choice and drop the equipment using unequip() to sync UI data
+      let droppedItem: Equipment | undefined;
+      if (slotChoice.startsWith('Weapon:')) {
+        droppedItem = actingMerc.unequip('Weapon');
+      } else if (slotChoice.startsWith('Armor:')) {
+        droppedItem = actingMerc.unequip('Armor');
+      } else if (slotChoice.startsWith('Accessory:')) {
+        droppedItem = actingMerc.unequip('Accessory');
+      } else if (slotChoice.startsWith('Bandolier:')) {
+        // Parse "Bandolier:N: equipmentName" format
+        const match = slotChoice.match(/^Bandolier:(\d+):/);
+        if (match) {
+          const slotIndex = parseInt(match[1], 10);
+          droppedItem = actingMerc.unequipBandolierSlot(slotIndex);
+        }
       }
 
       if (!droppedItem) {

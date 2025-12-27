@@ -15,6 +15,7 @@
 export type AbilityCondition =
   | 'always'                    // Always active
   | 'highestInitInSquad'        // Has highest initiative in squad
+  | 'hasWeapon'                 // Has any weapon equipped (Ra)
   | 'hasHandgun'                // Has a handgun equipped
   | 'hasUzi'                    // Has an Uzi equipped
   | 'hasArmor'                  // Has armor equipped
@@ -252,7 +253,7 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   ra: {
     id: 'ra',
-    combatModifiers: { targetBonus: 1, condition: 'always' },
+    combatModifiers: { targetBonus: 1, condition: 'hasWeapon' },
   },
 
   // --- MERCs with Conditional Self Bonuses ---

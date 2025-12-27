@@ -270,7 +270,7 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
   },
   'bandolier': {
     id: 'bandolier',
-    extraAccessorySlots: 2,
+    extraAccessorySlots: 3,
   },
   'field-radio': {
     id: 'field-radio',

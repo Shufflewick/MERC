@@ -44,11 +44,24 @@ const props = defineProps<{
   mercsInSector: MercInSector[];
   playerColorMap?: Record<string, string>; // Maps player ID to color name
   isClickable?: boolean;
+  canDropEquipment?: boolean;
 }>();
 
 const emit = defineEmits<{
   click: [sectorId: string];
+  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
 }>();
+
+function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
+  emit('dropEquipment', mercId, slotType);
+  // Close the MERC modal so it refreshes with updated data when reopened
+  closeMercModal();
+}
+
+// Get unique key for merc - never returns empty to prevent Vue warnings
+function getMercKey(merc: MercInSector, index: number): string {
+  return merc.mercId || merc.mercName || `merc-${index}`;
+}
 
 const showTooltip = ref(false);
 
@@ -164,8 +177,8 @@ function closeMercModal() {
       <!-- MERC portraits (clickable) -->
       <div class="mercs-area">
         <div
-          v-for="merc in mercsInSector.slice(0, 4)"
-          :key="merc.mercId"
+          v-for="(merc, index) in mercsInSector.slice(0, 4)"
+          :key="getMercKey(merc, index)"
           class="merc-portrait clickable"
           :style="{ borderColor: getPlayerColor(merc.playerColor) }"
           @click="showMercDetails(merc, $event)"
@@ -197,8 +210,8 @@ function closeMercModal() {
     <!-- Tooltip for MERCs -->
     <div v-if="showTooltip && mercsInSector.length > 0" class="merc-tooltip">
       <div
-        v-for="merc in mercsInSector"
-        :key="merc.mercId"
+        v-for="(merc, index) in mercsInSector"
+        :key="getMercKey(merc, 100 + index)"
         class="tooltip-merc clickable"
         @click="showMercDetails(merc, $event)"
       >
@@ -220,6 +233,8 @@ function closeMercModal() {
         :merc="selectedMerc"
         :player-color="selectedMerc.playerColor"
         :show-equipment="true"
+        :can-drop-equipment="canDropEquipment"
+        @drop-equipment="handleDropEquipment"
       />
     </DetailModal>
   </div>

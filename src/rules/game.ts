@@ -429,7 +429,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // MERC-a2h: Track pending coordinated attacks across multiple rebel players
   // Key: target sectorId, Value: array of { playerId, squadType }
-  pendingCoordinatedAttacks: Map<string, Array<{ playerId: string; squadType: 'primary' | 'secondary' }>> = new Map();
+  // Using persistentMap to survive HMR
+  pendingCoordinatedAttacks = this.persistentMap<string, Array<{ playerId: string; squadType: 'primary' | 'secondary' }>>('pendingCoordinatedAttacks');
 
   // MERC-n1f: Interactive combat state
   // Tracks active combat that's paused for player decision (retreat/continue)
@@ -469,20 +470,57 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   lastExplorer: { mercId: string; sectorId: string } | null = null;
 
   // Pending loot cache for explore action
-  // Caches drawn equipment during selection phase to avoid multiple draws
+  // Caches equipment IDs during selection phase to avoid multiple draws
   // Changed to Map to support multiple MERCs in different unexplored sectors
-  pendingLootMap: Map<string, any[]> = new Map();
+  // Using persistentMap to survive HMR - stores equipment IDs (numbers) not element refs
+  pendingLootMap = this.persistentMap<string, number[]>('pendingLootMap');
 
   // Legacy pendingLoot for backward compatibility (deprecated)
   pendingLoot: { sectorId: string; equipment: any[] } | null = null;
 
-  // Data loaded from JSON
-  private mercData: MercData[] = [];
-  private equipmentData: EquipmentData[] = [];
-  private sectorData: SectorData[] = [];
-  private dictatorData: DictatorData[] = [];
-  private tacticsData: TacticsData[] = [];
-  private setupConfigurations: SetupConfiguration[] = [];
+  // Static reference data loaded from JSON - stored in settings to survive HMR
+  // These are loaded once during initializeGame() and don't change during gameplay
+  get mercData(): MercData[] {
+    return this.settings.mercData || [];
+  }
+  set mercData(data: MercData[]) {
+    this.settings.mercData = data;
+  }
+
+  get equipmentData(): EquipmentData[] {
+    return this.settings.equipmentData || [];
+  }
+  set equipmentData(data: EquipmentData[]) {
+    this.settings.equipmentData = data;
+  }
+
+  get sectorData(): SectorData[] {
+    return this.settings.sectorData || [];
+  }
+  set sectorData(data: SectorData[]) {
+    this.settings.sectorData = data;
+  }
+
+  get dictatorData(): DictatorData[] {
+    return this.settings.dictatorData || [];
+  }
+  set dictatorData(data: DictatorData[]) {
+    this.settings.dictatorData = data;
+  }
+
+  get tacticsData(): TacticsData[] {
+    return this.settings.tacticsData || [];
+  }
+  set tacticsData(data: TacticsData[]) {
+    this.settings.tacticsData = data;
+  }
+
+  get setupConfigurations(): SetupConfiguration[] {
+    return this.settings.setupConfigurations || [];
+  }
+  set setupConfigurations(data: SetupConfiguration[]) {
+    this.settings.setupConfigurations = data;
+  }
 
   constructor(options: MERCOptions) {
     // Store playerCount before super() so createPlayer can access it

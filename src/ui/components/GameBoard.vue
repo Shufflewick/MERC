@@ -487,16 +487,49 @@ const isEquipping = computed(() => {
   return props.availableActions.includes('equipStarting');
 });
 
+// Check if current selection is for equipment type (not MERC selection)
+const isSelectingEquipmentType = computed(() => {
+  const selection = currentSelection.value;
+  return selection?.name === 'equipmentType';
+});
+
+// Get equipment type choices when selecting equipment
+// Normalize to array of { value, label } objects
+const equipmentTypeChoices = computed(() => {
+  if (!isSelectingEquipmentType.value) return [];
+  const selection = currentSelection.value;
+  if (!selection) return [];
+  const choices = selection.choices || [];
+  // Normalize choices to objects with value and label
+  return choices.map((choice: any) => {
+    if (typeof choice === 'string') {
+      return { value: choice, label: choice };
+    }
+    return { value: choice.value || choice, label: choice.display || choice.value || String(choice) };
+  });
+});
+
 // Use the shared actionArgs from GameShell (props.actionArgs) instead of local state
 // This allows both custom UI and ActionPanel to potentially share state
 
-// Get action metadata for the current hiring action
+// Get action metadata for the current action (hiring or explore)
 const currentActionMetadata = computed(() => {
-  if (!isHiringMercs.value) return null;
-  // Check for first, second, and third merc hiring actions
-  return props.state?.state?.actionMetadata?.hireFirstMerc ||
-         props.state?.state?.actionMetadata?.hireSecondMerc ||
-         props.state?.state?.actionMetadata?.hireThirdMerc;
+  const metadata = props.state?.state?.actionMetadata;
+  if (!metadata) return null;
+
+  // Check for hiring actions
+  if (isHiringMercs.value) {
+    return metadata.hireFirstMerc ||
+           metadata.hireSecondMerc ||
+           metadata.hireThirdMerc;
+  }
+
+  // Check for explore action
+  if (props.availableActions.includes('explore')) {
+    return metadata.explore;
+  }
+
+  return null;
 });
 
 // Get the current selection (first one that hasn't been filled yet)
@@ -527,11 +560,12 @@ const allSelectionsComplete = computed(() => {
   return true;
 });
 
-// Get current hiring action name
-function getCurrentHiringAction(): string | null {
+// Get current action name that needs custom UI handling (hiring or explore)
+function getCurrentActionName(): string | null {
   if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
   if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
   if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
+  if (props.availableActions.includes('explore')) return 'explore';
   return null;
 }
 
@@ -541,7 +575,7 @@ watch(
   async (selection) => {
     if (!selection?.deferred || !fetchDeferredChoicesFn) return;
 
-    const actionName = getCurrentHiringAction();
+    const actionName = getCurrentActionName();
     if (!actionName) return;
     const key = `${actionName}:${selection.name}`;
 
@@ -596,10 +630,13 @@ const hirableMercs = computed(() => {
   const selection = currentSelection.value;
   if (!selection) return [];
 
+  // Don't return MERCs when selecting equipment type
+  if (isSelectingEquipmentType.value) return [];
+
   // For deferred selections, use fetched choices
   let choices: any[];
   if (selection.deferred) {
-    const actionName = getCurrentHiringAction();
+    const actionName = getCurrentActionName();
     if (!actionName) return [];
     const key = `${actionName}:${selection.name}`;
     choices = fetchedDeferredChoices[key] || [];
@@ -638,7 +675,7 @@ const hasSkipOption = computed(() => {
   // For deferred selections, use fetched choices
   let choices: any[];
   if (selection.deferred) {
-    const actionName = getCurrentHiringAction();
+    const actionName = getCurrentActionName();
     if (!actionName) return false;
     const key = `${actionName}:${selection.name}`;
     choices = fetchedDeferredChoices[key] || [];
@@ -660,7 +697,7 @@ function skipThirdHire() {
   // For deferred selections, use fetched choices
   let choices: any[];
   if (selection.deferred) {
-    const actionName = getCurrentHiringAction();
+    const actionName = getCurrentActionName();
     if (!actionName) return;
     const key = `${actionName}:${selection.name}`;
     choices = fetchedDeferredChoices[key] || [];
@@ -692,8 +729,14 @@ const landingSectors = computed(() => {
 });
 
 // Get MERC ID from merc object (handles different data structures)
+// Never returns empty string to prevent Vue duplicate key warnings
+let mercIdCounter = 0;
 function getMercId(merc: any): string {
-  return merc.attributes?.mercId || merc.mercId || merc.id || merc.ref || '';
+  const id = merc.attributes?.mercId || merc.mercId || merc.id || merc.ref;
+  if (id) return id;
+  // Generate a unique fallback ID using merc name if available
+  const name = merc.attributes?.mercName || merc.mercName || '';
+  return name ? `temp-${name}` : `temp-merc-${++mercIdCounter}`;
 }
 
 // Get capitalized MERC name for action (action expects capitalized names)
@@ -717,7 +760,7 @@ async function selectMercToHire(merc: any) {
   }
 
   // Determine which action is available
-  const actionName = getCurrentHiringAction();
+  const actionName = getCurrentActionName();
   if (!actionName) {
     return;
   }
@@ -743,6 +786,29 @@ async function selectMercToHire(merc: any) {
       if (allFilled) {
         await props.executeAction(actionName);
       }
+    }
+  }
+}
+
+// Handle selecting equipment type
+async function selectEquipmentType(equipType: string) {
+  const selection = currentSelection.value;
+  if (!selection) return;
+
+  const actionName = getCurrentActionName();
+  if (!actionName) return;
+
+  // Write to actionArgs
+  props.actionArgs[selection.name] = equipType;
+
+  // Check if all selections are now complete and execute if so
+  const metadata = currentActionMetadata.value;
+  if (metadata?.selections) {
+    const allFilled = metadata.selections.every(
+      (sel: any) => props.actionArgs[sel.name] !== undefined
+    );
+    if (allFilled) {
+      await props.executeAction(actionName);
     }
   }
 }
@@ -796,7 +862,7 @@ const canDropEquipment = computed(() => {
 });
 
 // Handle dropping equipment from a MERC to sector stash
-async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
+async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory' | `Bandolier:${number}`) {
   if (!canDropEquipment.value) return;
 
   // Find the merc in the game view by mercId
@@ -821,19 +887,29 @@ async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' 
     return;
   }
 
-  // Get the equipment name for the slot selection
-  const slotKey = slotType === 'Weapon' ? 'weaponSlotData'
-                : slotType === 'Armor' ? 'armorSlotData'
-                : 'accessorySlotData';
-  const slotData = mercElement.attributes?.[slotKey] || mercElement[slotKey];
-  const equipmentName = slotData?.equipmentName || slotData?.attributes?.equipmentName || 'Equipment';
+  let slotChoice: string;
 
-  // Format the slot choice as the action expects
-  const slotChoice = `${slotType}: ${equipmentName}`;
+  // Check if it's a bandolier slot
+  if (slotType.startsWith('Bandolier:')) {
+    const slotIndex = parseInt(slotType.split(':')[1], 10);
+    const bandolierData = mercElement.attributes?.bandolierSlotsData || mercElement.bandolierSlotsData || [];
+    const slotData = bandolierData[slotIndex];
+    const equipmentName = slotData?.equipmentName || slotData?.attributes?.equipmentName || 'Equipment';
+    slotChoice = `Bandolier:${slotIndex}: ${equipmentName}`;
+  } else {
+    // Get the equipment name for the slot selection
+    const slotKey = slotType === 'Weapon' ? 'weaponSlotData'
+                  : slotType === 'Armor' ? 'armorSlotData'
+                  : 'accessorySlotData';
+    const slotData = mercElement.attributes?.[slotKey] || mercElement[slotKey];
+    const equipmentName = slotData?.equipmentName || slotData?.attributes?.equipmentName || 'Equipment';
+    slotChoice = `${slotType}: ${equipmentName}`;
+  }
 
   // Execute the dropEquipment action directly with both args
+  // Pass the element ID (number) so the server can resolve it to the actual element
   await props.action('dropEquipment', {
-    actingMerc: mercElement,
+    actingMerc: mercElement.id,
     slot: slotChoice,
   });
 }
@@ -886,14 +962,31 @@ const clickableSectors = computed(() => {
       </div>
 
       <!-- Show already-selected MERCs from shared actionArgs -->
-      <div v-if="Object.keys(actionArgs).length > 0" class="selected-mercs">
+      <div v-if="Object.keys(actionArgs).filter(k => k).length > 0" class="selected-mercs">
         <span class="selected-label">Selected:</span>
-        <span v-for="(value, key) in actionArgs" :key="key" class="selected-merc-badge">
+        <span v-for="(value, key, idx) in actionArgs" :key="key || `arg-${idx}`" class="selected-merc-badge">
           {{ value }}
         </span>
       </div>
 
-      <div class="merc-choices-container" v-if="hirableMercs.length > 0 || hasSkipOption">
+      <!-- Equipment type selection -->
+      <div class="equipment-type-choices" v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0">
+        <div class="equipment-type-buttons">
+          <button
+            v-for="choice in equipmentTypeChoices"
+            :key="choice.value"
+            class="equipment-type-button"
+            :class="choice.label.toLowerCase()"
+            @click="selectEquipmentType(choice.value)"
+          >
+            <span class="equip-icon">{{ choice.label === 'Weapon' ? '⚔️' : choice.label === 'Armor' ? '🛡️' : '📦' }}</span>
+            <span class="equip-label">{{ choice.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MERC selection -->
+      <div class="merc-choices-container" v-else-if="hirableMercs.length > 0 || hasSkipOption">
         <div class="merc-choices">
           <div
             v-for="merc in hirableMercs"
@@ -931,7 +1024,9 @@ const clickableSectors = computed(() => {
           :players="players"
           :control-map="controlMap"
           :clickable-sectors="clickableSectors"
+          :can-drop-equipment="canDropEquipment"
           @sector-click="handleSectorClick"
+          @drop-equipment="handleDropEquipment"
         />
       </div>
 
@@ -1054,6 +1149,69 @@ const clickableSectors = computed(() => {
 .merc-choice:hover {
   transform: translateY(-4px);
   box-shadow: 0 0 0 3px v-bind('UI_COLORS.accent'), 0 8px 24px rgba(212, 168, 75, 0.4);
+}
+
+/* Equipment type selection buttons */
+.equipment-type-choices {
+  padding: 20px;
+}
+
+.equipment-type-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.equipment-type-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 40px;
+  border-radius: 12px;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: v-bind('UI_COLORS.cardBg');
+  min-width: 140px;
+}
+
+.equipment-type-button .equip-icon {
+  font-size: 2.5rem;
+}
+
+.equipment-type-button .equip-label {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: v-bind('UI_COLORS.text');
+}
+
+.equipment-type-button.weapon {
+  border-color: #ff6b8a;
+}
+
+.equipment-type-button.weapon:hover {
+  background: rgba(255, 107, 138, 0.15);
+  box-shadow: 0 0 0 3px #ff6b8a, 0 8px 24px rgba(255, 107, 138, 0.3);
+}
+
+.equipment-type-button.armor {
+  border-color: #64b5f6;
+}
+
+.equipment-type-button.armor:hover {
+  background: rgba(100, 181, 246, 0.15);
+  box-shadow: 0 0 0 3px #64b5f6, 0 8px 24px rgba(100, 181, 246, 0.3);
+}
+
+.equipment-type-button.accessory {
+  border-color: #81d4a8;
+}
+
+.equipment-type-button.accessory:hover {
+  background: rgba(129, 212, 168, 0.15);
+  box-shadow: 0 0 0 3px #81d4a8, 0 8px 24px rgba(129, 212, 168, 0.3);
 }
 
 .skip-hire-section {

@@ -6,6 +6,8 @@ import {
   DictatorConstants,
   AdjacencyConstants,
 } from './constants.js';
+import { getExtraAccessorySlots } from './equipment-effects.js';
+import { getMercAbility } from './merc-abilities.js';
 
 // =============================================================================
 // Types and Interfaces
@@ -64,6 +66,7 @@ export interface EquipmentSlotData {
   isOneUse?: boolean;
   isDamaged?: boolean;
   serial?: number;
+  image?: string;
 }
 
 // =============================================================================
@@ -99,17 +102,34 @@ export class MercCard extends BaseCard {
   effectiveTraining: number = 0;
   effectiveInitiative: number = 0;
   effectiveCombat: number = 0;
+  effectiveMaxHealth: number = MercConstants.BASE_HEALTH;
 
-  // Equipment slots (references to equipped cards)
-  weaponSlot?: Equipment;
-  armorSlot?: Equipment;
-  accessorySlot?: Equipment;
+  // Equipment slots - now stored as child elements with equippedSlot attribute
+  // These getters query children, making equipment survive HMR via element hierarchy
+  get weaponSlot(): Equipment | undefined {
+    return this.first(Equipment, e => e.equippedSlot === 'weapon');
+  }
+  get armorSlot(): Equipment | undefined {
+    return this.first(Equipment, e => e.equippedSlot === 'armor');
+  }
+  get accessorySlot(): Equipment | undefined {
+    return this.first(Equipment, e => e.equippedSlot === 'accessory');
+  }
+  get bandolierSlots(): Equipment[] {
+    return this.all(Equipment, e => e.equippedSlot?.startsWith('bandolier:') ?? false)
+      .sort((a, b) => {
+        const idxA = parseInt(a.equippedSlot!.split(':')[1]);
+        const idxB = parseInt(b.equippedSlot!.split(':')[1]);
+        return idxA - idxB;
+      });
+  }
 
   // Serialized equipment data for UI (updated when equipment changes)
   // BoardSmith doesn't serialize element references, only plain data
   weaponSlotData?: EquipmentSlotData | null;
   armorSlotData?: EquipmentSlotData | null;
   accessorySlotData?: EquipmentSlotData | null;
+  bandolierSlotsData: EquipmentSlotData[] = [];
 
   // Constants (imported from game constants)
   static readonly BASE_HEALTH = MercConstants.BASE_HEALTH;
@@ -135,6 +155,41 @@ export class MercCard extends BaseCard {
     return 0;
   }
 
+  /**
+   * Get the maximum number of bandolier slots available.
+   * Returns 0 if no bandolier is equipped, otherwise the extraAccessorySlots value.
+   */
+  getMaxBandolierSlots(): number {
+    // Check accessory slot for bandolier
+    const accessoryId = this.accessorySlot?.equipmentId || this.accessorySlotData?.equipmentId;
+    if (accessoryId) {
+      return getExtraAccessorySlots(accessoryId);
+    }
+    return 0;
+  }
+
+  /**
+   * Get the number of available (empty) bandolier slots.
+   * Now uses bandolierSlots getter which queries children (survives HMR).
+   */
+  getAvailableBandolierSlots(): number {
+    const max = this.getMaxBandolierSlots();
+    return Math.max(0, max - this.bandolierSlots.length);
+  }
+
+  /**
+   * Get the next available bandolier slot index.
+   * Returns -1 if no slots available.
+   */
+  private getNextBandolierIndex(): number {
+    const max = this.getMaxBandolierSlots();
+    const used = new Set(this.bandolierSlots.map(e => parseInt(e.equippedSlot!.split(':')[1])));
+    for (let i = 0; i < max; i++) {
+      if (!used.has(i)) return i;
+    }
+    return -1;
+  }
+
   // Helper to get base stat + equipment (without Haarg bonus) for comparison
   private getBaseStatWithEquip(stat: 'initiative' | 'training' | 'combat'): number {
     if (stat === 'initiative') {
@@ -142,18 +197,30 @@ export class MercCard extends BaseCard {
       value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
       value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
       value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
+      // Add bandolier slot bonuses (use data length as source of truth - element refs aren't serialized)
+      for (let i = 0; i < this.bandolierSlotsData.length; i++) {
+        value += this.getEquipValue(this.bandolierSlots[i], this.bandolierSlotsData[i], 'initiative');
+      }
       return value;
     } else if (stat === 'training') {
       let value = this.baseTraining;
       value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
       value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
       value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
+      // Add bandolier slot bonuses (use data length as source of truth - element refs aren't serialized)
+      for (let i = 0; i < this.bandolierSlotsData.length; i++) {
+        value += this.getEquipValue(this.bandolierSlots[i], this.bandolierSlotsData[i], 'training');
+      }
       return value;
     } else {
       let value = this.baseCombat;
       value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
       value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
       value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
+      // Add bandolier slot bonuses (use data length as source of truth - element refs aren't serialized)
+      for (let i = 0; i < this.bandolierSlotsData.length; i++) {
+        value += this.getEquipValue(this.bandolierSlots[i], this.bandolierSlotsData[i], 'combatBonus');
+      }
       return value;
     }
   }
@@ -163,11 +230,20 @@ export class MercCard extends BaseCard {
    * Call this whenever equipment or abilities change.
    */
   updateComputedStats(): void {
+    // MaxHealth - check for ability bonuses (e.g., Juicer's +2 health)
+    const ability = getMercAbility(this.mercId);
+    const extraHealth = ability?.passive?.extraHealth || 0;
+    this.effectiveMaxHealth = MercCard.BASE_HEALTH + extraHealth;
+
     // Training
     let t = this.baseTraining;
     t += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
     t += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
     t += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      t += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
+    }
     if (this.mercId === 'haarg') {
       t += this.haargTrainingBonus || 0;
     }
@@ -178,6 +254,10 @@ export class MercCard extends BaseCard {
     i += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
     i += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
     i += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      i += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative');
+    }
     if (this.mercId === 'haarg') {
       i += this.haargInitiativeBonus || 0;
     }
@@ -188,6 +268,10 @@ export class MercCard extends BaseCard {
     c += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
     c += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
     c += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      c += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
+    }
     if (this.mercId === 'haarg') {
       c += this.haargCombatBonus || 0;
     }
@@ -233,6 +317,10 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative');
+    }
     // Haarg's ability bonus
     if (this.mercId === 'haarg') {
       value += this.haargInitiativeBonus || 0;
@@ -245,6 +333,10 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
+    }
     // Haarg's ability bonus
     if (this.mercId === 'haarg') {
       value += this.haargTrainingBonus || 0;
@@ -257,6 +349,10 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
+    }
     // Haarg's ability bonus
     if (this.mercId === 'haarg') {
       value += this.haargCombatBonus || 0;
@@ -265,11 +361,10 @@ export class MercCard extends BaseCard {
   }
 
   get maxHealth(): number {
-    // MERC-jnr: Juicer gets +2 health (5 total instead of 3)
-    if (this.mercId === 'juicer') {
-      return MercCard.BASE_HEALTH + 2;
-    }
-    return MercCard.BASE_HEALTH;
+    // Check for ability-based health bonuses (e.g., Juicer's +2 health)
+    const ability = getMercAbility(this.mercId);
+    const extraHealth = ability?.passive?.extraHealth || 0;
+    return MercCard.BASE_HEALTH + extraHealth;
   }
 
   get health(): number {
@@ -284,6 +379,20 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'targets');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'targets');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'targets');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'targets');
+    }
+    // MERC-c1f: Apply ability target bonuses (e.g., Ra gets +1 target with weapon)
+    const ability = getMercAbility(this.mercId);
+    if (ability?.combatModifiers?.targetBonus) {
+      const condition = ability.combatModifiers.condition;
+      // Check if condition is met
+      if (condition === 'always' ||
+          (condition === 'hasWeapon' && (this.weaponSlot || this.weaponSlotData))) {
+        value += ability.combatModifiers.targetBonus;
+      }
+    }
     return value;
   }
 
@@ -292,6 +401,10 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'armorBonus');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'armorBonus');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'armorBonus');
+    // Add bandolier slot bonuses (use data length as source of truth)
+    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
+      value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'armorBonus');
+    }
     return value;
   }
 
@@ -349,8 +462,8 @@ export class MercCard extends BaseCard {
 
     // MERC-42g: Gunther can use all equipment slots for accessories
     if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
-      // Gunther can equip accessory if ANY slot is empty
-      return !this.accessorySlot || !this.weaponSlot || !this.armorSlot;
+      // Gunther can equip accessory if ANY slot is empty or bandolier slots available
+      return !this.accessorySlot || !this.weaponSlot || !this.armorSlot || this.getAvailableBandolierSlots() > 0;
     }
 
     // MERC-vwi: Genesis can carry a weapon in his accessory slot
@@ -365,7 +478,8 @@ export class MercCard extends BaseCard {
       case 'Armor':
         return !this.armorSlot;
       case 'Accessory':
-        return !this.accessorySlot;
+        // Can equip accessory if main slot is empty OR bandolier slots available
+        return !this.accessorySlot || this.getAvailableBandolierSlots() > 0;
       default:
         return false;
     }
@@ -392,11 +506,34 @@ export class MercCard extends BaseCard {
         isOneUse: equip.isOneUse,
         isDamaged: equip.isDamaged,
         serial: equip.serial,
+        image: equip.image,
       };
     };
     this.weaponSlotData = toSlotData(this.weaponSlot);
     this.armorSlotData = toSlotData(this.armorSlot);
     this.accessorySlotData = toSlotData(this.accessorySlot);
+    // Sync bandolier slots data
+    this.bandolierSlotsData = this.bandolierSlots.map(equip => toSlotData(equip)!);
+  }
+
+  /**
+   * Helper to equip item to a specific slot.
+   * Moves equipment to be a child of this MERC and sets equippedSlot.
+   */
+  private equipToSlot(equipment: Equipment, slot: string): void {
+    equipment.putInto(this);
+    equipment.equippedSlot = slot;
+  }
+
+  /**
+   * Helper to unequip from a slot.
+   * Clears equippedSlot but does NOT move the equipment - caller must handle that.
+   */
+  private clearSlot(equipment: Equipment | undefined): Equipment | undefined {
+    if (equipment) {
+      equipment.equippedSlot = undefined;
+    }
+    return equipment;
   }
 
   equip(equipment: Equipment): Equipment | undefined {
@@ -404,17 +541,20 @@ export class MercCard extends BaseCard {
 
     // MERC-42g: Gunther can equip accessories in any slot
     if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
-      // Try accessory slot first, then weapon, then armor
+      // Try accessory slot first, then bandolier slots, then weapon, then armor
       if (!this.accessorySlot) {
-        this.accessorySlot = equipment;
+        this.equipToSlot(equipment, 'accessory');
+      } else if (this.getAvailableBandolierSlots() > 0) {
+        const idx = this.getNextBandolierIndex();
+        this.equipToSlot(equipment, `bandolier:${idx}`);
       } else if (!this.weaponSlot) {
-        this.weaponSlot = equipment;
+        this.equipToSlot(equipment, 'weapon');
       } else if (!this.armorSlot) {
-        this.armorSlot = equipment;
+        this.equipToSlot(equipment, 'armor');
       } else {
         // All slots full, replace accessory slot
-        replaced = this.accessorySlot;
-        this.accessorySlot = equipment;
+        replaced = this.clearSlot(this.accessorySlot);
+        this.equipToSlot(equipment, 'accessory');
       }
       this.syncEquipmentData();
       this.updateComputedStats();
@@ -425,13 +565,13 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
       // Try weapon slot first, then accessory slot
       if (!this.weaponSlot) {
-        this.weaponSlot = equipment;
+        this.equipToSlot(equipment, 'weapon');
       } else if (!this.accessorySlot) {
-        this.accessorySlot = equipment;
+        this.equipToSlot(equipment, 'accessory');
       } else {
         // Both slots full, replace weapon slot
-        replaced = this.weaponSlot;
-        this.weaponSlot = equipment;
+        replaced = this.clearSlot(this.weaponSlot);
+        this.equipToSlot(equipment, 'weapon');
       }
       this.syncEquipmentData();
       this.updateComputedStats();
@@ -440,16 +580,25 @@ export class MercCard extends BaseCard {
 
     switch (equipment.equipmentType) {
       case 'Weapon':
-        replaced = this.weaponSlot;
-        this.weaponSlot = equipment;
+        replaced = this.clearSlot(this.weaponSlot);
+        this.equipToSlot(equipment, 'weapon');
         break;
       case 'Armor':
-        replaced = this.armorSlot;
-        this.armorSlot = equipment;
+        replaced = this.clearSlot(this.armorSlot);
+        this.equipToSlot(equipment, 'armor');
         break;
       case 'Accessory':
-        replaced = this.accessorySlot;
-        this.accessorySlot = equipment;
+        // Try main accessory slot first, then bandolier slots
+        if (!this.accessorySlot) {
+          this.equipToSlot(equipment, 'accessory');
+        } else if (this.getAvailableBandolierSlots() > 0) {
+          const idx = this.getNextBandolierIndex();
+          this.equipToSlot(equipment, `bandolier:${idx}`);
+        } else {
+          // No bandolier slots available, replace main accessory
+          replaced = this.clearSlot(this.accessorySlot);
+          this.equipToSlot(equipment, 'accessory');
+        }
         break;
     }
     this.syncEquipmentData();
@@ -461,21 +610,50 @@ export class MercCard extends BaseCard {
     let equipment: Equipment | undefined;
     switch (type) {
       case 'Weapon':
-        equipment = this.weaponSlot;
-        this.weaponSlot = undefined;
+        equipment = this.clearSlot(this.weaponSlot);
         break;
       case 'Armor':
-        equipment = this.armorSlot;
-        this.armorSlot = undefined;
+        equipment = this.clearSlot(this.armorSlot);
         break;
       case 'Accessory':
-        equipment = this.accessorySlot;
-        this.accessorySlot = undefined;
+        equipment = this.clearSlot(this.accessorySlot);
+        // Note: When unequipping bandolier, bandolier slots become invalid
+        // The caller should handle clearing bandolierSlots if needed
         break;
     }
     this.syncEquipmentData();
     this.updateComputedStats();
     return equipment;
+  }
+
+  /**
+   * Unequip an item from a specific bandolier slot.
+   * @param index - The index of the bandolier slot (0-based)
+   * @returns The unequipped equipment, or undefined if slot was empty
+   */
+  unequipBandolierSlot(index: number): Equipment | undefined {
+    const equipment = this.bandolierSlots.find(e => e.equippedSlot === `bandolier:${index}`);
+    if (!equipment) {
+      return undefined;
+    }
+    this.clearSlot(equipment);
+    this.syncEquipmentData();
+    this.updateComputedStats();
+    return equipment;
+  }
+
+  /**
+   * Get all items that would be dropped if the bandolier is unequipped.
+   * Used to return bandolier slot items to stash when bandolier is removed.
+   */
+  clearBandolierSlots(): Equipment[] {
+    const items = [...this.bandolierSlots];
+    for (const item of items) {
+      this.clearSlot(item);
+    }
+    this.syncEquipmentData();
+    this.updateComputedStats();
+    return items;
   }
 
   getEquipmentOfType(type: EquipmentType): Equipment | undefined {
@@ -522,6 +700,10 @@ export class Equipment extends BaseCard {
 
   // Expansion marker (for special game modes)
   expansion?: string;
+
+  // Which slot this equipment is in (survives HMR via element hierarchy)
+  // Values: 'weapon', 'armor', 'accessory', 'bandolier:0', 'bandolier:1', 'bandolier:2', etc.
+  equippedSlot?: string;
 
   /**
    * Mark equipment as damaged (e.g., when absorbed damage)
@@ -737,10 +919,17 @@ export class DictatorCard extends BaseCard {
   // MERC-07j: Location tracking (like MercCard)
   sectorId?: string;
 
-  // Equipment slots
-  weaponSlot?: Equipment;
-  armorSlot?: Equipment;
-  accessorySlot?: Equipment;
+  // Equipment slots - now stored as child elements with equippedSlot attribute
+  // These getters query children, making equipment survive HMR via element hierarchy
+  get weaponSlot(): Equipment | undefined {
+    return this.first(Equipment, e => e.equippedSlot === 'weapon');
+  }
+  get armorSlot(): Equipment | undefined {
+    return this.first(Equipment, e => e.equippedSlot === 'armor');
+  }
+  get accessorySlot(): Equipment | undefined {
+    return this.first(Equipment, e => e.equippedSlot === 'accessory');
+  }
 
   // Constants (same as MercCard)
   static readonly BASE_ACTIONS = MercConstants.ACTIONS_PER_DAY;
@@ -820,42 +1009,55 @@ export class DictatorCard extends BaseCard {
     }
   }
 
+  /**
+   * Helper to equip item to a specific slot.
+   * Moves equipment to be a child of this Dictator and sets equippedSlot.
+   */
+  private equipToSlot(equipment: Equipment, slot: string): void {
+    equipment.putInto(this);
+    equipment.equippedSlot = slot;
+  }
+
+  /**
+   * Helper to unequip from a slot.
+   * Clears equippedSlot but does NOT move the equipment - caller must handle that.
+   */
+  private clearSlot(equipment: Equipment | undefined): Equipment | undefined {
+    if (equipment) {
+      equipment.equippedSlot = undefined;
+    }
+    return equipment;
+  }
+
   equip(equipment: Equipment): Equipment | undefined {
     let replaced: Equipment | undefined;
     switch (equipment.equipmentType) {
       case 'Weapon':
-        replaced = this.weaponSlot;
-        this.weaponSlot = equipment;
+        replaced = this.clearSlot(this.weaponSlot);
+        this.equipToSlot(equipment, 'weapon');
         break;
       case 'Armor':
-        replaced = this.armorSlot;
-        this.armorSlot = equipment;
+        replaced = this.clearSlot(this.armorSlot);
+        this.equipToSlot(equipment, 'armor');
         break;
       case 'Accessory':
-        replaced = this.accessorySlot;
-        this.accessorySlot = equipment;
+        replaced = this.clearSlot(this.accessorySlot);
+        this.equipToSlot(equipment, 'accessory');
         break;
     }
     return replaced;
   }
 
   unequip(type: EquipmentType): Equipment | undefined {
-    let equipment: Equipment | undefined;
     switch (type) {
       case 'Weapon':
-        equipment = this.weaponSlot;
-        this.weaponSlot = undefined;
-        break;
+        return this.clearSlot(this.weaponSlot);
       case 'Armor':
-        equipment = this.armorSlot;
-        this.armorSlot = undefined;
-        break;
+        return this.clearSlot(this.armorSlot);
       case 'Accessory':
-        equipment = this.accessorySlot;
-        this.accessorySlot = undefined;
-        break;
+        return this.clearSlot(this.accessorySlot);
     }
-    return equipment;
+    return undefined;
   }
 
   getEquipmentOfType(type: EquipmentType): Equipment | undefined {

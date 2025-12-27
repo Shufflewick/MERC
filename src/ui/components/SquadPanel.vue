@@ -46,6 +46,12 @@ function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Acc
   emit('dropEquipment', mercId, slotType);
 }
 
+// Get unique key for merc - never returns empty to prevent Vue warnings
+let mercKeyCounter = 0;
+function getMercKey(merc: MercData, index: number): string {
+  return merc.mercId || merc.mercName || `merc-${index}-${++mercKeyCounter}`;
+}
+
 const borderColor = computed(() => getPlayerColor(props.playerColor));
 
 const hasPrimaryMercs = computed(() => (props.primarySquad?.mercs?.length || 0) > 0);
@@ -69,8 +75,8 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
       </div>
       <div class="mercs-list" v-if="hasPrimaryMercs">
         <MercCard
-          v-for="merc in primarySquad.mercs"
-          :key="merc.mercId"
+          v-for="(merc, index) in primarySquad.mercs"
+          :key="getMercKey(merc, index)"
           :merc="merc"
           :player-color="playerColor"
           :show-equipment="true"
@@ -93,8 +99,8 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
       </div>
       <div class="mercs-list" v-if="hasSecondaryMercs">
         <MercCard
-          v-for="merc in secondarySquad.mercs"
-          :key="merc.mercId"
+          v-for="(merc, index) in secondarySquad.mercs"
+          :key="getMercKey(merc, 100 + index)"
           :merc="merc"
           :player-color="playerColor"
           :show-equipment="true"

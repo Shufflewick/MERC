@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { UI_COLORS } from '../colors';
-
 defineProps<{
   show: boolean;
 }>();
@@ -54,15 +52,15 @@ function handleBackdropClick(e: Event) {
 
 .close-button {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 28px;
-  height: 28px;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: v-bind('UI_COLORS.accent');
-  border: none;
+  background: #d4a84b;
+  border: 2px solid #d4a84b;
   color: #1a1a1a;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -70,13 +68,12 @@ function handleBackdropClick(e: Event) {
   justify-content: center;
   z-index: 10;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .close-button:hover {
-  background: v-bind('UI_COLORS.accentLight');
+  background: #fff;
   color: #1a1a1a;
-  border-color: v-bind('UI_COLORS.accent');
 }
 
 /* Transition animations */

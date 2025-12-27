@@ -35,11 +35,17 @@ const props = defineProps<{
   players: PlayerData[];
   controlMap: Record<string, string | undefined>; // sectorId -> playerColor
   clickableSectors?: string[];
+  canDropEquipment?: boolean;
 }>();
 
 const emit = defineEmits<{
   sectorClick: [sectorId: string];
+  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
 }>();
+
+function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
+  emit('dropEquipment', mercId, slotType);
+}
 
 // Calculate grid dimensions
 const gridDimensions = computed(() => {
@@ -103,7 +109,9 @@ function handleSectorClick(sectorId: string) {
       :mercs-in-sector="getMercsInSector(sector.sectorId)"
       :player-color-map="playerColorMap"
       :is-clickable="isClickable(sector.sectorId)"
+      :can-drop-equipment="canDropEquipment"
       @click="handleSectorClick"
+      @drop-equipment="handleDropEquipment"
     />
   </div>
 </template>

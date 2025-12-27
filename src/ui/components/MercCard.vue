@@ -35,6 +35,7 @@ interface MercData {
   weaponSlot?: { equipmentName?: string; name?: string } | null;
   armorSlot?: { equipmentName?: string; name?: string } | null;
   accessorySlot?: { equipmentName?: string; name?: string } | null;
+  bandolierSlotsData?: Array<{ equipmentName?: string; name?: string }>;
 }
 
 const props = defineProps<{
@@ -46,7 +47,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
+  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory' | `Bandolier:${number}`];
 }>();
 
 // Helper to get a property from either attributes or root level
@@ -76,6 +77,7 @@ const mercName = computed(() => {
 const weaponSlot = computed(() => getProp('weaponSlotData', null) || getProp('weaponSlot', null));
 const armorSlot = computed(() => getProp('armorSlotData', null) || getProp('armorSlot', null));
 const accessorySlot = computed(() => getProp('accessorySlotData', null) || getProp('accessorySlot', null));
+const bandolierSlots = computed(() => getProp<Array<any>>('bandolierSlotsData', []));
 
 // Helper to get equipment stat bonus
 function getEquipmentBonus(slot: any, statKey: string): number {
@@ -105,7 +107,14 @@ const targets = computed(() => {
   const weaponBonus = getEquipmentBonus(weaponSlot.value, 'targets');
   const armorBonus = getEquipmentBonus(armorSlot.value, 'targets');
   const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'targets');
-  return base + weaponBonus + armorBonus + accessoryBonus;
+  // Add bandolier slot bonuses
+  let bandolierBonus = 0;
+  for (const bSlot of bandolierSlots.value) {
+    bandolierBonus += getEquipmentBonus(bSlot, 'targets');
+  }
+  // MERC-c1f: Ra gets +1 target with any weapon
+  const raBonus = (mercId.value === 'ra' && weaponSlot.value) ? 1 : 0;
+  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus + raBonus;
 });
 
 // Stat breakdown for tooltips
@@ -133,6 +142,15 @@ function buildStatBreakdown(statKey: string, baseStatKey: string): StatBreakdown
   if (accBonus !== 0) {
     const accName = getEquipmentName(accessorySlot.value) || 'Accessory';
     breakdown.push({ label: accName, value: accBonus });
+  }
+
+  // Bandolier slot bonuses
+  for (const bSlot of bandolierSlots.value) {
+    const bBonus = getEquipmentBonus(bSlot, statKey);
+    if (bBonus !== 0) {
+      const bName = getEquipmentName(bSlot) || 'Bandolier Item';
+      breakdown.push({ label: bName, value: bBonus });
+    }
   }
 
   // Haarg's ability bonus (stored on the merc)
@@ -173,6 +191,34 @@ const targetsBreakdown = computed(() => {
     breakdown.push({ label: accName, value: accBonus });
   }
 
+  // Bandolier slot bonuses
+  for (const bSlot of bandolierSlots.value) {
+    const bBonus = getEquipmentBonus(bSlot, 'targets');
+    if (bBonus !== 0) {
+      const bName = getEquipmentName(bSlot) || 'Bandolier Item';
+      breakdown.push({ label: bName, value: bBonus });
+    }
+  }
+
+  // MERC-c1f: Ra gets +1 target with any weapon
+  if (mercId.value === 'ra' && weaponSlot.value) {
+    breakdown.push({ label: 'Ra Ability', value: 1 });
+  }
+
+  return breakdown;
+});
+
+// Health breakdown for tooltip
+const healthBreakdown = computed(() => {
+  const breakdown: StatBreakdownItem[] = [{ label: 'Base', value: 3 }];
+
+  // Check for ability-based health bonus (e.g., Juicer's +2)
+  const effectiveMax = getProp('effectiveMaxHealth', 3);
+  const abilityBonus = effectiveMax - 3;
+  if (abilityBonus > 0) {
+    breakdown.push({ label: 'Ability', value: abilityBonus });
+  }
+
   return breakdown;
 });
 
@@ -201,11 +247,11 @@ function formatBonus(value: number): string {
 const currentHealth = computed(() => {
   const health = getProp('health', undefined);
   if (health !== undefined) return health;
-  const max = getProp('maxHealth', 3);
+  const max = getProp('effectiveMaxHealth', 0) || getProp('maxHealth', 3);
   const dmg = getProp('damage', 0);
   return Math.max(0, max - dmg);
 });
-const maxHealth = computed(() => getProp('maxHealth', 3));
+const maxHealth = computed(() => getProp('effectiveMaxHealth', 0) || getProp('maxHealth', 3));
 const actionsRemaining = computed(() => getProp('actionsRemaining', 2));
 const maxActions = computed(() => 2); // Standard is 2
 
@@ -242,12 +288,14 @@ const accessoryName = computed(() => getEquipmentName(accessorySlot.value));
 const showEquipmentModal = ref(false);
 const selectedEquipment = ref<any>(null);
 const selectedSlotType = ref<'Weapon' | 'Armor' | 'Accessory' | null>(null);
+const selectedBandolierIndex = ref<number | null>(null);
 const showDropConfirm = ref(false);
 
-function showEquipmentDetails(slot: any, slotType: 'Weapon' | 'Armor' | 'Accessory') {
+function showEquipmentDetails(slot: any, slotType: 'Weapon' | 'Armor' | 'Accessory', bandolierIndex?: number) {
   if (slot) {
     selectedEquipment.value = slot;
     selectedSlotType.value = slotType;
+    selectedBandolierIndex.value = bandolierIndex ?? null;
     showEquipmentModal.value = true;
     showDropConfirm.value = false;
   }
@@ -257,6 +305,7 @@ function closeEquipmentModal() {
   showEquipmentModal.value = false;
   selectedEquipment.value = null;
   selectedSlotType.value = null;
+  selectedBandolierIndex.value = null;
   showDropConfirm.value = false;
 }
 
@@ -269,7 +318,11 @@ function cancelDrop() {
 }
 
 function confirmDropEquipment() {
-  if (selectedSlotType.value) {
+  if (selectedBandolierIndex.value !== null) {
+    // Dropping from bandolier slot
+    emit('dropEquipment', mercId.value as string, `Bandolier:${selectedBandolierIndex.value}`);
+    closeEquipmentModal();
+  } else if (selectedSlotType.value) {
     emit('dropEquipment', mercId.value as string, selectedSlotType.value);
     closeEquipmentModal();
   }
@@ -354,12 +407,28 @@ function confirmDropEquipment() {
           </div>
         </div>
       </div>
-      <div class="stat">
+      <div
+        class="stat stat-with-tooltip"
+        @mouseenter="showTooltip('health')"
+        @mouseleave="hideTooltip"
+        @click="toggleTooltip('health')"
+        tabindex="0"
+        @focus="showTooltip('health')"
+        @blur="hideTooltip"
+      >
         <span class="stat-icon">&#9829;</span>
         <span class="stat-label">Health:</span>
-        <span class="stat-value" :class="{ damaged: currentHealth < maxHealth }">
+        <span class="stat-value" :class="{ damaged: currentHealth < maxHealth, modified: healthBreakdown.length > 1 && currentHealth === maxHealth }">
           {{ currentHealth }}/{{ maxHealth }}
         </span>
+        <div class="stat-tooltip" v-if="activeTooltip === 'health'">
+          <div v-for="(item, idx) in healthBreakdown" :key="idx" class="tooltip-row">
+            <span class="tooltip-label">{{ item.label }}</span>
+            <span class="tooltip-value" :class="{ positive: item.value > 0 && idx > 0, negative: item.value < 0 }">
+              {{ idx === 0 ? item.value : formatBonus(item.value) }}
+            </span>
+          </div>
+        </div>
       </div>
       <div
         class="stat stat-with-tooltip"
@@ -425,29 +494,44 @@ function confirmDropEquipment() {
         </span>
         <span class="click-hint" v-if="accessorySlot">ℹ</span>
       </div>
+      <!-- Bandolier Slots -->
+      <div
+        v-for="(bSlot, idx) in bandolierSlots"
+        :key="`bandolier-${idx}`"
+        class="equipment-slot bandolier-slot clickable"
+        @click="showEquipmentDetails(bSlot, 'Accessory', idx)"
+      >
+        <span class="slot-icon bandolier-icon">&#9670;</span>
+        <span class="slot-label">
+          {{ getEquipmentName(bSlot) || 'Empty' }}
+        </span>
+        <span class="click-hint">ℹ</span>
+      </div>
     </div>
 
     <!-- Equipment Details Modal -->
     <DetailModal :show="showEquipmentModal" @close="closeEquipmentModal">
       <div class="equipment-modal-content">
-        <EquipmentCard v-if="selectedEquipment" :equipment="selectedEquipment" />
-
-        <!-- Drop to Stash Button -->
-        <div class="drop-section" v-if="canDropEquipment && selectedEquipment">
-          <div v-if="!showDropConfirm" class="drop-button-container">
-            <button class="drop-button" @click="initiateDropEquipment">
-              Drop to Stash
-            </button>
-            <span class="drop-hint">Free action - drops equipment in current sector</span>
-          </div>
-          <div v-else class="drop-confirm">
-            <p class="confirm-text">Drop this equipment to the sector stash?</p>
-            <div class="confirm-buttons">
-              <button class="confirm-yes" @click="confirmDropEquipment">Yes, Drop It</button>
-              <button class="confirm-no" @click="cancelDrop">Cancel</button>
+        <EquipmentCard v-if="selectedEquipment" :equipment="selectedEquipment">
+          <template #actions>
+            <!-- Drop to Stash Button -->
+            <div class="drop-section" v-if="canDropEquipment">
+              <div v-if="!showDropConfirm" class="drop-button-container">
+                <button class="drop-button" @click="initiateDropEquipment">
+                  Unequip
+                </button>
+                <span class="drop-hint">Free action - drops equipment in current sector</span>
+              </div>
+              <div v-else class="drop-confirm">
+                <p class="confirm-text">Drop this equipment to the sector stash?</p>
+                <div class="confirm-buttons">
+                  <button class="confirm-yes" @click="confirmDropEquipment">Yes, Drop It</button>
+                  <button class="confirm-no" @click="cancelDrop">Cancel</button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </template>
+        </EquipmentCard>
       </div>
     </DetailModal>
   </div>
@@ -723,18 +807,38 @@ function confirmDropEquipment() {
   font-style: italic;
 }
 
+/* Bandolier Slots */
+.bandolier-slot {
+  margin-left: 16px;
+  border-left: 2px solid v-bind('UI_COLORS.accent');
+  padding-left: 12px;
+}
+
+.bandolier-icon {
+  color: #81d4a8; /* mint green to match accessory color */
+}
+
 /* Equipment Modal Drop Section */
 .equipment-modal-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  background: rgba(70, 85, 70, 0.98);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 400px;
+}
+
+.equipment-modal-content :deep(.equipment-card) {
+  /* Remove duplicate padding/background from nested EquipmentCard */
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .drop-section {
-  background: v-bind('UI_COLORS.backgroundLight');
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 12px;
+  margin-top: auto;
 }
 
 .drop-button-container {

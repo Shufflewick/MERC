@@ -24,14 +24,35 @@ import {
 // =============================================================================
 
 /**
+ * Get cached equipment elements from IDs stored in pendingLootMap
+ */
+function getCachedEquipment(game: MERCGame, sectorId: string): Equipment[] {
+  const cachedIds = game.pendingLootMap.get(sectorId);
+  if (!cachedIds) return [];
+
+  // Look up each equipment element by ID
+  return cachedIds
+    .map(id => game.getElementById(id) as Equipment | undefined)
+    .filter((e): e is Equipment => e !== undefined);
+}
+
+/**
+ * Update the cached equipment IDs after modification (equip/return)
+ */
+function updateCachedEquipmentIds(game: MERCGame, sectorId: string, equipment: Equipment[]): void {
+  game.pendingLootMap.set(sectorId, equipment.map(e => e.id as number));
+}
+
+/**
  * Draw and cache loot equipment for exploration
  * Uses a Map to support multiple MERCs in different unexplored sectors
+ * Stores equipment IDs (not element references) for HMR compatibility
  */
 function drawAndCacheLoot(game: MERCGame, sector: Sector): Equipment[] {
-  // Check if we already cached for this sector (using the new Map)
-  const cached = game.pendingLootMap.get(sector.sectorId);
-  if (cached) {
-    return cached;
+  // Check if we already cached for this sector
+  const cachedIds = game.pendingLootMap.get(sector.sectorId);
+  if (cachedIds && cachedIds.length > 0) {
+    return getCachedEquipment(game, sector.sectorId);
   }
 
   // Draw equipment based on loot icons
@@ -60,8 +81,8 @@ function drawAndCacheLoot(game: MERCGame, sector: Sector): Equipment[] {
     if (bonusEquipment) drawnEquipment.push(bonusEquipment);
   }
 
-  // Cache the loot in the Map
-  game.pendingLootMap.set(sector.sectorId, drawnEquipment);
+  // Cache the equipment IDs (not element references) for HMR compatibility
+  game.pendingLootMap.set(sector.sectorId, drawnEquipment.map(e => e.id as number));
 
   return drawnEquipment;
 }
@@ -335,7 +356,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
  */
 export function createExploreAction(game: MERCGame): ActionDefinition {
   return Action.create('explore')
-    .prompt('Explore the current sector')
+    .prompt('Explore')
     .notUndoable() // Involves randomness (drawing equipment)
     .condition((ctx, tracer) => {
       // Cannot explore during combat
@@ -392,12 +413,38 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('equipment', {
       prompt: (ctx) => {
-        const merc = ctx.args?.actingMerc as MercCard;
-        return merc ? `What should ${capitalize(merc.mercName)} take?` : 'Select equipment';
+        const mercRef = ctx.args?.actingMerc;
+        if (!mercRef) return 'Select equipment';
+        // Look up actual MERC element
+        let actualMerc: MercCard | undefined;
+        if (typeof mercRef === 'number') {
+          actualMerc = game.getElementById(mercRef) as MercCard | undefined;
+        } else {
+          const mercId = (mercRef as any).id;
+          if (typeof mercId === 'number') {
+            actualMerc = game.getElementById(mercId) as MercCard | undefined;
+          }
+        }
+        return actualMerc ? `What should ${capitalize(actualMerc.mercName)} take?` : 'Select equipment';
       },
       dependsOn: 'actingMerc',
+      // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
       choices: (ctx) => {
-        const actingMerc = ctx.args?.actingMerc as MercCard;
+        const mercRef = ctx.args?.actingMerc;
+        // During availability check, actingMerc won't be set yet - return placeholder
+        if (!mercRef) return ['(select MERC first)'];
+
+        // BoardSmith may pass the element ID (number) or the element object
+        let actingMerc: MercCard | undefined;
+        if (typeof mercRef === 'number') {
+          actingMerc = game.getElementById(mercRef) as MercCard | undefined;
+        } else {
+          const mercId = (mercRef as any).id;
+          if (typeof mercId === 'number') {
+            actingMerc = game.getElementById(mercId) as MercCard | undefined;
+          }
+        }
+
         if (!actingMerc) {
           return ['Done'];
         }
@@ -409,7 +456,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           for (const squad of [player.primarySquad, player.secondarySquad]) {
             if (!squad?.sectorId) continue;
             const mercs = squad.getMercs();
-            if (mercs.some(m => m.id === actingMerc.id)) {
+            if (mercs.some(m => m.id === actingMerc!.id)) {
               return game.getSector(squad.sectorId) || null;
             }
           }
@@ -424,9 +471,9 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         // Draw and cache equipment (or get from cache/stash)
         // Using Map-based cache to support multiple MERCs in different unexplored sectors
         let equipment: Equipment[];
-        const cachedLoot = game.pendingLootMap.get(sector.sectorId);
-        if (cachedLoot) {
-          equipment = cachedLoot;
+        const cachedIds = game.pendingLootMap.get(sector.sectorId);
+        if (cachedIds && cachedIds.length > 0) {
+          equipment = getCachedEquipment(game, sector.sectorId);
         } else if (sector.explored) {
           // Already explored, use stash
           equipment = sector.stash;
@@ -461,8 +508,20 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         onEach: (ctx, choice) => {
           if (choice === 'Done') return;
 
-          const actingMerc = ctx.args?.actingMerc as MercCard;
+          const mercRef = ctx.args?.actingMerc;
           const player = ctx.player as RebelPlayer;
+          if (!mercRef) return;
+
+          // Look up actual MERC element (BoardSmith may pass ID or object)
+          let actingMerc: MercCard | undefined;
+          if (typeof mercRef === 'number') {
+            actingMerc = game.getElementById(mercRef) as MercCard | undefined;
+          } else {
+            const mercId = (mercRef as any).id;
+            if (typeof mercId === 'number') {
+              actingMerc = game.getElementById(mercId) as MercCard | undefined;
+            }
+          }
           if (!actingMerc) return;
 
           // Find the sector with the equipment
@@ -470,7 +529,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
             for (const squad of [player.primarySquad, player.secondarySquad]) {
               if (!squad?.sectorId) continue;
               const mercs = squad.getMercs();
-              if (mercs.some(m => m.id === actingMerc.id)) {
+              if (mercs.some(m => m.id === actingMerc!.id)) {
                 return game.getSector(squad.sectorId) || null;
               }
             }
@@ -489,7 +548,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
             game.pendingLootMap.set(sector.sectorId + ':explored', []);
 
             // Report what was found
-            const drawnEquipment = game.pendingLootMap.get(sector.sectorId) || [];
+            const drawnEquipment = getCachedEquipment(game, sector.sectorId);
             if (drawnEquipment.length > 0) {
               const equipmentList = drawnEquipment.map(e => e.equipmentName).join(', ');
               game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
@@ -499,8 +558,11 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           }
 
           // Get equipment from pending loot map or stash
-          const cachedEquipment = game.pendingLootMap.get(sector.sectorId);
-          const equipment: Equipment[] = cachedEquipment || sector.stash;
+          const cachedIds = game.pendingLootMap.get(sector.sectorId);
+          const isFromCache = cachedIds && cachedIds.length > 0;
+          const equipment: Equipment[] = isFromCache
+            ? getCachedEquipment(game, sector.sectorId)
+            : sector.stash;
 
           // Parse the choice string to find the equipment
           const match = (choice as string).match(/^(.+) \((Weapon|Armor|Accessory)\)$/);
@@ -522,25 +584,50 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           equipment.splice(equipIndex, 1);
 
           if (replaced) {
+            // Move replaced equipment to discard pile so it's in proper element hierarchy
+            const discard = game.getEquipmentDiscard(replaced.equipmentType);
+            if (discard) {
+              replaced.putInto(discard);
+            }
             // Put replaced item back in the loot pool
             equipment.push(replaced);
             game.message(`${capitalize(actingMerc.mercName)} equipped ${item.equipmentName}, returned ${replaced.equipmentName}`);
           } else {
             game.message(`${capitalize(actingMerc.mercName)} equipped ${item.equipmentName}`);
           }
+
+          // Update the cache with modified equipment list (if from cache)
+          if (isFromCache) {
+            updateCachedEquipmentIds(game, sector.sectorId, equipment);
+          }
         },
       },
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
-      const actingMerc = args.actingMerc as MercCard;
+      const mercRef = args.actingMerc;
+
+      // Look up actual MERC element (BoardSmith may pass ID or object)
+      let actingMerc: MercCard | undefined;
+      if (typeof mercRef === 'number') {
+        actingMerc = game.getElementById(mercRef) as MercCard | undefined;
+      } else if (mercRef) {
+        const mercId = (mercRef as any).id;
+        if (typeof mercId === 'number') {
+          actingMerc = game.getElementById(mercId) as MercCard | undefined;
+        }
+      }
+
+      if (!actingMerc) {
+        return { success: false, message: 'MERC not found' };
+      }
 
       // Find which squad the merc is in
       const findMercSquad = (): Squad | null => {
-        if (player.primarySquad?.getMercs().some(m => m.id === actingMerc.id)) {
+        if (player.primarySquad?.getMercs().some(m => m.id === actingMerc!.id)) {
           return player.primarySquad;
         }
-        if (player.secondarySquad?.getMercs().some(m => m.id === actingMerc.id)) {
+        if (player.secondarySquad?.getMercs().some(m => m.id === actingMerc!.id)) {
           return player.secondarySquad;
         }
         return null;
@@ -563,7 +650,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       if (!sector.explored && !startedExploring) {
         useAction(actingMerc, ACTION_COSTS.EXPLORE);
 
-        const drawnEquipment = game.pendingLootMap.get(sector.sectorId) || [];
+        const drawnEquipment = getCachedEquipment(game, sector.sectorId);
         if (drawnEquipment.length > 0) {
           const equipmentList = drawnEquipment.map(e => e.equipmentName).join(', ');
           game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
@@ -581,8 +668,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       game.pendingLootMap.delete(sector.sectorId + ':explored');
 
       // Move any remaining cached loot to sector stash
-      const cachedLoot = game.pendingLootMap.get(sector.sectorId);
-      if (cachedLoot) {
+      const cachedLoot = getCachedEquipment(game, sector.sectorId);
+      if (cachedLoot.length > 0) {
         for (const equip of cachedLoot) {
           sector.addToStash(equip);
         }
@@ -715,7 +802,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
  */
 export function createTrainAction(game: MERCGame): ActionDefinition {
   return Action.create('train')
-    .prompt('Train militia')
+    .prompt('Train')
     .condition((ctx) => {
       // Cannot train during combat
       if (game.activeCombat) return false;

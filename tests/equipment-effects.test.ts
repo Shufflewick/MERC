@@ -179,7 +179,7 @@ describe('Equipment Effects Registry', () => {
 
     describe('Bandolier', () => {
       it('should provide extra accessory slots', () => {
-        expect(getExtraAccessorySlots('bandolier')).toBe(2);
+        expect(getExtraAccessorySlots('bandolier')).toBe(3);
       });
 
       it('should return 0 for items without extra slots', () => {

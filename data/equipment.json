@@ -8,7 +8,7 @@
     "combat": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun1}"
+    "image": "/equipment/gun1.png"
   },
   {
     "id": "9mm-handgun-with-ap-ammo",
@@ -19,7 +19,7 @@
     "combat": 1,
     "negatesArmor": true,
     "description": "",
-    "image": "{$gun1}"
+    "image": "/equipment/gun1.png"
   },
   {
     "id": "9mm-handgun-with-laser-sight",
@@ -31,7 +31,7 @@
     "initiative": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun1}"
+    "image": "/equipment/gun1.png"
   },
   {
     "id": "45-caliber-handgun",
@@ -42,7 +42,7 @@
     "combat": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun2}"
+    "image": "/equipment/gun2.png"
   },
   {
     "id": "45-caliber-handgun-with-ap-ammo",
@@ -53,7 +53,7 @@
     "combat": 2,
     "negatesArmor": true,
     "description": "",
-    "image": "{$gun2}"
+    "image": "/equipment/gun2.png"
   },
   {
     "id": "45-caliber-handgun-with-laser-sight",
@@ -65,7 +65,7 @@
     "initiative": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun2}"
+    "image": "/equipment/gun2.png"
   },
   {
     "id": "50-caliber-rifle",
@@ -76,7 +76,7 @@
     "combat": 5,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun6}"
+    "image": "/equipment/gun6.png"
   },
   {
     "id": "50-caliber-rifle-with-flir-scope",
@@ -88,7 +88,7 @@
     "initiative": 3,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun6}"
+    "image": "/equipment/gun6.png"
   },
   {
     "id": "ak-47",
@@ -99,7 +99,7 @@
     "combat": 4,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun5}"
+    "image": "/equipment/gun5.png"
   },
   {
     "id": "ak-47-with-bipod",
@@ -111,7 +111,7 @@
     "initiative": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun5}"
+    "image": "/equipment/gun5.png"
   },
   {
     "id": "ak-47-with-burst-fire",
@@ -123,7 +123,7 @@
     "targets": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun5}"
+    "image": "/equipment/gun5.png"
   },
   {
     "id": "ak-47-with-full-auto",
@@ -135,7 +135,7 @@
     "targets": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun5}"
+    "image": "/equipment/gun5.png"
   },
   {
     "id": "army-fm-30-25",
@@ -146,7 +146,7 @@
     "training": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "https://s3.amazonaws.com/files.component.studio/F10F99A8-0C1C-11E8-829E-E1B0E261B13A/field-manual.png"
+    "image": "/equipment/field manual.png"
   },
   {
     "id": "attack-dog",
@@ -157,7 +157,7 @@
     "initiative": 1,
     "negatesArmor": false,
     "description": "Assign to an enemy MERC on your initiative before your attack. Assigned MERC can take no action except to attack the dog. Dog has 3 health.",
-    "image": "https://s3.amazonaws.com/files.component.studio/F3BCB4E2-0C1C-11E8-829E-E1B0E261B13A/attack-dog.png"
+    "image": "/equipment/attack dog.png"
   },
   {
     "id": "bandolier",
@@ -167,7 +167,7 @@
     "serial": 980,
     "negatesArmor": false,
     "description": "Gives 2 extra accessory slots. Cannot be combined with another bandolier.",
-    "image": "https://s3.amazonaws.com/files.component.studio/BB865A6A-0C1C-11E8-829E-E1B0E261B13A/bandolier.png"
+    "image": "/equipment/bandolier.png"
   },
   {
     "id": "body-armor",
@@ -180,7 +180,7 @@
     "armor": 3,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor3}"
+    "image": "/equipment/armor3.png"
   },
   {
     "id": "body-armor-with-ceramic-plates",
@@ -193,7 +193,7 @@
     "armor": 4,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor3}"
+    "image": "/equipment/armor3.png"
   },
   {
     "id": "body-armor-with-ceramic-plates-and-kevlar-helmet",
@@ -206,7 +206,7 @@
     "armor": 5,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor3}"
+    "image": "/equipment/armor3.png"
   },
   {
     "id": "epinephrine-shot",
@@ -216,7 +216,7 @@
     "serial": 230,
     "negatesArmor": false,
     "description": "Discard to prevent the death of self or another MERC, restores 1 health.",
-    "image": "https://s3.amazonaws.com/files.component.studio/F3F9A938-0C1C-11E8-8984-B75AE261B13A/epinephrine.png"
+    "image": "/equipment/epinephrine.png"
   },
   {
     "id": "field-radio",
@@ -228,7 +228,7 @@
     "initiative": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "https://s3.amazonaws.com/files.component.studio/F5688B72-0C1C-11E8-8984-B75AE261B13A/field-radio.png"
+    "image": "/equipment/field radio.png"
   },
   {
     "id": "first-aid-kit",
@@ -238,7 +238,7 @@
     "serial": 150,
     "negatesArmor": false,
     "description": "On your initiative before your attack, discard 1 combat dice to heal 1 wound (per die discarded) on self or another MERC. Discard after 1 use.",
-    "image": "{$firstaidkit}"
+    "image": "/equipment/first aid kit.png"
   },
   {
     "id": "flak-vest",
@@ -249,7 +249,7 @@
     "armor": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor1}"
+    "image": "/equipment/armor1.png"
   },
   {
     "id": "flak-vest-with-ceramic-plates-and-kevlar-helmet",
@@ -262,7 +262,7 @@
     "armor": 3,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor1}"
+    "image": "/equipment/armor1.png"
   },
   {
     "id": "flak-vest-with-kevlar-helmet",
@@ -274,7 +274,7 @@
     "armor": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor1}"
+    "image": "/equipment/armor1.png"
   },
   {
     "id": "fragmentation-grenade",
@@ -287,7 +287,7 @@
     "initiative": -2,
     "negatesArmor": false,
     "description": "Discard after 1 attack.",
-    "image": "https://s3.amazonaws.com/files.component.studio/F3F25502-0C1C-11E8-8984-B75AE261B13A/fragmentation-grenade.png"
+    "image": "/equipment/fragmentation grenade.png"
   },
   {
     "id": "full-body-armor",
@@ -300,7 +300,7 @@
     "armor": 6,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor4}"
+    "image": "/equipment/armor4.png"
   },
   {
     "id": "ghillie-suit",
@@ -311,7 +311,7 @@
     "initiative": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "https://s3.amazonaws.com/files.component.studio/F5BD31E0-0C1C-11E8-829E-E1B0E261B13A/ghillie-suit.png"
+    "image": "/equipment/ghillie suit.png"
   },
   {
     "id": "grenade",
@@ -324,7 +324,7 @@
     "initiative": -2,
     "negatesArmor": false,
     "description": "Discard after 1 attack.",
-    "image": "https://s3.amazonaws.com/files.component.studio/F3E79270-0C1C-11E8-8984-B75AE261B13A/grenade.png"
+    "image": "/equipment/grenade.png"
   },
   {
     "id": "kevlar-vest",
@@ -336,7 +336,7 @@
     "armor": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor2}"
+    "image": "/equipment/armor2.png"
   },
   {
     "id": "kevlar-vest-with-ceramic-plates",
@@ -349,7 +349,7 @@
     "armor": 3,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor2}"
+    "image": "/equipment/armor2.png"
   },
   {
     "id": "kevlar-vest-with-ceramic-plates-and-kevlar-helmet",
@@ -362,7 +362,7 @@
     "armor": 4,
     "negatesArmor": false,
     "description": "",
-    "image": "{$armor2}"
+    "image": "/equipment/armor2.png"
   },
   {
     "id": "land-mine",
@@ -372,7 +372,7 @@
     "serial": 110,
     "negatesArmor": false,
     "description": "Place in an equipment stash in a sector you control. When an enemy enters the sector, declare you have planted a mine and it will explode dealing 1 damage to every target.",
-    "image": "https://s3.amazonaws.com/files.component.studio/F4BF4A58-0C1C-11E8-829E-E1B0E261B13A/landmine.png"
+    "image": "/equipment/landmine.png"
   },
   {
     "id": "m16",
@@ -383,7 +383,7 @@
     "combat": 3,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun4}"
+    "image": "/equipment/gun4.png"
   },
   {
     "id": "m16-with-ap-ammo",
@@ -394,7 +394,7 @@
     "combat": 3,
     "negatesArmor": true,
     "description": "",
-    "image": "{$gun4}"
+    "image": "/equipment/gun4.png"
   },
   {
     "id": "m16-with-burst-fire",
@@ -406,7 +406,7 @@
     "targets": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun4}"
+    "image": "/equipment/gun4.png"
   },
   {
     "id": "m16-with-laser-sight",
@@ -418,7 +418,7 @@
     "initiative": 2,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun4}"
+    "image": "/equipment/gun4.png"
   },
   {
     "id": "medical-kit",
@@ -428,7 +428,7 @@
     "serial": 170,
     "negatesArmor": false,
     "description": "On your initiative, before your attack, discard 1 combat dice to heal 1 wound (per dice discarded) on self or another MERC. Discard after 3 uses.",
-    "image": "{$medicalkit}"
+    "image": "/equipment/medical kit.png"
   },
   {
     "id": "mortar",
@@ -441,7 +441,7 @@
     "initiative": -2,
     "negatesArmor": false,
     "description": "Spend an action to bombard an adjacent sector with damage without entering the sector, or use as normal during combat. Either way, discard after 1 attack.",
-    "image": "https://s3.amazonaws.com/files.component.studio/F43BFF40-0C1C-11E8-829E-E1B0E261B13A/mortar.png"
+    "image": "/equipment/mortar.png"
   },
   {
     "id": "repair-kit",
@@ -451,7 +451,7 @@
     "serial": 130,
     "negatesArmor": false,
     "description": "Discard this card to take 1 card from any equipment discard pile.",
-    "image": "https://s3.amazonaws.com/files.component.studio/6AD4E0DA-A0E9-11EC-A2D8-901905252F8C/repair-kit.png"
+    "image": "/equipment/repair kit.png"
   },
   {
     "id": "smaw",
@@ -463,7 +463,7 @@
     "initiative": -2,
     "negatesArmor": false,
     "description": "",
-    "image": "https://s3.amazonaws.com/files.component.studio/F5543794-0C1C-11E8-829E-E1B0E261B13A/smaw.png"
+    "image": "/equipment/smaw.png"
   },
   {
     "id": "uzi",
@@ -474,7 +474,7 @@
     "targets": 1,
     "negatesArmor": false,
     "description": "",
-    "image": "{$gun3}"
+    "image": "/equipment/gun3.png"
   },
   {
     "id": "uzi-with-ap-ammo",
@@ -485,7 +485,7 @@
     "targets": 1,
     "negatesArmor": true,
     "description": "",
-    "image": "{$gun3}"
+    "image": "/equipment/gun3.png"
   },
   {
     "id": "chopper",
@@ -497,7 +497,7 @@
     "armor": 1,
     "negatesArmor": false,
     "description": "For 1 action move 2 spaces a squad of up to 4 MERCs/militia. Movement may be diagonal.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1A7B5448-89D8-11EC-8D24-D816C1E58150/helicopter.png",
+    "image": "/equipment/helicopter.png",
     "expansion": "A"
   },
   {
@@ -508,7 +508,7 @@
     "serial": 0,
     "negatesArmor": false,
     "description": "If you also have the Explosives you win! Each Rebel may not have more than 1.",
-    "image": "https://s3.amazonaws.com/files.component.studio/7CD50E20-89EE-11EC-B666-4BF238A650D8/circuit-board.png",
+    "image": "/equipment/circuit-board.png",
     "expansion": "B"
   },
   {
@@ -520,7 +520,7 @@
     "armor": 1,
     "negatesArmor": false,
     "description": "For 1 action move 1 space a squad of up to 10 MERCs/militia.",
-    "image": "https://s3.amazonaws.com/files.component.studio/11DF3BBA-89D8-11EC-8D24-7316C1E58150/deuce.png",
+    "image": "/equipment/deuce.png",
     "expansion": "A"
   },
   {
@@ -531,7 +531,7 @@
     "serial": 0,
     "negatesArmor": false,
     "description": "If you also have a Detonator, you win! Each Rebel may not have more than 1.",
-    "image": "https://s3.amazonaws.com/files.component.studio/7CE98792-89EE-11EC-8D24-3312C1E58150/barrel.png",
+    "image": "/equipment/barrel.png",
     "expansion": "B"
   },
   {
@@ -544,7 +544,7 @@
     "armor": 3,
     "negatesArmor": false,
     "description": "For 1 action move 2 spaces a squad of up to 4 MERCs/militia.",
-    "image": "https://s3.amazonaws.com/files.component.studio/1D9DF6F8-89D8-11EC-8D24-F216C1E58150/humvee.png",
+    "image": "/equipment/humvee.png",
     "expansion": "A"
   },
   {
@@ -556,7 +556,7 @@
     "armor": 1,
     "negatesArmor": false,
     "description": "For 1 action move 2 spaces a squad of up to 4 MERCs/militia.",
-    "image": "https://s3.amazonaws.com/files.component.studio/20C70A68-89D8-11EC-8D24-1816C1E58150/jeep.png",
+    "image": "/equipment/jeep.png",
     "expansion": "A"
   },
   {
@@ -570,7 +570,7 @@
     "armor": 6,
     "negatesArmor": false,
     "description": "For 2 actions move 1 space a squad of up to 4 MERCs/militia.",
-    "image": "https://s3.amazonaws.com/files.component.studio/254F2E4E-89D8-11EC-8D24-9416C1E58150/tank.png",
+    "image": "/equipment/tank.png",
     "expansion": "A"
   }
 ]

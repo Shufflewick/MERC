@@ -23,7 +23,7 @@ import { ACTION_COSTS, useAction, capitalize } from './helpers.js';
  */
 export function createMoveAction(game: MERCGame): ActionDefinition {
   return Action.create('move')
-    .prompt('Move your squad')
+    .prompt('Move')
     .condition((ctx) => {
       // Cannot move during combat
       if (game.activeCombat) return false;
