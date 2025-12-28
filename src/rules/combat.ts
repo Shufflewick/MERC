@@ -845,13 +845,9 @@ function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
       }
 
       if (squadMates) {
-        // Check if any woman in squad (check mercs.json sex field)
-        // We'll need to get MERC data from JSON which includes sex field
+        // Check if any woman in squad
         const hasWoman = squadMates.some(m => {
-          // Use the mercId to check against known female MERCs
-          // Female MERCs have "sex": "F" in mercs.json
-          const femaleMercs = ['ewok', 'faustina', 'natasha', 'sonia', 'tack', 'teresa', 'valkyrie', 'adelheid'];
-          return femaleMercs.includes(m.mercId) && m !== tavistoMerc;
+          return FEMALE_MERCS.includes(m.mercId) && m !== tavistoMerc;
         });
 
         if (hasWoman) {
