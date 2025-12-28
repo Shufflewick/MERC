@@ -1036,9 +1036,16 @@ export function getAIHealingPriority(
 
   // 4.8.2 - Then try Medical Kit or First Aid Kit
   for (const merc of allMercs) {
+    // Check accessory slot
     const accessory = merc.accessorySlot;
     if (accessory && isHealingItem(accessory.equipmentId)) {
       return { type: 'item', merc, item: accessory.equipmentName, target };
+    }
+    // Check bandolier slots
+    for (const bSlot of merc.bandolierSlots) {
+      if (isHealingItem(bSlot.equipmentId)) {
+        return { type: 'item', merc, item: bSlot.equipmentName, target };
+      }
     }
   }
 
@@ -1060,8 +1067,13 @@ export function getAIHealingPriority(
  */
 export function hasEpinephrineShot(mercs: MercCard[]): MercCard | null {
   for (const merc of mercs) {
+    // Check accessory slot
     const accessory = merc.accessorySlot;
     if (accessory && isEpinephrine(accessory.equipmentId)) {
+      return merc;
+    }
+    // Check bandolier slots
+    if (merc.bandolierSlots.some(e => isEpinephrine(e.equipmentId))) {
       return merc;
     }
   }
@@ -1114,8 +1126,12 @@ export function getAIAbilityActivations(mercs: MercCard[]): MercCard[] {
  * MERC-dol: Per rules 4.11, AI always assigns Attack Dogs to Rebel MERCs.
  */
 export function hasAttackDogEquipped(unit: MercCard): boolean {
-  const accessory = unit.accessorySlot;
-  return accessory ? isAttackDog(accessory.equipmentId) : false;
+  // Check accessory slot
+  if (unit.accessorySlot && isAttackDog(unit.accessorySlot.equipmentId)) {
+    return true;
+  }
+  // Check bandolier slots
+  return unit.bandolierSlots.some(e => isAttackDog(e.equipmentId));
 }
 
 /**
@@ -1223,17 +1239,21 @@ export function findNearestHospital(game: MERCGame, fromSector: Sector): Sector 
 // =============================================================================
 
 /**
- * Check if a unit has a mortar or ranged weapon equipped.
+ * Check if a unit has a mortar equipped (in accessory slot or bandolier).
  */
-export function hasMortar(unit: MercCard | { weaponSlot?: Equipment; accessorySlot?: Equipment }): boolean {
-  // Mortar is an accessory, not a weapon
+export function hasMortar(unit: MercCard | { accessorySlot?: Equipment }): boolean {
+  // Check accessory slot
   const accessory = 'accessorySlot' in unit ? unit.accessorySlot : undefined;
   if (accessory && hasRangedAttack(accessory.equipmentId)) {
     return true;
   }
-  // Also check weapon slot for SMAW
-  const weapon = unit.weaponSlot;
-  return weapon ? hasRangedAttack(weapon.equipmentId) : false;
+
+  // Check bandolier slots (only for MercCard)
+  if (unit instanceof MercCard) {
+    return unit.bandolierSlots.some(e => hasRangedAttack(e.equipmentId));
+  }
+
+  return false;
 }
 
 /**

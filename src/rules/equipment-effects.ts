@@ -590,3 +590,11 @@ export function isArmor(equipmentId: string): boolean {
   const effect = EQUIPMENT_EFFECTS[equipmentId];
   return effect?.isArmor ?? false;
 }
+
+/**
+ * Get healing effect for a healing item
+ */
+export function getHealingEffect(equipmentId: string): HealingEffect | undefined {
+  const effect = EQUIPMENT_EFFECTS[equipmentId];
+  return effect?.healing;
+}

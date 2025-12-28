@@ -166,7 +166,7 @@
     "type": "Accessory",
     "serial": 980,
     "negatesArmor": false,
-    "description": "Gives 2 extra accessory slots. Cannot be combined with another bandolier.",
+    "description": "Gives 3 extra accessory slots. Cannot be combined with another bandolier.",
     "image": "/equipment/bandolier.png"
   },
   {

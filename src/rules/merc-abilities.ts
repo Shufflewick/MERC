@@ -318,8 +318,11 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   max: {
     id: 'max',
+    // Max's ability: "Opposing MERCs have -1 to all skills when attacking his squad"
+    // Training doesn't apply in combat, so we apply -1 combat and -1 initiative
     enemyDebuff: {
       combat: -1,
+      initiative: -1,
       appliesTo: 'enemyMercs',
     },
   },
@@ -812,6 +815,14 @@ export function getMilitiaInitiativeBonus(mercId: string): number {
 export function getEnemyCombatDebuff(mercId: string): number {
   const ability = MERC_ABILITIES[mercId];
   return ability?.enemyDebuff?.combat ?? 0;
+}
+
+/**
+ * Get enemy initiative debuff applied by a MERC
+ */
+export function getEnemyInitiativeDebuff(mercId: string): number {
+  const ability = MERC_ABILITIES[mercId];
+  return ability?.enemyDebuff?.initiative ?? 0;
 }
 
 /**

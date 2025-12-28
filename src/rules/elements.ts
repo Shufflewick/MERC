@@ -6,8 +6,14 @@ import {
   DictatorConstants,
   AdjacencyConstants,
 } from './constants.js';
-import { getExtraAccessorySlots } from './equipment-effects.js';
-import { getMercAbility, ignoresInitiativePenalties } from './merc-abilities.js';
+import {
+  getExtraAccessorySlots,
+  isHandgun,
+  isUzi,
+  isExplosive,
+  isSmaw,
+} from './equipment-effects.js';
+import { getMercAbility, ignoresInitiativePenalties, FEMALE_MERCS } from './merc-abilities.js';
 
 // =============================================================================
 // Types and Interfaces
@@ -63,7 +69,6 @@ export interface EquipmentSlotData {
   targets?: number;
   armorBonus?: number;
   negatesArmor?: boolean;
-  isOneUse?: boolean;
   isDamaged?: boolean;
   serial?: number;
   image?: string;
@@ -101,6 +106,34 @@ export class MercCard extends BaseCard {
   sargeTrainingBonus: number = 0;
   sargeInitiativeBonus: number = 0;
   sargeCombatBonus: number = 0;
+
+  // Tack's squad initiative bonus (applied to all squad members when Tack has highest initiative)
+  tackSquadInitiativeBonus: number = 0;
+
+  // Valkyrie's squad initiative bonus (applied to squad mates, not Valkyrie herself)
+  valkyrieSquadInitiativeBonus: number = 0;
+
+  // Equipment-conditional combat bonuses (displayed in UI tooltips)
+  boubaHandgunCombatBonus: number = 0;      // Bouba: +1 combat with handgun
+  mayhemUziCombatBonus: number = 0;         // Mayhem: +2 combat with Uzi
+  rozeskeArmorCombatBonus: number = 0;      // Rozeske: +1 combat with armor
+  stumpyExplosiveCombatBonus: number = 0;   // Stumpy: +1 combat with explosives
+  vandradiMultiTargetCombatBonus: number = 0; // Vandradi: +1 combat with multi-target weapon
+  dutchUnarmedCombatBonus: number = 0;      // Dutch: +1 combat without weapon
+  dutchUnarmedInitiativeBonus: number = 0;  // Dutch: +1 initiative without weapon
+  moeSmawTargetBonus: number = 0;           // Moe: +1 target with SMAW
+  raWeaponTargetBonus: number = 0;          // Ra: +1 target with any weapon
+
+  // Squad-conditional bonuses (displayed in UI tooltips)
+  snakeSoloCombatBonus: number = 0;         // Snake: +1 combat when alone
+  snakeSoloInitiativeBonus: number = 0;     // Snake: +1 initiative when alone
+  snakeSoloTrainingBonus: number = 0;       // Snake: +1 training when alone
+  tavistoWomanCombatBonus: number = 0;      // Tavisto: +1 combat with woman in squad
+  tavistoWomanInitiativeBonus: number = 0;  // Tavisto: +1 initiative with woman in squad
+  tavistoWomanTrainingBonus: number = 0;    // Tavisto: +1 training with woman in squad
+
+  // Faustina's extra training-only action (separate from regular actions)
+  trainingActionsRemaining: number = 0;     // Faustina: +1 action for training only
 
   // Computed stat caches (updated when equipment/abilities change)
   // These are serialized and sent to the UI since getters aren't serialized by BoardSmith
@@ -235,6 +268,9 @@ export class MercCard extends BaseCard {
    * Call this whenever equipment or abilities change.
    */
   updateComputedStats(): void {
+    // First update equipment-conditional bonuses
+    this.updateEquipmentBonuses();
+
     // MaxHealth - check for ability bonuses (e.g., Juicer's +2 health)
     const ability = getMercAbility(this.mercId);
     const extraHealth = ability?.passive?.extraHealth || 0;
@@ -255,6 +291,10 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'sarge') {
       t += this.sargeTrainingBonus || 0;
     }
+    // Snake's solo training bonus
+    t += this.snakeSoloTrainingBonus || 0;
+    // Tavisto's woman-in-squad training bonus
+    t += this.tavistoWomanTrainingBonus || 0;
     this.effectiveTraining = t;
 
     // Initiative - use getEffectiveInitiative() which accounts for Vulture's ability
@@ -277,6 +317,17 @@ export class MercCard extends BaseCard {
     }
     // Add ability-based combat bonus (e.g., Shooter's +3 combat)
     c += ability?.passive?.extraCombat || 0;
+    // Equipment-conditional combat bonuses
+    c += this.boubaHandgunCombatBonus || 0;
+    c += this.mayhemUziCombatBonus || 0;
+    c += this.rozeskeArmorCombatBonus || 0;
+    c += this.stumpyExplosiveCombatBonus || 0;
+    c += this.vandradiMultiTargetCombatBonus || 0;
+    c += this.dutchUnarmedCombatBonus || 0;
+    // Snake's solo combat bonus
+    c += this.snakeSoloCombatBonus || 0;
+    // Tavisto's woman-in-squad combat bonus
+    c += this.tavistoWomanCombatBonus || 0;
     this.effectiveCombat = Math.max(0, c);
   }
 
@@ -349,6 +400,190 @@ export class MercCard extends BaseCard {
     this.updateComputedStats();
   }
 
+  /**
+   * Update Tack's squad initiative bonus for this MERC.
+   * When Tack has highest initiative in the squad, all squad members get +2 initiative.
+   * Call this whenever squad composition or initiative changes.
+   * @param squadMates - Array of all MERCs in the same squad
+   */
+  updateTackSquadBonus(squadMates: MercCard[]): void {
+    // Reset bonus
+    this.tackSquadInitiativeBonus = 0;
+
+    // Find Tack in the squad
+    const tack = squadMates.find(m => m.mercId === 'tack' && !m.isDead);
+    if (!tack) return;
+
+    // Check if Tack has highest BASE initiative in squad
+    let tackHasHighest = true;
+    for (const mate of squadMates) {
+      if (mate.mercId === 'tack' || mate.isDead) continue;
+
+      // Compare BASE initiatives only (no equipment or bonuses)
+      if (mate.baseInitiative > tack.baseInitiative) {
+        tackHasHighest = false;
+        break;
+      }
+    }
+
+    // If Tack has highest base initiative, give +2 to all squad members (including Tack)
+    if (tackHasHighest) {
+      this.tackSquadInitiativeBonus = 2;
+    }
+
+    // Update computed stats after changing bonuses
+    this.updateComputedStats();
+  }
+
+  /**
+   * Update Valkyrie's squad initiative bonus for this MERC.
+   * When Valkyrie is in the squad, all OTHER squad members get +1 initiative.
+   * Call this whenever squad composition changes.
+   * @param squadMates - Array of all MERCs in the same squad
+   */
+  updateValkyrieSquadBonus(squadMates: MercCard[]): void {
+    // Reset bonus
+    this.valkyrieSquadInitiativeBonus = 0;
+
+    // Valkyrie herself doesn't get the bonus
+    if (this.mercId === 'valkyrie') return;
+
+    // Find Valkyrie in the squad
+    const valkyrie = squadMates.find(m => m.mercId === 'valkyrie' && !m.isDead);
+    if (!valkyrie) return;
+
+    // Give +1 initiative to this squad mate
+    this.valkyrieSquadInitiativeBonus = 1;
+
+    // Update computed stats after changing bonuses
+    this.updateComputedStats();
+  }
+
+  /**
+   * Update equipment-conditional bonuses for this MERC.
+   * These bonuses depend on what equipment is equipped:
+   * - Bouba: +1 combat with handgun
+   * - Mayhem: +2 combat with Uzi
+   * - Rozeske: +1 combat with armor
+   * - Stumpy: +1 combat with explosives
+   * - Vandradi: +1 combat with multi-target weapon
+   * - Dutch: +1 combat and +1 initiative without weapon
+   * - Moe: +1 target with SMAW
+   * - Ra: +1 target with any weapon
+   * Call this whenever equipment changes.
+   */
+  updateEquipmentBonuses(): void {
+    // Reset all equipment-conditional bonuses
+    this.boubaHandgunCombatBonus = 0;
+    this.mayhemUziCombatBonus = 0;
+    this.rozeskeArmorCombatBonus = 0;
+    this.stumpyExplosiveCombatBonus = 0;
+    this.vandradiMultiTargetCombatBonus = 0;
+    this.dutchUnarmedCombatBonus = 0;
+    this.dutchUnarmedInitiativeBonus = 0;
+    this.moeSmawTargetBonus = 0;
+    this.raWeaponTargetBonus = 0;
+
+    // Get weapon info
+    const weaponId = this.weaponSlot?.equipmentId || this.weaponSlotData?.equipmentId;
+    const hasWeaponEquipped = !!weaponId;
+    const hasArmorEquipped = !!(this.armorSlot?.equipmentId || this.armorSlotData?.equipmentId);
+    const weaponTargets = this.weaponSlot?.targets ?? this.weaponSlotData?.targets ?? 0;
+
+    // Bouba: +1 combat with handgun
+    if (this.mercId === 'bouba' && weaponId && isHandgun(weaponId)) {
+      this.boubaHandgunCombatBonus = 1;
+    }
+
+    // Mayhem: +2 combat with Uzi
+    if (this.mercId === 'mayhem' && weaponId && isUzi(weaponId)) {
+      this.mayhemUziCombatBonus = 2;
+    }
+
+    // Rozeske: +1 combat with armor
+    if (this.mercId === 'rozeske' && hasArmorEquipped) {
+      this.rozeskeArmorCombatBonus = 1;
+    }
+
+    // Stumpy: +1 combat with explosives
+    if (this.mercId === 'stumpy' && weaponId && isExplosive(weaponId)) {
+      this.stumpyExplosiveCombatBonus = 1;
+    }
+
+    // Vandradi: +1 combat with multi-target weapon (targets > 0)
+    if (this.mercId === 'vandradi' && weaponTargets > 0) {
+      this.vandradiMultiTargetCombatBonus = 1;
+    }
+
+    // Dutch: +1 combat and +1 initiative without weapon
+    if (this.mercId === 'dutch' && !hasWeaponEquipped) {
+      this.dutchUnarmedCombatBonus = 1;
+      this.dutchUnarmedInitiativeBonus = 1;
+    }
+
+    // Moe: +1 target with SMAW
+    if (this.mercId === 'moe' && weaponId && isSmaw(weaponId)) {
+      this.moeSmawTargetBonus = 1;
+    }
+
+    // Ra: +1 target with any weapon
+    if (this.mercId === 'ra' && hasWeaponEquipped) {
+      this.raWeaponTargetBonus = 1;
+    }
+  }
+
+  /**
+   * Update Snake's solo bonuses for this MERC.
+   * Snake gets +1 to all stats when alone in the squad.
+   * Call this whenever squad composition changes.
+   * @param squadMates - Array of all MERCs in the same squad
+   */
+  updateSnakeBonus(squadMates: MercCard[]): void {
+    // Reset bonuses
+    this.snakeSoloCombatBonus = 0;
+    this.snakeSoloInitiativeBonus = 0;
+    this.snakeSoloTrainingBonus = 0;
+
+    // Only Snake gets this bonus
+    if (this.mercId !== 'snake') return;
+
+    // Count living squad mates (excluding self)
+    const livingMates = squadMates.filter(m => !m.isDead && m.mercId !== 'snake').length;
+
+    // If alone in squad, give +1 to all stats
+    if (livingMates === 0) {
+      this.snakeSoloCombatBonus = 1;
+      this.snakeSoloInitiativeBonus = 1;
+      this.snakeSoloTrainingBonus = 1;
+    }
+  }
+
+  /**
+   * Update Tavisto's woman-in-squad bonuses for this MERC.
+   * Tavisto gets +1 to all stats when there's a woman in the squad.
+   * Call this whenever squad composition changes.
+   * @param squadMates - Array of all MERCs in the same squad
+   */
+  updateTavistoBonus(squadMates: MercCard[]): void {
+    // Reset bonuses
+    this.tavistoWomanCombatBonus = 0;
+    this.tavistoWomanInitiativeBonus = 0;
+    this.tavistoWomanTrainingBonus = 0;
+
+    // Only Tavisto gets this bonus
+    if (this.mercId !== 'tavisto') return;
+
+    // Check if there's a living woman in the squad
+    const hasWoman = squadMates.some(m => !m.isDead && FEMALE_MERCS.includes(m.mercId));
+
+    // If there's a woman, give +1 to all stats
+    if (hasWoman) {
+      this.tavistoWomanCombatBonus = 1;
+      this.tavistoWomanInitiativeBonus = 1;
+      this.tavistoWomanTrainingBonus = 1;
+    }
+  }
+
   // Computed stats including equipment bonuses and Haarg's ability
   // Note: Getters are inlined to ensure they work during BoardSmith serialization
   get initiative(): number {
@@ -368,6 +603,20 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'sarge') {
       value += this.sargeInitiativeBonus || 0;
     }
+    // Tack's squad bonus (when Tack has highest initiative in squad)
+    if (this.tackSquadInitiativeBonus > 0) {
+      value += this.tackSquadInitiativeBonus;
+    }
+    // Valkyrie's squad bonus (squad mates get +1)
+    if (this.valkyrieSquadInitiativeBonus > 0) {
+      value += this.valkyrieSquadInitiativeBonus;
+    }
+    // Dutch's unarmed initiative bonus
+    value += this.dutchUnarmedInitiativeBonus || 0;
+    // Snake's solo initiative bonus
+    value += this.snakeSoloInitiativeBonus || 0;
+    // Tavisto's woman-in-squad initiative bonus
+    value += this.tavistoWomanInitiativeBonus || 0;
     return value;
   }
 
@@ -409,6 +658,23 @@ export class MercCard extends BaseCard {
       value += this.sargeInitiativeBonus || 0;
     }
 
+    // Tack's squad bonus (when Tack has highest initiative in squad)
+    if (this.tackSquadInitiativeBonus > 0) {
+      value += this.tackSquadInitiativeBonus;
+    }
+
+    // Valkyrie's squad bonus (squad mates get +1)
+    if (this.valkyrieSquadInitiativeBonus > 0) {
+      value += this.valkyrieSquadInitiativeBonus;
+    }
+
+    // Dutch's unarmed initiative bonus
+    value += this.dutchUnarmedInitiativeBonus || 0;
+    // Snake's solo initiative bonus
+    value += this.snakeSoloInitiativeBonus || 0;
+    // Tavisto's woman-in-squad initiative bonus
+    value += this.tavistoWomanInitiativeBonus || 0;
+
     return value;
   }
 
@@ -429,6 +695,10 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'sarge') {
       value += this.sargeTrainingBonus || 0;
     }
+    // Snake's solo training bonus
+    value += this.snakeSoloTrainingBonus || 0;
+    // Tavisto's woman-in-squad training bonus
+    value += this.tavistoWomanTrainingBonus || 0;
     return value;
   }
 
@@ -449,6 +719,17 @@ export class MercCard extends BaseCard {
     if (this.mercId === 'sarge') {
       value += this.sargeCombatBonus || 0;
     }
+    // Equipment-conditional combat bonuses
+    value += this.boubaHandgunCombatBonus || 0;
+    value += this.mayhemUziCombatBonus || 0;
+    value += this.rozeskeArmorCombatBonus || 0;
+    value += this.stumpyExplosiveCombatBonus || 0;
+    value += this.vandradiMultiTargetCombatBonus || 0;
+    value += this.dutchUnarmedCombatBonus || 0;
+    // Snake's solo combat bonus
+    value += this.snakeSoloCombatBonus || 0;
+    // Tavisto's woman-in-squad combat bonus
+    value += this.tavistoWomanCombatBonus || 0;
     return Math.max(0, value);
   }
 
@@ -475,16 +756,10 @@ export class MercCard extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'targets');
     }
-    // MERC-c1f: Apply ability target bonuses (e.g., Ra gets +1 target with weapon)
-    const ability = getMercAbility(this.mercId);
-    if (ability?.combatModifiers?.targetBonus) {
-      const condition = ability.combatModifiers.condition;
-      // Check if condition is met
-      if (condition === 'always' ||
-          (condition === 'hasWeapon' && (this.weaponSlot || this.weaponSlotData))) {
-        value += ability.combatModifiers.targetBonus;
-      }
-    }
+    // Moe's SMAW target bonus
+    value += this.moeSmawTargetBonus || 0;
+    // Ra's weapon target bonus
+    value += this.raWeaponTargetBonus || 0;
     return value;
   }
 
@@ -527,11 +802,17 @@ export class MercCard extends BaseCard {
 
   resetActions(): void {
     // MERC-qb1: Ewok gets +1 action (3 total instead of 2)
-    // MERC-bd4: Faustina gets +1 action for training only (3 total)
-    if (this.mercId === 'ewok' || this.mercId === 'faustina') {
+    if (this.mercId === 'ewok') {
       this.actionsRemaining = MercCard.BASE_ACTIONS + 1;
     } else {
       this.actionsRemaining = MercCard.BASE_ACTIONS;
+    }
+
+    // MERC-bd4: Faustina gets +1 action for training only (separate from regular actions)
+    if (this.mercId === 'faustina') {
+      this.trainingActionsRemaining = 1;
+    } else {
+      this.trainingActionsRemaining = 0;
     }
   }
 
@@ -595,7 +876,6 @@ export class MercCard extends BaseCard {
         targets: equip.targets,
         armorBonus: equip.armorBonus,
         negatesArmor: equip.negatesArmor,
-        isOneUse: equip.isOneUse,
         isDamaged: equip.isDamaged,
         serial: equip.serial,
         image: equip.image,
@@ -784,7 +1064,6 @@ export class Equipment extends BaseCard {
 
   // Special properties
   negatesArmor: boolean = false;
-  isOneUse: boolean = false;
   usesRemaining?: number;
 
   // Damage state - damaged equipment cannot be stashed

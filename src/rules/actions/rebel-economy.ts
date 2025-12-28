@@ -17,6 +17,8 @@ import {
   hasActionsRemaining,
   isInPlayerTeam,
   useAction,
+  canTrainWith,
+  useTrainingAction,
 } from './helpers.js';
 
 // =============================================================================
@@ -818,7 +820,8 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       // Check max militia not reached
       if (sector.getTotalRebelMilitia() >= SectorConstants.MAX_MILITIA_PER_SIDE) return false;
       // Must have a MERC with training > 0 and actions remaining
-      return player.team.some(m => m.training > 0 && m.actionsRemaining >= ACTION_COSTS.TRAIN);
+      // MERC-bd4: Faustina can use her training-only action for this
+      return player.team.some(m => m.training > 0 && canTrainWith(m, ACTION_COSTS.TRAIN));
     })
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to train militia',
@@ -829,9 +832,10 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
+        // MERC-bd4: Faustina can use her training-only action
         return isInPlayerTeam(merc, player) &&
           merc.training > 0 &&
-          merc.actionsRemaining >= ACTION_COSTS.TRAIN;
+          canTrainWith(merc, ACTION_COSTS.TRAIN);
       },
     })
     .execute((args, ctx) => {
@@ -844,8 +848,8 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No sector found' };
       }
 
-      // Spend action
-      useAction(merc, ACTION_COSTS.TRAIN);
+      // Spend action - MERC-bd4: Faustina uses training action first
+      useTrainingAction(merc, ACTION_COSTS.TRAIN);
 
       // Train militia equal to training stat
       const trained = sector.addRebelMilitia(`${player.position}`, merc.training);

@@ -26,7 +26,7 @@ import {
   getAIEquipmentSelection,
 } from '../ai-executor.js';
 import { ACTION_COSTS, capitalize } from './helpers.js';
-import { isHealingItem, getHealAmount } from '../equipment-effects.js';
+import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
 // Dictator Unit Type and Helpers
@@ -98,8 +98,12 @@ function hasBeneficialMilitiaMove(game: MERCGame): boolean {
 // MERC-7fy: Helper to check if a MERC has a healing item equipped
 // Uses equipment registry instead of string matching
 function hasHealingItemEquipped(merc: MercCard): boolean {
-  const accessory = merc.accessorySlot;
-  return accessory ? isHealingItem(accessory.equipmentId) : false;
+  // Check accessory slot
+  if (merc.accessorySlot && isHealingItem(merc.accessorySlot.equipmentId)) {
+    return true;
+  }
+  // Check bandolier slots
+  return merc.bandolierSlots.some(e => isHealingItem(e.equipmentId));
 }
 
 // MERC-7fy: Helper to get healing amount from item
@@ -899,26 +903,65 @@ export function createDictatorHealAction(game: MERCGame): ActionDefinition {
     .execute((args) => {
       const healer = args.healer as MercCard;
       const target = args.target as MercCard;
-      const healingItem = healer.accessorySlot;
+
+      // Find healing item in accessory slot or bandolier
+      let healingItem: Equipment | undefined;
+      let isInBandolier = false;
+      let bandolierIndex = -1;
+
+      if (healer.accessorySlot && isHealingItem(healer.accessorySlot.equipmentId)) {
+        healingItem = healer.accessorySlot;
+      } else {
+        // Check bandolier slots
+        for (const equip of healer.bandolierSlots) {
+          if (isHealingItem(equip.equipmentId)) {
+            healingItem = equip;
+            isInBandolier = true;
+            const slotMatch = equip.equippedSlot?.match(/^bandolier:(\d+)$/);
+            if (slotMatch) {
+              bandolierIndex = parseInt(slotMatch[1], 10);
+            }
+            break;
+          }
+        }
+      }
 
       if (!healingItem) {
         return { success: false, message: 'No healing item equipped' };
       }
 
-      const healAmount = getHealingAmountForItem(healingItem.equipmentId);
-      const actualHealed = Math.min(healAmount, target.damage);
+      const healingEffect = getHealingEffect(healingItem.equipmentId);
+      if (!healingEffect) {
+        return { success: false, message: 'Healing item has no effect' };
+      }
+
+      const actualHealed = Math.min(healingEffect.healPerUse, target.damage);
 
       // Heal the target
       target.heal(actualHealed);
 
-      // Discard the healing item (one-use)
-      healer.unequip('Accessory');
-      const discard = game.getEquipmentDiscard('Accessory');
-      if (discard) {
-        healingItem.putInto(discard);
+      // Track uses for multi-use items (Medical Kit has 3 uses)
+      if (healingItem.usesRemaining === undefined) {
+        healingItem.usesRemaining = healingEffect.totalUses;
+      }
+      healingItem.usesRemaining--;
+
+      // If uses exhausted, discard the item
+      if (healingItem.usesRemaining <= 0) {
+        if (isInBandolier && bandolierIndex >= 0) {
+          healer.unequipBandolierSlot(bandolierIndex);
+        } else {
+          healer.unequip('Accessory');
+        }
+        const discard = game.getEquipmentDiscard('Accessory');
+        if (discard) {
+          healingItem.putInto(discard);
+        }
+        game.message(`${healer.mercName} uses ${healingItem.equipmentName} to heal ${target.mercName} for ${actualHealed} HP - item exhausted!`);
+      } else {
+        game.message(`${healer.mercName} uses ${healingItem.equipmentName} to heal ${target.mercName} for ${actualHealed} HP (${healingItem.usesRemaining} uses left)`);
       }
 
-      game.message(`${healer.mercName} uses ${healingItem.equipmentName} to heal ${target.mercName} for ${actualHealed} HP`);
       return { success: true, message: `Healed ${target.mercName} for ${actualHealed} HP` };
     });
 }
@@ -1055,6 +1098,43 @@ export function createDictatorMortarAction(game: MERCGame): ActionDefinition {
           targetSector.removeRebelMilitia(`${rebel.position}`, mortarDamage);
           totalDamage++;
           game.message(`Mortar kills ${mortarDamage} of ${rebel.name}'s militia`);
+        }
+      }
+
+      // Discard the mortar after use (mortars are one-use)
+      const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+
+      if (unit instanceof MercCard) {
+        // MercCard can have mortar in accessory slot or bandolier
+        if (unit.accessorySlot && hasRangedAttack(unit.accessorySlot.equipmentId)) {
+          const mortar = unit.unequip('Accessory');
+          if (mortar && accessoryDiscard) {
+            mortar.putInto(accessoryDiscard);
+          }
+          game.message(`${unit.mercName}'s mortar is used up!`);
+        } else {
+          // Check bandolier slots
+          const mortarInBandolier = unit.bandolierSlots.find(e => hasRangedAttack(e.equipmentId));
+          if (mortarInBandolier) {
+            const slotMatch = mortarInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
+            if (slotMatch) {
+              const index = parseInt(slotMatch[1], 10);
+              unit.unequipBandolierSlot(index);
+              if (accessoryDiscard) {
+                mortarInBandolier.putInto(accessoryDiscard);
+              }
+              game.message(`${unit.mercName}'s mortar is used up!`);
+            }
+          }
+        }
+      } else if (unit instanceof DictatorCard) {
+        // DictatorCard can have mortar in accessory slot
+        if (unit.accessorySlot && hasRangedAttack(unit.accessorySlot.equipmentId)) {
+          const mortar = unit.unequip('Accessory');
+          if (mortar && accessoryDiscard) {
+            mortar.putInto(accessoryDiscard);
+          }
+          game.message(`${unit.dictatorName}'s mortar is used up!`);
         }
       }
 

@@ -456,6 +456,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       maxTargets: number;
     };
     selectedTargets?: Map<string, string[]>; // attackerId -> targetIds
+    // Medical Kit healing: dice discarded per combatant this round
+    healingDiceUsed?: Map<string, number>; // combatantId -> dice discarded
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow
@@ -464,6 +466,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     sectorId: string;
     playerId: string;
   } | null = null;
+
+  // Explosives victory - set when rebels detonate explosives in palace
+  explosivesVictory: boolean = false;
 
   // Track last explorer for "Take from stash" action
   // Only the MERC who just explored can take from stash (until they do or action changes)
@@ -1057,40 +1062,72 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Update Sarge's ability bonuses for all squads.
+   * Update Sarge's and Tack's ability bonuses for all squads.
    * Sarge gets +1 to all skills when his initiative is highest in the squad.
+   * Tack gives +2 initiative to her whole squad when she has highest initiative.
    * Call this whenever squad composition changes (hiring, movement, death, etc.)
    */
   updateAllSargeBonuses(): void {
     // Check all rebel squads
     for (const rebel of this.rebelPlayers) {
       try {
-        this.updateSargeBonusForSquad(rebel.primarySquad);
+        this.updateSquadBonuses(rebel.primarySquad);
       } catch { /* squad not initialized */ }
       try {
-        this.updateSargeBonusForSquad(rebel.secondarySquad);
+        this.updateSquadBonuses(rebel.secondarySquad);
       } catch { /* squad not initialized */ }
     }
-    // Check dictator squads (in case Sarge is hired by dictator)
+    // Check dictator squads (in case Sarge/Tack is hired by dictator)
     if (this.dictatorPlayer) {
       try {
-        this.updateSargeBonusForSquad(this.dictatorPlayer.primarySquad);
+        this.updateSquadBonuses(this.dictatorPlayer.primarySquad);
       } catch { /* squad not initialized */ }
       try {
-        this.updateSargeBonusForSquad(this.dictatorPlayer.secondarySquad);
+        this.updateSquadBonuses(this.dictatorPlayer.secondarySquad);
       } catch { /* squad not initialized */ }
     }
   }
 
   /**
-   * Update Sarge's bonus for a specific squad
+   * Update Sarge's bonus for a specific squad (legacy method)
    */
   updateSargeBonusForSquad(squad: Squad): void {
+    this.updateSquadBonuses(squad);
+  }
+
+  /**
+   * Update all squad-based bonuses (Sarge, Tack, Valkyrie, Snake, Tavisto) for a specific squad
+   */
+  updateSquadBonuses(squad: Squad): void {
     if (!squad) return;
     const mercs = squad.getMercs();
+
+    // Update Sarge's bonus
     const sarge = mercs.find(m => m.mercId === 'sarge');
     if (sarge) {
       sarge.updateSargeBonus(mercs);
+    }
+
+    // Update Tack's squad bonus for ALL mercs in the squad
+    // (Tack gives +2 initiative to everyone when she has highest initiative)
+    for (const merc of mercs) {
+      merc.updateTackSquadBonus(mercs);
+    }
+
+    // Update Valkyrie's squad bonus for ALL mercs in the squad
+    // (Valkyrie gives +1 initiative to squad mates, not herself)
+    for (const merc of mercs) {
+      merc.updateValkyrieSquadBonus(mercs);
+    }
+
+    // Update Snake's solo bonus (when alone in squad)
+    for (const merc of mercs) {
+      merc.updateSnakeBonus(mercs);
+    }
+
+    // Update Tavisto's woman-in-squad bonus
+    for (const merc of mercs) {
+      merc.updateTavistoBonus(mercs);
     }
   }
 
@@ -1234,6 +1271,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       return true;
     }
 
+    // Check if rebels won via explosives detonation
+    if (this.explosivesVictory) {
+      return true;
+    }
+
     if (this.dictatorPlayer?.tacticsDeck?.count(TacticsCard) === 0 &&
         this.dictatorPlayer?.tacticsHand?.count(TacticsCard) === 0) {
       return true;
@@ -1321,6 +1363,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     // If rebels captured the base, rebels win
     if (this.isBaseCaptured()) {
+      return [...this.rebelPlayers];
+    }
+
+    // If rebels won via explosives detonation, rebels win
+    if (this.explosivesVictory) {
       return [...this.rebelPlayers];
     }
 

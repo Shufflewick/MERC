@@ -14,7 +14,8 @@ import {
   isInPlayerTeam,
   useAction,
 } from './helpers.js';
-import { isLandMine } from '../equipment-effects.js';
+import { isLandMine, isRepairKit, hasRangedAttack, getRangedAttackRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
+import { hasMortar } from '../ai-helpers.js';
 
 // =============================================================================
 // Re-Equip Action
@@ -573,12 +574,13 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
       if (!squidhead) return false;
 
-      // Check if Squidhead has a land mine equipped
-      const hasLandMine = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot].some(
+      // Check if Squidhead has a land mine equipped (including bandolier)
+      const hasLandMineInSlots = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot].some(
         slot => slot && isLandMine(slot.equipmentId)
       );
+      const hasLandMineInBandolier = squidhead.bandolierSlots.some(e => isLandMine(e.equipmentId));
 
-      return hasLandMine;
+      return hasLandMineInSlots || hasLandMineInBandolier;
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
@@ -604,6 +606,16 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
         mine = squidhead.unequip('Weapon');
       } else if (squidhead.armorSlot && isLandMine(squidhead.armorSlot.equipmentId)) {
         mine = squidhead.unequip('Armor');
+      } else {
+        // Check bandolier slots
+        const mineInBandolier = squidhead.bandolierSlots.find(e => isLandMine(e.equipmentId));
+        if (mineInBandolier) {
+          const slotMatch = mineInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
+          if (slotMatch) {
+            const index = parseInt(slotMatch[1], 10);
+            mine = squidhead.unequipBandolierSlot(index);
+          }
+        }
       }
 
       if (!mine) {
@@ -876,5 +888,519 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.mercName}`);
 
       return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.mercName}` };
+    });
+}
+
+// =============================================================================
+// Repair Kit Action
+// =============================================================================
+
+/**
+ * Helper to find MERCs with Repair Kit equipped
+ */
+function getMercsWithRepairKit(player: RebelPlayer): MercCard[] {
+  return player.team.filter(merc => {
+    if (merc.isDead) return false;
+    // Check accessory slot
+    if (merc.accessorySlot && isRepairKit(merc.accessorySlot.equipmentId)) return true;
+    // Check bandolier slots
+    return merc.bandolierSlots.some(e => isRepairKit(e.equipmentId));
+  });
+}
+
+/**
+ * Helper to get available equipment from discard piles
+ */
+function getDiscardPileEquipment(game: MERCGame): Array<{ equipment: Equipment; pileType: 'Weapon' | 'Armor' | 'Accessory' }> {
+  const result: Array<{ equipment: Equipment; pileType: 'Weapon' | 'Armor' | 'Accessory' }> = [];
+
+  const weaponDiscard = game.weaponsDiscard?.children as Equipment[] | undefined;
+  const armorDiscard = game.armorDiscard?.children as Equipment[] | undefined;
+  const accessoryDiscard = game.accessoriesDiscard?.children as Equipment[] | undefined;
+
+  if (weaponDiscard) {
+    for (const e of weaponDiscard) {
+      result.push({ equipment: e, pileType: 'Weapon' });
+    }
+  }
+  if (armorDiscard) {
+    for (const e of armorDiscard) {
+      result.push({ equipment: e, pileType: 'Armor' });
+    }
+  }
+  if (accessoryDiscard) {
+    for (const e of accessoryDiscard) {
+      result.push({ equipment: e, pileType: 'Accessory' });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Use a Repair Kit to retrieve equipment from any discard pile.
+ * Cost: 0 (free action)
+ * Per rules: "Discard this card to take 1 card from any equipment discard pile."
+ */
+export function createRepairKitAction(game: MERCGame): ActionDefinition {
+  return Action.create('repairKit')
+    .prompt('Use Repair Kit')
+    .condition((ctx) => {
+      // Cannot use during combat
+      if (game.activeCombat) return false;
+      // Only rebels can use repair kit
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+
+      // Check if any MERC has a Repair Kit equipped
+      const mercsWithKit = getMercsWithRepairKit(player);
+      if (mercsWithKit.length === 0) return false;
+
+      // Check if any discard pile has equipment
+      const discardEquip = getDiscardPileEquipment(game);
+      return discardEquip.length > 0;
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to use Repair Kit',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+
+        if (!isInPlayerTeam(merc, player)) return false;
+        if (merc.isDead) return false;
+
+        // MERC must have Repair Kit
+        if (merc.accessorySlot && isRepairKit(merc.accessorySlot.equipmentId)) return true;
+        return merc.bandolierSlots.some(e => isRepairKit(e.equipmentId));
+      },
+    })
+    .chooseFrom<string>('equipment', {
+      prompt: 'Select equipment to retrieve from discard',
+      choices: () => {
+        const discardEquip = getDiscardPileEquipment(game);
+        return discardEquip.map(({ equipment, pileType }) =>
+          `${equipment.equipmentName} (${pileType})`
+        );
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const merc = args.merc as MercCard;
+      const equipmentChoice = args.equipment as string;
+
+      // Find the Repair Kit on the MERC
+      let repairKit: Equipment | undefined;
+      let repairKitSlot: 'Accessory' | 'bandolier' = 'Accessory';
+      let bandolierIndex = -1;
+
+      if (merc.accessorySlot && isRepairKit(merc.accessorySlot.equipmentId)) {
+        repairKit = merc.accessorySlot;
+        repairKitSlot = 'Accessory';
+      } else {
+        const idx = merc.bandolierSlots.findIndex(e => isRepairKit(e.equipmentId));
+        if (idx >= 0) {
+          repairKit = merc.bandolierSlots[idx];
+          repairKitSlot = 'bandolier';
+          bandolierIndex = idx;
+        }
+      }
+
+      if (!repairKit) {
+        return { success: false, message: 'No Repair Kit found on MERC' };
+      }
+
+      // Find the selected equipment in discard
+      const discardEquip = getDiscardPileEquipment(game);
+      const selected = discardEquip.find(({ equipment, pileType }) =>
+        `${equipment.equipmentName} (${pileType})` === equipmentChoice
+      );
+
+      if (!selected) {
+        return { success: false, message: 'Equipment not found in discard' };
+      }
+
+      // Remove repair kit from MERC and discard it
+      if (repairKitSlot === 'Accessory') {
+        merc.unequip('Accessory');
+      } else {
+        merc.unequipBandolierSlot(bandolierIndex);
+      }
+      const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+      if (accessoryDiscard) {
+        repairKit.putInto(accessoryDiscard);
+      }
+
+      // Take the equipment from discard
+      const retrievedEquip = selected.equipment;
+      const pileType = selected.pileType;
+
+      // Find the MERC's sector to put equipment in stash
+      const squad = player.getSquadContaining(merc);
+      if (!squad?.sectorId) {
+        return { success: false, message: 'MERC not in a valid sector' };
+      }
+
+      const sector = game.getSector(squad.sectorId);
+      if (!sector) {
+        return { success: false, message: 'Sector not found' };
+      }
+
+      // Remove from discard pile and add to sector stash
+      const discardPile = game.getEquipmentDiscard(pileType);
+      if (discardPile) {
+        // Move from discard to stash
+        sector.addToStash(retrievedEquip);
+      }
+
+      game.message(`${merc.mercName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
+
+      return {
+        success: true,
+        message: `Retrieved ${retrievedEquip.equipmentName} from ${pileType} discard`,
+        data: { retrievedEquipment: retrievedEquip.equipmentName },
+      };
+    });
+}
+
+// =============================================================================
+// Mortar Action (Ranged Attack)
+// =============================================================================
+
+/**
+ * Get valid mortar targets for rebels (sectors with dictator forces).
+ */
+function getRebelMortarTargets(game: MERCGame, fromSector: Sector): Sector[] {
+  const adjacent = game.getAdjacentSectors(fromSector);
+  return adjacent.filter(sector => {
+    // Check if sector has dictator forces
+    const hasDictatorMercs = game.dictatorPlayer?.hiredMercs.some(m =>
+      m.sectorId === sector.sectorId && !m.isDead
+    ) ?? false;
+    const hasDictator = game.dictatorPlayer?.dictator?.sectorId === sector.sectorId &&
+                        game.dictatorPlayer?.dictator?.inPlay;
+    const hasDictatorMilitia = sector.dictatorMilitia > 0;
+    return hasDictatorMercs || hasDictator || hasDictatorMilitia;
+  });
+}
+
+/**
+ * Count dictator targets in a sector (MERCs + militia + dictator).
+ */
+function countDictatorTargetsInSector(game: MERCGame, sector: Sector): number {
+  let count = 0;
+
+  // Count dictator MERCs
+  const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
+    m.sectorId === sector.sectorId && !m.isDead
+  ) ?? [];
+  count += dictatorMercs.length;
+
+  // Count dictator itself
+  if (game.dictatorPlayer?.dictator?.sectorId === sector.sectorId &&
+      game.dictatorPlayer?.dictator?.inPlay) {
+    count += 1;
+  }
+
+  // Count dictator militia
+  count += sector.dictatorMilitia;
+
+  return count;
+}
+
+/**
+ * Fire mortar at an adjacent sector.
+ * Cost: 1 action
+ * Per rules: Mortars attack adjacent sectors without entering them.
+ * Deals 1 damage to all enemies in the target sector.
+ */
+export function createMortarAction(game: MERCGame): ActionDefinition {
+  return Action.create('rebelMortar')
+    .prompt('Fire Mortar')
+    .condition((ctx) => {
+      // Cannot use during combat
+      if (game.activeCombat) return false;
+      // Only rebels can use this
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+
+      // Check if any MERC has a mortar and actions, and there are valid targets
+      for (const merc of player.team) {
+        if (merc.isDead || merc.actionsRemaining < 1) continue;
+        if (!hasMortar(merc)) continue;
+
+        const squad = player.getSquadContaining(merc);
+        if (!squad?.sectorId) continue;
+
+        const sector = game.getSector(squad.sectorId);
+        if (!sector) continue;
+
+        const targets = getRebelMortarTargets(game, sector);
+        if (targets.length > 0) return true;
+      }
+
+      return false;
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to fire mortar',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+
+        // MERC must be in player's team, have actions, and have mortar
+        if (!isInPlayerTeam(merc, player)) return false;
+        if (merc.isDead || merc.actionsRemaining < 1) return false;
+        if (!hasMortar(merc)) return false;
+
+        // Must have valid targets
+        const squad = player.getSquadContaining(merc);
+        if (!squad?.sectorId) return false;
+
+        const sector = game.getSector(squad.sectorId);
+        if (!sector) return false;
+
+        const targets = getRebelMortarTargets(game, sector);
+        return targets.length > 0;
+      },
+    })
+    .chooseElement<Sector>('targetSector', {
+      prompt: 'Select sector to bombard',
+      elementClass: Sector,
+      display: (sector) => `${sector.sectorName} (${countDictatorTargetsInSector(game, sector)} targets)`,
+      boardRef: (sector) => ({ id: sector.id }),
+      filter: (element, ctx) => {
+        const sector = element as unknown as Sector;
+        const merc = ctx.args?.merc as MercCard | undefined;
+        if (!merc?.sectorId) return false;
+
+        const fromSector = game.getSector(merc.sectorId);
+        if (!fromSector) return false;
+
+        const validTargets = getRebelMortarTargets(game, fromSector);
+        return validTargets.some(t => t.sectorId === sector.sectorId);
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const merc = args.merc as MercCard;
+      const targetSector = args.targetSector as Sector;
+
+      // Use action
+      merc.useAction(1);
+
+      // Mortar deals 1 damage per target
+      const mortarDamage = 1;
+
+      game.message(`${merc.mercName} fires mortar at ${targetSector.sectorName}!`);
+
+      let totalDamage = 0;
+
+      // Damage dictator MERCs
+      const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
+        m.sectorId === targetSector.sectorId && !m.isDead
+      ) ?? [];
+      for (const target of dictatorMercs) {
+        target.takeDamage(mortarDamage);
+        totalDamage++;
+        game.message(`Mortar deals ${mortarDamage} damage to ${target.mercName}`);
+      }
+
+      // Damage the Dictator
+      const dictator = game.dictatorPlayer?.dictator;
+      if (dictator?.sectorId === targetSector.sectorId && dictator.inPlay) {
+        dictator.takeDamage(mortarDamage);
+        totalDamage++;
+        game.message(`Mortar deals ${mortarDamage} damage to the Dictator!`);
+
+        if (dictator.isDead) {
+          game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+        }
+      }
+
+      // Damage militia
+      if (targetSector.dictatorMilitia > 0) {
+        const militiaKilled = Math.min(mortarDamage, targetSector.dictatorMilitia);
+        targetSector.removeDictatorMilitia(militiaKilled);
+        totalDamage++;
+        game.message(`Mortar kills ${militiaKilled} dictator militia`);
+      }
+
+      // Discard the mortar after use (mortars are one-use)
+      const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+      if (merc.accessorySlot && hasRangedAttack(merc.accessorySlot.equipmentId)) {
+        const mortar = merc.unequip('Accessory');
+        if (mortar && accessoryDiscard) {
+          mortar.putInto(accessoryDiscard);
+        }
+        game.message(`${merc.mercName}'s mortar is used up!`);
+      } else {
+        // Check bandolier slots
+        const mortarInBandolier = merc.bandolierSlots.find(e => hasRangedAttack(e.equipmentId));
+        if (mortarInBandolier) {
+          const slotMatch = mortarInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
+          if (slotMatch) {
+            const index = parseInt(slotMatch[1], 10);
+            merc.unequipBandolierSlot(index);
+            if (accessoryDiscard) {
+              mortarInBandolier.putInto(accessoryDiscard);
+            }
+            game.message(`${merc.mercName}'s mortar is used up!`);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        message: `Mortar attack dealt ${totalDamage} damage`,
+        data: { totalDamage },
+      };
+    });
+}
+
+// =============================================================================
+// Explosives / Detonator Win Condition
+// =============================================================================
+
+/**
+ * Check if a MERC has both explosives components (detonator + explosives).
+ */
+function hasBothExplosivesComponents(merc: MercCard): boolean {
+  const allEquipment: Equipment[] = [];
+
+  // Collect all equipment from MERC
+  if (merc.weaponSlot) allEquipment.push(merc.weaponSlot);
+  if (merc.armorSlot) allEquipment.push(merc.armorSlot);
+  if (merc.accessorySlot) allEquipment.push(merc.accessorySlot);
+  allEquipment.push(...merc.bandolierSlots);
+
+  // Check for both components
+  const componentIds = allEquipment
+    .filter(e => isExplosivesComponent(e.equipmentId))
+    .map(e => e.equipmentId);
+
+  // Need both detonator and explosives
+  return componentIds.includes('detonator') && componentIds.includes('explosives');
+}
+
+/**
+ * Detonate explosives in the palace to win the game.
+ * Cost: 1 action
+ * Per rules: When a MERC has both Detonator and Explosives in the dictator's base,
+ * they can use this action to destroy the palace and win the game.
+ */
+export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition {
+  return Action.create('detonateExplosives')
+    .prompt('Detonate Explosives (Win Game)')
+    .condition((ctx) => {
+      // Cannot use during combat
+      if (game.activeCombat) return false;
+      // Only rebels can use this
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      const player = ctx.player as RebelPlayer;
+
+      // Base must be revealed
+      if (!game.dictatorPlayer?.baseRevealed || !game.dictatorPlayer?.baseSectorId) {
+        return false;
+      }
+
+      const baseSectorId = game.dictatorPlayer.baseSectorId;
+
+      // Check if any MERC is in the base sector with both components
+      for (const merc of player.team) {
+        if (merc.isDead || merc.actionsRemaining < 1) continue;
+
+        // Check if MERC is in base sector
+        const squad = player.getSquadContaining(merc);
+        if (!squad || squad.sectorId !== baseSectorId) continue;
+
+        // Check if MERC has both components
+        if (hasBothExplosivesComponents(merc)) {
+          return true;
+        }
+      }
+
+      return false;
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Select MERC to detonate explosives',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+
+        if (!isInPlayerTeam(merc, player)) return false;
+        if (merc.isDead || merc.actionsRemaining < 1) return false;
+
+        // Must be in base sector
+        const baseSectorId = game.dictatorPlayer?.baseSectorId;
+        if (!baseSectorId) return false;
+
+        const squad = player.getSquadContaining(merc);
+        if (!squad || squad.sectorId !== baseSectorId) return false;
+
+        return hasBothExplosivesComponents(merc);
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as RebelPlayer;
+      const merc = args.merc as MercCard;
+
+      // Use action
+      merc.useAction(1);
+
+      // Get base sector for messaging
+      const baseSector = game.getSector(game.dictatorPlayer!.baseSectorId!);
+      const sectorName = baseSector?.sectorName ?? 'the palace';
+
+      game.message(`${merc.mercName} detonates the explosives!`);
+      game.message(`BOOM! The palace is destroyed!`);
+      game.message(`THE DICTATOR'S REGIME HAS FALLEN! REBELS WIN!`);
+
+      // Mark game as over - rebels win via explosives
+      game.explosivesVictory = true;
+
+      // Remove the explosives components (consumed)
+      const allSlots: Array<{ slot: 'Weapon' | 'Armor' | 'Accessory', item?: Equipment }> = [
+        { slot: 'Weapon', item: merc.weaponSlot },
+        { slot: 'Armor', item: merc.armorSlot },
+        { slot: 'Accessory', item: merc.accessorySlot },
+      ];
+
+      for (const { slot, item } of allSlots) {
+        if (item && isExplosivesComponent(item.equipmentId)) {
+          merc.unequip(slot);
+          const discard = game.getEquipmentDiscard(item.equipmentType as any);
+          if (discard) item.putInto(discard);
+        }
+      }
+
+      // Check bandolier slots
+      const bandolierIndicesToRemove: number[] = [];
+      merc.bandolierSlots.forEach((item, idx) => {
+        if (isExplosivesComponent(item.equipmentId)) {
+          bandolierIndicesToRemove.push(idx);
+        }
+      });
+      // Remove in reverse order to preserve indices
+      for (let i = bandolierIndicesToRemove.length - 1; i >= 0; i--) {
+        const idx = bandolierIndicesToRemove[i];
+        const item = merc.bandolierSlots[idx];
+        merc.unequipBandolierSlot(idx);
+        const discard = game.getEquipmentDiscard(item.equipmentType as any);
+        if (discard) item.putInto(discard);
+      }
+
+      return {
+        success: true,
+        message: 'The palace has been destroyed! Rebels win!',
+        data: { explosivesVictory: true },
+      };
     });
 }

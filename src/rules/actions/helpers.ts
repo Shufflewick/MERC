@@ -105,6 +105,32 @@ export function useAction(merc: MercCard, cost: number): boolean {
   return merc.useAction(cost);
 }
 
+/**
+ * MERC-bd4: Check if a MERC can perform a training action
+ * Faustina can use her trainingActionsRemaining in addition to regular actions
+ */
+export function canTrainWith(merc: MercCard, cost: number): boolean {
+  // Regular actions work for anyone
+  if (merc.actionsRemaining >= cost) return true;
+  // Faustina can also use her training-only action
+  if (merc.mercId === 'faustina' && merc.trainingActionsRemaining >= cost) return true;
+  return false;
+}
+
+/**
+ * MERC-bd4: Use a training action from a MERC
+ * Faustina uses her trainingActionsRemaining first before regular actions
+ */
+export function useTrainingAction(merc: MercCard, cost: number): boolean {
+  // Faustina uses her training-only action first
+  if (merc.mercId === 'faustina' && merc.trainingActionsRemaining >= cost) {
+    merc.trainingActionsRemaining -= cost;
+    return true;
+  }
+  // Otherwise use regular actions
+  return merc.useAction(cost);
+}
+
 // =============================================================================
 // Type exports for convenience
 // =============================================================================

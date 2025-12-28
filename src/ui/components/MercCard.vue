@@ -108,7 +108,7 @@ const training = computed(() => getProp('effectiveTraining', 0) || getProp('trai
 const combat = computed(() => getProp('effectiveCombat', 0) || getProp('combat', 0) || getProp('baseCombat', 0));
 const initiative = computed(() => getProp('effectiveInitiative', 0) || getProp('initiative', 0) || getProp('baseInitiative', 0));
 
-// Targets - base is 1, plus any equipment bonuses
+// Targets - base is 1, plus any equipment bonuses and ability bonuses
 const targets = computed(() => {
   const base = 1; // All MERCs have 1 target by default
   const weaponBonus = getEquipmentBonus(weaponSlot.value, 'targets');
@@ -119,9 +119,10 @@ const targets = computed(() => {
   for (const bSlot of bandolierSlots.value) {
     bandolierBonus += getEquipmentBonus(bSlot, 'targets');
   }
-  // MERC-c1f: Ra gets +1 target with any weapon
-  const raBonus = (mercId.value === 'ra' && weaponSlot.value) ? 1 : 0;
-  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus + raBonus;
+  // Ability target bonuses (Moe with SMAW, Ra with weapon)
+  const moeBonus = getProp('moeSmawTargetBonus', 0);
+  const raBonus = getProp('raWeaponTargetBonus', 0);
+  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus + moeBonus + raBonus;
 });
 
 // Stat breakdown for tooltips
@@ -185,9 +186,122 @@ function buildStatBreakdown(statKey: string, baseStatKey: string): StatBreakdown
   return breakdown;
 }
 
-const trainingBreakdown = computed(() => buildStatBreakdown('training', 'baseTraining'));
-const combatBreakdown = computed(() => buildStatBreakdown('combat', 'baseCombat'));
-const initiativeBreakdown = computed(() => buildStatBreakdown('initiative', 'baseInitiative'));
+const trainingBreakdown = computed(() => {
+  const breakdown = buildStatBreakdown('training', 'baseTraining');
+
+  // Snake's solo training bonus
+  const snakeBonus = getProp('snakeSoloTrainingBonus', 0);
+  if (snakeBonus > 0) {
+    breakdown.push({ label: "Snake's Ability", value: snakeBonus });
+  }
+
+  // Tavisto's woman-in-squad training bonus
+  const tavistoBonus = getProp('tavistoWomanTrainingBonus', 0);
+  if (tavistoBonus > 0) {
+    breakdown.push({ label: "Tavisto's Ability", value: tavistoBonus });
+  }
+
+  return breakdown;
+});
+
+const combatBreakdown = computed(() => {
+  const breakdown = buildStatBreakdown('combat', 'baseCombat');
+
+  // Equipment-conditional combat bonuses
+  const boubaBonus = getProp('boubaHandgunCombatBonus', 0);
+  if (boubaBonus > 0) {
+    breakdown.push({ label: "Bouba's Ability", value: boubaBonus });
+  }
+
+  const mayhemBonus = getProp('mayhemUziCombatBonus', 0);
+  if (mayhemBonus > 0) {
+    breakdown.push({ label: "Mayhem's Ability", value: mayhemBonus });
+  }
+
+  const rozeskeBonus = getProp('rozeskeArmorCombatBonus', 0);
+  if (rozeskeBonus > 0) {
+    breakdown.push({ label: "Rozeske's Ability", value: rozeskeBonus });
+  }
+
+  const stumpyBonus = getProp('stumpyExplosiveCombatBonus', 0);
+  if (stumpyBonus > 0) {
+    breakdown.push({ label: "Stumpy's Ability", value: stumpyBonus });
+  }
+
+  const vandradiBonus = getProp('vandradiMultiTargetCombatBonus', 0);
+  if (vandradiBonus > 0) {
+    breakdown.push({ label: "Vandradi's Ability", value: vandradiBonus });
+  }
+
+  const dutchBonus = getProp('dutchUnarmedCombatBonus', 0);
+  if (dutchBonus > 0) {
+    breakdown.push({ label: "Dutch's Ability", value: dutchBonus });
+  }
+
+  // Snake's solo combat bonus
+  const snakeBonus = getProp('snakeSoloCombatBonus', 0);
+  if (snakeBonus > 0) {
+    breakdown.push({ label: "Snake's Ability", value: snakeBonus });
+  }
+
+  // Tavisto's woman-in-squad combat bonus
+  const tavistoBonus = getProp('tavistoWomanCombatBonus', 0);
+  if (tavistoBonus > 0) {
+    breakdown.push({ label: "Tavisto's Ability", value: tavistoBonus });
+  }
+
+  return breakdown;
+});
+
+// Initiative breakdown with Vulture's and Tack's ability handling
+const initiativeBreakdown = computed(() => {
+  const breakdown = buildStatBreakdown('initiative', 'baseInitiative');
+
+  // For Vulture, add a line showing the ability negates initiative penalties
+  if (mercId.value === 'vulture') {
+    // Calculate total penalties from equipment (negative values)
+    const penaltyTotal = breakdown
+      .filter(item => item.label !== 'Base' && item.value < 0)
+      .reduce((sum, item) => sum + item.value, 0);
+
+    if (penaltyTotal < 0) {
+      // Vulture's ability negates the penalties
+      breakdown.push({ label: "Vulture's Ability", value: -penaltyTotal });
+    }
+  }
+
+  // Add Tack's squad bonus if present (applies to all squad members when Tack has highest initiative)
+  const tackBonus = getProp('tackSquadInitiativeBonus', 0);
+  if (tackBonus > 0) {
+    breakdown.push({ label: "Tack's Ability", value: tackBonus });
+  }
+
+  // Add Valkyrie's squad bonus if present (applies to squad mates, not Valkyrie herself)
+  const valkyrieBonus = getProp('valkyrieSquadInitiativeBonus', 0);
+  if (valkyrieBonus > 0) {
+    breakdown.push({ label: "Valkyrie's Ability", value: valkyrieBonus });
+  }
+
+  // Dutch's unarmed initiative bonus
+  const dutchBonus = getProp('dutchUnarmedInitiativeBonus', 0);
+  if (dutchBonus > 0) {
+    breakdown.push({ label: "Dutch's Ability", value: dutchBonus });
+  }
+
+  // Snake's solo initiative bonus
+  const snakeBonus = getProp('snakeSoloInitiativeBonus', 0);
+  if (snakeBonus > 0) {
+    breakdown.push({ label: "Snake's Ability", value: snakeBonus });
+  }
+
+  // Tavisto's woman-in-squad initiative bonus
+  const tavistoBonus = getProp('tavistoWomanInitiativeBonus', 0);
+  if (tavistoBonus > 0) {
+    breakdown.push({ label: "Tavisto's Ability", value: tavistoBonus });
+  }
+
+  return breakdown;
+});
 const targetsBreakdown = computed(() => {
   const breakdown: StatBreakdownItem[] = [{ label: 'Base', value: 1 }];
 
@@ -218,9 +332,16 @@ const targetsBreakdown = computed(() => {
     }
   }
 
-  // MERC-c1f: Ra gets +1 target with any weapon
-  if (mercId.value === 'ra' && weaponSlot.value) {
-    breakdown.push({ label: 'Ra Ability', value: 1 });
+  // Moe's SMAW target bonus
+  const moeBonus = getProp('moeSmawTargetBonus', 0);
+  if (moeBonus > 0) {
+    breakdown.push({ label: "Moe's Ability", value: moeBonus });
+  }
+
+  // Ra's weapon target bonus
+  const raBonus = getProp('raWeaponTargetBonus', 0);
+  if (raBonus > 0) {
+    breakdown.push({ label: "Ra's Ability", value: raBonus });
   }
 
   return breakdown;
@@ -260,6 +381,11 @@ function toggleTooltip(stat: string) {
 function formatBonus(value: number): string {
   if (value > 0) return `+${value}`;
   return String(value);
+}
+
+// Calculate total from breakdown
+function getBreakdownTotal(breakdown: StatBreakdownItem[]): number {
+  return breakdown.reduce((sum, item) => sum + item.value, 0);
 }
 
 const currentHealth = computed(() => {
@@ -381,6 +507,10 @@ function confirmDropEquipment() {
               {{ idx === 0 ? item.value : formatBonus(item.value) }}
             </span>
           </div>
+          <div class="tooltip-row tooltip-total">
+            <span class="tooltip-label">Total</span>
+            <span class="tooltip-value">{{ getBreakdownTotal(trainingBreakdown) }}</span>
+          </div>
         </div>
       </div>
       <div
@@ -402,6 +532,10 @@ function confirmDropEquipment() {
               {{ idx === 0 ? item.value : formatBonus(item.value) }}
             </span>
           </div>
+          <div class="tooltip-row tooltip-total">
+            <span class="tooltip-label">Total</span>
+            <span class="tooltip-value">{{ getBreakdownTotal(combatBreakdown) }}</span>
+          </div>
         </div>
       </div>
       <div
@@ -422,6 +556,10 @@ function confirmDropEquipment() {
             <span class="tooltip-value" :class="{ positive: item.value > 0 && idx > 0, negative: item.value < 0 }">
               {{ idx === 0 ? item.value : formatBonus(item.value) }}
             </span>
+          </div>
+          <div class="tooltip-row tooltip-total">
+            <span class="tooltip-label">Total</span>
+            <span class="tooltip-value">{{ getBreakdownTotal(initiativeBreakdown) }}</span>
           </div>
         </div>
       </div>
@@ -446,6 +584,10 @@ function confirmDropEquipment() {
               {{ idx === 0 ? item.value : formatBonus(item.value) }}
             </span>
           </div>
+          <div class="tooltip-row tooltip-total">
+            <span class="tooltip-label">Total</span>
+            <span class="tooltip-value">{{ getBreakdownTotal(healthBreakdown) }}</span>
+          </div>
         </div>
       </div>
       <div
@@ -466,6 +608,10 @@ function confirmDropEquipment() {
             <span class="tooltip-value" :class="{ positive: item.value > 0 && idx > 0, negative: item.value < 0 }">
               {{ idx === 0 ? item.value : formatBonus(item.value) }}
             </span>
+          </div>
+          <div class="tooltip-row tooltip-total">
+            <span class="tooltip-label">Total</span>
+            <span class="tooltip-value">{{ getBreakdownTotal(targetsBreakdown) }}</span>
           </div>
         </div>
       </div>
@@ -733,6 +879,21 @@ function confirmDropEquipment() {
 
 .tooltip-value.negative {
   color: #e63946;
+}
+
+.tooltip-total {
+  border-top: 1px solid v-bind('UI_COLORS.backgroundLight');
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.tooltip-total .tooltip-label {
+  color: v-bind('UI_COLORS.text');
+  font-weight: 600;
+}
+
+.tooltip-total .tooltip-value {
+  color: v-bind('UI_COLORS.accent');
 }
 
 .stat-icon {

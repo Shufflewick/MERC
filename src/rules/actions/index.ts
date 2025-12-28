@@ -53,6 +53,7 @@ import {
   createCombatContinueAction,
   createCombatRetreatAction,
   createCombatSelectTargetAction,
+  createCombatHealAction,
 } from './rebel-combat.js';
 
 import {
@@ -73,6 +74,9 @@ import {
   createSquidheadDisarmAction,
   createSquidheadArmAction,
   createHagnessDrawAction,
+  createRepairKitAction,
+  createMortarAction,
+  createDetonateExplosivesAction,
 } from './rebel-equipment.js';
 
 import {
@@ -127,6 +131,9 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createSquidheadDisarmAction(game)); // MERC-4qd: Squidhead disarm mines
   game.registerAction(createSquidheadArmAction(game)); // MERC-4qd: Squidhead arm mines
   game.registerAction(createHagnessDrawAction(game)); // MERC-jrph: Hagness draw equipment
+  game.registerAction(createRepairKitAction(game)); // Repair Kit from stash
+  game.registerAction(createMortarAction(game)); // Rebel mortar attack
+  game.registerAction(createDetonateExplosivesAction(game)); // Explosives win condition
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createSplitSquadAction(game));
@@ -137,6 +144,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatContinueAction(game));
   game.registerAction(createCombatRetreatAction(game));
   game.registerAction(createCombatSelectTargetAction(game)); // MERC-t5k: Target selection
+  game.registerAction(createCombatHealAction(game)); // Medical Kit / First Aid Kit healing
 
   // Day 1 specific actions (Rebel)
   game.registerAction(createHireFirstMercAction(game));

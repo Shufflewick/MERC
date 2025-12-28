@@ -43,6 +43,7 @@ import {
   willNotHarmDogs as checkWillNotHarmDogs,
   requiresAccessory,
   getEnemyCombatDebuff,
+  getEnemyInitiativeDebuff,
   FEMALE_MERCS,
 } from './merc-abilities.js';
 import {
@@ -52,6 +53,7 @@ import {
   isSword as checkIsSword,
   isSmaw as checkIsSmaw,
   isAttackDog as checkIsAttackDog,
+  discardAfterAttack as checkDiscardAfterAttack,
 } from './equipment-effects.js';
 
 // =============================================================================
@@ -74,7 +76,6 @@ export interface Combatant {
   sourceElement: MercCard | DictatorCard | null;
   ownerId?: string; // For rebel militia
   armorPiercing: boolean; // MERC-38e: Weapon ignores armor
-  hasOneUseWeapon: boolean; // MERC-f0y: Weapon is one-use
   hasAttackDog: boolean; // MERC-l09: Has Attack Dog equipped
   attackDogAssignedTo?: string; // MERC-l09: ID of MERC this dog is assigned to
   isImmuneToAttackDogs: boolean; // MERC-l09: Shadkaam ability
@@ -141,6 +142,16 @@ function getCombatantMercId(combatant: Combatant): string | undefined {
   return combatant.sourceElement instanceof MercCard
     ? combatant.sourceElement.mercId
     : undefined;
+}
+
+/**
+ * Get effective combat dice for an attacker, accounting for healing dice used.
+ * When a MERC uses Medical Kit/First Aid Kit, they discard dice from their attack.
+ */
+function getEffectiveCombatDice(attacker: Combatant, game: MERCGame): number {
+  const baseDice = attacker.combat;
+  const diceUsedForHealing = game.activeCombat?.healingDiceUsed?.get(attacker.id) ?? 0;
+  return Math.max(0, baseDice - diceUsedForHealing);
 }
 
 /**
@@ -218,7 +229,7 @@ function shouldUseReroll(combatant: Combatant, rolls: number[], hits: number): b
 }
 
 /**
- * Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
+ * Apply enemy debuffs from registry (e.g., Max's -1 to all skills to enemy MERCs)
  * Uses registry to check for enemyDebuff abilities
  */
 function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
@@ -227,13 +238,19 @@ function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
     if (ally.health <= 0) continue;
     if (!(ally.sourceElement instanceof MercCard)) continue;
 
-    const debuff = getEnemyCombatDebuff(ally.sourceElement.mercId);
-    if (debuff === 0) continue;
+    const combatDebuff = getEnemyCombatDebuff(ally.sourceElement.mercId);
+    const initiativeDebuff = getEnemyInitiativeDebuff(ally.sourceElement.mercId);
+    if (combatDebuff === 0 && initiativeDebuff === 0) continue;
 
-    // Apply debuff to enemy MERCs (not militia, dictator, or dogs)
+    // Apply debuffs to enemy MERCs (not militia, dictator, or dogs)
     for (const enemy of enemies) {
       if (!enemy.isMilitia && !enemy.isDictator && !enemy.isAttackDog) {
-        enemy.combat = Math.max(0, enemy.combat + debuff); // debuff is negative
+        if (combatDebuff !== 0) {
+          enemy.combat = Math.max(0, enemy.combat + combatDebuff); // debuff is negative
+        }
+        if (initiativeDebuff !== 0) {
+          enemy.initiative = Math.max(0, enemy.initiative + initiativeDebuff); // debuff is negative
+        }
       }
     }
   }
@@ -405,7 +422,9 @@ function isMeatbop(combatant: Combatant): boolean {
  */
 function hasAccessory(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
-    return combatant.sourceElement.accessorySlot !== undefined;
+    const merc = combatant.sourceElement;
+    // Check accessory slot or bandolier slots
+    return merc.accessorySlot !== undefined || merc.bandolierSlots.length > 0;
   }
   return false;
 }
@@ -473,11 +492,17 @@ function isStumpy(combatant: Combatant): boolean {
 /**
  * MERC-581: Check if combatant has grenade or mortar equipped
  * Uses equipment registry instead of string matching
+ * Note: Grenades/mortars are accessories, not weapons
  */
 function hasExplosive(combatant: Combatant): boolean {
   if (combatant.sourceElement instanceof MercCard) {
-    const weapon = combatant.sourceElement.weaponSlot;
-    return weapon ? checkIsExplosive(weapon.equipmentId) : false;
+    const merc = combatant.sourceElement;
+    // Check accessory slot
+    if (merc.accessorySlot && checkIsExplosive(merc.accessorySlot.equipmentId)) {
+      return true;
+    }
+    // Check bandolier slots
+    return merc.bandolierSlots.some(e => checkIsExplosive(e.equipmentId));
   }
   return false;
 }
@@ -1013,7 +1038,12 @@ const ATTACK_DOG_ID = 'attack-dog';
  * MERC-l09: Check if a MERC has an Attack Dog equipped
  */
 function hasAttackDogEquipped(merc: MercCard): boolean {
-  return merc.accessorySlot?.equipmentId === ATTACK_DOG_ID;
+  // Check accessory slot
+  if (merc.accessorySlot?.equipmentId === ATTACK_DOG_ID) {
+    return true;
+  }
+  // Check bandolier slots
+  return merc.bandolierSlots.some(e => e.equipmentId === ATTACK_DOG_ID);
 }
 
 /**
@@ -1035,7 +1065,6 @@ function willNotHarmDogs(merc: MercCard): boolean {
 /**
  * Build combatant from a MERC card
  * MERC-38e: Includes armorPiercing from weapon
- * MERC-f0y: Includes hasOneUseWeapon flag
  * MERC-l09: Includes Attack Dog support
  */
 function mercToCombatant(merc: MercCard, isDictatorSide: boolean): Combatant {
@@ -1054,7 +1083,6 @@ function mercToCombatant(merc: MercCard, isDictatorSide: boolean): Combatant {
     isAttackDog: false,
     sourceElement: merc,
     armorPiercing: merc.weaponSlot?.negatesArmor ?? false, // MERC-38e
-    hasOneUseWeapon: merc.weaponSlot?.isOneUse ?? false, // MERC-f0y
     hasAttackDog: hasAttackDogEquipped(merc), // MERC-l09
     isImmuneToAttackDogs: isImmuneToAttackDogs(merc), // MERC-l09
     willNotHarmDogs: willNotHarmDogs(merc), // MERC-l09
@@ -1080,7 +1108,6 @@ function dictatorToCombatant(dictator: DictatorCard): Combatant {
     isAttackDog: false,
     sourceElement: dictator,
     armorPiercing: false,
-    hasOneUseWeapon: false,
     hasAttackDog: false,
     isImmuneToAttackDogs: false,
     willNotHarmDogs: false,
@@ -1113,7 +1140,6 @@ function militiaToCombatants(
       sourceElement: null,
       ownerId,
       armorPiercing: false,
-      hasOneUseWeapon: false,
       hasAttackDog: false,
       isImmuneToAttackDogs: false,
       willNotHarmDogs: false,
@@ -1143,7 +1169,6 @@ function createAttackDogCombatant(ownerId: string, isDictatorSide: boolean, inde
     sourceElement: null,
     ownerId,
     armorPiercing: false,
-    hasOneUseWeapon: false,
     hasAttackDog: false,
     isImmuneToAttackDogs: false,
     willNotHarmDogs: false,
@@ -1168,7 +1193,6 @@ function refreshCombatantStats(combatant: Combatant): void {
     combatant.targets = merc.targets;
     combatant.armor = merc.equipmentArmor;
     combatant.armorPiercing = merc.weaponSlot?.negatesArmor ?? false;
-    combatant.hasOneUseWeapon = merc.weaponSlot?.isOneUse ?? false;
   } else if (combatant.sourceElement instanceof DictatorCard) {
     const dictator = combatant.sourceElement;
     combatant.initiative = dictator.initiative;
@@ -1887,7 +1911,9 @@ function executeCombatRound(
 
     // Roll dice
     // MERC-cpb: Lucid hits on 3+ instead of 4+
-    let rolls = rollDice(attacker.combat);
+    // Medical Kit healing: dice are reduced by healing dice used
+    const effectiveDice = getEffectiveCombatDice(attacker, game);
+    let rolls = rollDice(effectiveDice);
     let hits = countHitsForCombatant(rolls, attacker);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
@@ -1895,7 +1921,7 @@ function executeCombatRound(
     if (shouldUseReroll(attacker, rolls, hits)) {
       game.message(`${attacker.name} uses reroll ability!`);
       attacker.hasUsedReroll = true;
-      rolls = rollDice(attacker.combat);
+      rolls = rollDice(effectiveDice);
       hits = countHitsForCombatant(rolls, attacker);
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
     }
@@ -1989,9 +2015,17 @@ function executeCombatRound(
               const squadMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
               const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
               if (mercWithEpi) {
-                const epiShot = mercWithEpi.accessorySlot;
+                // Find the epinephrine (check accessory slot first, then bandolier)
+                let epiShot: Equipment | undefined;
+                if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
+                  epiShot = mercWithEpi.unequip('Accessory');
+                } else {
+                  const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+                  if (epiIndex >= 0) {
+                    epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
+                  }
+                }
                 if (epiShot) {
-                  mercWithEpi.unequip('Accessory');
                   const discard = game.getEquipmentDiscard('Accessory');
                   if (discard) epiShot.putInto(discard);
                   target.health = 1;
@@ -2016,9 +2050,17 @@ function executeCombatRound(
                   const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
                   const mercWithEpi = hasEpinephrineShot(squadMercs);
                   if (mercWithEpi) {
-                    const epiShot = mercWithEpi.accessorySlot;
+                    // Find the epinephrine (check accessory slot first, then bandolier)
+                    let epiShot: Equipment | undefined;
+                    if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
+                      epiShot = mercWithEpi.unequip('Accessory');
+                    } else {
+                      const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+                      if (epiIndex >= 0) {
+                        epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
+                      }
+                    }
                     if (epiShot) {
-                      mercWithEpi.unequip('Accessory');
                       const discard = game.getEquipmentDiscard('Accessory');
                       if (discard) epiShot.putInto(discard);
                       target.health = 1;
@@ -2070,19 +2112,35 @@ function executeCombatRound(
       }
     }
 
-    // MERC-f0y: Consume one-use weapon after attack
-    if (attacker.hasOneUseWeapon && attacker.sourceElement instanceof MercCard) {
+    // Discard accessories with discardAfterAttack (grenades, mortars)
+    if (attacker.sourceElement instanceof MercCard) {
       const merc = attacker.sourceElement;
-      if (merc.weaponSlot?.isOneUse) {
-        game.message(`${merc.mercName}'s ${merc.weaponSlot.equipmentName} is used up!`);
-        const weapon = merc.unequip('Weapon');
-        if (weapon) {
-          const discard = game.getEquipmentDiscard('Weapon');
-          if (discard) weapon.putInto(discard);
+      const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+
+      // Check accessory slot
+      if (merc.accessorySlot && checkDiscardAfterAttack(merc.accessorySlot.equipmentId)) {
+        game.message(`${merc.mercName}'s ${merc.accessorySlot.equipmentName} is used up!`);
+        const accessory = merc.unequip('Accessory');
+        if (accessory && accessoryDiscard) {
+          accessory.putInto(accessoryDiscard);
         }
-        // Mark combatant as no longer having one-use weapon for subsequent rounds
-        attacker.hasOneUseWeapon = false;
-        attacker.armorPiercing = false; // One-use weapons lose their effects
+      }
+
+      // Check bandolier slots
+      const bandolierToDiscard = merc.bandolierSlots.filter(e =>
+        checkDiscardAfterAttack(e.equipmentId)
+      );
+      for (const equipment of bandolierToDiscard) {
+        game.message(`${merc.mercName}'s ${equipment.equipmentName} is used up!`);
+        // Extract bandolier index from equippedSlot (format: 'bandolier:0', 'bandolier:1', etc.)
+        const slotMatch = equipment.equippedSlot?.match(/^bandolier:(\d+)$/);
+        if (slotMatch) {
+          const index = parseInt(slotMatch[1], 10);
+          merc.unequipBandolierSlot(index);
+          if (accessoryDiscard) {
+            equipment.putInto(accessoryDiscard);
+          }
+        }
       }
     }
 
@@ -2114,7 +2172,9 @@ function executeCombatRound(
 
     // Roll dice for second shot
     // MERC-cpb: Lucid hits on 3+ instead of 4+
-    const rolls = rollDice(vandal.combat);
+    // Note: Healing dice reduction also applies to second shot
+    const vandalEffectiveDice = getEffectiveCombatDice(vandal, game);
+    const rolls = rollDice(vandalEffectiveDice);
     const hits = countHitsForCombatant(rolls, vandal);
     game.message(`${vandal.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
@@ -2195,10 +2255,17 @@ function applyCombatResults(
           const squadMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
           const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
           if (mercWithEpi) {
-            // Use the epinephrine shot
-            const epiShot = mercWithEpi.accessorySlot;
+            // Find the epinephrine (check accessory slot first, then bandolier)
+            let epiShot: Equipment | undefined;
+            if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
+              epiShot = mercWithEpi.unequip('Accessory');
+            } else {
+              const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+              if (epiIndex >= 0) {
+                epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
+              }
+            }
             if (epiShot) {
-              mercWithEpi.unequip('Accessory');
               const discard = game.getEquipmentDiscard('Accessory');
               if (discard) epiShot.putInto(discard);
 
@@ -2223,10 +2290,17 @@ function applyCombatResults(
               const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
               const mercWithEpi = hasEpinephrineShot(squadMercs);
               if (mercWithEpi) {
-                // Use the epinephrine shot
-                const epiShot = mercWithEpi.accessorySlot;
+                // Find the epinephrine (check accessory slot first, then bandolier)
+                let epiShot: Equipment | undefined;
+                if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
+                  epiShot = mercWithEpi.unequip('Accessory');
+                } else {
+                  const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+                  if (epiIndex >= 0) {
+                    epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
+                  }
+                }
                 if (epiShot) {
-                  mercWithEpi.unequip('Accessory');
                   const discard = game.getEquipmentDiscard('Accessory');
                   if (discard) epiShot.putInto(discard);
 
@@ -2412,6 +2486,10 @@ export function executeCombat(
     // MERC-t5k: Only show round message if starting fresh (not resuming mid-round)
     if (currentAttackerIndex === 0) {
       game.message(`--- Round ${round} ---`);
+      // Reset healing dice used for the new round
+      if (game.activeCombat?.healingDiceUsed) {
+        game.activeCombat.healingDiceUsed.clear();
+      }
     }
 
     // MERC-l09: Pass dog state to combat round
