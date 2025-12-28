@@ -54,6 +54,9 @@ import {
   createCombatRetreatAction,
   createCombatSelectTargetAction,
   createCombatHealAction,
+  createCombatAllocateHitsAction,
+  createCombatBasicRerollAction,
+  createCombatAllocateWolverineSixesAction,
 } from './rebel-combat.js';
 
 import {
@@ -145,6 +148,10 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatRetreatAction(game));
   game.registerAction(createCombatSelectTargetAction(game)); // MERC-t5k: Target selection
   game.registerAction(createCombatHealAction(game)); // Medical Kit / First Aid Kit healing
+  // MERC-dice: Combat hit allocation actions
+  game.registerAction(createCombatAllocateHitsAction(game));
+  game.registerAction(createCombatBasicRerollAction(game));
+  game.registerAction(createCombatAllocateWolverineSixesAction(game));
 
   // Day 1 specific actions (Rebel)
   game.registerAction(createHireFirstMercAction(game));

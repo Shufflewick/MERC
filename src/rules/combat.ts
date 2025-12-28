@@ -1709,6 +1709,9 @@ interface CombatRoundResult {
     validTargets: Combatant[];
     maxTargets: number;
   };
+  // MERC-dice: Pause for hit allocation
+  pausedForHitAllocation?: boolean;
+  currentAttackerIndex?: number;
 }
 
 /**
@@ -1943,18 +1946,90 @@ function executeCombatRound(
       continue;
     }
 
+    // MERC-dice: Check if player needs to allocate hits
+    // Pause for allocation if: player-controlled rebel MERC, multiple valid targets, meaningful choice
+    const hasHitAllocation = game.activeCombat?.selectedTargets?.has(`allocation:${attacker.id}`);
+    if (interactive && isRebelMerc && !hasHitAllocation) {
+      // Get valid targets (alive enemies, no attack dogs)
+      const validTargets = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+
+      // Smart skip logic:
+      // 1. Only 1 valid target - no choice needed
+      // 2. All targets are militia - no meaningful choice (militia all have 1 HP)
+      // 3. Overkill - hits >= total enemy HP, so all targets will die anyway
+      const allMilitia = validTargets.every(t => t.isMilitia);
+      const totalEnemyHP = validTargets.reduce((sum, t) => sum + t.health, 0);
+      const isOverkill = hits >= totalEnemyHP;
+      const needsAllocation = validTargets.length > 1 && !allMilitia && !isOverkill;
+
+      // Also check if Basic's reroll is available (not yet used)
+      const mercId = getCombatantMercId(attacker);
+      const canUseReroll = mercId && canRerollOnce(mercId) && !attacker.hasUsedReroll;
+
+      // Pause for allocation if meaningful choice exists OR if reroll is available
+      if (needsAllocation || canUseReroll) {
+        // Get hit threshold for this combatant
+        const hitThreshold = mercId ? getHitThreshold(mercId) : CombatConstants.HIT_THRESHOLD;
+
+        // Set pending hit allocation state
+        game.activeCombat!.pendingHitAllocation = {
+          attackerId: attacker.id,
+          attackerName: attacker.name,
+          attackerMercId: mercId ?? '',
+          diceRolls: rolls,
+          hits,
+          hitThreshold,
+          validTargets: validTargets.map(t => ({
+            id: t.id,
+            name: t.name,
+            isMerc: !t.isMilitia && !t.isDictator,
+            currentHealth: t.health,
+            maxHealth: t.maxHealth,
+          })),
+          wolverineSixes: wolverineBonus6s,
+          canReroll: !!canUseReroll,
+          hasRerolled: !!attacker.hasUsedReroll,
+          rollCount: 1, // Initial roll
+        };
+
+        // Return pause for hit allocation
+        return {
+          round: { roundNumber, results, casualties },
+          complete: false,
+          pausedForHitAllocation: true,
+          currentAttackerIndex: i,
+        };
+      }
+    }
+
     const damageDealt = new Map<string, number>();
 
-    // MERC-9mpr: Add additional targets for Wolverine's 6s
-    let expandedTargets = [...targets];
-    if (wolverineBonus6s > 0) {
-      const availableExtra = enemies.filter(e =>
-        e.health > 0 && !targets.includes(e) && !e.isAttackDog
-      );
-      const extraTargets = availableExtra.slice(0, wolverineBonus6s);
-      if (extraTargets.length > 0) {
-        expandedTargets.push(...extraTargets);
-        game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
+    // MERC-dice: Check if player allocated hits manually
+    const playerHitAllocation = game.activeCombat?.selectedTargets?.get(`allocation:${attacker.id}`);
+    let expandedTargets: Combatant[];
+
+    if (playerHitAllocation && playerHitAllocation.length > 0) {
+      // Use player's allocation - convert targetIds to Combatant objects
+      // The allocation is an array of targetIds (can have duplicates for multiple hits)
+      expandedTargets = [];
+      for (const targetId of playerHitAllocation) {
+        const target = enemies.find(e => e.id === targetId);
+        if (target) expandedTargets.push(target);
+      }
+      // Clear the allocation so it's not reused
+      game.activeCombat?.selectedTargets?.delete(`allocation:${attacker.id}`);
+    } else {
+      // MERC-9mpr: Add additional targets for Wolverine's 6s (AI allocation)
+      expandedTargets = [...targets];
+      if (wolverineBonus6s > 0) {
+        const availableExtra = enemies.filter(e =>
+          e.health > 0 && !targets.includes(e) && !e.isAttackDog
+        );
+        const extraTargets = availableExtra.slice(0, wolverineBonus6s);
+        if (extraTargets.length > 0) {
+          expandedTargets.push(...extraTargets);
+          game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
+        }
       }
     }
 
@@ -2529,6 +2604,47 @@ export function executeCombat(
       syncMilitiaCasualties(game, sector, rebels, dictator);
 
       game.message(`${pause.attackerName} is ready to attack. Select targets.`);
+
+      return {
+        rounds,
+        rebelVictory: false,
+        dictatorVictory: false,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        retreated: false,
+        combatPending: true,
+        canRetreat: false,
+      };
+    }
+
+    // MERC-dice: Check if round paused for hit allocation
+    if (!roundResult.complete && roundResult.pausedForHitAllocation) {
+      // The pendingHitAllocation is already set in game.activeCombat by executeCombatRound
+      // Just save the rest of the combat state for resuming
+
+      // Save state for resuming (pendingHitAllocation already set)
+      game.activeCombat = {
+        ...game.activeCombat!,
+        sectorId: sector.sectorId,
+        attackingPlayerId: `${attackingPlayer.position}`,
+        round,
+        rebelCombatants: rebels,
+        dictatorCombatants: dictator,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        dogAssignments: Array.from(dogState.assignments.entries()),
+        dogs: dogState.dogs,
+        selectedTargets: playerSelectedTargets,
+        currentAttackerIndex: roundResult.currentAttackerIndex,
+        roundResults: roundResult.round.results,
+        roundCasualties: roundResult.round.casualties,
+      };
+
+      // MERC-dice: Sync militia casualties so UI reflects kills during combat
+      syncMilitiaCasualties(game, sector, rebels, dictator);
+
+      const attacker = game.activeCombat.pendingHitAllocation?.attackerName ?? 'MERC';
+      game.message(`${attacker} rolled! Allocate hits to targets.`);
 
       return {
         rounds,

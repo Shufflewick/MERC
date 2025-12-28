@@ -458,6 +458,39 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     selectedTargets?: Map<string, string[]>; // attackerId -> targetIds
     // Medical Kit healing: dice discarded per combatant this round
     healingDiceUsed?: Map<string, number>; // combatantId -> dice discarded
+    // MERC-dice: Combat dice UI state
+    pendingHitAllocation?: {
+      attackerId: string;
+      attackerName: string;
+      attackerMercId: string; // For ability checks (Basic, Wolverine)
+      diceRolls: number[]; // The actual dice values
+      hits: number; // Number of successful hits (4+, or 3+ for Lucid)
+      hitThreshold: number; // What counts as a hit (4 normally, 3 for Lucid)
+      validTargets: Array<{
+        id: string;
+        name: string;
+        isMerc: boolean;
+        currentHealth: number;
+        maxHealth: number;
+      }>;
+      wolverineSixes: number; // Count of 6s for Wolverine's ability
+      canReroll: boolean; // Basic's ability available
+      hasRerolled: boolean; // Basic already used reroll this combat
+      rollCount: number; // Increment to trigger dice animation
+    };
+    // Wolverine's bonus 6s allocation (after normal allocation)
+    pendingWolverineSixes?: {
+      attackerId: string;
+      attackerName: string;
+      sixCount: number;
+      bonusTargets: Array<{
+        id: string;
+        name: string;
+        isMerc: boolean;
+        currentHealth: number;
+        maxHealth: number;
+      }>;
+    };
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow

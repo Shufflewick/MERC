@@ -5,6 +5,7 @@ import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
 import EquipmentCard from './EquipmentCard.vue';
+import CombatPanel from './CombatPanel.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -462,6 +463,55 @@ const dictatorSquad = computed(() => {
       .map((c: any) => c),
   };
 });
+
+// ============================================================================
+// COMBAT PANEL - Show dice and hit allocation during combat
+// ============================================================================
+
+// Get active combat state from gameView
+const activeCombat = computed(() => {
+  const combat = props.gameView?.activeCombat ||
+                 props.gameView?.attributes?.activeCombat;
+  if (!combat) return null;
+  return combat;
+});
+
+// Check if there's active combat to show the panel
+const hasActiveCombat = computed(() => {
+  return activeCombat.value !== null;
+});
+
+// Get sector name for the combat
+const combatSectorName = computed(() => {
+  if (!activeCombat.value?.sectorId) return 'Unknown';
+  const sector = sectors.value.find(s => s.id === activeCombat.value.sectorId);
+  return sector?.name || 'Unknown';
+});
+
+// Handle hit allocation from CombatPanel
+function handleAllocateHit(targetId: string) {
+  // The action panel handles the actual action execution
+  // This is called per hit for UI tracking
+  console.log('[COMBAT] Allocate hit to target:', targetId);
+}
+
+// Handle Wolverine 6s allocation
+function handleAllocateWolverineSix(targetId: string) {
+  console.log('[COMBAT] Wolverine 6 hit to target:', targetId);
+}
+
+// Handle Basic's reroll
+async function handleReroll() {
+  console.log('[COMBAT] Triggering Basic reroll');
+  await props.action('combatBasicReroll', {});
+}
+
+// Handle confirming hit allocation
+async function handleConfirmAllocation() {
+  console.log('[COMBAT] Confirming hit allocation');
+  // The allocation is done through the action
+  // This is called when all hits are allocated
+}
 
 // ============================================================================
 // ACTION HANDLING - Show appropriate UI based on available actions
@@ -1212,6 +1262,19 @@ const clickableSectors = computed(() => {
 
 <template>
   <div class="game-board">
+    <!-- Combat Panel - shown when there's active combat with hit allocation -->
+    <CombatPanel
+      v-if="hasActiveCombat && activeCombat?.pendingHitAllocation"
+      :active-combat="activeCombat"
+      :is-my-turn="isMyTurn"
+      :available-actions="availableActions"
+      :sector-name="combatSectorName"
+      @allocate-hit="handleAllocateHit"
+      @allocate-wolverine-six="handleAllocateWolverineSix"
+      @reroll="handleReroll"
+      @confirm-allocation="handleConfirmAllocation"
+    />
+
     <!-- Hiring phase - show MERCs to choose from -->
     <div v-if="isHiringMercs" class="hiring-phase">
       <div class="hiring-header">

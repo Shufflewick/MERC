@@ -20,9 +20,10 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
   return Action.create('combatContinue')
     .prompt('Continue fighting')
     .condition(() => {
-      // Can't continue while target selection is pending
+      // Can't continue while target selection or hit allocation is pending
       return game.activeCombat !== null &&
-             game.activeCombat.pendingTargetSelection === undefined;
+             game.activeCombat.pendingTargetSelection === undefined &&
+             game.activeCombat.pendingHitAllocation === undefined;
     })
     .execute((_, ctx) => {
       if (!game.activeCombat) {
@@ -60,9 +61,10 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
   return Action.create('combatRetreat')
     .prompt('Retreat from combat')
     .condition(() => {
-      // Can't retreat while target selection is pending
+      // Can't retreat while target selection or hit allocation is pending
       return game.activeCombat !== null &&
-             game.activeCombat.pendingTargetSelection === undefined;
+             game.activeCombat.pendingTargetSelection === undefined &&
+             game.activeCombat.pendingHitAllocation === undefined;
     })
     .chooseElement<Sector>('retreatSector', {
       prompt: 'Choose sector to retreat to',
@@ -298,6 +300,259 @@ function getDamagedMercs(combatants: Combatant[]): Combatant[] {
   );
 }
 
+// =============================================================================
+// MERC-dice: Combat Hit Allocation Actions
+// =============================================================================
+
+/**
+ * Allocate hits to targets during combat.
+ * Called when player confirms their hit allocation in the CombatPanel UI.
+ * Takes a map of targetId -> number of hits allocated.
+ */
+export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatAllocateHits')
+    .prompt('Confirm hit allocation')
+    .condition((ctx) => {
+      // Must have active combat with pending hit allocation
+      if (!game.activeCombat?.pendingHitAllocation) return false;
+      // Only rebels can use this (dictator AI auto-allocates)
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      return true;
+    })
+    .chooseFrom<string>('allocations', {
+      prompt: 'Allocate hits to targets',
+      multiSelect: () => {
+        const pending = game.activeCombat?.pendingHitAllocation;
+        if (!pending) return undefined;
+        // Allow selecting up to `hits` targets (can hit same target multiple times)
+        return { min: 1, max: pending.hits };
+      },
+      choices: () => {
+        const pending = game.activeCombat?.pendingHitAllocation;
+        if (!pending) return [];
+        // Build choices - each target can be selected multiple times up to their health
+        const choices: string[] = [];
+        for (const target of pending.validTargets) {
+          // Allow targeting up to their current health times
+          for (let i = 0; i < target.currentHealth; i++) {
+            const suffix = target.currentHealth > 1 ? ` (hit ${i + 1})` : '';
+            choices.push(`${target.name}${suffix}::${target.id}::${i}`);
+          }
+        }
+        return choices;
+      },
+    })
+    .execute((args, ctx) => {
+      if (!game.activeCombat?.pendingHitAllocation) {
+        return { success: false, message: 'No hit allocation pending' };
+      }
+
+      const pending = game.activeCombat.pendingHitAllocation;
+      const allocChoices = Array.isArray(args.allocations)
+        ? args.allocations as string[]
+        : [args.allocations as string];
+
+      // Parse allocation choices into targetId -> hitCount map
+      const hitsByTarget = new Map<string, number>();
+      for (const choice of allocChoices) {
+        const parts = choice.split('::');
+        const targetId = parts[1];
+        hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
+      }
+
+      // Store the allocation for combat.ts to use
+      if (!game.activeCombat.selectedTargets) {
+        game.activeCombat.selectedTargets = new Map();
+      }
+
+      // Convert to array of target IDs (repeated for multiple hits)
+      const targetIds: string[] = [];
+      hitsByTarget.forEach((count, targetId) => {
+        for (let i = 0; i < count; i++) {
+          targetIds.push(targetId);
+        }
+      });
+      game.activeCombat.selectedTargets.set(`allocation:${pending.attackerId}`, targetIds);
+
+      // Clear pending allocation
+      game.activeCombat.pendingHitAllocation = undefined;
+
+      // Log allocation
+      const allocMsg = Array.from(hitsByTarget.entries())
+        .map(([targetId, count]) => {
+          const target = pending.validTargets.find(t => t.id === targetId);
+          return `${target?.name ?? 'Unknown'} x${count}`;
+        })
+        .join(', ');
+      game.message(`${pending.attackerName} allocates hits: ${allocMsg}`);
+
+      // Continue combat
+      const sector = game.getSector(game.activeCombat.sectorId);
+      if (!sector) {
+        return { success: false, message: 'Combat sector not found' };
+      }
+
+      const player = game.rebelPlayers.find(
+        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+      ) as RebelPlayer;
+
+      if (!player) {
+        return { success: false, message: 'Attacking player not found' };
+      }
+
+      const { executeCombat } = require('../combat.js');
+      const outcome = executeCombat(game, sector, player);
+
+      return {
+        success: true,
+        message: outcome.combatPending ? 'Hits allocated' : 'Combat complete',
+        data: {
+          allocations: Object.fromEntries(hitsByTarget),
+          combatPending: outcome.combatPending,
+        },
+      };
+    });
+}
+
+/**
+ * Use Basic's reroll ability during hit allocation.
+ * Rerolls all dice once per combat (per Basic's ability).
+ */
+export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatBasicReroll')
+    .prompt("Use Basic's reroll")
+    .condition((ctx) => {
+      // Must have pending hit allocation
+      if (!game.activeCombat?.pendingHitAllocation) return false;
+      // Must be able to reroll (Basic's ability, not already used)
+      const pending = game.activeCombat.pendingHitAllocation;
+      if (!pending.canReroll || pending.hasRerolled) return false;
+      // Only rebels can use this
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      return true;
+    })
+    .execute(() => {
+      if (!game.activeCombat?.pendingHitAllocation) {
+        return { success: false, message: 'No hit allocation pending' };
+      }
+
+      const pending = game.activeCombat.pendingHitAllocation;
+
+      // Roll new dice
+      const diceCount = pending.diceRolls.length;
+      const newRolls: number[] = [];
+      for (let i = 0; i < diceCount; i++) {
+        newRolls.push(Math.floor(Math.random() * 6) + 1);
+      }
+
+      // Count new hits
+      const newHits = newRolls.filter(r => r >= pending.hitThreshold).length;
+
+      // Count Wolverine 6s if applicable
+      const isWolverine = pending.attackerMercId === 'wolverine';
+      const newWolverineSixes = isWolverine ? newRolls.filter(r => r === 6).length : 0;
+
+      game.message(`${pending.attackerName} uses reroll ability! [${newRolls.join(', ')}] - ${newHits} hit(s)`);
+
+      // Update pending allocation
+      game.activeCombat.pendingHitAllocation = {
+        ...pending,
+        diceRolls: newRolls,
+        hits: newHits,
+        wolverineSixes: newWolverineSixes,
+        hasRerolled: true,
+        rollCount: pending.rollCount + 1, // Increment to trigger animation
+      };
+
+      return {
+        success: true,
+        message: `Rerolled: ${newHits} hit(s)`,
+        data: {
+          oldRolls: pending.diceRolls,
+          newRolls,
+          oldHits: pending.hits,
+          newHits,
+        },
+      };
+    });
+}
+
+/**
+ * Allocate Wolverine's bonus 6s to additional targets.
+ * Called after normal hit allocation when Wolverine rolled 6s.
+ */
+export function createCombatAllocateWolverineSixesAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatAllocateWolverineSixes')
+    .prompt("Allocate Wolverine's bonus targets")
+    .condition((ctx) => {
+      // Must have pending Wolverine 6s allocation
+      if (!game.activeCombat?.pendingWolverineSixes) return false;
+      // Only rebels can use this
+      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      return true;
+    })
+    .chooseFrom<string>('bonusTargets', {
+      prompt: "Select Wolverine's bonus targets",
+      multiSelect: () => {
+        const pending = game.activeCombat?.pendingWolverineSixes;
+        if (!pending) return undefined;
+        return { min: 1, max: pending.sixCount };
+      },
+      choices: () => {
+        const pending = game.activeCombat?.pendingWolverineSixes;
+        if (!pending) return [];
+        return pending.bonusTargets.map(t => `${t.name}::${t.id}`);
+      },
+    })
+    .execute((args) => {
+      if (!game.activeCombat?.pendingWolverineSixes) {
+        return { success: false, message: 'No Wolverine allocation pending' };
+      }
+
+      const pending = game.activeCombat.pendingWolverineSixes;
+      const targetChoices = Array.isArray(args.bonusTargets)
+        ? args.bonusTargets as string[]
+        : [args.bonusTargets as string];
+
+      // Parse target IDs
+      const targetIds = targetChoices.map(choice => choice.split('::')[1]);
+      const targetNames = targetChoices.map(choice => choice.split('::')[0]);
+
+      // Store for combat processing
+      if (!game.activeCombat.selectedTargets) {
+        game.activeCombat.selectedTargets = new Map();
+      }
+      game.activeCombat.selectedTargets.set(`wolverine:${pending.attackerId}`, targetIds);
+
+      // Clear pending
+      game.activeCombat.pendingWolverineSixes = undefined;
+
+      game.message(`${pending.attackerName}'s 6s hit: ${targetNames.join(', ')}`);
+
+      // Continue combat
+      const sector = game.getSector(game.activeCombat.sectorId);
+      if (!sector) {
+        return { success: false, message: 'Combat sector not found' };
+      }
+
+      const player = game.rebelPlayers.find(
+        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+      ) as RebelPlayer;
+
+      const { executeCombat } = require('../combat.js');
+      const outcome = executeCombat(game, sector, player);
+
+      return {
+        success: true,
+        message: 'Wolverine bonus hits allocated',
+        data: {
+          bonusTargets: targetNames,
+          combatPending: outcome.combatPending,
+        },
+      };
+    });
+}
+
 /**
  * Use Medical Kit or First Aid Kit during combat.
  * Per rules: "On your initiative before your attack, discard 1 combat die to heal 1 wound"
@@ -309,8 +564,9 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Must have active combat
       if (!game.activeCombat) return false;
-      // Can't use while target selection is pending
+      // Can't use while target selection or hit allocation is pending
       if (game.activeCombat.pendingTargetSelection) return false;
+      if (game.activeCombat.pendingHitAllocation) return false;
       // Only rebels can use this
       if (!game.isRebelPlayer(ctx.player as any)) return false;
 
