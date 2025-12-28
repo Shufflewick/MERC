@@ -400,7 +400,6 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Attacking player not found' };
       }
 
-      const { executeCombat } = require('../combat.js');
       const outcome = executeCombat(game, sector, player);
 
       return {
@@ -539,7 +538,6 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
         p => `${p.position}` === game.activeCombat!.attackingPlayerId
       ) as RebelPlayer;
 
-      const { executeCombat } = require('../combat.js');
       const outcome = executeCombat(game, sector, player);
 
       return {
