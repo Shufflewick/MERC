@@ -1009,12 +1009,13 @@ async function selectMercToHire(merc: any) {
     return;
   }
 
-  // Check if this is the first selection (action not yet started)
-  const isFirstSelection = Object.keys(props.actionArgs).length === 0;
+  // Check if the action is already active using boardInteraction.currentAction
+  // BoardSmith auto-starts actions when they become available, so we should NOT
+  // call startAction if the action is already active (that would reset it)
+  const isActionActive = boardInteraction?.currentAction === actionName;
 
-  if (isFirstSelection) {
-    // Use startAction with initial args (correct pattern per BoardSmith docs)
-    // This starts the action in ActionPanel and pre-fills the first selection
+  if (!isActionActive) {
+    // Action not yet started - start it with initial args
     props.startAction(actionName, { [selection.name]: choiceValue });
   } else {
     // Action already started - write directly to actionArgs for subsequent selections
