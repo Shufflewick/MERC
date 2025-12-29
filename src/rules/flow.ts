@@ -95,11 +95,17 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Step 4: Optional third MERC (if Teresa was hired - she doesn't count toward limit)
-              // The action's condition handles when this is available
               actionStep({
                 name: 'hire-third-merc',
                 actions: ['hireThirdMerc'],
                 prompt: 'Hire your third MERC (Teresa bonus)',
+                skipIf: (ctx) => {
+                  // Skip if Teresa is not on the team
+                  const player = ctx.player as any;
+                  if (!game.isRebelPlayer(player)) return true;
+                  const hasTeresa = player.team?.some((m: any) => m.mercId === 'teresa');
+                  return !hasTeresa;
+                },
               }),
             ),
           }),
@@ -223,15 +229,46 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }),
                 }),
 
-                // MERC-n1f: Combat continue/retreat - only when no target selection pending
+                // MERC-dice: Hit allocation loop - when player needs to allocate hits
+                loop({
+                  name: 'combat-hit-allocation',
+                  while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
+                  maxIterations: 50,
+                  do: actionStep({
+                    name: 'allocate-hits',
+                    actions: ['combatAllocateHits', 'combatBasicReroll'],
+                    skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
+                  }),
+                }),
+
+                // MERC-dice: Wolverine 6s allocation loop
+                loop({
+                  name: 'combat-wolverine-sixes',
+                  while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
+                  maxIterations: 50,
+                  do: actionStep({
+                    name: 'allocate-wolverine-sixes',
+                    actions: ['combatAllocateWolverineSixes'],
+                    skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
+                  }),
+                }),
+
+                // MERC-n1f: Combat continue/retreat - only when no target selection or hit allocation pending
                 loop({
                   name: 'combat-decision',
-                  while: () => game.activeCombat !== null && game.activeCombat.pendingTargetSelection == null && !game.isFinished(),
+                  while: () => game.activeCombat !== null &&
+                              game.activeCombat.pendingTargetSelection == null &&
+                              game.activeCombat.pendingHitAllocation == null &&
+                              game.activeCombat.pendingWolverineSixes == null &&
+                              !game.isFinished(),
                   maxIterations: 50,
                   do: actionStep({
                     name: 'continue-or-retreat',
                     actions: ['combatContinue', 'combatRetreat'],
-                    skipIf: () => game.isFinished() || game.activeCombat === null || game.activeCombat.pendingTargetSelection != null,
+                    skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                  game.activeCombat.pendingTargetSelection != null ||
+                                  game.activeCombat.pendingHitAllocation != null ||
+                                  game.activeCombat.pendingWolverineSixes != null,
                   }),
                 }),
 

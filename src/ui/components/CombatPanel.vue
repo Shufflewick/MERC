@@ -11,6 +11,19 @@ const props = defineProps<{
     dictatorCombatants: any[];
     rebelCasualties: any[];
     dictatorCasualties: any[];
+    pendingTargetSelection?: {
+      attackerId: string;
+      attackerName: string;
+      validTargets: Array<{
+        id: string;
+        name: string;
+        isMerc?: boolean;
+        isMilitia?: boolean;
+        health: number;
+        maxHealth?: number;
+      }>;
+      maxTargets: number;
+    };
     pendingHitAllocation?: {
       attackerId: string;
       attackerName: string;
@@ -52,11 +65,15 @@ const emit = defineEmits<{
   (e: 'allocate-hit', targetId: string): void;
   (e: 'allocate-wolverine-six', targetId: string): void;
   (e: 'reroll'): void;
-  (e: 'confirm-allocation'): void;
+  (e: 'confirm-allocation', allocations: string[]): void;
+  (e: 'confirm-targets', targets: string[]): void;
 }>();
 
 // Track which dice have been allocated to which targets
 const allocatedHits = ref<Map<number, string>>(new Map()); // dieIndex -> targetId
+
+// Track selected targets for target selection phase
+const selectedTargets = ref<Set<string>>(new Set());
 
 // Get living rebels (not in casualties)
 const livingRebels = computed(() => {
@@ -76,6 +93,16 @@ const livingDictator = computed(() => {
   return props.activeCombat.dictatorCombatants.filter(
     (c: any) => !casualtyIds.has(c.id || c.sourceElement?.id)
   );
+});
+
+// Check if we're in target selection mode
+const isSelectingTargets = computed(() => {
+  return !!props.activeCombat.pendingTargetSelection && props.isMyTurn;
+});
+
+// Get max targets allowed for target selection
+const maxTargets = computed(() => {
+  return props.activeCombat.pendingTargetSelection?.maxTargets ?? 0;
 });
 
 // Check if we're in hit allocation mode
@@ -116,6 +143,19 @@ const canReroll = computed(() => {
   return allocation?.canReroll && !allocation?.hasRerolled && props.isMyTurn;
 });
 
+// Auto-select first unallocated die when hit allocation becomes active
+watch(isAllocating, (active) => {
+  if (active) {
+    // Clear any previous allocations
+    allocatedHits.value.clear();
+    // Auto-select first successful die
+    const firstDie = successfulDice.value[0];
+    selectedDieIndex.value = firstDie?.index ?? null;
+  } else {
+    selectedDieIndex.value = null;
+  }
+}, { immediate: true });
+
 // Handle clicking a die
 function selectDie(dieIndex: number) {
   if (!isAllocating.value) return;
@@ -124,14 +164,54 @@ function selectDie(dieIndex: number) {
   selectedDieIndex.value = dieIndex;
 }
 
+// Build allocation strings from current allocatedHits
+function buildAllocations(): string[] {
+  const hitCountByTarget = new Map<string, number>();
+  allocatedHits.value.forEach((targetId) => {
+    hitCountByTarget.set(targetId, (hitCountByTarget.get(targetId) ?? 0) + 1);
+  });
+
+  // Build allocation strings in format "targetId::hitIndex"
+  const allocations: string[] = [];
+  const hitIndexByTarget = new Map<string, number>();
+  allocatedHits.value.forEach((targetId) => {
+    const hitIndex = hitIndexByTarget.get(targetId) ?? 0;
+    allocations.push(`${targetId}::${hitIndex}`);
+    hitIndexByTarget.set(targetId, hitIndex + 1);
+  });
+  return allocations;
+}
+
 // Handle clicking a target
 function selectTarget(targetId: string) {
+  // Handle target selection mode (before rolling)
+  if (isSelectingTargets.value) {
+    const validTargetIds = props.activeCombat.pendingTargetSelection?.validTargets.map(t => t.id) ?? [];
+    if (!validTargetIds.includes(targetId)) return;
+
+    // Toggle selection
+    if (selectedTargets.value.has(targetId)) {
+      selectedTargets.value.delete(targetId);
+    } else if (selectedTargets.value.size < maxTargets.value) {
+      selectedTargets.value.add(targetId);
+    }
+    // Force reactivity update
+    selectedTargets.value = new Set(selectedTargets.value);
+    return;
+  }
+
+  // Handle Wolverine's 6s allocation
   if (isAllocatingWolverineSixes.value) {
     emit('allocate-wolverine-six', targetId);
     return;
   }
 
+  // Handle hit allocation mode (after rolling)
   if (!isAllocating.value || selectedDieIndex.value === null) return;
+
+  // Check if this is a valid target
+  const validTargetIds = props.activeCombat.pendingHitAllocation?.validTargets.map(t => t.id) ?? [];
+  if (!validTargetIds.includes(targetId)) return;
 
   // Allocate the selected die to this target
   allocatedHits.value.set(selectedDieIndex.value, targetId);
@@ -141,10 +221,12 @@ function selectTarget(targetId: string) {
   const nextUnallocated = successfulDice.value.find(d => !allocatedHits.value.has(d.index));
   selectedDieIndex.value = nextUnallocated?.index ?? null;
 
-  // If all hits allocated, emit confirm
-  if (unallocatedHits.value.length === 0) {
-    emit('confirm-allocation');
-  }
+  // Note: User must click "Confirm" button to execute the action
+}
+
+// Check if a target is selected (for target selection mode)
+function isTargetSelected(targetId: string): boolean {
+  return selectedTargets.value.has(targetId);
 }
 
 // Handle reroll button
@@ -156,17 +238,37 @@ function handleReroll() {
 }
 
 // Get display info for a combatant
+function capitalize(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 function getCombatantDisplay(combatant: any) {
   const source = combatant.sourceElement || combatant;
-  const isMerc = !!source.mercId || !!source.mercName;
+  const isMerc = !!source.mercId || !!source.mercName || !!combatant.mercId || !!combatant.mercName;
+
+  // Get name - prefer mercName from source, capitalize it
+  let name = combatant.name || source.mercName || source.name;
+  if (combatant.isMilitia) {
+    name = 'Militia';
+  } else if (isMerc) {
+    name = capitalize(source.mercName || combatant.mercName || combatant.name || 'MERC');
+  }
+
+  // Get image - try multiple paths
+  const image = source.image ||
+                source.attributes?.image ||
+                combatant.image ||
+                (isMerc ? `/mercs/${(source.mercId || combatant.mercId || '').toLowerCase()}.jpg` : null);
+
   return {
     id: combatant.id || source.id,
-    name: combatant.name || source.mercName || 'Militia',
+    name,
     isMerc,
     health: combatant.health ?? source.health ?? 1,
     maxHealth: combatant.maxHealth ?? source.maxHealth ?? (isMerc ? 3 : 1),
-    mercId: source.mercId,
-    image: source.image || source.attributes?.image,
+    mercId: source.mercId || combatant.mercId,
+    image,
     isDead: (combatant.health ?? source.health ?? 1) <= 0,
   };
 }
@@ -180,11 +282,17 @@ function getAllocatedHitsForTarget(targetId: string): number {
   return count;
 }
 
-// Check if target is valid for allocation
+// Check if target is valid for allocation or selection
 function isValidTarget(targetId: string): boolean {
+  // Target selection mode (before rolling)
+  if (isSelectingTargets.value) {
+    return props.activeCombat.pendingTargetSelection?.validTargets.some(t => t.id === targetId) ?? false;
+  }
+  // Wolverine 6s allocation
   if (isAllocatingWolverineSixes.value) {
     return props.activeCombat.pendingWolverineSixes?.bonusTargets.some(t => t.id === targetId) ?? false;
   }
+  // Normal hit allocation
   return props.activeCombat.pendingHitAllocation?.validTargets.some(t => t.id === targetId) ?? false;
 }
 
@@ -196,6 +304,11 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
   if (props.activeCombat.pendingHitAllocation && successfulDice.value.length > 0) {
     selectedDieIndex.value = successfulDice.value[0].index;
   }
+}, { immediate: true });
+
+// Reset selected targets when pendingTargetSelection changes
+watch(() => props.activeCombat.pendingTargetSelection, () => {
+  selectedTargets.value.clear();
 }, { immediate: true });
 </script>
 
@@ -263,6 +376,7 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
               militia: !getCombatantDisplay(combatant).isMerc,
               targetable: isValidTarget(getCombatantDisplay(combatant).id),
               selected: selectedDieIndex !== null && isValidTarget(getCombatantDisplay(combatant).id),
+              'target-selected': isSelectingTargets && isTargetSelected(getCombatantDisplay(combatant).id),
             }"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           >
@@ -327,8 +441,17 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
 
       <!-- Allocation instructions -->
       <div v-if="isAllocating && unallocatedHits.length > 0" class="allocation-hint">
-        Click a target to allocate {{ unallocatedHits.length }} remaining hit(s)
+        Click a die, then click a target to allocate {{ unallocatedHits.length }} remaining hit(s)
       </div>
+
+      <!-- Confirm button when all hits allocated -->
+      <button
+        v-if="isAllocating && unallocatedHits.length === 0"
+        class="confirm-button"
+        @click="emit('confirm-allocation', buildAllocations())"
+      >
+        ✓ Confirm Hit Allocation
+      </button>
 
       <!-- Basic's reroll button -->
       <button
@@ -349,6 +472,26 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
       <div class="allocation-hint">
         Click additional targets to allocate Wolverine's bonus hits
       </div>
+    </div>
+
+    <!-- Target selection area (before rolling) -->
+    <div v-if="isSelectingTargets" class="target-selection-area">
+      <div class="target-selection-info">
+        <strong>{{ activeCombat.pendingTargetSelection?.attackerName }}</strong> is attacking!
+        <span class="target-count">Select up to {{ maxTargets }} target(s)</span>
+      </div>
+      <div class="target-selection-hint">
+        Click enemies above to select targets ({{ selectedTargets.size }}/{{ maxTargets }} selected)
+      </div>
+
+      <!-- Confirm button when at least one target selected -->
+      <button
+        v-if="selectedTargets.size > 0"
+        class="confirm-targets-button"
+        @click="emit('confirm-targets', Array.from(selectedTargets))"
+      >
+        Confirm {{ selectedTargets.size }} Target{{ selectedTargets.size > 1 ? 's' : '' }}
+      </button>
     </div>
   </div>
 </template>
@@ -442,6 +585,7 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
   border-radius: 8px;
   min-width: 80px;
   transition: all 0.2s;
+  position: relative;
 }
 
 .combatant.merc {
@@ -621,6 +765,24 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
   box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
 }
 
+.confirm-button {
+  margin-top: 12px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
 .wolverine-area {
   background: rgba(255, 152, 0, 0.1);
   border: 2px solid #ff9800;
@@ -637,6 +799,73 @@ watch(() => props.activeCombat.pendingHitAllocation, () => {
 
 .six-count {
   margin-left: 8px;
+  font-weight: bold;
+}
+
+/* Target selection area */
+.target-selection-area {
+  background: rgba(76, 175, 80, 0.1);
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.target-selection-info {
+  color: #4CAF50;
+  margin-bottom: 8px;
+}
+
+.target-count {
+  margin-left: 8px;
+  font-weight: bold;
+}
+
+.target-selection-hint {
+  color: #81C784;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.confirm-targets-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-targets-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+/* Selected target in target selection mode */
+.combatant.target-selected {
+  border-color: #4CAF50 !important;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.6), inset 0 0 8px rgba(76, 175, 80, 0.3);
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.combatant.target-selected::after {
+  content: '✓';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #4CAF50;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
   font-weight: bold;
 }
 </style>

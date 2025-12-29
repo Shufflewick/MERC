@@ -100,32 +100,8 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
 
 /**
  * MERC-t5k: Select targets for a MERC during combat
+ * Uses chooseFrom() with smart resolution - CombatPanel can send element IDs directly
  */
-// Helper to build choice string for a target
-function buildTargetChoice(target: Combatant, validTargets: Combatant[]): string {
-  const baseName = target.name;
-  const duplicateCount = validTargets.filter((x: Combatant) => x.name === baseName).length;
-
-  // Count how many of this name appear before this target
-  let count = 0;
-  for (const t of validTargets) {
-    if (t.name === baseName) count++;
-    if (t.id === target.id) break;
-  }
-
-  return duplicateCount > 1 ? `${baseName} #${count}` : baseName;
-}
-
-// Helper to find target from choice string
-function findTargetFromChoice(choice: string, validTargets: Combatant[]): Combatant | undefined {
-  for (const target of validTargets) {
-    if (buildTargetChoice(target, validTargets) === choice) {
-      return target;
-    }
-  }
-  return undefined;
-}
-
 export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition {
   return Action.create('combatSelectTarget')
     .prompt(() => {
@@ -143,7 +119,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       return hasActiveCombat && hasPending && targetCount > 0;
     })
     .chooseFrom<string>('targets', {
-      prompt: (ctx) => {
+      prompt: () => {
         const pending = game.activeCombat?.pendingTargetSelection;
         if (!pending) return 'Select target';
         const name = pending.attackerName.charAt(0).toUpperCase() + pending.attackerName.slice(1);
@@ -151,13 +127,23 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       },
       choices: () => {
         const pending = game.activeCombat?.pendingTargetSelection;
-        if (!pending) {
-          return [];
-        }
+        if (!pending) return [];
 
-        return pending.validTargets.map((t: Combatant) =>
-          buildTargetChoice(t, pending.validTargets)
-        );
+        // Use string ID as value, display name for UI
+        // Add #N suffix for duplicate names in display
+        return pending.validTargets.map((t: Combatant, index: number) => {
+          const baseName = t.name;
+          const duplicateCount = pending.validTargets.filter((x: Combatant) => x.name === baseName).length;
+          let displayName = baseName;
+          if (duplicateCount > 1) {
+            const countBefore = pending.validTargets.slice(0, index + 1).filter((x: Combatant) => x.name === baseName).length;
+            displayName = `${baseName} #${countBefore}`;
+          }
+          return {
+            value: t.id,        // String ID - what gets sent to execute
+            display: displayName, // Human-readable name for UI
+          };
+        });
       },
       // Use multi-select when MERC can target multiple enemies
       multiSelect: () => {
@@ -174,29 +160,19 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
 
       const pending = game.activeCombat.pendingTargetSelection;
 
-      // Handle both single select (string) and multi-select (string[])
-      const targetChoices = Array.isArray(args.targets)
+      // args.targets contains string IDs directly (single or array)
+      const targetIds = Array.isArray(args.targets)
         ? args.targets as string[]
         : [args.targets as string];
 
-      if (targetChoices.length === 0) {
+      if (targetIds.length === 0) {
         return { success: false, message: 'No targets selected' };
       }
 
-      // Find target IDs from choice strings
-      const selectedIds: string[] = [];
-      const targetNames: string[] = [];
-      for (const choice of targetChoices) {
-        const target = findTargetFromChoice(choice, pending.validTargets);
-        if (target) {
-          selectedIds.push(target.id);
-          targetNames.push(target.name);
-        }
-      }
-
-      if (selectedIds.length === 0) {
-        return { success: false, message: 'Invalid target selection' };
-      }
+      // Look up target names for the message
+      const targetNames = targetIds
+        .map(id => pending.validTargets.find(t => t.id === id)?.name)
+        .filter((name): name is string => !!name);
 
       // Initialize selectedTargets map if needed
       if (!game.activeCombat.selectedTargets) {
@@ -204,7 +180,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       }
 
       // Store all selections for this attacker
-      game.activeCombat.selectedTargets.set(pending.attackerId, selectedIds);
+      game.activeCombat.selectedTargets.set(pending.attackerId, targetIds);
 
       // Clear pending and continue combat
       game.activeCombat.pendingTargetSelection = undefined;
@@ -331,32 +307,42 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return [];
         // Build choices - each target can be selected multiple times up to their health
-        const choices: string[] = [];
+        // Use {value, display} format for clean UI display
+        const choices: Array<{value: string, display: string}> = [];
         for (const target of pending.validTargets) {
+          // Capitalize target name for display
+          const displayName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
           // Allow targeting up to their current health times
           for (let i = 0; i < target.currentHealth; i++) {
-            const suffix = target.currentHealth > 1 ? ` (hit ${i + 1})` : '';
-            choices.push(`${target.name}${suffix}::${target.id}::${i}`);
+            choices.push({
+              value: `${target.id}::${i}`,
+              display: displayName,
+            });
           }
         }
         return choices;
       },
     })
-    .execute((args, ctx) => {
+    .execute((args, _ctx) => {
       if (!game.activeCombat?.pendingHitAllocation) {
         return { success: false, message: 'No hit allocation pending' };
       }
 
       const pending = game.activeCombat.pendingHitAllocation;
+
       const allocChoices = Array.isArray(args.allocations)
-        ? args.allocations as string[]
-        : [args.allocations as string];
+        ? args.allocations as unknown[]
+        : [args.allocations];
 
       // Parse allocation choices into targetId -> hitCount map
+      // Format is "targetId::hitIndex" - may come as string or {value, display} object
       const hitsByTarget = new Map<string, number>();
       for (const choice of allocChoices) {
-        const parts = choice.split('::');
-        const targetId = parts[1];
+        // Handle both string format (from CombatPanel) and object format (from ActionPanel)
+        const choiceStr = typeof choice === 'string' ? choice :
+          (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as any).value) : String(choice);
+        const parts = choiceStr.split('::');
+        const targetId = parts[0];
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 

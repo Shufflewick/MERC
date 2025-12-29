@@ -484,33 +484,48 @@ const hasActiveCombat = computed(() => {
 // Get sector name for the combat
 const combatSectorName = computed(() => {
   if (!activeCombat.value?.sectorId) return 'Unknown';
-  const sector = sectors.value.find(s => s.id === activeCombat.value.sectorId);
-  return sector?.name || 'Unknown';
+  const sector = sectors.value.find(s => s.sectorId === activeCombat.value.sectorId);
+  return sector?.sectorName || 'Unknown';
 });
 
-// Handle hit allocation from CombatPanel
-function handleAllocateHit(targetId: string) {
-  // The action panel handles the actual action execution
-  // This is called per hit for UI tracking
-  console.log('[COMBAT] Allocate hit to target:', targetId);
+// Handle hit allocation from CombatPanel (per-hit tracking for UI)
+function handleAllocateHit(_targetId: string) {
+  // Individual hit allocation is tracked in CombatPanel state
+  // The final allocation is sent via handleConfirmAllocation
 }
 
 // Handle Wolverine 6s allocation
-function handleAllocateWolverineSix(targetId: string) {
-  console.log('[COMBAT] Wolverine 6 hit to target:', targetId);
+function handleAllocateWolverineSix(_targetId: string) {
+  // Wolverine 6s allocation handled separately
 }
 
 // Handle Basic's reroll
 async function handleReroll() {
-  console.log('[COMBAT] Triggering Basic reroll');
-  await props.action('combatBasicReroll', {});
+  const result = await props.action('combatBasicReroll', {});
+  if (result.success) {
+    await props.executeAction('combatBasicReroll');
+  }
 }
 
-// Handle confirming hit allocation
-async function handleConfirmAllocation() {
-  console.log('[COMBAT] Confirming hit allocation');
-  // The allocation is done through the action
-  // This is called when all hits are allocated
+// Handle confirming hit allocation - executes the action with allocations from CombatPanel
+async function handleConfirmAllocation(allocations: string[]) {
+  if (!allocations || allocations.length === 0) return;
+  if (!props.availableActions.includes('combatAllocateHits')) return;
+
+  const result = await props.action('combatAllocateHits', { allocations });
+  if (result.success) {
+    await props.executeAction('combatAllocateHits');
+  }
+}
+
+// Handle confirming target selection - executes combatSelectTarget action
+// Receives target IDs directly from CombatPanel (e.g., "militia-dictator-0")
+async function handleConfirmTargets(targetIds: string[]) {
+  if (!targetIds || targetIds.length === 0) return;
+  if (!props.availableActions.includes('combatSelectTarget')) return;
+
+  const targetValue = targetIds.length === 1 ? targetIds[0] : targetIds;
+  await props.action('combatSelectTarget', { targets: targetValue });
 }
 
 // ============================================================================
@@ -537,41 +552,22 @@ const isHagnessDrawActive = computed(() => {
 
 // Watch for when hagnessDraw becomes active to load choices
 watch(() => boardInteraction?.currentAction, (action, prevAction) => {
-  console.log('[HAGNESS UI] boardInteraction.currentAction changed:', { action, prevAction });
-
-  if (action === 'hagnessDraw') {
-    console.log('[HAGNESS UI] Hagness action started via ActionPanel');
-  }
-  if (prevAction === 'hagnessDraw' && !action) {
-    console.log('[HAGNESS UI] Hagness action completed or cancelled');
-  }
+  // Action tracking for hagnessDraw (no-op, kept for potential future use)
 });
 
 // When equipmentType is selected, load the recipient choices from metadata
 watch(() => props.actionArgs['equipmentType'], (val, oldVal) => {
-  console.log('[HAGNESS UI] equipmentType changed:', { val, oldVal });
-
   if (val !== undefined && props.availableActions.includes('hagnessDraw')) {
     // For dependsOn selections, choices are in metadata.choicesByDependentValue[equipmentType]
     const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
     const recipientSel = metadata?.selections?.find((s: any) => s.name === 'recipient');
 
-    console.log('[HAGNESS UI] Looking for choices in choicesByDependentValue:', {
-      hasMetadata: !!metadata,
-      hasRecipientSel: !!recipientSel,
-      hasDependsOn: recipientSel?.dependsOn,
-      hasChoicesByDependentValue: !!recipientSel?.choicesByDependentValue,
-      dependentValueKeys: Object.keys(recipientSel?.choicesByDependentValue || {})
-    });
-
     if (recipientSel?.choicesByDependentValue) {
       const key = String(val);
       const choices = recipientSel.choicesByDependentValue[key];
-      console.log('[HAGNESS UI] Found choices for key', key, ':', choices?.length || 0, 'items');
 
       if (choices && choices.length > 0) {
         fetchedDeferredChoices['hagnessDraw:recipient'] = choices;
-        console.log('[HAGNESS UI] Stored choices:', choices);
       }
     }
   }
@@ -641,29 +637,14 @@ const hagnessEquipmentTypeChoices = computed(() => {
 
 // Check if Hagness is selecting recipient (second step - after equipment drawn)
 const isHagnessSelectingRecipient = computed(() => {
-  if (!isHagnessDrawActive.value) {
-    console.log('[HAGNESS UI] isHagnessSelectingRecipient: false (not active)');
-    return false;
-  }
+  if (!isHagnessDrawActive.value) return false;
   const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-  if (!metadata?.selections?.length) {
-    console.log('[HAGNESS UI] isHagnessSelectingRecipient: false (no selections)', metadata);
-    return false;
-  }
+  if (!metadata?.selections?.length) return false;
   // Check if recipient selection exists and is unfilled (and equipmentType is filled)
   const recipientSelection = metadata.selections.find((s: any) => s.name === 'recipient');
-  const result = recipientSelection &&
+  return recipientSelection &&
          props.actionArgs['equipmentType'] !== undefined &&
          props.actionArgs['recipient'] === undefined;
-  console.log('[HAGNESS UI] isHagnessSelectingRecipient:', result, {
-    hasRecipientSelection: !!recipientSelection,
-    equipmentType: props.actionArgs['equipmentType'],
-    recipient: props.actionArgs['recipient'],
-    selectionsCount: metadata.selections.length,
-    selectionNames: metadata.selections.map((s: any) => s.name),
-    recipientChoices: recipientSelection?.choices?.length || 0
-  });
-  return result;
 });
 
 // Get Hagness's drawn equipment from choices or game state
@@ -714,28 +695,18 @@ const hagnessDrawnEquipment = computed(() => {
            props.state?.state?.hagnessDrawnEquipmentData?.[playerKey];
   }
 
-  console.log('[HAGNESS UI] hagnessDrawnEquipment lookup:', { typedKey, playerKey, data, gameViewKeys: Object.keys(props.gameView?.hagnessDrawnEquipmentData || {}) });
-
   return data || null;
 });
 
 // Get Hagness's squad mates from fetched choices (since that's where the data is)
 const hagnessSquadMates = computed(() => {
-  if (!isHagnessSelectingRecipient.value) {
-    console.log('[HAGNESS UI] hagnessSquadMates: empty (not selecting recipient)');
-    return [];
-  }
+  if (!isHagnessSelectingRecipient.value) return [];
 
   // Get choices from fetchedDeferredChoices (populated by our watcher when equipmentType is selected)
   const key = 'hagnessDraw:recipient';
   const choices = fetchedDeferredChoices[key] || [];
 
-  console.log('[HAGNESS UI] hagnessSquadMates: fetched choices count:', choices.length);
-
-  if (choices.length === 0) {
-    console.log('[HAGNESS UI] hagnessSquadMates: no fetched choices yet');
-    return [];
-  }
+  if (choices.length === 0) return [];
 
   // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName ← Equipment" }
   return choices.map((choice: any) => {
@@ -1060,19 +1031,11 @@ async function selectEquipmentType(equipType: string) {
 
 // Handle Hagness selecting a recipient for equipment
 async function selectHagnessRecipient(choice: any) {
-  console.log('[HAGNESS UI] selectHagnessRecipient called with:', choice);
-
   // Verify hagnessDraw action is available
-  if (!props.availableActions.includes('hagnessDraw')) {
-    console.log('[HAGNESS UI] selectHagnessRecipient: hagnessDraw not in availableActions');
-    return;
-  }
+  if (!props.availableActions.includes('hagnessDraw')) return;
 
   // Verify we have equipmentType already selected
-  if (props.actionArgs['equipmentType'] === undefined) {
-    console.log('[HAGNESS UI] selectHagnessRecipient: equipmentType not selected yet');
-    return;
-  }
+  if (props.actionArgs['equipmentType'] === undefined) return;
 
   // Extract the recipient value from the choice
   // Choice can be: string | { value: string, display: string, equipment?: object }
@@ -1085,13 +1048,10 @@ async function selectHagnessRecipient(choice: any) {
     recipientValue = String(choice);
   }
 
-  console.log('[HAGNESS UI] selectHagnessRecipient: setting recipient to:', recipientValue);
-
   // Set the recipient in actionArgs
   props.actionArgs['recipient'] = recipientValue;
 
   // Execute the action
-  console.log('[HAGNESS UI] selectHagnessRecipient: executing hagnessDraw action');
   await props.executeAction('hagnessDraw');
 }
 
@@ -1263,9 +1223,9 @@ const clickableSectors = computed(() => {
 
 <template>
   <div class="game-board">
-    <!-- Combat Panel - shown when there's active combat with hit allocation -->
+    <!-- Combat Panel - shown when there's active combat -->
     <CombatPanel
-      v-if="hasActiveCombat && activeCombat?.pendingHitAllocation"
+      v-if="hasActiveCombat"
       :active-combat="activeCombat"
       :is-my-turn="isMyTurn"
       :available-actions="availableActions"
@@ -1274,6 +1234,7 @@ const clickableSectors = computed(() => {
       @allocate-wolverine-six="handleAllocateWolverineSix"
       @reroll="handleReroll"
       @confirm-allocation="handleConfirmAllocation"
+      @confirm-targets="handleConfirmTargets"
     />
 
     <!-- Hiring phase - show MERCs to choose from -->

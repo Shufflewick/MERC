@@ -1860,13 +1860,16 @@ function executeCombatRound(
       if (!dogForcesTarget) {
         // Need player input - pause and return
         const validTargets = getValidTargetsForPlayer(attacker, enemies);
-        if (validTargets.length > 0) {
+        // Only pause for target selection if there's actually a choice to make
+        // If attacker can target >= all valid enemies, auto-select all (no user input needed)
+        const needsPlayerChoice = validTargets.length > 0 && attacker.targets < validTargets.length;
+        if (needsPlayerChoice) {
           return {
             round: { roundNumber, results, casualties },
             complete: false,
             pausedForTargetSelection: {
               attackerId: attacker.id,
-              attackerName: attacker.name,
+              attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
               attackerIndex: i,
               validTargets,
               maxTargets: attacker.targets,
@@ -1947,19 +1950,20 @@ function executeCombatRound(
     }
 
     // MERC-dice: Check if player needs to allocate hits
-    // Pause for allocation if: player-controlled rebel MERC, multiple valid targets, meaningful choice
+    // Pause for allocation if: player-controlled rebel MERC, multiple DECLARED targets, meaningful choice
     const hasHitAllocation = game.activeCombat?.selectedTargets?.has(`allocation:${attacker.id}`);
     if (interactive && isRebelMerc && !hasHitAllocation) {
-      // Get valid targets (alive enemies, no attack dogs)
-      const validTargets = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+      // Valid targets for hit allocation are the DECLARED targets (not all enemies)
+      // This respects the attacker's target limit (e.g., targets: 1 means only 1 declared target)
+      const validTargets = targets.filter(t => t.health > 0);
 
       // Smart skip logic:
-      // 1. Only 1 valid target - no choice needed
+      // 1. Only 1 valid target - no choice needed (all hits go to that target)
       // 2. All targets are militia - no meaningful choice (militia all have 1 HP)
-      // 3. Overkill - hits >= total enemy HP, so all targets will die anyway
+      // 3. Overkill - hits >= total declared target HP, so all declared targets will die anyway
       const allMilitia = validTargets.every(t => t.isMilitia);
-      const totalEnemyHP = validTargets.reduce((sum, t) => sum + t.health, 0);
-      const isOverkill = hits >= totalEnemyHP;
+      const totalTargetHP = validTargets.reduce((sum, t) => sum + t.health, 0);
+      const isOverkill = hits >= totalTargetHP;
       const needsAllocation = validTargets.length > 1 && !allMilitia && !isOverkill;
 
       // Also check if Basic's reroll is available (not yet used)
@@ -1974,7 +1978,7 @@ function executeCombatRound(
         // Set pending hit allocation state
         game.activeCombat!.pendingHitAllocation = {
           attackerId: attacker.id,
-          attackerName: attacker.name,
+          attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
           attackerMercId: mercId ?? '',
           diceRolls: rolls,
           hits,
@@ -2595,7 +2599,14 @@ export function executeCombat(
         pendingTargetSelection: {
           attackerId: pause.attackerId,
           attackerName: pause.attackerName,
-          validTargets: pause.validTargets,
+          validTargets: pause.validTargets.map((t) => ({
+            id: t.id,
+            name: t.name,
+            isMerc: !t.isMilitia && !t.isDictator,
+            isMilitia: t.isMilitia,
+            health: t.health,
+            maxHealth: t.maxHealth,
+          })),
           maxTargets: pause.maxTargets,
         },
       };
