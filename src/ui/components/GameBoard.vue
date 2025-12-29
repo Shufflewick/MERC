@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, inject, reactive } from 'vue';
-import { useBoardInteraction } from '@boardsmith/ui';
+import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
@@ -37,11 +37,9 @@ const props = defineProps<{
   playerPosition: number;
   isMyTurn: boolean;
   availableActions: string[];
-  action: (name: string, args: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   actionArgs: Record<string, unknown>;
-  executeAction: (name: string) => Promise<void>;
+  actionController: UseActionControllerReturn;
   setBoardPrompt: (prompt: string | null) => void;
-  startAction: (name: string, initialArgs?: Record<string, unknown>) => void;
   state?: any; // Flow state from GameShell
 }>();
 
@@ -501,10 +499,7 @@ function handleAllocateWolverineSix(_targetId: string) {
 
 // Handle Basic's reroll
 async function handleReroll() {
-  const result = await props.action('combatBasicReroll', {});
-  if (result.success) {
-    await props.executeAction('combatBasicReroll');
-  }
+  await props.actionController.execute('combatBasicReroll', {});
 }
 
 // Handle confirming hit allocation - executes the action with allocations from CombatPanel
@@ -512,10 +507,7 @@ async function handleConfirmAllocation(allocations: string[]) {
   if (!allocations || allocations.length === 0) return;
   if (!props.availableActions.includes('combatAllocateHits')) return;
 
-  const result = await props.action('combatAllocateHits', { allocations });
-  if (result.success) {
-    await props.executeAction('combatAllocateHits');
-  }
+  await props.actionController.execute('combatAllocateHits', { allocations });
 }
 
 // Handle confirming target selection - executes combatSelectTarget action
@@ -525,7 +517,7 @@ async function handleConfirmTargets(targetIds: string[]) {
   if (!props.availableActions.includes('combatSelectTarget')) return;
 
   const targetValue = targetIds.length === 1 ? targetIds[0] : targetIds;
-  await props.action('combatSelectTarget', { targets: targetValue });
+  await props.actionController.execute('combatSelectTarget', { targets: targetValue });
 }
 
 // ============================================================================
@@ -544,16 +536,25 @@ const isHiringMercs = computed(() => {
          props.availableActions.includes('hireThirdMerc');
 });
 
-// Use boardInteraction to detect when hagnessDraw action is active
-// This is the proper way to sync with ActionPanel (per BoardSmith team)
+// Use actionController to detect when hagnessDraw action is active
 const isHagnessDrawActive = computed(() => {
-  return boardInteraction?.currentAction === 'hagnessDraw';
+  return props.actionController.currentAction.value === 'hagnessDraw';
 });
 
-// Watch for when hagnessDraw becomes active to load choices
-watch(() => boardInteraction?.currentAction, (action, prevAction) => {
-  // Action tracking for hagnessDraw (no-op, kept for potential future use)
-});
+// Auto-start hiring actions when they become available (wizard mode)
+watch(() => props.availableActions, (actions) => {
+  // Only auto-start if no action is currently active
+  if (props.actionController.currentAction.value) return;
+
+  // Check for hiring actions and start them
+  const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc'];
+  for (const action of hiringActions) {
+    if (actions.includes(action)) {
+      props.actionController.start(action);
+      break;
+    }
+  }
+}, { immediate: true });
 
 // When equipmentType is selected, load the recipient choices from metadata
 watch(() => props.actionArgs['equipmentType'], (val, oldVal) => {
@@ -745,8 +746,14 @@ const currentActionMetadata = computed(() => {
 });
 
 // Get the current selection (first one that hasn't been filled yet)
-// Reads from props.actionArgs (shared state)
+// Prefers actionController.currentSelection when an action is active via actionController
 const currentSelection = computed(() => {
+  // When an action is active via actionController, use its currentSelection
+  if (props.actionController.currentAction.value && props.actionController.currentSelection.value) {
+    return props.actionController.currentSelection.value;
+  }
+
+  // Fall back to flow state metadata approach
   const metadata = currentActionMetadata.value;
   if (!metadata?.selections?.length) return null;
 
@@ -848,9 +855,13 @@ const hirableMercs = computed(() => {
   // Don't return MERCs when selecting equipment type
   if (isSelectingEquipmentType.value) return [];
 
-  // For deferred selections, use fetched choices
+  // Get choices using actionController.getChoices() when action is active
   let choices: any[];
-  if (selection.deferred) {
+  if (props.actionController.currentAction.value) {
+    // Use actionController.getChoices() for proper choice resolution
+    choices = props.actionController.getChoices(selection) || [];
+  } else if (selection.deferred) {
+    // Fallback: For deferred selections, use fetched choices
     const actionName = getCurrentActionName();
     if (!actionName) return [];
     const key = `${actionName}:${selection.name}`;
@@ -887,9 +898,11 @@ const hasSkipOption = computed(() => {
   const selection = currentSelection.value;
   if (!selection) return false;
 
-  // For deferred selections, use fetched choices
+  // Get choices using actionController.getChoices() when action is active
   let choices: any[];
-  if (selection.deferred) {
+  if (props.actionController.currentAction.value) {
+    choices = props.actionController.getChoices(selection) || [];
+  } else if (selection.deferred) {
     const actionName = getCurrentActionName();
     if (!actionName) return false;
     const key = `${actionName}:${selection.name}`;
@@ -909,9 +922,11 @@ function skipThirdHire() {
   const selection = currentSelection.value;
   if (!selection) return;
 
-  // For deferred selections, use fetched choices
+  // Get choices using actionController.getChoices() when action is active
   let choices: any[];
-  if (selection.deferred) {
+  if (props.actionController.currentAction.value) {
+    choices = props.actionController.getChoices(selection) || [];
+  } else if (selection.deferred) {
     const actionName = getCurrentActionName();
     if (!actionName) return;
     const key = `${actionName}:${selection.name}`;
@@ -980,29 +995,17 @@ async function selectMercToHire(merc: any) {
     return;
   }
 
-  // Check if the action is already active using boardInteraction.currentAction
+  // Check if the action is already active using actionController.currentAction
   // BoardSmith auto-starts actions when they become available, so we should NOT
-  // call startAction if the action is already active (that would reset it)
-  const isActionActive = boardInteraction?.currentAction === actionName;
+  // call start if the action is already active (that would reset it)
+  const isActionActive = props.actionController.currentAction.value === actionName;
 
   if (!isActionActive) {
     // Action not yet started - start it with initial args
-    props.startAction(actionName, { [selection.name]: choiceValue });
+    props.actionController.start(actionName, { [selection.name]: choiceValue });
   } else {
-    // Action already started - write directly to actionArgs for subsequent selections
-    props.actionArgs[selection.name] = choiceValue;
-
-    // Check if all selections are now complete and execute if so
-    // (ActionPanel's auto-execute doesn't trigger when we write to actionArgs externally)
-    const metadata = currentActionMetadata.value;
-    if (metadata?.selections) {
-      const allFilled = metadata.selections.every(
-        (sel: any) => props.actionArgs[sel.name] !== undefined
-      );
-      if (allFilled) {
-        await props.executeAction(actionName);
-      }
-    }
+    // Action already started - fill the selection
+    await props.actionController.fill(selection.name, choiceValue);
   }
 }
 
@@ -1011,22 +1014,8 @@ async function selectEquipmentType(equipType: string) {
   const selection = currentSelection.value;
   if (!selection) return;
 
-  const actionName = getCurrentActionName();
-  if (!actionName) return;
-
-  // Write to actionArgs
-  props.actionArgs[selection.name] = equipType;
-
-  // Check if all selections are now complete and execute if so
-  const metadata = currentActionMetadata.value;
-  if (metadata?.selections) {
-    const allFilled = metadata.selections.every(
-      (sel: any) => props.actionArgs[sel.name] !== undefined
-    );
-    if (allFilled) {
-      await props.executeAction(actionName);
-    }
-  }
+  // Fill the selection - actionController handles auto-execute
+  await props.actionController.fill(selection.name, equipType);
 }
 
 // Handle Hagness selecting a recipient for equipment
@@ -1048,11 +1037,8 @@ async function selectHagnessRecipient(choice: any) {
     recipientValue = String(choice);
   }
 
-  // Set the recipient in actionArgs
-  props.actionArgs['recipient'] = recipientValue;
-
-  // Execute the action
-  await props.executeAction('hagnessDraw');
+  // Fill the recipient selection - actionController handles auto-execute
+  await props.actionController.fill('recipient', recipientValue);
 }
 
 // Handle sector clicks for actions
@@ -1092,9 +1078,9 @@ async function handleSectorClick(sectorId: string) {
     }
 
     // Execute the action
-    await props.action('placeLanding', { [selectionName]: actionValue });
+    await props.actionController.execute('placeLanding', { [selectionName]: actionValue });
   } else if (props.availableActions.includes('move')) {
-    props.action('move', { sectorId });
+    await props.actionController.execute('move', { sectorId });
   }
 }
 
@@ -1122,13 +1108,13 @@ const mercAbilitiesAvailable = computed(() => {
 // Handle ability activation from MERC card
 async function handleActivateAbility(mercId: string) {
   if (mercId === 'hagness' && props.availableActions.includes('hagnessDraw')) {
-    // Start the Hagness draw action - this sets boardInteraction.currentAction
-    props.startAction('hagnessDraw');
+    // Start the Hagness draw action - this sets actionController.currentAction
+    props.actionController.start('hagnessDraw');
     // Scroll to top where the Hagness UI appears
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (mercId === 'doc' && props.availableActions.includes('docHeal')) {
     // Execute Doc heal immediately (no selections needed)
-    await props.action('docHeal', {});
+    await props.actionController.execute('docHeal', {});
   }
   // Add more MERC ability handlers as needed
 }
@@ -1180,7 +1166,7 @@ async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' 
 
   // Execute the dropEquipment action directly with both args
   // Pass the element ID (number) so the server can resolve it to the actual element
-  await props.action('dropEquipment', {
+  await props.actionController.execute('dropEquipment', {
     actingMerc: mercElement.id,
     slot: slotChoice,
   });

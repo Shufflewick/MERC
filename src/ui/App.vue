@@ -11,17 +11,15 @@ import { UI_COLORS } from './colors';
     :player-count="2"
     :default-a-i-players="[1]"
   >
-    <template #game-board="{ state, gameView, playerPosition, isMyTurn, availableActions, action, actionArgs, executeAction, setBoardPrompt, startAction }">
+    <template #game-board="{ state, gameView, playerPosition, isMyTurn, availableActions, actionArgs, actionController, setBoardPrompt }">
       <GameBoard
         :game-view="gameView"
         :player-position="playerPosition"
         :is-my-turn="isMyTurn"
         :available-actions="availableActions"
-        :action="action"
         :action-args="actionArgs"
-        :execute-action="executeAction"
+        :action-controller="actionController"
         :set-board-prompt="setBoardPrompt"
-        :start-action="startAction"
         :state="state"
       />
     </template>
