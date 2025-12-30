@@ -410,97 +410,76 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       if (sector.stashCount > 0) {
         const equipmentList = sector.stash.map(e => e.equipmentName).join(', ');
         game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
+
+        // Chain to collectEquipment action with pre-filled args
+        return {
+          success: true,
+          message: `Explored ${sector.sectorName}`,
+          followUp: {
+            action: 'collectEquipment',
+            args: {
+              mercId: actingMerc.id,
+              sectorId: sector.id,
+            },
+          },
+        };
       } else {
         game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found nothing`);
+        return {
+          success: true,
+          message: `Explored ${sector.sectorName}`,
+        };
       }
-
-      return {
-        success: true,
-        message: `Explored ${sector.sectorName}`,
-      };
     });
 }
 
 // =============================================================================
-// Collect Equipment Action (new - separate from explore for UI updates)
+// Collect Equipment Action (chained from explore via followUp)
 // =============================================================================
 
 /**
  * Collect equipment from a sector stash.
  * Cost: 0 actions (free)
  *
- * This is a separate action from explore so that the UI updates
- * after exploration completes (showing explored status, stash count, etc.)
- * before the player selects equipment.
+ * This action is chained from explore via followUp. It receives pre-filled
+ * mercId and sectorId args so the player doesn't need to re-select the merc.
+ * The UI updates after exploration completes (showing stash contents) before
+ * this action starts.
  */
 export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
   return Action.create('collectEquipment')
     .prompt('Take from stash')
     .condition((ctx, tracer) => {
-      // Cannot collect during combat
-      if (game.activeCombat) return false;
+      // This action is triggered via followUp from explore
+      // It requires mercId and sectorId in args
+      const hasMercId = ctx.args?.mercId !== undefined;
+      const hasSectorId = ctx.args?.sectorId !== undefined;
+      if (tracer) tracer.check('hasMercId', hasMercId);
+      if (tracer) tracer.check('hasSectorId', hasSectorId);
+      if (!hasMercId || !hasSectorId) return false;
 
-      // Only rebels can collect
-      const isRebel = game.isRebelPlayer(ctx.player as any);
-      if (tracer) tracer.check('isRebelPlayer', isRebel);
-      if (!isRebel) return false;
-
-      const player = ctx.player as RebelPlayer;
-
-      // Check if any squad is in a sector with stash items
-      const hasStash = (squad: Squad | null | undefined, name: string): boolean => {
-        if (!squad?.sectorId) {
-          if (tracer) tracer.check(`${name}.sectorId`, false, 'no sector');
-          return false;
-        }
-        const sector = game.getSector(squad.sectorId);
-        const hasItems = !!(sector && sector.stashCount > 0);
-        if (tracer) tracer.check(`${name}.stash`, hasItems, `${sector?.stashCount ?? 0} items`);
-        return hasItems;
-      };
-
-      const primaryHasStash = hasStash(player.primarySquad, 'primarySquad');
-      const secondaryHasStash = hasStash(player.secondarySquad, 'secondarySquad');
-      return primaryHasStash || secondaryHasStash;
-    })
-    .chooseElement<MercCard>('merc', {
-      prompt: 'Which MERC takes equipment?',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-
-        // MERC must be in a sector with stash
-        for (const squad of [player.primarySquad, player.secondarySquad]) {
-          if (!squad?.sectorId) continue;
-          if (!squad.getMercs().some(m => m.id === merc.id)) continue;
-          const sector = game.getSector(squad.sectorId);
-          if (sector && sector.stashCount > 0) return true;
-        }
-        return false;
-      },
+      // Verify the sector has stash items
+      const sector = game.first(Sector, { id: ctx.args.sectorId });
+      const hasStash = !!(sector && sector.stashCount > 0);
+      if (tracer) tracer.check('sectorHasStash', hasStash, `${sector?.stashCount ?? 0} items`);
+      return hasStash;
     })
     .fromElements<Equipment>('equipment', {
       prompt: (ctx) => {
-        const merc = ctx.args?.merc as MercCard | undefined;
+        const merc = game.first(MercCard, { id: ctx.args?.mercId });
         return merc ? `What should ${capitalize(merc.mercName)} take?` : 'Select equipment';
       },
-      dependsOn: 'merc',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
       optional: 'Done',
-      // PURE - no side effects, just returns stash contents
+      // Return stash contents - uses sectorId from followUp args
       elements: (ctx) => {
-        const merc = ctx.args?.merc as MercCard | undefined;
-        if (!merc) return [];
-
-        const player = ctx.player as RebelPlayer;
-        const sector = findMercSector(merc, player, game);
+        const sector = game.first(Sector, { id: ctx.args?.sectorId });
         if (!sector) return [];
 
+        const merc = game.first(MercCard, { id: ctx.args?.mercId });
+
         // MERC-70a: Filter out grenades/mortars if Apeiron
-        if (merc.mercId === 'apeiron') {
+        if (merc?.mercId === 'apeiron') {
           return sector.stash.filter(e => !isGrenadeOrMortar(e));
         }
         return [...sector.stash];
@@ -509,22 +488,15 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
         until: (ctx, equipment) => {
           if (!equipment) return true; // User chose Done
 
-          const merc = ctx.args?.merc as MercCard | undefined;
-          if (!merc) return true;
-
-          const player = ctx.player as RebelPlayer;
-          const sector = findMercSector(merc, player, game);
+          const sector = game.first(Sector, { id: ctx.args?.sectorId });
           return !sector || sector.stashCount === 0;
         },
         onEach: (ctx, item) => {
           if (!item) return;
 
-          const merc = ctx.args?.merc as MercCard | undefined;
-          if (!merc) return;
-
-          const player = ctx.player as RebelPlayer;
-          const sector = findMercSector(merc, player, game);
-          if (!sector) return;
+          const merc = game.first(MercCard, { id: ctx.args?.mercId });
+          const sector = game.first(Sector, { id: ctx.args?.sectorId });
+          if (!merc || !sector) return;
 
           // Equip the item - equip() uses putInto() which moves from stash
           const replaced = merc.equip(item);
@@ -539,14 +511,8 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const merc = args.merc as MercCard | undefined;
-      const player = ctx.player as RebelPlayer;
-
-      if (!merc) {
-        return { success: true, message: 'No equipment taken' };
-      }
-
-      const sector = findMercSector(merc, player, game);
+      const merc = game.first(MercCard, { id: ctx.args?.mercId });
+      const sector = game.first(Sector, { id: ctx.args?.sectorId });
 
       // Report remaining stash
       if (sector && sector.stashCount > 0) {
