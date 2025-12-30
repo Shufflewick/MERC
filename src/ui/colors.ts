@@ -42,4 +42,10 @@ export const UI_COLORS = {
   textMuted: '#a0a0a0',
   border: '#5a6a5a',
   cardBg: 'rgba(60, 75, 60, 0.95)',
+  // Additional theme colors
+  surface: '#3d4a3d',
+  surfaceAlt: '#4a5a4a',
+  textPrimary: '#f0f0f0',
+  textSecondary: '#a0a0a0',
+  warning: '#e9c46a',
 };

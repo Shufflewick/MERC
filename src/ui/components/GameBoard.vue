@@ -6,6 +6,8 @@ import SquadPanel from './SquadPanel.vue';
 import MercCard from './MercCard.vue';
 import EquipmentCard from './EquipmentCard.vue';
 import CombatPanel from './CombatPanel.vue';
+import SectorPanel from './SectorPanel.vue';
+import DetailModal from './DetailModal.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -26,6 +28,9 @@ const fetchDeferredChoicesFn = inject<FetchDeferredChoicesFn | undefined>('fetch
 // State for fetched deferred choices
 const fetchedDeferredChoices = reactive<Record<string, Array<{ value: unknown; display: string }>>>({});
 const deferredChoicesLoading = ref(false);
+
+// State for sector panel
+const selectedSectorId = ref<string | null>(null);
 
 // Debug: log available actions when they change
 
@@ -106,6 +111,28 @@ function findByRef(ref: string, root?: any): any {
   return null;
 }
 
+// Find element by numeric ID (BoardSmith element IDs are numbers)
+function findElementById(id: number | string, root?: any): any {
+  if (!root) root = props.gameView;
+  if (!root) return null;
+
+  // Compare as both number and string for flexibility
+  const idNum = typeof id === 'number' ? id : parseInt(id, 10);
+  const idStr = String(id);
+
+  if (root.ref === idNum || root.ref === idStr || root.id === idNum || root.id === idStr) {
+    return root;
+  }
+
+  if (root.children) {
+    for (const child of root.children) {
+      const found = findElementById(id, child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // Helper to get property from node (checks attributes first, then root)
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
   if (node?.attributes && node.attributes[key] !== undefined) return node.attributes[key];
@@ -147,6 +174,7 @@ const sectors = computed(() => {
     const sectorElements = findAllByClassName('Sector');
     if (sectorElements.length > 0) {
       return sectorElements.map((s: any) => ({
+        id: s.id,  // Numeric BoardSmith element ID (for action controller fill)
         sectorId: s.ref || getAttr(s, 'sectorId', '') || `sector-${getAttr(s, 'row', 0)}-${getAttr(s, 'col', 0)}`,
         sectorName: getAttr(s, 'sectorName', ''),
         sectorType: getAttr(s, 'sectorType', 'Wilderness'),
@@ -165,6 +193,7 @@ const sectors = computed(() => {
   return map.children
     .filter((c: any) => c.className === 'Sector' || getAttr(c, 'sectorId', ''))
     .map((c: any) => ({
+      id: c.id,  // Numeric BoardSmith element ID (for action controller fill)
       sectorId: c.ref || getAttr(c, 'sectorId', '') || `sector-${getAttr(c, 'row', 0)}-${getAttr(c, 'col', 0)}`,
       sectorName: getAttr(c, 'sectorName', ''),
       sectorType: getAttr(c, 'sectorType', 'Wilderness'),
@@ -176,6 +205,175 @@ const sectors = computed(() => {
       dictatorMilitia: getAttr(c, 'dictatorMilitia', 0),
       rebelMilitia: getAttr(c, 'rebelMilitia', {}),
     }));
+});
+
+// Selected sector for SectorPanel
+const selectedSector = computed(() => {
+  if (!selectedSectorId.value) return null;
+  return sectors.value.find(s => s.sectorId === selectedSectorId.value) || null;
+});
+
+// Get stash contents for selected sector (if player can see it)
+const selectedSectorStash = computed(() => {
+  if (!selectedSector.value) return [];
+
+  // Player can see stash if they have a squad in the sector
+  const hasSquadInSector =
+    primarySquad.value?.sectorId === selectedSector.value.sectorId ||
+    secondarySquad.value?.sectorId === selectedSector.value.sectorId;
+
+  if (!hasSquadInSector) return [];
+
+  // Find the sector element in gameView to get stash
+  const sectorElement = findByRef(selectedSector.value.sectorId) ||
+    findAllByClassName('Sector').find((s: any) =>
+      getAttr(s, 'sectorId', '') === selectedSector.value?.sectorId
+    );
+
+  if (!sectorElement) return [];
+
+  const stash = getAttr(sectorElement, 'stash', []);
+  return stash.map((e: any) => ({
+    equipmentName: getAttr(e, 'equipmentName', 'Unknown'),
+    equipmentType: getAttr(e, 'equipmentType', 'Accessory'),
+    equipmentId: getAttr(e, 'equipmentId', ''),
+    description: getAttr(e, 'description', ''),
+    combatBonus: getAttr(e, 'combatBonus', 0),
+    initiative: getAttr(e, 'initiative', 0),
+    training: getAttr(e, 'training', 0),
+    armorBonus: getAttr(e, 'armorBonus', 0),
+    targets: getAttr(e, 'targets', 0),
+    negatesArmor: getAttr(e, 'negatesArmor', false),
+    image: getAttr(e, 'image', ''),
+  }));
+});
+
+// Check if player has Doc on team
+const hasDoc = computed(() => {
+  const allMercsInSquads = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+  return allMercsInSquads.some((m: any) =>
+    getAttr(m, 'mercId', '').toLowerCase() === 'doc' ||
+    getAttr(m, 'mercName', '').toLowerCase() === 'doc'
+  );
+});
+
+// Check if player has Squidhead on team
+const hasSquidhead = computed(() => {
+  const allMercsInSquads = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+  return allMercsInSquads.some((m: any) =>
+    getAttr(m, 'mercId', '').toLowerCase() === 'squidhead' ||
+    getAttr(m, 'mercName', '').toLowerCase() === 'squidhead'
+  );
+});
+
+// Check if player has mortar equipped
+const hasMortar = computed(() => {
+  const allMercsInSquads = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+  return allMercsInSquads.some((m: any) => {
+    const weapon = getAttr(m, 'weaponSlot', null);
+    const accessory = getAttr(m, 'accessorySlot', null);
+    const weaponName = weapon?.equipmentName?.toLowerCase() || '';
+    const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
+    return weaponName.includes('mortar') || accessoryName.includes('mortar');
+  });
+});
+
+// Check if player has damaged MERCs
+const hasDamagedMercs = computed(() => {
+  const allMercsInSquads = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+  return allMercsInSquads.some((m: any) => {
+    const damage = getAttr(m, 'damage', 0);
+    return damage > 0;
+  });
+});
+
+// Check if selected sector has land mines in stash
+const hasLandMinesInStash = computed(() => {
+  return selectedSectorStash.value.some(e =>
+    e.equipmentName.toLowerCase().includes('land mine') ||
+    e.equipmentName.toLowerCase().includes('landmine')
+  );
+});
+
+// Check if Squidhead has land mine equipped
+const squidheadHasLandMine = computed(() => {
+  const allMercsInSquads = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+  const squidhead = allMercsInSquads.find((m: any) =>
+    getAttr(m, 'mercId', '').toLowerCase() === 'squidhead' ||
+    getAttr(m, 'mercName', '').toLowerCase() === 'squidhead'
+  );
+  if (!squidhead) return false;
+
+  const accessory = getAttr(squidhead, 'accessorySlot', null);
+  const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
+  return accessoryName.includes('land mine') || accessoryName.includes('landmine');
+});
+
+// Check if selected sector has dictator forces
+const selectedSectorHasDictatorForces = computed(() => {
+  if (!selectedSector.value) return false;
+  if (selectedSector.value.dictatorMilitia > 0) return true;
+
+  // Check for dictator MERCs in sector
+  const dictatorMercsInSector = allMercs.value.filter(
+    (m) => m.sectorId === selectedSector.value?.sectorId && m.playerColor === 'dictator'
+  );
+  return dictatorMercsInSector.length > 0;
+});
+
+// Check if selected sector is the dictator base
+const selectedSectorIsBase = computed(() => {
+  if (!selectedSector.value) return false;
+
+  const sectorElement = findByRef(selectedSector.value.sectorId) ||
+    findAllByClassName('Sector').find((s: any) =>
+      getAttr(s, 'sectorId', '') === selectedSector.value?.sectorId
+    );
+
+  return sectorElement ? getAttr(sectorElement, 'hasBase', false) : false;
+});
+
+// Check if player has both explosives components
+const hasExplosivesComponents = computed(() => {
+  const allMercsInSquads = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+
+  let hasDetonator = false;
+  let hasExplosives = false;
+
+  for (const merc of allMercsInSquads) {
+    const weapon = getAttr(merc, 'weaponSlot', null);
+    const accessory = getAttr(merc, 'accessorySlot', null);
+
+    const weaponName = weapon?.equipmentName?.toLowerCase() || '';
+    const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
+
+    if (weaponName.includes('detonator') || accessoryName.includes('detonator')) {
+      hasDetonator = true;
+    }
+    if (weaponName.includes('explosive') || accessoryName.includes('explosive')) {
+      hasExplosives = true;
+    }
+  }
+
+  return hasDetonator && hasExplosives;
 });
 
 // Extract all players
@@ -602,7 +800,8 @@ const equipmentTypeChoices = computed(() => {
   if (!isSelectingEquipmentType.value) return [];
   const selection = currentSelection.value;
   if (!selection) return [];
-  const choices = selection.choices || [];
+  // Use actionController getter (not selection.choices)
+  const choices = props.actionController.getChoices(selection) || [];
   // Normalize choices to objects with value and label
   return choices.map((choice: any) => {
     if (typeof choice === 'string') {
@@ -627,7 +826,9 @@ const hagnessEquipmentTypeChoices = computed(() => {
   if (!isHagnessSelectingType.value) return [];
   const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
   const selection = metadata?.selections?.find((s: any) => s.name === 'equipmentType');
-  const choices = selection?.choices || [];
+  if (!selection) return [];
+  // Use actionController getter (not selection.choices)
+  const choices = props.actionController.getChoices(selection) || [];
   return choices.map((choice: any) => {
     if (typeof choice === 'string') {
       return { value: choice, label: choice };
@@ -656,11 +857,13 @@ const hagnessDrawnEquipment = computed(() => {
   const key = 'hagnessDraw:recipient';
   let choices: any[] = fetchedDeferredChoices[key] || [];
 
-  // If no fetched choices, try metadata choices (for dependsOn flow)
+  // If no fetched choices, try actionController getter
   if (choices.length === 0) {
     const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
     const recipientSelection = metadata?.selections?.find((s: any) => s.name === 'recipient');
-    choices = recipientSelection?.choices || [];
+    if (recipientSelection) {
+      choices = props.actionController.getChoices(recipientSelection) || [];
+    }
   }
 
   if (choices.length > 0) {
@@ -855,20 +1058,8 @@ const hirableMercs = computed(() => {
   // Don't return MERCs when selecting equipment type
   if (isSelectingEquipmentType.value) return [];
 
-  // Get choices using actionController.getChoices() when action is active
-  let choices: any[];
-  if (props.actionController.currentAction.value) {
-    // Use actionController.getChoices() for proper choice resolution
-    choices = props.actionController.getChoices(selection) || [];
-  } else if (selection.deferred) {
-    // Fallback: For deferred selections, use fetched choices
-    const actionName = getCurrentActionName();
-    if (!actionName) return [];
-    const key = `${actionName}:${selection.name}`;
-    choices = fetchedDeferredChoices[key] || [];
-  } else {
-    choices = selection.choices || [];
-  }
+  // Get choices using actionController.getChoices() - all choices are now fetched on-demand
+  const choices = props.actionController.getChoices(selection) || [];
 
   if (choices.length === 0) return [];
 
@@ -877,18 +1068,23 @@ const hirableMercs = computed(() => {
 
   // Find MERCs anywhere in the gameView and attach the original choice value
   // Filter out MERCs that have already been selected AND filter out skip option
+  // Note: BoardSmith now returns choices as {value, display} objects
   return choices
     .filter((choice: any) => {
-      const choiceValue = choice.value || choice.display || choice;
+      // Use display for filtering (it's the human-readable name)
+      const choiceDisplay = choice.display || choice.value || choice;
       // Filter out skip option - it's handled separately
-      if (typeof choiceValue === 'string' && choiceValue.toLowerCase().includes('skip')) return false;
-      return !selectedMercs.includes(choiceValue);
+      if (typeof choiceDisplay === 'string' && choiceDisplay.toLowerCase().includes('skip')) return false;
+      return !selectedMercs.includes(choiceDisplay);
     })
     .map((choice: any) => {
-      const choiceValue = choice.value || choice.display || choice;
-      const merc = findMercByName(choiceValue);
+      // Use display for finding the MERC by name
+      const choiceDisplay = choice.display || choice.value || choice;
+      // Use value for the actual selection (element ID)
+      const choiceValue = choice.value ?? choice;
+      const merc = findMercByName(choiceDisplay);
       // Attach the original choice value so we can use it when clicking
-      const result = merc ? { ...merc, _choiceValue: choiceValue } : { mercName: choiceValue, attributes: { mercName: choiceValue }, _choiceValue: choiceValue };
+      const result = merc ? { ...merc, _choiceValue: choiceValue } : { mercName: choiceDisplay, attributes: { mercName: choiceDisplay }, _choiceValue: choiceValue };
       return result;
     });
 });
@@ -898,22 +1094,13 @@ const hasSkipOption = computed(() => {
   const selection = currentSelection.value;
   if (!selection) return false;
 
-  // Get choices using actionController.getChoices() when action is active
-  let choices: any[];
-  if (props.actionController.currentAction.value) {
-    choices = props.actionController.getChoices(selection) || [];
-  } else if (selection.deferred) {
-    const actionName = getCurrentActionName();
-    if (!actionName) return false;
-    const key = `${actionName}:${selection.name}`;
-    choices = fetchedDeferredChoices[key] || [];
-  } else {
-    choices = selection.choices || [];
-  }
+  // Get choices using actionController.getChoices() - all choices are now fetched on-demand
+  const choices = props.actionController.getChoices(selection) || [];
 
   return choices.some((choice: any) => {
-    const choiceValue = choice.value || choice.display || choice;
-    return typeof choiceValue === 'string' && choiceValue.toLowerCase().includes('skip');
+    // Use display for checking skip option (it's the human-readable name)
+    const choiceDisplay = choice.display || choice.value || choice;
+    return typeof choiceDisplay === 'string' && choiceDisplay.toLowerCase().includes('skip');
   });
 });
 
@@ -922,27 +1109,18 @@ function skipThirdHire() {
   const selection = currentSelection.value;
   if (!selection) return;
 
-  // Get choices using actionController.getChoices() when action is active
-  let choices: any[];
-  if (props.actionController.currentAction.value) {
-    choices = props.actionController.getChoices(selection) || [];
-  } else if (selection.deferred) {
-    const actionName = getCurrentActionName();
-    if (!actionName) return;
-    const key = `${actionName}:${selection.name}`;
-    choices = fetchedDeferredChoices[key] || [];
-  } else {
-    choices = selection.choices || [];
-  }
+  // Get choices using actionController.getChoices() - all choices are now fetched on-demand
+  const choices = props.actionController.getChoices(selection) || [];
 
-  // Find the skip choice value
+  // Find the skip choice - use display for matching text
   const skipChoice = choices.find((choice: any) => {
-    const choiceValue = choice.value || choice.display || choice;
-    return typeof choiceValue === 'string' && choiceValue.toLowerCase().includes('skip');
+    const choiceDisplay = choice.display || choice.value || choice;
+    return typeof choiceDisplay === 'string' && choiceDisplay.toLowerCase().includes('skip');
   });
 
   if (skipChoice) {
-    const choiceValue = skipChoice.value || skipChoice.display || skipChoice;
+    // Use value for the actual selection (element ID or the choice itself)
+    const choiceValue = skipChoice.value ?? skipChoice;
     selectMercToHire({ _choiceValue: choiceValue });
   }
 }
@@ -1058,7 +1236,8 @@ async function handleSectorClick(sectorId: string) {
 
     if (selectionType === 'element') {
       // Element selections expect element IDs - find the sector element ID
-      const validElements = selection?.validElements || [];
+      // Use actionController getter (not selection.validElements)
+      const validElements = selection ? props.actionController.getValidElements(selection) || [] : [];
       const matchingElement = validElements.find((e: any) =>
         e.ref?.name === sectorId ||
         e.ref?.notation === sectorId ||
@@ -1067,7 +1246,8 @@ async function handleSectorClick(sectorId: string) {
       actionValue = matchingElement?.id || sectorId;
     } else {
       // Choice selections - use sector name
-      const choices = selection?.choices || [];
+      // Use actionController getter (not selection.choices)
+      const choices = selection ? props.actionController.getChoices(selection) || [] : [];
       const matchingChoice = choices.find((c: any) => {
         const choiceValue = c.value || c.display || c;
         return choiceValue === sector?.sectorName ||
@@ -1079,9 +1259,15 @@ async function handleSectorClick(sectorId: string) {
 
     // Execute the action
     await props.actionController.execute('placeLanding', { [selectionName]: actionValue });
-  } else if (props.availableActions.includes('move')) {
-    await props.actionController.execute('move', { sectorId });
+  } else {
+    // Show the sector panel for all other clicks
+    selectedSectorId.value = sectorId;
   }
+}
+
+// Close sector panel
+function closeSectorPanel() {
+  selectedSectorId.value = null;
 }
 
 // Check if equipment can be dropped (player's turn, dropEquipment action available)
@@ -1178,17 +1364,19 @@ const clickableSectors = computed(() => {
     // Get valid choices from action metadata
     const metadata = landingZoneMetadata.value;
     const selection = metadata?.selections?.[0];
-    const choices = selection?.choices || [];
+    // Use actionController getter (not selection.choices)
+    const choices = selection ? props.actionController.getChoices(selection) || [] : [];
 
     if (choices.length > 0) {
       // Find sectors that match the choices
       const validSectorIds: string[] = [];
       for (const choice of choices) {
-        const choiceValue = choice.value || choice.display || choice;
+        // Use display for matching (value might be element ID number)
+        const displayValue = choice.display || String(choice.value || choice);
         // Find sector by name match
         const matchingSector = sectors.value.find(s =>
-          s.sectorName === choiceValue ||
-          choiceValue.includes(s.sectorName)
+          s.sectorName === displayValue ||
+          (typeof displayValue === 'string' && displayValue.includes(s.sectorName))
         );
         if (matchingSector) {
           validSectorIds.push(matchingSector.sectorId);
@@ -1221,6 +1409,30 @@ const clickableSectors = computed(() => {
       @reroll="handleReroll"
       @confirm-allocation="handleConfirmAllocation"
       @confirm-targets="handleConfirmTargets"
+    />
+
+    <!-- Sector Panel - shown when a sector is selected -->
+    <SectorPanel
+      v-if="selectedSector && !hasActiveCombat && !isHiringMercs"
+      :sector="selectedSector"
+      :player-position="playerPosition"
+      :available-actions="availableActions"
+      :action-controller="actionController"
+      :game-view="gameView"
+      :primary-squad="primarySquad"
+      :secondary-squad="secondarySquad"
+      :all-sectors="sectors"
+      :stash-contents="selectedSectorStash"
+      :has-doc="hasDoc"
+      :has-squidhead="hasSquidhead"
+      :has-mortar="hasMortar"
+      :has-damaged-mercs="hasDamagedMercs"
+      :has-land-mines-in-stash="hasLandMinesInStash"
+      :squidhead-has-land-mine="squidheadHasLandMine"
+      :has-dictator-forces="selectedSectorHasDictatorForces"
+      :is-base="selectedSectorIsBase"
+      :has-explosives-components="hasExplosivesComponents"
+      @close="closeSectorPanel"
     />
 
     <!-- Hiring phase - show MERCs to choose from -->
@@ -1841,4 +2053,5 @@ const clickableSectors = computed(() => {
   width: fit-content;
   margin: 0 auto;
 }
+
 </style>

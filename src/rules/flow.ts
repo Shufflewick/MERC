@@ -286,6 +286,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'joinCoordinatedAttack', // MERC-a2h: Join declared attack
                     'executeCoordinatedAttack', // MERC-a2h: Execute multi-player attack
                     'explore',
+                    'collectEquipment', // Pick up equipment from sector stash
                     'train',
                     'hireMerc',
                     'reEquip',

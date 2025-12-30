@@ -21,73 +21,6 @@ import {
   useTrainingAction,
 } from './helpers.js';
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/**
- * Get cached equipment elements from IDs stored in pendingLootMap
- */
-function getCachedEquipment(game: MERCGame, sectorId: string): Equipment[] {
-  const cachedIds = game.pendingLootMap.get(sectorId);
-  if (!cachedIds) return [];
-
-  // Look up each equipment element by ID
-  return cachedIds
-    .map(id => game.getElementById(id) as Equipment | undefined)
-    .filter((e): e is Equipment => e !== undefined);
-}
-
-/**
- * Update the cached equipment IDs after modification (equip/return)
- */
-function updateCachedEquipmentIds(game: MERCGame, sectorId: string, equipment: Equipment[]): void {
-  game.pendingLootMap.set(sectorId, equipment.map(e => e.id as number));
-}
-
-/**
- * Draw and cache loot equipment for exploration
- * Uses a Map to support multiple MERCs in different unexplored sectors
- * Stores equipment IDs (not element references) for HMR compatibility
- */
-function drawAndCacheLoot(game: MERCGame, sector: Sector): Equipment[] {
-  // Check if we already cached for this sector
-  const cachedIds = game.pendingLootMap.get(sector.sectorId);
-  if (cachedIds && cachedIds.length > 0) {
-    return getCachedEquipment(game, sector.sectorId);
-  }
-
-  // Draw equipment based on loot icons
-  const drawnEquipment: Equipment[] = [];
-
-  for (let i = 0; i < sector.weaponLoot; i++) {
-    const weapon = game.drawEquipment('Weapon');
-    if (weapon) drawnEquipment.push(weapon);
-  }
-
-  for (let i = 0; i < sector.armorLoot; i++) {
-    const armor = game.drawEquipment('Armor');
-    if (armor) drawnEquipment.push(armor);
-  }
-
-  for (let i = 0; i < sector.accessoryLoot; i++) {
-    const accessory = game.drawEquipment('Accessory');
-    if (accessory) drawnEquipment.push(accessory);
-  }
-
-  // Industry bonus
-  if (sector.isIndustry) {
-    const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
-    const randomType = types[Math.floor(Math.random() * types.length)];
-    const bonusEquipment = game.drawEquipment(randomType);
-    if (bonusEquipment) drawnEquipment.push(bonusEquipment);
-  }
-
-  // Cache the equipment IDs (not element references) for HMR compatibility
-  game.pendingLootMap.set(sector.sectorId, drawnEquipment.map(e => e.id as number));
-
-  return drawnEquipment;
-}
 
 // =============================================================================
 // Hire MERC Action
@@ -351,12 +284,29 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
-// Explore Action
+// Explore Action (simplified - just exploration, no equipment selection)
 // =============================================================================
+
+// Helper to find the sector a MERC is in
+function findMercSector(merc: MercCard, player: RebelPlayer, game: MERCGame): Sector | null {
+  for (const squad of [player.primarySquad, player.secondarySquad]) {
+    if (!squad?.sectorId) continue;
+    const mercs = squad.getMercs();
+    if (mercs.some(m => m.id === merc.id)) {
+      return game.getSector(squad.sectorId) || null;
+    }
+  }
+  return null;
+}
 
 /**
  * Explore the current sector to discover loot.
  * Cost: 1 action
+ *
+ * This action only handles exploration - selecting MERC, spending action,
+ * drawing equipment to stash, and marking sector explored.
+ * Equipment collection is done via the separate 'collectEquipment' action
+ * so the UI updates immediately after exploration.
  */
 export function createExploreAction(game: MERCGame): ActionDefinition {
   return Action.create('explore')
@@ -415,281 +365,196 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
                (inUnexploredSector(player.primarySquad) || inUnexploredSector(player.secondarySquad));
       },
     })
-    .chooseFrom<string>('equipment', {
-      prompt: (ctx) => {
-        const mercRef = ctx.args?.actingMerc;
-        if (!mercRef) return 'Select equipment';
-        // Look up actual MERC element
-        let actualMerc: MercCard | undefined;
-        if (typeof mercRef === 'number') {
-          actualMerc = game.getElementById(mercRef) as MercCard | undefined;
-        } else {
-          const mercId = (mercRef as any).id;
-          if (typeof mercId === 'number') {
-            actualMerc = game.getElementById(mercId) as MercCard | undefined;
-          }
-        }
-        return actualMerc ? `What should ${capitalize(actualMerc.mercName)} take?` : 'Select equipment';
-      },
-      dependsOn: 'actingMerc',
-      // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
-      choices: (ctx) => {
-        const mercRef = ctx.args?.actingMerc;
-        // During availability check, actingMerc won't be set yet - return placeholder
-        if (!mercRef) return ['(select MERC first)'];
-
-        // BoardSmith may pass the element ID (number) or the element object
-        let actingMerc: MercCard | undefined;
-        if (typeof mercRef === 'number') {
-          actingMerc = game.getElementById(mercRef) as MercCard | undefined;
-        } else {
-          const mercId = (mercRef as any).id;
-          if (typeof mercId === 'number') {
-            actingMerc = game.getElementById(mercId) as MercCard | undefined;
-          }
-        }
-
-        if (!actingMerc) {
-          return ['Done'];
-        }
-
-        const player = ctx.player as RebelPlayer;
-
-        // Find the sector the merc is in
-        const findMercSector = (): Sector | null => {
-          for (const squad of [player.primarySquad, player.secondarySquad]) {
-            if (!squad?.sectorId) continue;
-            const mercs = squad.getMercs();
-            if (mercs.some(m => m.id === actingMerc!.id)) {
-              return game.getSector(squad.sectorId) || null;
-            }
-          }
-          return null;
-        };
-
-        const sector = findMercSector();
-        if (!sector) {
-          return ['Done'];
-        }
-
-        // Draw and cache equipment (or get from cache/stash)
-        // Using Map-based cache to support multiple MERCs in different unexplored sectors
-        let equipment: Equipment[];
-        const cachedIds = game.pendingLootMap.get(sector.sectorId);
-        if (cachedIds && cachedIds.length > 0) {
-          equipment = getCachedEquipment(game, sector.sectorId);
-        } else if (sector.explored) {
-          // Already explored, use stash
-          equipment = sector.stash;
-        } else {
-          // Draw new equipment
-          equipment = drawAndCacheLoot(game, sector);
-        }
-
-        if (equipment.length === 0) {
-          return ['Done'];
-        }
-
-        // MERC-70a: Filter out grenades/mortars if Apeiron is the acting MERC
-        let availableEquipment = equipment;
-        if (actingMerc.mercId === 'apeiron') {
-          availableEquipment = equipment.filter(e => !isGrenadeOrMortar(e));
-        }
-
-        if (availableEquipment.length === 0) {
-          return ['Done'];
-        }
-
-        // The equipment array is the source of truth - items are removed when equipped
-        // and added back when replaced, so we just show whatever is currently available
-        const equipmentChoices = availableEquipment.map(e => `${e.equipmentName} (${e.equipmentType})`);
-        return [...equipmentChoices, 'Done'];
-      },
-      repeat: {
-        until: (_ctx, choice) => {
-          return choice === 'Done';
-        },
-        onEach: (ctx, choice) => {
-          if (choice === 'Done') return;
-
-          const mercRef = ctx.args?.actingMerc;
-          const player = ctx.player as RebelPlayer;
-          if (!mercRef) return;
-
-          // Look up actual MERC element (BoardSmith may pass ID or object)
-          let actingMerc: MercCard | undefined;
-          if (typeof mercRef === 'number') {
-            actingMerc = game.getElementById(mercRef) as MercCard | undefined;
-          } else {
-            const mercId = (mercRef as any).id;
-            if (typeof mercId === 'number') {
-              actingMerc = game.getElementById(mercId) as MercCard | undefined;
-            }
-          }
-          if (!actingMerc) return;
-
-          // Find the sector with the equipment
-          const findMercSector = (): Sector | null => {
-            for (const squad of [player.primarySquad, player.secondarySquad]) {
-              if (!squad?.sectorId) continue;
-              const mercs = squad.getMercs();
-              if (mercs.some(m => m.id === actingMerc!.id)) {
-                return game.getSector(squad.sectorId) || null;
-              }
-            }
-            return null;
-          };
-
-          const sector = findMercSector();
-          if (!sector) return;
-
-          // On first equipment selection, spend action (but DON'T mark explored yet!)
-          // We defer marking explored until execute() to keep the action available during repeat
-          const isFirstSelection = !game.pendingLootMap.has(sector.sectorId + ':explored');
-          if (isFirstSelection && !sector.explored) {
-            useAction(actingMerc, ACTION_COSTS.EXPLORE);
-            // Mark that we've started exploring this sector (but not actually explored yet)
-            game.pendingLootMap.set(sector.sectorId + ':explored', []);
-
-            // Report what was found
-            const drawnEquipment = getCachedEquipment(game, sector.sectorId);
-            if (drawnEquipment.length > 0) {
-              const equipmentList = drawnEquipment.map(e => e.equipmentName).join(', ');
-              game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
-            } else {
-              game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found nothing`);
-            }
-          }
-
-          // Get equipment from pending loot map or stash
-          const cachedIds = game.pendingLootMap.get(sector.sectorId);
-          const isFromCache = cachedIds && cachedIds.length > 0;
-          const equipment: Equipment[] = isFromCache
-            ? getCachedEquipment(game, sector.sectorId)
-            : sector.stash;
-
-          // Parse the choice string to find the equipment
-          const match = (choice as string).match(/^(.+) \((Weapon|Armor|Accessory)\)$/);
-          if (!match) return;
-
-          const [, equipName, equipType] = match;
-          const equipIndex = equipment.findIndex(
-            e => e.equipmentName === equipName && e.equipmentType === equipType
-          );
-
-          if (equipIndex === -1) return;
-
-          const item = equipment[equipIndex];
-
-          // Equip the item on the MERC (handles replacement)
-          const replaced = actingMerc.equip(item);
-
-          // Remove from source (pending loot or stash)
-          equipment.splice(equipIndex, 1);
-
-          if (replaced) {
-            // Move replaced equipment to discard pile so it's in proper element hierarchy
-            const discard = game.getEquipmentDiscard(replaced.equipmentType);
-            if (discard) {
-              replaced.putInto(discard);
-            }
-            // Put replaced item back in the loot pool
-            equipment.push(replaced);
-            game.message(`${capitalize(actingMerc.mercName)} equipped ${item.equipmentName}, returned ${replaced.equipmentName}`);
-          } else {
-            game.message(`${capitalize(actingMerc.mercName)} equipped ${item.equipmentName}`);
-          }
-
-          // Update the cache with modified equipment list (if from cache)
-          if (isFromCache) {
-            updateCachedEquipmentIds(game, sector.sectorId, equipment);
-          }
-        },
-      },
-    })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
-      const mercRef = args.actingMerc;
-
-      // Look up actual MERC element (BoardSmith may pass ID or object)
-      let actingMerc: MercCard | undefined;
-      if (typeof mercRef === 'number') {
-        actingMerc = game.getElementById(mercRef) as MercCard | undefined;
-      } else if (mercRef) {
-        const mercId = (mercRef as any).id;
-        if (typeof mercId === 'number') {
-          actingMerc = game.getElementById(mercId) as MercCard | undefined;
-        }
-      }
+      const actingMerc = args.actingMerc as MercCard;
 
       if (!actingMerc) {
         return { success: false, message: 'MERC not found' };
       }
 
-      // Find which squad the merc is in
-      const findMercSquad = (): Squad | null => {
-        if (player.primarySquad?.getMercs().some(m => m.id === actingMerc!.id)) {
-          return player.primarySquad;
-        }
-        if (player.secondarySquad?.getMercs().some(m => m.id === actingMerc!.id)) {
-          return player.secondarySquad;
-        }
-        return null;
-      };
-
-      const squad = findMercSquad();
-      if (!squad?.sectorId) {
-        return { success: false, message: 'MERC not in a valid squad' };
-      }
-
-      const sector = game.getSector(squad.sectorId);
+      // Find the sector
+      const sector = findMercSector(actingMerc, player, game);
       if (!sector) {
         return { success: false, message: 'No sector found' };
       }
 
-      // Handle case where user clicked "Done" without selecting any equipment
-      // (action spending happens in onEach on first equipment selection,
-      // but if they clicked Done immediately, we need to handle it here)
-      const startedExploring = game.pendingLootMap.has(sector.sectorId + ':explored');
-      if (!sector.explored && !startedExploring) {
-        useAction(actingMerc, ACTION_COSTS.EXPLORE);
+      // Spend action
+      useAction(actingMerc, ACTION_COSTS.EXPLORE);
 
-        const drawnEquipment = getCachedEquipment(game, sector.sectorId);
-        if (drawnEquipment.length > 0) {
-          const equipmentList = drawnEquipment.map(e => e.equipmentName).join(', ');
-          game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
-        } else {
-          game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found nothing`);
-        }
+      // Draw equipment to stash
+      for (let i = 0; i < sector.weaponLoot; i++) {
+        const weapon = game.drawEquipment('Weapon');
+        if (weapon) sector.addToStash(weapon);
+      }
+      for (let i = 0; i < sector.armorLoot; i++) {
+        const armor = game.drawEquipment('Armor');
+        if (armor) sector.addToStash(armor);
+      }
+      for (let i = 0; i < sector.accessoryLoot; i++) {
+        const accessory = game.drawEquipment('Accessory');
+        if (accessory) sector.addToStash(accessory);
+      }
+      // Industry bonus
+      if (sector.isIndustry) {
+        const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        const bonusEquipment = game.drawEquipment(randomType);
+        if (bonusEquipment) sector.addToStash(bonusEquipment);
       }
 
-      // NOW mark the sector as explored (deferred from onEach to keep action available during repeat)
-      if (!sector.explored) {
-        sector.explore();
-      }
+      // Mark explored
+      sector.explore();
 
-      // Clean up the exploration marker
-      game.pendingLootMap.delete(sector.sectorId + ':explored');
-
-      // Move any remaining cached loot to sector stash
-      const cachedLoot = getCachedEquipment(game, sector.sectorId);
-      if (cachedLoot.length > 0) {
-        for (const equip of cachedLoot) {
-          sector.addToStash(equip);
-        }
-        game.pendingLootMap.delete(sector.sectorId);
-      }
-
-      // Report remaining stash
-      if (sector.stash.length > 0) {
-        const remaining = sector.stash.map(e => e.equipmentName).join(', ');
-        game.message(`Left in stash: ${remaining}`);
+      // Report what was found
+      if (sector.stashCount > 0) {
+        const equipmentList = sector.stash.map(e => e.equipmentName).join(', ');
+        game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
+      } else {
+        game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found nothing`);
       }
 
       return {
         success: true,
         message: `Explored ${sector.sectorName}`,
       };
+    });
+}
+
+// =============================================================================
+// Collect Equipment Action (new - separate from explore for UI updates)
+// =============================================================================
+
+/**
+ * Collect equipment from a sector stash.
+ * Cost: 0 actions (free)
+ *
+ * This is a separate action from explore so that the UI updates
+ * after exploration completes (showing explored status, stash count, etc.)
+ * before the player selects equipment.
+ */
+export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
+  return Action.create('collectEquipment')
+    .prompt('Take from stash')
+    .condition((ctx, tracer) => {
+      // Cannot collect during combat
+      if (game.activeCombat) return false;
+
+      // Only rebels can collect
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      if (tracer) tracer.check('isRebelPlayer', isRebel);
+      if (!isRebel) return false;
+
+      const player = ctx.player as RebelPlayer;
+
+      // Check if any squad is in a sector with stash items
+      const hasStash = (squad: Squad | null | undefined, name: string): boolean => {
+        if (!squad?.sectorId) {
+          if (tracer) tracer.check(`${name}.sectorId`, false, 'no sector');
+          return false;
+        }
+        const sector = game.getSector(squad.sectorId);
+        const hasItems = !!(sector && sector.stashCount > 0);
+        if (tracer) tracer.check(`${name}.stash`, hasItems, `${sector?.stashCount ?? 0} items`);
+        return hasItems;
+      };
+
+      const primaryHasStash = hasStash(player.primarySquad, 'primarySquad');
+      const secondaryHasStash = hasStash(player.secondarySquad, 'secondarySquad');
+      return primaryHasStash || secondaryHasStash;
+    })
+    .chooseElement<MercCard>('merc', {
+      prompt: 'Which MERC takes equipment?',
+      elementClass: MercCard,
+      display: (merc) => capitalize(merc.mercName),
+      filter: (element, ctx) => {
+        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        const merc = element as unknown as MercCard;
+        const player = ctx.player as RebelPlayer;
+
+        // MERC must be in a sector with stash
+        for (const squad of [player.primarySquad, player.secondarySquad]) {
+          if (!squad?.sectorId) continue;
+          if (!squad.getMercs().some(m => m.id === merc.id)) continue;
+          const sector = game.getSector(squad.sectorId);
+          if (sector && sector.stashCount > 0) return true;
+        }
+        return false;
+      },
+    })
+    .fromElements<Equipment>('equipment', {
+      prompt: (ctx) => {
+        const merc = ctx.args?.merc as MercCard | undefined;
+        return merc ? `What should ${capitalize(merc.mercName)} take?` : 'Select equipment';
+      },
+      dependsOn: 'merc',
+      display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
+      optional: 'Done',
+      // PURE - no side effects, just returns stash contents
+      elements: (ctx) => {
+        const merc = ctx.args?.merc as MercCard | undefined;
+        if (!merc) return [];
+
+        const player = ctx.player as RebelPlayer;
+        const sector = findMercSector(merc, player, game);
+        if (!sector) return [];
+
+        // MERC-70a: Filter out grenades/mortars if Apeiron
+        if (merc.mercId === 'apeiron') {
+          return sector.stash.filter(e => !isGrenadeOrMortar(e));
+        }
+        return [...sector.stash];
+      },
+      repeat: {
+        until: (ctx, equipment) => {
+          if (!equipment) return true; // User chose Done
+
+          const merc = ctx.args?.merc as MercCard | undefined;
+          if (!merc) return true;
+
+          const player = ctx.player as RebelPlayer;
+          const sector = findMercSector(merc, player, game);
+          return !sector || sector.stashCount === 0;
+        },
+        onEach: (ctx, item) => {
+          if (!item) return;
+
+          const merc = ctx.args?.merc as MercCard | undefined;
+          if (!merc) return;
+
+          const player = ctx.player as RebelPlayer;
+          const sector = findMercSector(merc, player, game);
+          if (!sector) return;
+
+          // Equip the item - equip() uses putInto() which moves from stash
+          const replaced = merc.equip(item);
+
+          if (replaced) {
+            sector.addToStash(replaced);
+            game.message(`${capitalize(merc.mercName)} equipped ${item.equipmentName}, returned ${replaced.equipmentName}`);
+          } else {
+            game.message(`${capitalize(merc.mercName)} equipped ${item.equipmentName}`);
+          }
+        },
+      },
+    })
+    .execute((args, ctx) => {
+      const merc = args.merc as MercCard | undefined;
+      const player = ctx.player as RebelPlayer;
+
+      if (!merc) {
+        return { success: true, message: 'No equipment taken' };
+      }
+
+      const sector = findMercSector(merc, player, game);
+
+      // Report remaining stash
+      if (sector && sector.stashCount > 0) {
+        const remaining = sector.stash.map(e => e.equipmentName).join(', ');
+        game.message(`Left in stash: ${remaining}`);
+      }
+
+      return { success: true, message: 'Equipment collected' };
     });
 }
 
@@ -771,10 +636,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Equipment not found in stash' };
       }
 
-      // Remove from stash
-      sector.removeFromStash(equipment);
-
-      // Equip to merc
+      // Equip to merc - equip() uses putInto() which moves equipment from stash
       const replaced = targetMerc.equip(equipment);
       if (replaced) {
         sector.addToStash(replaced);
@@ -1079,5 +941,86 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
 
       game.message(`${player.name} ends their turn`);
       return { success: true, message: 'Turn ended', data: { endTurn: true } };
+    });
+}
+
+// =============================================================================
+// View Stash Action
+// =============================================================================
+
+/**
+ * View equipment in a sector's stash.
+ * Cost: 0 actions (free, information only)
+ * Available when player has a squad in an explored sector with stash contents.
+ */
+export function createViewStashAction(game: MERCGame): ActionDefinition {
+  return Action.create('viewStash')
+    .prompt('View sector stash')
+    .condition((ctx, tracer) => {
+      // Only rebels can view stash
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      if (tracer) tracer.check('isRebelPlayer', isRebel);
+      if (!isRebel) return false;
+
+      const player = ctx.player as RebelPlayer;
+
+      // Check if any squad is in an explored sector with stash
+      const canViewFrom = (squad: Squad | null | undefined): boolean => {
+        if (!squad?.sectorId) return false;
+        const sector = game.getSector(squad.sectorId);
+        return !!(sector && sector.explored && sector.stash.length > 0);
+      };
+
+      const hasStash = canViewFrom(player.primarySquad) || canViewFrom(player.secondarySquad);
+      if (tracer) tracer.check('hasAccessibleStash', hasStash);
+      return hasStash;
+    })
+    .chooseFrom<string>('sector', {
+      prompt: 'Which sector stash to view?',
+      choices: (ctx) => {
+        const player = ctx.player as RebelPlayer;
+        const choices: string[] = [];
+
+        const addIfHasStash = (squad: Squad | null | undefined) => {
+          if (!squad?.sectorId) return;
+          const sector = game.getSector(squad.sectorId);
+          if (sector && sector.explored && sector.stash.length > 0) {
+            choices.push(sector.sectorId);
+          }
+        };
+
+        addIfHasStash(player.primarySquad);
+        addIfHasStash(player.secondarySquad);
+        return choices;
+      },
+      display: (sectorId) => {
+        const sector = game.getSector(sectorId);
+        return sector ? `${sector.sectorName} (${sector.stash.length} items)` : sectorId;
+      },
+    })
+    .execute((args) => {
+      const sectorId = args.sector as string;
+      const sector = game.getSector(sectorId);
+
+      if (!sector) {
+        return { success: false, message: 'Sector not found' };
+      }
+
+      // Return the stash contents as data for the UI to display
+      const stashItems = sector.stash.map(e => ({
+        equipmentName: e.equipmentName,
+        equipmentType: e.equipmentType,
+        id: e.id,
+      }));
+
+      return {
+        success: true,
+        message: `Viewing stash in ${sector.sectorName}`,
+        data: {
+          sectorId: sector.sectorId,
+          sectorName: sector.sectorName,
+          stash: stashItems,
+        },
+      };
     });
 }

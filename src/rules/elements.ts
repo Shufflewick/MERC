@@ -1128,11 +1128,38 @@ export class Sector extends GridCell {
   dictatorMilitia: number = 0;
   rebelMilitia: Record<string, number> = {}; // playerId -> count
 
-  // Equipment stash
-  stash: Equipment[] = [];
+  // Equipment stash - stored as element children in a Space named 'stash'
+  // This ensures equipment serializes properly in gameView
 
   // Dictator base token
   isBase: boolean = false;
+
+  /**
+   * Get or create the stash zone (lazy initialization)
+   */
+  private getOrCreateStashZone(): Space {
+    let zone = this.first(Space, { name: 'stash' });
+    if (!zone) {
+      zone = this.create(Space, 'stash');
+    }
+    return zone;
+  }
+
+  /**
+   * Get equipment in stash as array (getter replaces old property)
+   */
+  get stash(): Equipment[] {
+    const zone = this.first(Space, { name: 'stash' });
+    return zone ? [...zone.all(Equipment)] : [];
+  }
+
+  /**
+   * Get count of equipment in stash
+   */
+  get stashCount(): number {
+    const zone = this.first(Space, { name: 'stash' });
+    return zone?.count(Equipment) ?? 0;
+  }
 
   // Constant (imported from game constants)
   static readonly MAX_MILITIA_PER_SIDE = SectorConstants.MAX_MILITIA_PER_SIDE;
@@ -1220,6 +1247,7 @@ export class Sector extends GridCell {
   /**
    * Add equipment to sector stash.
    * Damaged equipment cannot be stashed - must be discarded instead.
+   * Uses putInto() to move equipment into the element tree for proper serialization.
    * @returns true if added, false if equipment was damaged
    */
   addToStash(equipment: Equipment): boolean {
@@ -1227,42 +1255,52 @@ export class Sector extends GridCell {
       // Damaged equipment cannot be stashed - caller should discard
       return false;
     }
-    this.stash.push(equipment);
+    const zone = this.getOrCreateStashZone();
+    equipment.putInto(zone);  // Move into element tree
     return true;
   }
 
+  /**
+   * Take equipment from stash by index.
+   * Returns the equipment element - caller is responsible for moving it.
+   */
   takeFromStash(index: number): Equipment | undefined {
-    if (index >= 0 && index < this.stash.length) {
-      return this.stash.splice(index, 1)[0];
+    const zone = this.first(Space, { name: 'stash' });
+    if (!zone) return undefined;
+    const items = zone.all(Equipment);
+    if (index >= 0 && index < items.length) {
+      return items[index];  // Caller moves it with putInto() or equip()
     }
     return undefined;
   }
 
   /**
-   * Remove specific equipment from stash by reference
-   * @returns true if removed, false if not found
+   * Remove specific equipment from stash by reference.
+   * Note: The equipment is already in the element tree, caller moves it elsewhere.
+   * @returns true if found in stash, false if not found
    */
   removeFromStash(equipment: Equipment): boolean {
-    const index = this.stash.findIndex(e => e.id === equipment.id);
-    if (index >= 0) {
-      this.stash.splice(index, 1);
-      return true;
-    }
-    return false;
+    const zone = this.first(Space, { name: 'stash' });
+    if (!zone) return false;
+    const found = zone.first(Equipment, e => e.id === equipment.id);
+    return !!found;
+    // Note: equipment.putInto(newParent) by caller actually moves it out of stash
   }
 
   /**
    * Find equipment in stash by type
    */
   findInStash(type: EquipmentType): Equipment | undefined {
-    return this.stash.find(e => e.equipmentType === type);
+    const zone = this.first(Space, { name: 'stash' });
+    if (!zone) return undefined;
+    return zone.first(Equipment, e => e.equipmentType === type);
   }
 
   /**
    * Get all equipment in stash
    */
   getStashContents(): Equipment[] {
-    return [...this.stash];
+    return this.stash;  // Uses the getter
   }
 }
 

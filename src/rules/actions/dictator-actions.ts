@@ -824,11 +824,7 @@ export function createDictatorReEquipAction(game: MERCGame): ActionDefinition {
         sector.addToStash(currentEquipment);
       }
 
-      // Equip new item
-      const stashIdx = sector.stash.indexOf(equipment);
-      if (stashIdx >= 0) {
-        sector.takeFromStash(stashIdx);
-      }
+      // Equip new item - equip() uses putInto() to move equipment from stash
       unit.equip(equipment);
 
       game.message(`${getDictatorUnitName(unit)} equipped ${equipment.equipmentName}`);

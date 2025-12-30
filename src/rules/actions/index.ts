@@ -62,11 +62,13 @@ import {
 import {
   createHireMercAction,
   createExploreAction,
+  createCollectEquipmentAction,
   createTakeFromStashAction,
   createTrainAction,
   createHospitalAction,
   createArmsDealerAction,
   createEndTurnAction,
+  createViewStashAction,
 } from './rebel-economy.js';
 
 import {
@@ -125,6 +127,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createJoinCoordinatedAttackAction(game)); // MERC-a2h
   game.registerAction(createExecuteCoordinatedAttackAction(game)); // MERC-a2h
   game.registerAction(createExploreAction(game));
+  game.registerAction(createCollectEquipmentAction(game));
   game.registerAction(createTakeFromStashAction(game));
   game.registerAction(createTrainAction(game));
   game.registerAction(createReEquipAction(game));
@@ -142,6 +145,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createSplitSquadAction(game));
   game.registerAction(createMergeSquadsAction(game));
   game.registerAction(createEndTurnAction(game));
+  game.registerAction(createViewStashAction(game));
 
   // MERC-n1f: Combat actions
   game.registerAction(createCombatContinueAction(game));

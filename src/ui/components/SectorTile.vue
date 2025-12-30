@@ -115,9 +115,8 @@ const rebelMilitiaEntries = computed(() => {
 });
 
 function handleClick() {
-  if (props.isClickable) {
-    emit('click', props.sector.sectorId);
-  }
+  // Always emit click - let parent decide what to do
+  emit('click', props.sector.sectorId);
 }
 
 function getMercImagePath(merc: MercInSector) {
