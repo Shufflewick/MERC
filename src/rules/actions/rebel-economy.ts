@@ -804,8 +804,8 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
  * MERC-dh5: Includes free re-equip option per rules
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
-  // Cache drawn equipment for the free re-equip choice
-  const drawnEquipmentCache = new Map<string, Equipment>();
+  // Helper to get/set drawn equipment in game.settings (persists across choices/execute)
+  const getSettingsKey = (playerPos: number) => `_armsDealer_drawn_${playerPos}`;
 
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
@@ -842,19 +842,21 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       prompt: 'Free Re-Equip: Which MERC should equip this item? (or skip)',
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
-        const equipmentType = ctx.data?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-        const cacheKey = `${player.position}`;
+        const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+        const settingsKey = getSettingsKey(player.position);
 
         // Draw equipment now so we can show what was bought
-        if (!drawnEquipmentCache.has(cacheKey)) {
+        // Store in game.settings to persist across choices/execute contexts
+        if (!game.settings[settingsKey]) {
           const equipment = game.drawEquipment(equipmentType);
           if (equipment) {
-            drawnEquipmentCache.set(cacheKey, equipment);
+            game.settings[settingsKey] = equipment.id;
             game.message(`Drew ${equipment.equipmentName} from ${equipmentType} deck`);
           }
         }
 
-        const drawnEquip = drawnEquipmentCache.get(cacheKey);
+        const equipmentId = game.settings[settingsKey] as number | undefined;
+        const drawnEquip = equipmentId ? game.getElementById(equipmentId) as Equipment | undefined : undefined;
 
         // MERC-70a: Filter out Apeiron if equipment is a grenade/mortar
         const eligibleMercs = player.team.filter(m => {
@@ -875,15 +877,17 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
-      const cacheKey = `${player.position}`;
+      const settingsKey = getSettingsKey(player.position);
       const squad = player.primarySquad;
       const sector = game.getSector(squad.sectorId!);
 
       // Spend action
       useAction(actingMerc, ACTION_COSTS.ARMS_DEALER);
 
-      const equipment = drawnEquipmentCache.get(cacheKey);
-      drawnEquipmentCache.delete(cacheKey);
+      // Get equipment from game.settings (stored by choices function)
+      const equipmentId = game.settings[settingsKey] as number | undefined;
+      const equipment = equipmentId ? game.getElementById(equipmentId) as Equipment | undefined : undefined;
+      delete game.settings[settingsKey]; // Clean up
 
       if (equipment && sector) {
         const equipMercName = args.equipMerc as string;
