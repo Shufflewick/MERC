@@ -391,9 +391,23 @@ const adjacentActions = computed(() => {
 const allActions = computed(() => [...inSectorActions.value, ...adjacentActions.value]);
 
 // Check if we're currently in an action flow started from this panel
+// Also detect followUp actions like collectEquipment that chain from explore
 const isInActionFlow = computed(() => {
-  return activeActionFromPanel.value !== null &&
-         props.actionController.currentAction.value === activeActionFromPanel.value;
+  const currentAction = props.actionController.currentAction.value;
+  if (!currentAction) return false;
+
+  // Direct action from panel
+  if (activeActionFromPanel.value !== null && currentAction === activeActionFromPanel.value) {
+    return true;
+  }
+
+  // FollowUp action (collectEquipment chains from explore)
+  // Check if current action is collectEquipment and we have a squad in this sector
+  if (currentAction === 'collectEquipment' && hasSquadInSector.value) {
+    return true;
+  }
+
+  return false;
 });
 
 // Get current selection from action controller

@@ -449,66 +449,107 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
  * Note: No condition() - this action is only triggered via followUp from explore.
  * The followUp mechanism handles when it runs.
  */
+/**
+ * Collect equipment from the sector stash (one item at a time).
+ * Chains via followUp if more items remain in stash.
+ * This is simpler than using repeat which has issues with followUp actions.
+ */
 export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
+  // Helper to resolve sector from ctx.args (handles both numeric ID and resolved element)
+  function getSector(ctx: any): Sector | undefined {
+    const sectorArg = ctx.args?.sectorId;
+    if (typeof sectorArg === 'number') {
+      return game.getElementById(sectorArg) as Sector | undefined;
+    } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
+      return sectorArg as Sector;
+    }
+    return undefined;
+  }
+
+  // Helper to resolve merc from ctx.args
+  function getMerc(ctx: any): MercCard | undefined {
+    const mercArg = ctx.args?.mercId;
+    if (typeof mercArg === 'number') {
+      return game.getElementById(mercArg) as MercCard | undefined;
+    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+      return mercArg as MercCard;
+    }
+    return undefined;
+  }
+
   return Action.create('collectEquipment')
     .prompt('Take from stash')
-    .fromElements<Equipment>('equipment', {
+    .chooseElement<Equipment>('equipment', {
       prompt: (ctx) => {
-        const merc = game.getElementById(ctx.args?.mercId) as MercCard | undefined;
-        return merc ? `What should ${capitalize(merc.mercName)} take?` : 'Select equipment';
+        const merc = getMerc(ctx);
+        const sector = getSector(ctx);
+        const remaining = sector?.stashCount || 0;
+        return merc
+          ? `What should ${capitalize(merc.mercName)} take? (${remaining} item${remaining !== 1 ? 's' : ''} left, or skip)`
+          : 'Select equipment';
       },
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
-      optional: 'Done',
-      // Return stash contents - uses sectorId from followUp args
-      elements: (ctx) => {
-        const sector = game.getElementById(ctx.args?.sectorId) as Sector | undefined;
-        if (!sector) return [];
-
-        const merc = game.getElementById(ctx.args?.mercId) as MercCard | undefined;
+      optional: 'Done collecting',
+      elementClass: Equipment,
+      filter: (element, ctx) => {
+        const sector = getSector(ctx);
+        if (!sector) return false;
+        // Check if this equipment is in the sector's stash
+        const inStash = sector.stash.some(e => e.id === element.id);
+        if (!inStash) return false;
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
-        if (merc?.mercId === 'apeiron') {
-          return sector.stash.filter(e => !isGrenadeOrMortar(e));
+        const merc = getMerc(ctx);
+        if (merc?.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+          return false;
         }
-        return [...sector.stash];
-      },
-      repeat: {
-        until: (ctx, equipment) => {
-          if (!equipment) return true; // User chose Done
-
-          const sector = game.getElementById(ctx.args?.sectorId) as Sector | undefined;
-          return !sector || sector.stashCount === 0;
-        },
-        onEach: (ctx, item) => {
-          if (!item) return;
-
-          const merc = game.getElementById(ctx.args?.mercId) as MercCard | undefined;
-          const sector = game.getElementById(ctx.args?.sectorId) as Sector | undefined;
-          if (!merc || !sector) return;
-
-          // Equip the item - equip() uses putInto() which moves from stash
-          const replaced = merc.equip(item);
-
-          if (replaced) {
-            sector.addToStash(replaced);
-            game.message(`${capitalize(merc.mercName)} equipped ${item.equipmentName}, returned ${replaced.equipmentName}`);
-          } else {
-            game.message(`${capitalize(merc.mercName)} equipped ${item.equipmentName}`);
-          }
-        },
+        return true;
       },
     })
     .execute((args, ctx) => {
-      const merc = game.getElementById(ctx.args?.mercId) as MercCard | undefined;
-      const sector = game.getElementById(ctx.args?.sectorId) as Sector | undefined;
+      const merc = getMerc(ctx);
+      const sector = getSector(ctx);
+      const equipment = args.equipment as Equipment | null;
 
-      // Report remaining stash
-      if (sector && sector.stashCount > 0) {
-        const remaining = sector.stash.map(e => e.equipmentName).join(', ');
-        game.message(`Left in stash: ${remaining}`);
+      if (!merc || !sector) {
+        return { success: false, message: 'Invalid merc or sector' };
       }
 
-      return { success: true, message: 'Equipment collected' };
+      // User chose "Done collecting"
+      if (!equipment) {
+        if (sector.stashCount > 0) {
+          const remaining = sector.stash.map(e => e.equipmentName).join(', ');
+          game.message(`Left in stash: ${remaining}`);
+        }
+        return { success: true, message: 'Done collecting equipment' };
+      }
+
+      // Equip the item
+      const replaced = merc.equip(equipment);
+
+      if (replaced) {
+        sector.addToStash(replaced);
+        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+      } else {
+        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}`);
+      }
+
+      // If there are more items in stash, chain another collectEquipment
+      if (sector.stashCount > 0) {
+        return {
+          success: true,
+          message: `Equipped ${equipment.equipmentName}`,
+          followUp: {
+            action: 'collectEquipment',
+            args: {
+              mercId: typeof ctx.args?.mercId === 'number' ? ctx.args.mercId : merc.id,
+              sectorId: typeof ctx.args?.sectorId === 'number' ? ctx.args.sectorId : sector.id,
+            },
+          },
+        };
+      }
+
+      return { success: true, message: `Equipped ${equipment.equipmentName}` };
     });
 }
 
