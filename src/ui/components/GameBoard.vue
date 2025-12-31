@@ -8,6 +8,7 @@ import EquipmentCard from './EquipmentCard.vue';
 import CombatPanel from './CombatPanel.vue';
 import SectorPanel from './SectorPanel.vue';
 import DetailModal from './DetailModal.vue';
+import DrawEquipmentType from './DrawEquipmentType.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -234,8 +235,9 @@ const selectedSectorStash = computed(() => {
 
   // Stash is stored as a Space zone named 'stash' containing Equipment children
   // Look for the Space zone in sector's children
+  // Note: Element name from create(Space, 'stash') is stored at top level (c.name), not in attributes
   const stashZone = sectorElement.children?.find((c: any) =>
-    c.className === 'Space' && getAttr(c, 'name', '') === 'stash'
+    c.className === 'Space' && (c.name === 'stash' || getAttr(c, 'name', '') === 'stash')
   );
 
   if (!stashZone?.children) return [];
@@ -256,6 +258,12 @@ const selectedSectorStash = computed(() => {
       negatesArmor: getAttr(e, 'negatesArmor', false),
       image: getAttr(e, 'image', ''),
     }));
+});
+
+// Get all mercs in selected sector (for display in SectorPanel)
+const selectedSectorMercs = computed(() => {
+  if (!selectedSector.value) return [];
+  return allMercs.value.filter(m => m.sectorId === selectedSector.value?.sectorId);
 });
 
 // Check if player has Doc on team
@@ -416,6 +424,17 @@ const players = computed(() => {
 const currentPlayerColor = computed(() => {
   const player = players.value.find((p) => p.position === props.playerPosition);
   return player?.playerColor || 'red';
+});
+
+// Map player positions to colors (for militia display in SectorPanel)
+const playerColorMap = computed(() => {
+  const map: Record<string, string> = {};
+  for (const player of players.value) {
+    if (player.playerColor && !player.isDictator) {
+      map[String(player.position)] = player.playerColor;
+    }
+  }
+  return map;
 });
 
 // MERC-rwdv: Check if current player is the dictator
@@ -1316,55 +1335,13 @@ async function handleActivateAbility(mercId: string) {
 }
 
 // Handle dropping equipment from a MERC to sector stash
-async function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory' | `Bandolier:${number}`) {
+async function handleDropEquipment(mercId: number, equipmentId: number) {
   if (!canDropEquipment.value) return;
 
-  // Find the merc in the game view by mercId
-  const squads = findAllByClassName('Squad');
-  let mercElement: any = null;
-
-  for (const squad of squads) {
-    if (squad.children) {
-      for (const child of squad.children) {
-        const childMercId = getAttr(child, 'mercId', '');
-        if (childMercId === mercId) {
-          mercElement = child;
-          break;
-        }
-      }
-    }
-    if (mercElement) break;
-  }
-
-  if (!mercElement) {
-    console.error('Could not find merc element for mercId:', mercId);
-    return;
-  }
-
-  let slotChoice: string;
-
-  // Check if it's a bandolier slot
-  if (slotType.startsWith('Bandolier:')) {
-    const slotIndex = parseInt(slotType.split(':')[1], 10);
-    const bandolierData = mercElement.attributes?.bandolierSlotsData || mercElement.bandolierSlotsData || [];
-    const slotData = bandolierData[slotIndex];
-    const equipmentName = slotData?.equipmentName || slotData?.attributes?.equipmentName || 'Equipment';
-    slotChoice = `Bandolier:${slotIndex}: ${equipmentName}`;
-  } else {
-    // Get the equipment name for the slot selection
-    const slotKey = slotType === 'Weapon' ? 'weaponSlotData'
-                  : slotType === 'Armor' ? 'armorSlotData'
-                  : 'accessorySlotData';
-    const slotData = mercElement.attributes?.[slotKey] || mercElement[slotKey];
-    const equipmentName = slotData?.equipmentName || slotData?.attributes?.equipmentName || 'Equipment';
-    slotChoice = `${slotType}: ${equipmentName}`;
-  }
-
-  // Execute the dropEquipment action directly with both args
-  // Pass the element ID (number) so the server can resolve it to the actual element
+  // Execute the dropEquipment action directly with the numeric IDs
   await props.actionController.execute('dropEquipment', {
-    actingMerc: mercElement.id,
-    slot: slotChoice,
+    actingMerc: mercId,
+    equipment: equipmentId,
   });
 }
 
@@ -1426,6 +1403,9 @@ const clickableSectors = computed(() => {
       v-if="selectedSector && !hasActiveCombat && !isHiringMercs"
       :sector="selectedSector"
       :player-position="playerPosition"
+      :player-color="currentPlayerColor"
+      :player-color-map="playerColorMap"
+      :all-mercs-in-sector="selectedSectorMercs"
       :available-actions="availableActions"
       :action-controller="actionController"
       :game-view="gameView"
@@ -1464,20 +1444,11 @@ const clickableSectors = computed(() => {
       </div>
 
       <!-- Equipment type selection -->
-      <div class="equipment-type-choices" v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0">
-        <div class="equipment-type-buttons">
-          <button
-            v-for="choice in equipmentTypeChoices"
-            :key="choice.value"
-            class="equipment-type-button"
-            :class="choice.label.toLowerCase()"
-            @click="selectEquipmentType(choice.value)"
-          >
-            <span class="equip-icon">{{ choice.label === 'Weapon' ? '⚔️' : choice.label === 'Armor' ? '🛡️' : '📦' }}</span>
-            <span class="equip-label">{{ choice.label }}</span>
-          </button>
-        </div>
-      </div>
+      <DrawEquipmentType
+        v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
+        :choices="equipmentTypeChoices"
+        @select="selectEquipmentType"
+      />
 
       <!-- MERC selection -->
       <div class="merc-choices-container" v-else-if="hirableMercs.length > 0 || hasSkipOption">
@@ -1517,21 +1488,12 @@ const clickableSectors = computed(() => {
       </div>
 
       <!-- Step 1: Equipment type selection -->
-      <div class="equipment-type-choices" v-if="isHagnessSelectingType && hagnessEquipmentTypeChoices.length > 0">
-        <p class="step-label">Choose equipment type:</p>
-        <div class="equipment-type-buttons">
-          <button
-            v-for="choice in hagnessEquipmentTypeChoices"
-            :key="choice.value"
-            class="equipment-type-button"
-            :class="choice.label.toLowerCase()"
-            @click="selectEquipmentType(choice.value)"
-          >
-            <span class="equip-icon">{{ choice.label === 'Weapon' ? '⚔️' : choice.label === 'Armor' ? '🛡️' : '📦' }}</span>
-            <span class="equip-label">{{ choice.label }}</span>
-          </button>
-        </div>
-      </div>
+      <DrawEquipmentType
+        v-if="isHagnessSelectingType && hagnessEquipmentTypeChoices.length > 0"
+        :choices="hagnessEquipmentTypeChoices"
+        prompt="Choose equipment type:"
+        @select="selectEquipmentType"
+      />
 
       <!-- Step 2: Show drawn equipment and recipient selection -->
       <div class="hagness-equipment-display" v-else-if="isHagnessSelectingRecipient">

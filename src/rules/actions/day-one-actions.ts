@@ -28,6 +28,19 @@ import { capitalize, isInPlayerTeam, canHireMercWithTeam } from './helpers.js';
 const drawnMercsCache = new Map<string, MercCard[]>();
 
 /**
+ * Draw and cache MERCs for a player if not already cached.
+ * Called from execute() to ensure deck manipulation works before drawing.
+ */
+function ensureMercsDrawn(game: MERCGame, playerId: string): MercCard[] {
+  if (!drawnMercsCache.has(playerId)) {
+    const drawn = drawMercsForHiring(game, 3);
+    drawnMercsCache.set(playerId, drawn);
+    game.message(`Drew ${drawn.length} MERCs for hiring: ${drawn.map(m => m.mercName).join(', ')}`);
+  }
+  return drawnMercsCache.get(playerId) || [];
+}
+
+/**
  * Hire first MERC on Day 1.
  * Draw 3 MERCs, player picks 1 to hire, then picks their starting equipment.
  */
@@ -42,21 +55,29 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat) return false;
       if (!game.isRebelPlayer(ctx.player as any)) return false;
       const player = ctx.player as RebelPlayer;
+      // Must have landed first (prevents choices from being fetched before landing)
+      if (!player.primarySquad.sectorId) return false;
       // Use team.length (not teamSize) since Teresa doesn't count toward teamSize
       return player.team.length === 0;
     })
     .chooseFrom<string>('merc', {
       prompt: 'Select your FIRST MERC to hire',
-      defer: true, // Choices evaluated when clicked, enabling deck manipulation
+      defer: true, // Choices evaluated when action is started, enabling deck manipulation
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
         const playerId = `${player.position}`;
 
-        // Draw MERCs when action is clicked (defer: true enables this)
-        if (!drawnMercsCache.has(playerId)) {
-          drawnMercsCache.set(playerId, drawMercsForHiring(game, 3));
+        // Only draw if cache exists (populated by starting the action)
+        // This prevents drawing during action availability preview
+        const available = drawnMercsCache.get(playerId);
+        if (!available) {
+          // First time accessing - draw now (defer: true means action was clicked)
+          const drawn = ensureMercsDrawn(game, playerId);
+          if (drawn.length === 0) {
+            return ['No MERCs available'];
+          }
+          return drawn.map((m) => capitalize(m.mercName));
         }
-        const available = drawnMercsCache.get(playerId) || [];
 
         if (available.length === 0) {
           return ['No MERCs available'];

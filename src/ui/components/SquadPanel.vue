@@ -40,12 +40,12 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
+  dropEquipment: [mercId: number, equipmentId: number];
   activateAbility: [mercId: string];
 }>();
 
-function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
-  emit('dropEquipment', mercId, slotType);
+function handleDropEquipment(mercId: number, equipmentId: number) {
+  emit('dropEquipment', mercId, equipmentId);
 }
 
 function handleActivateAbility(mercId: string) {
@@ -91,6 +91,7 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
           :key="getMercKey(merc, index)"
           :merc="merc"
           :player-color="playerColor"
+          :squad-name="'Primary'"
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
           :ability-available="isMercAbilityAvailable(merc)"
@@ -117,6 +118,7 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
           :key="getMercKey(merc, 100 + index)"
           :merc="merc"
           :player-color="playerColor"
+          :squad-name="'Secondary'"
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
           :ability-available="isMercAbilityAvailable(merc)"

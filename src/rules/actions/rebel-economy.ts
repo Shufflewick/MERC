@@ -498,6 +498,13 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
         const inStash = sector.stash.some(e => e.id === element.id);
         if (!inStash) return false;
 
+        // Prevent infinite loop: don't offer the item that was just returned to stash
+        // This stops the auto-fill from immediately picking up what we just put down
+        const lastReturnedId = ctx.args?.lastReturnedEquipmentId;
+        if (lastReturnedId && element.id === lastReturnedId) {
+          return false;
+        }
+
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const merc = getMerc(ctx);
         if (merc?.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
@@ -544,6 +551,9 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
             args: {
               mercId: typeof ctx.args?.mercId === 'number' ? ctx.args.mercId : merc.id,
               sectorId: typeof ctx.args?.sectorId === 'number' ? ctx.args.sectorId : sector.id,
+              // Track the just-returned equipment to prevent infinite swap loops
+              // This prevents auto-fill from immediately picking up what we just put down
+              lastReturnedEquipmentId: replaced ? replaced.id : undefined,
             },
           },
         };
@@ -894,8 +904,12 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         }
 
         // Add to sector stash if not equipped
-        sector.addToStash(equipment);
-        game.message(`${actingMerc.mercName} bought ${equipment.equipmentName} (added to stash)`);
+        const added = sector.addToStash(equipment);
+        if (added) {
+          game.message(`${actingMerc.mercName} bought ${equipment.equipmentName} (added to ${sector.sectorName} stash)`);
+        } else {
+          game.message(`${actingMerc.mercName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);
+        }
         return { success: true, message: `Bought ${equipment.equipmentName}` };
       }
 

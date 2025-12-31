@@ -104,6 +104,10 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         useAction(merc, ACTION_COSTS.MOVE);
       }
 
+      // Log action consumption for debugging
+      game.message(`(${mercs.length} action(s) consumed)`);
+
+
       // MERC-iz7: Sonia can bring up to 2 militia when moving
       let militiaMoved = 0;
       if (sourceSector) {

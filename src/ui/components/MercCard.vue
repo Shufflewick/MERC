@@ -41,6 +41,7 @@ interface MercData {
 const props = defineProps<{
   merc: MercData;
   playerColor?: string;
+  squadName?: string;  // "Primary" or "Secondary" - shown in team color
   showEquipment?: boolean;
   compact?: boolean;
   canDropEquipment?: boolean;
@@ -48,7 +49,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory' | `Bandolier:${number}`];
+  dropEquipment: [mercId: number, equipmentId: number];
   activateAbility: [mercId: string];
 }>();
 
@@ -437,6 +438,15 @@ const showDropConfirm = ref(false);
 
 function showEquipmentDetails(slot: any, slotType: 'Weapon' | 'Armor' | 'Accessory', bandolierIndex?: number) {
   if (slot) {
+    console.log('[MercCard] showEquipmentDetails called:', {
+      slotType,
+      bandolierIndex,
+      'slot object': slot,
+      'slot.id': slot?.id,
+      'slot.attributes?.id': slot?.attributes?.id,
+      'props.merc.id': (props.merc as any)?.id,
+      'canDropEquipment prop': props.canDropEquipment,
+    });
     selectedEquipment.value = slot;
     selectedSlotType.value = slotType;
     selectedBandolierIndex.value = bandolierIndex ?? null;
@@ -462,27 +472,56 @@ function cancelDrop() {
 }
 
 function confirmDropEquipment() {
-  if (selectedBandolierIndex.value !== null) {
-    // Dropping from bandolier slot
-    emit('dropEquipment', mercId.value as string, `Bandolier:${selectedBandolierIndex.value}`);
-    closeEquipmentModal();
-  } else if (selectedSlotType.value) {
-    emit('dropEquipment', mercId.value as string, selectedSlotType.value);
-    closeEquipmentModal();
+  // Get the merc's numeric ID - at top level
+  const mercNumericId = (props.merc as any).id;
+
+  // Get the equipment's numeric ID - need to find it in children array
+  // The slot data doesn't have the ID, but the actual child element does
+  const children = (props.merc as any).children || [];
+  const equipmentName = selectedEquipment.value?.equipmentName;
+  const equipmentId_fromSlot = selectedEquipment.value?.equipmentId;
+
+  // Find the equipment element in children by matching equipmentName or equipmentId
+  let equipmentId: number | undefined;
+  for (const child of children) {
+    const childEquipName = child.attributes?.equipmentName || child.equipmentName;
+    const childEquipId = child.attributes?.equipmentId || child.equipmentId;
+    if (childEquipName === equipmentName || childEquipId === equipmentId_fromSlot) {
+      equipmentId = child.id;
+      break;
+    }
   }
+
+  console.log('[MercCard] confirmDropEquipment:', {
+    mercNumericId,
+    equipmentName,
+    equipmentId_fromSlot,
+    'children count': children.length,
+    equipmentId,
+  });
+
+  if (!mercNumericId || !equipmentId) {
+    console.error('[MercCard] Cannot drop equipment: missing IDs', { mercNumericId, equipmentId });
+    closeEquipmentModal();
+    return;
+  }
+
+  console.log('[MercCard] Emitting dropEquipment:', { mercNumericId, equipmentId });
+  emit('dropEquipment', mercNumericId, equipmentId);
+  closeEquipmentModal();
 }
 </script>
 
 <template>
   <div class="merc-card" :class="{ compact }">
-    <!-- Header: Portrait + Name + Actions -->
+    <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
       <div class="portrait-wrapper" :style="{ borderColor }">
         <img :src="imagePath" :alt="mercName" class="portrait" />
       </div>
       <div class="name-section">
         <span class="merc-name">{{ mercName }}</span>
-        <span class="actions-badge">{{ actionsRemaining }}/{{ maxActions }}</span>
+        <span v-if="squadName" class="squad-badge" :style="{ backgroundColor: borderColor }">{{ squadName }}</span>
       </div>
     </div>
 
@@ -614,6 +653,11 @@ function confirmDropEquipment() {
             <span class="tooltip-value">{{ getBreakdownTotal(targetsBreakdown) }}</span>
           </div>
         </div>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">&#9733;</span>
+        <span class="stat-label">Actions:</span>
+        <span class="stat-value">{{ actionsRemaining }}/{{ maxActions }}</span>
       </div>
     </div>
 
@@ -775,12 +819,15 @@ function confirmDropEquipment() {
   font-size: 0.95rem;
 }
 
-.actions-badge {
-  background: v-bind('UI_COLORS.backgroundLight');
-  padding: 2px 8px;
+.squad-badge {
+  padding: 2px 10px;
   border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* Stats Grid */

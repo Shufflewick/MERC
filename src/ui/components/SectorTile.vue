@@ -49,11 +49,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   click: [sectorId: string];
-  dropEquipment: [mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory'];
+  dropEquipment: [mercId: number, equipmentId: number];
 }>();
 
-function handleDropEquipment(mercId: string, slotType: 'Weapon' | 'Armor' | 'Accessory') {
-  emit('dropEquipment', mercId, slotType);
+function handleDropEquipment(mercId: number, equipmentId: number) {
+  emit('dropEquipment', mercId, equipmentId);
   // Close the MERC modal so it refreshes with updated data when reopened
   closeMercModal();
 }

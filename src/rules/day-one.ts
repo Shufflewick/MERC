@@ -163,6 +163,15 @@ export function equipStartingEquipment(
     game.message(`${merc.mercName} equipped ${equipment.equipmentName}`);
   }
 
+  // MERC-9mxd: Vrbansk gets a free accessory when hired
+  if (merc.mercId === 'vrbansk') {
+    const bonusAccessory = game.drawEquipment('Accessory');
+    if (bonusAccessory) {
+      merc.equip(bonusAccessory);
+      game.message(`${merc.mercName} receives bonus accessory: ${bonusAccessory.equipmentName}`);
+    }
+  }
+
   return equipment;
 }
 

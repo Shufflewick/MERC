@@ -5,6 +5,8 @@ import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
 import MercCard from './MercCard.vue';
 import EquipmentTable from './EquipmentTable.vue';
+import MilitiaIndicator from './MilitiaIndicator.vue';
+import DrawEquipmentType from './DrawEquipmentType.vue';
 
 // Helper to get attribute from node
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
@@ -28,6 +30,19 @@ const props = defineProps<{
     image?: string;
   };
   playerPosition: number;
+  playerColor: string;  // Current player's color name (e.g., 'red', 'blue')
+  playerColorMap?: Record<string, string>;  // Maps player position to color name
+  allMercsInSector?: Array<{
+    mercId: string;
+    mercName?: string;
+    playerColor: string;
+    sectorId: string;
+    actionsRemaining?: number;
+    damage?: number;
+    maxHealth?: number;
+    image?: string;
+    attributes?: Record<string, any>;
+  }>;
   availableActions: string[];
   actionController: UseActionControllerReturn;
   gameView?: any; // Full game state for element lookups
@@ -50,6 +65,15 @@ const props = defineProps<{
   stashContents?: Array<{
     equipmentName: string;
     equipmentType: string;
+    equipmentId?: string;
+    description?: string;
+    combatBonus?: number;
+    initiative?: number;
+    training?: number;
+    armorBonus?: number;
+    targets?: number;
+    negatesArmor?: boolean;
+    image?: string;
   }>;
   // Special MERCs on team
   hasDoc?: boolean;
@@ -110,9 +134,6 @@ const emit = defineEmits<{
 // Track which action we started from this panel
 const activeActionFromPanel = ref<string | null>(null);
 
-// Track numeric element ID for Move Here action (pre-fill destination)
-const moveDestinationElementId = ref<number | null>(null);
-
 // MERC modal state
 const showMercModal = ref(false);
 const selectedMerc = ref<any>(null);
@@ -136,11 +157,49 @@ const hasSquadInSector = computed(() => {
          props.secondarySquad?.sectorId === props.sector.sectorId;
 });
 
+// Get the selected merc's player color for modal display
+const selectedMercPlayerColor = computed(() => {
+  if (!selectedMerc.value) return props.playerColor;
+  // Check if merc has playerColor attribute (from allMercsInSector)
+  const mercColor = selectedMerc.value.playerColor;
+  if (mercColor) return mercColor;
+  // If merc is from our squad, use our color
+  return props.playerColor;
+});
+
+// Get squad name for selected merc
+// Returns "Primary" or "Secondary" (without " Squad" suffix) or null for enemies
+const selectedMercSquadName = computed(() => {
+  if (!selectedMerc.value) return null;
+  const mercColor = selectedMerc.value.playerColor;
+  // Don't show squad label for dictator (enemy) mercs
+  if (mercColor === 'dictator') return null;
+  // For my own mercs, determine which squad they're in
+  if (mercColor === props.playerColor || !mercColor) {
+    const mercId = selectedMerc.value.mercId || getAttr(selectedMerc.value, 'mercId', '');
+    // Check if in primary squad
+    if (props.primarySquad?.mercs?.some((m: any) =>
+      getAttr(m, 'mercId', '') === mercId || m.ref === selectedMerc.value.ref
+    )) {
+      return 'Primary';
+    }
+    // Check if in secondary squad
+    if (props.secondarySquad?.mercs?.some((m: any) =>
+      getAttr(m, 'mercId', '') === mercId || m.ref === selectedMerc.value.ref
+    )) {
+      return 'Secondary';
+    }
+  }
+  // For ally mercs (other rebel players), we can't determine their squad without more data
+  // but we could show a generic indicator if needed
+  return null;
+});
+
 // Check if we're in an explore action for this sector
 // If so, treat the sector as explored even if the prop hasn't updated yet
+// Note: Don't require activeActionFromPanel - action may have been started from ActionPanel
 const isExplorationInProgress = computed(() => {
-  return activeActionFromPanel.value === 'explore' &&
-         hasSquadInSector.value &&
+  return hasSquadInSector.value &&
          props.actionController.currentAction.value === 'explore';
 });
 
@@ -231,6 +290,14 @@ function getEquipmentDescription(equip: any): string {
   return getAttr(equip, 'description', '') || '';
 }
 
+// Check if an item is a special action (like "skip") rather than a MERC
+function isSpecialAction(item: any): boolean {
+  // Convert to string first since _choiceValue may be a number from BoardSmith's validElements
+  const value = String(item._choiceValue ?? '').toLowerCase();
+  const display = String(item._choiceDisplay ?? '').toLowerCase();
+  return value === 'skip' || display.includes('skip') || display.includes('stash');
+}
+
 // Format equipment stat bonuses as a string
 function getEquipmentStats(equip: any): string {
   const stats: string[] = [];
@@ -317,10 +384,68 @@ const hasSquadAdjacent = computed(() => {
 const isCity = computed(() => props.sector.sectorType === 'City');
 const isIndustry = computed(() => props.sector.sectorType === 'Industry');
 
-// Calculate total rebel militia for this player
+// Calculate total rebel militia for this player (legacy - kept for reference)
 const playerMilitia = computed(() => {
   return props.sector.rebelMilitia[String(props.playerPosition)] || 0;
 });
+
+// All rebel militia entries with color mapping (for multi-team display)
+const rebelMilitiaEntries = computed(() => {
+  const rm = props.sector.rebelMilitia || {};
+  const colorMap = props.playerColorMap || {};
+  return Object.entries(rm)
+    .filter(([, count]) => count > 0)
+    .map(([playerId, count]) => ({
+      playerId,
+      count,
+      color: colorMap[playerId] || 'unknown',
+    }));
+});
+
+// Group mercs in sector by team type (my team, allies, enemies)
+const myMercsInSector = computed(() => {
+  if (!props.allMercsInSector) return [];
+  return props.allMercsInSector.filter(m => m.playerColor === props.playerColor);
+});
+
+const allyMercsInSector = computed(() => {
+  if (!props.allMercsInSector) return [];
+  return props.allMercsInSector.filter(m =>
+    m.playerColor !== props.playerColor &&
+    m.playerColor !== 'dictator'
+  );
+});
+
+const enemyMercsInSector = computed(() => {
+  if (!props.allMercsInSector) return [];
+  return props.allMercsInSector.filter(m => m.playerColor === 'dictator');
+});
+
+// Check if the selected merc can drop equipment (is on my team and action is available)
+const canDropEquipmentForSelectedMerc = computed(() => {
+  if (!selectedMerc.value) return false;
+  // Only my team can drop equipment
+  const mercColor = selectedMerc.value.playerColor;
+  if (mercColor && mercColor !== props.playerColor) return false;
+  // Check if dropEquipment action is available
+  return props.availableActions.includes('dropEquipment');
+});
+
+// Handle drop equipment from MercCard
+async function handleDropEquipment(mercId: number, equipmentId: number) {
+  console.log('[SectorPanel] handleDropEquipment:', { mercId, equipmentId });
+
+  // Close the modal first
+  closeMercModal();
+
+  // Execute the dropEquipment action directly with pre-selected merc and equipment
+  const args = {
+    actingMerc: mercId,
+    equipment: equipmentId,
+  };
+  console.log('[SectorPanel] Calling actionController.execute("dropEquipment",', args, ')');
+  await props.actionController.execute('dropEquipment', args);
+}
 
 // Actions available when IN this sector
 const inSectorActions = computed(() => {
@@ -344,7 +469,7 @@ const inSectorActions = computed(() => {
     actions.push({ name: 'reEquip', label: 'Re-Equip', icon: '🎒' });
   }
   if (props.availableActions.includes('dropEquipment')) {
-    actions.push({ name: 'dropEquipment', label: 'Drop', icon: '📤' });
+    actions.push({ name: 'dropEquipment', label: 'Unequip', icon: '📤' });
   }
   if (props.hasDoc && props.hasDamagedMercs && props.availableActions.includes('docHeal')) {
     actions.push({ name: 'docHeal', label: 'Doc Heal', icon: '💊' });
@@ -390,20 +515,28 @@ const adjacentActions = computed(() => {
 // All available actions for this sector
 const allActions = computed(() => [...inSectorActions.value, ...adjacentActions.value]);
 
-// Check if we're currently in an action flow started from this panel
-// Also detect followUp actions like collectEquipment that chain from explore
+// Check if we're currently in an action flow that this sector should show UI for
+// This includes actions started from the ActionPanel that involve this sector
 const isInActionFlow = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   if (!currentAction) return false;
 
-  // Direct action from panel
+  // Must have a squad in this sector to show action UI
+  if (!hasSquadInSector.value) return false;
+
+  // Actions that are explicitly started from this panel
   if (activeActionFromPanel.value !== null && currentAction === activeActionFromPanel.value) {
     return true;
   }
 
-  // FollowUp action (collectEquipment chains from explore)
-  // Check if current action is collectEquipment and we have a squad in this sector
-  if (currentAction === 'collectEquipment' && hasSquadInSector.value) {
+  // Sector-relevant actions - show UI regardless of where action was started
+  // These are actions that require selections from MERCs/equipment in a sector
+  const sectorRelevantActions = [
+    'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
+    'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
+  ];
+
+  if (sectorRelevantActions.includes(currentAction)) {
     return true;
   }
 
@@ -422,11 +555,11 @@ const currentChoices = computed(() => {
   return props.actionController.getChoices(currentSelection.value);
 });
 
-// Get valid elements for element selection - use actionController getter (not selection.validElements)
+// Get valid elements for element selection - use reactive computed from actionController
 const validElements = computed(() => {
   if (!currentSelection.value) return [];
-  // Use the controller's getter which reads from the fetch cache
-  return props.actionController.getValidElements(currentSelection.value) || [];
+  // Use the reactive validElements computed - auto-updates when choices load
+  return props.actionController.validElements.value || [];
 });
 
 // Get choices (for choice selections or element selections that use choices)
@@ -462,10 +595,10 @@ const isSelectingMerc = computed(() => {
     return true;
   }
 
-  // Check if element selection with MERC elements (use getter)
-  const mercValidEls = props.actionController.getValidElements(sel) || [];
+  // Check if element selection with MERC elements (use reactive computed)
+  const mercValidEls = props.actionController.validElements.value || [];
   if (sel.type === 'element' && mercValidEls.length > 0) {
-    return mercValidEls.some((e: any) => e.mercId || e.attributes?.mercId);
+    return mercValidEls.some((e: any) => e.mercId || e.element?.attributes?.mercId);
   }
 
   return false;
@@ -476,17 +609,27 @@ const isSelectingEquipment = computed(() => {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return false;
 
-  const validEls = props.actionController.getValidElements(sel) || [];
+  // If this is an equipment TYPE selection (Weapon/Armor/Accessory), not equipment items
+  // This is used for choosing which deck to draw from, not selecting actual equipment
+  const selName = (sel.name || '').toLowerCase();
+  if (selName === 'equipmenttype') {
+    return false;
+  }
+
+  const validEls = props.actionController.validElements.value || [];
   const choices = props.actionController.getChoices(sel) || [];
 
   // Check selection name for equipment
-  const selName = (sel.name || '').toLowerCase();
   if (selName === 'equipment') {
     return true;
   }
 
   // Check prompt for equipment keywords
+  // But exclude prompts that are asking for equipment TYPE choice (deck selection)
   const prompt = (sel.prompt || '').toLowerCase();
+  if (prompt.includes('type of equipment') || prompt.includes('equipment type')) {
+    return false; // This is a type selection, not equipment selection
+  }
   if (prompt.includes('equipment') || prompt.includes('weapon') || prompt.includes('armor') ||
       prompt.includes('accessory') || prompt.includes('take')) {
     return true;
@@ -508,9 +651,32 @@ const isSelectingEquipment = computed(() => {
   return false;
 });
 
-// Check if it's a generic choice selection (not MERC or equipment)
+// Check if current selection is for equipment type (Weapon/Armor/Accessory)
+const isSelectingEquipmentType = computed(() => {
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return false;
+  return sel.name === 'equipmentType';
+});
+
+// Get equipment type choices normalized to {value, label} format
+const equipmentTypeChoices = computed(() => {
+  if (!isSelectingEquipmentType.value) return [];
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return [];
+  const choices = props.actionController.getChoices(sel) || [];
+  return choices.map((choice: any) => {
+    if (typeof choice === 'string') {
+      return { value: choice, label: choice };
+    }
+    return { value: choice.value || choice, label: choice.display || choice.value || String(choice) };
+  });
+});
+
+// Check if it's a generic choice selection (not MERC, equipment, or equipment type)
 const isSelectingChoice = computed(() => {
   if (!currentSelection.value) return false;
+  // Skip if it's an equipment type selection (handled specially)
+  if (isSelectingEquipmentType.value) return false;
   // If we have choices but they're not MERCs or equipment, show as generic choices
   if (selectionChoices.value.length > 0 && !isSelectingMerc.value && !isSelectingEquipment.value) {
     return true;
@@ -528,7 +694,7 @@ const selectableItems = computed(() => {
 
   // For equipment selections (including deferred 'elements' type), enrich choices with element data
   // For repeating selections, prefer choices (updated by server) over validElements (stale snapshot)
-  const equipValidEls = props.actionController.getValidElements(sel) || [];
+  const equipValidEls = props.actionController.validElements.value || [];
   const isRepeating = sel.repeat !== undefined;
   const equipmentItems = isRepeating ? choices : (equipValidEls.length > 0 ? equipValidEls : choices);
 
@@ -587,14 +753,16 @@ const selectableItems = computed(() => {
     });
   };
 
-  // For element selections, use BoardSmith's automatic element enrichment
-  const validEls = props.actionController.getValidElements(sel) || [];
-  if (sel.type === 'element' && validEls.length > 0) {
-    // Check if this is a MERC selection
-    const prompt = (sel.prompt || '').toLowerCase();
-    const isMercSelection = prompt.includes('merc') ||
-      validEls.some((e: any) => e.mercId || e.element?.attributes?.mercId);
+  // For element selections, use BoardSmith's reactive validElements computed
+  const validEls = props.actionController.validElements.value || [];
+  const prompt = (sel.prompt || '').toLowerCase();
+  const selName = (sel.name || '').toLowerCase();
 
+  // Check if this is a MERC selection (by name or prompt)
+  const isMercSelection = selName.includes('merc') || prompt.includes('merc') ||
+    (validEls.length > 0 && validEls.some((e: any) => e.mercId || e.element?.attributes?.mercId));
+
+  if (sel.type === 'element' && validEls.length > 0) {
     if (isMercSelection) {
       // Use automatically enriched element data from BoardSmith
       return validEls.map((ve: any) => {
@@ -656,12 +824,9 @@ const selectableItems = computed(() => {
     }));
   }
 
-  // Check if this looks like a MERC selection (prompt contains "merc")
-  const prompt = (sel.prompt || '').toLowerCase();
-  const isMercPrompt = prompt.includes('merc');
 
   // For MERC selections from choices, look up MERC data from squad
-  if (isMercPrompt && choices.length > 0) {
+  if (isMercSelection && choices.length > 0) {
     return choices.map(c => {
       const displayLower = (c.display || '').toLowerCase();
 
@@ -712,11 +877,13 @@ async function handleAction(actionName: string) {
   }
 
   if (actionName === 'move') {
-    // Move action needs squad selection, then destination
-    // Store the numeric element ID so we can auto-fill it after squad is selected
-    moveDestinationElementId.value = props.sector.id ?? null;
+    // Move action: use prefill API to auto-fill destination after squad selection
     activeActionFromPanel.value = actionName;
-    props.actionController.start(actionName);
+    props.actionController.start(actionName, {
+      prefill: { destination: props.sector.id }
+    });
+    // Close panel since destination will be auto-filled
+    emit('close');
     return;
   }
 
@@ -761,6 +928,11 @@ async function selectChoice(choice: any) {
   await props.actionController.fill(currentSelection.value.name, choice.value);
 }
 
+// Handle equipment type selection
+async function selectEquipmentType(value: string) {
+  await props.actionController.fill('equipmentType', value);
+}
+
 // Check if current selection is optional (can be skipped)
 const isCurrentSelectionOptional = computed(() => {
   return currentSelection.value?.optional !== undefined;
@@ -784,28 +956,8 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   if (newAction === null && activeActionFromPanel.value !== null) {
     // Action completed
     activeActionFromPanel.value = null;
-    moveDestinationElementId.value = null;
   }
 });
-
-// Watch for squad selection in move action to auto-fill destination
-watch(() => props.actionController.currentSelection.value, async (sel) => {
-  // If we're in a move action started from this panel and we're now at the destination selection
-  if (activeActionFromPanel.value === 'move' &&
-      moveDestinationElementId.value !== null &&
-      sel?.name === 'destination') {
-    // Find the sector by numeric element ID
-    const validEls = props.actionController.getValidElements(sel) || [];
-    const target = validEls.find((e: any) => e.id === moveDestinationElementId.value);
-
-    if (target) {
-      // Auto-fill the destination with numeric element ID
-      await props.actionController.fill('destination', target.id);
-      moveDestinationElementId.value = null;
-      emit('close');
-    }
-  }
-}, { flush: 'post' });  // flush: 'post' ensures choices are fetched first
 
 // Get sector type icon
 const sectorTypeIcon = computed(() => {
@@ -855,13 +1007,14 @@ const sectorTypeIcon = computed(() => {
 
           <!-- MERC Selection -->
           <div v-if="isSelectingMerc" class="merc-selection">
+            <!-- Actual MERC portraits -->
             <div
-              v-for="(item, index) in selectableItems"
+              v-for="(item, index) in selectableItems.filter(i => !isSpecialAction(i))"
               :key="item._choiceValue || index"
               class="selectable-merc"
               @click="selectMerc(item)"
             >
-              <div class="merc-portrait large" :style="{ borderColor: getPlayerColor(playerPosition) }">
+              <div class="merc-portrait large" :style="{ borderColor: getPlayerColor(playerColor) }">
                 <img
                   :src="getMercImagePath(item)"
                   :alt="item._choiceDisplay || getMercName(item)"
@@ -870,6 +1023,15 @@ const sectorTypeIcon = computed(() => {
               </div>
               <span class="merc-select-name">{{ item._choiceDisplay || getMercName(item) }}</span>
             </div>
+            <!-- Special actions (skip, add to stash) as buttons -->
+            <button
+              v-for="(item, index) in selectableItems.filter(i => isSpecialAction(i))"
+              :key="'special-' + (item._choiceValue || index)"
+              class="skip-action-btn"
+              @click="selectMerc(item)"
+            >
+              {{ item._choiceDisplay || 'Skip' }}
+            </button>
           </div>
 
           <!-- Equipment Selection (Table) -->
@@ -913,6 +1075,13 @@ const sectorTypeIcon = computed(() => {
             </table>
           </div>
 
+          <!-- Equipment Type Selection (Weapon/Armor/Accessory) -->
+          <DrawEquipmentType
+            v-else-if="isSelectingEquipmentType"
+            :choices="equipmentTypeChoices"
+            @select="selectEquipmentType"
+          />
+
           <!-- Choice Selection -->
           <div v-else-if="isSelectingChoice" class="choice-selection">
             <button
@@ -934,14 +1103,15 @@ const sectorTypeIcon = computed(() => {
 
       <!-- Normal View: Squad and Actions -->
       <template v-else>
-        <!-- Squad MERCs (if squad is in this sector) -->
+        <!-- My Squad MERCs (if squad is in this sector) -->
         <div v-if="squadInSector && squadInSector.mercs.length > 0" class="squad-section">
+          <div class="squad-header-label">My Squad</div>
           <div class="squad-mercs">
             <div
               v-for="merc in squadInSector.mercs"
               :key="getAttr(merc, 'mercId', '')"
               class="merc-portrait"
-              :style="{ borderColor: getPlayerColor(playerPosition) }"
+              :style="{ borderColor: getPlayerColor(playerColor) }"
               @click="openMercCard(merc)"
               :title="getMercName(merc)"
             >
@@ -960,20 +1130,59 @@ const sectorTypeIcon = computed(() => {
           </div>
         </div>
 
+        <!-- Ally MERCs (other rebel players) -->
+        <div v-if="allyMercsInSector.length > 0" class="squad-section ally-section">
+          <div class="squad-header-label">Allies</div>
+          <div class="squad-mercs">
+            <div
+              v-for="merc in allyMercsInSector"
+              :key="merc.mercId"
+              class="merc-portrait"
+              :style="{ borderColor: getPlayerColor(merc.playerColor) }"
+              @click="openMercCard(merc)"
+              :title="getMercName(merc)"
+            >
+              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Enemy MERCs (dictator) -->
+        <div v-if="enemyMercsInSector.length > 0" class="squad-section enemy-section">
+          <div class="squad-header-label enemy-label">Enemies</div>
+          <div class="squad-mercs">
+            <div
+              v-for="merc in enemyMercsInSector"
+              :key="merc.mercId"
+              class="merc-portrait enemy-portrait"
+              @click="openMercCard(merc)"
+              :title="getMercName(merc)"
+            >
+              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
+            </div>
+          </div>
+        </div>
+
         <!-- Forces info -->
         <div class="forces-info">
-          <div v-if="sector.dictatorMilitia > 0 || hasDictatorForces" class="force dictator">
-            <span class="force-icon">⚫</span>
-            <span>{{ sector.dictatorMilitia }} militia</span>
-            <span v-if="isBase" class="base-badge">Base</span>
+          <!-- Militia indicators (using MilitiaIndicator for proper colored badges) -->
+          <div class="militia-area">
+            <MilitiaIndicator
+              v-if="sector.dictatorMilitia > 0"
+              :count="sector.dictatorMilitia"
+              :is-dictator="true"
+            />
+            <MilitiaIndicator
+              v-for="entry in rebelMilitiaEntries"
+              :key="entry.playerId"
+              :count="entry.count"
+              :player-color="entry.color"
+            />
           </div>
-          <div v-if="playerMilitia > 0" class="force rebel">
-            <span class="force-icon" :style="{ color: getPlayerColor(playerPosition) }">●</span>
-            <span>{{ playerMilitia }} militia</span>
-          </div>
+          <span v-if="isBase" class="base-badge">Base</span>
           <div v-if="isCity" class="facilities">
-            <span class="facility">🏥</span>
-            <span class="facility">🔫</span>
+            <span class="facility" title="Hospital">🏥</span>
+            <span class="facility" title="Arms Dealer">🔫</span>
           </div>
         </div>
 
@@ -1003,8 +1212,11 @@ const sectorTypeIcon = computed(() => {
       <MercCard
         v-if="selectedMerc"
         :merc="selectedMerc"
-        :player-color="getPlayerColor(playerPosition)"
+        :player-color="selectedMercPlayerColor"
+        :squad-name="selectedMercSquadName"
         :show-equipment="true"
+        :can-drop-equipment="canDropEquipmentForSelectedMerc"
+        @drop-equipment="handleDropEquipment"
       />
     </DetailModal>
 
@@ -1337,6 +1549,24 @@ const sectorTypeIcon = computed(() => {
   color: #000;
 }
 
+.skip-action-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: rgba(40, 40, 40, 0.9);
+  border: 1px solid v-bind('UI_COLORS.border');
+  border-radius: 8px;
+  color: v-bind('UI_COLORS.textSecondary');
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.skip-action-btn:hover {
+  background: rgba(60, 60, 60, 0.9);
+  color: #fff;
+  border-color: v-bind('UI_COLORS.accent');
+}
+
 .selection-empty {
   color: v-bind('UI_COLORS.textSecondary');
   font-style: italic;
@@ -1349,6 +1579,38 @@ const sectorTypeIcon = computed(() => {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+
+.squad-header-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: v-bind('UI_COLORS.textSecondary');
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.squad-section.ally-section {
+  border-left: 2px solid rgba(100, 181, 246, 0.5);
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.squad-section.enemy-section {
+  border-left: 2px solid rgba(231, 76, 60, 0.5);
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.squad-header-label.enemy-label {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.merc-portrait.enemy-portrait {
+  border-color: #e74c3c;
 }
 
 .squad-mercs {
@@ -1416,6 +1678,12 @@ const sectorTypeIcon = computed(() => {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+
+.militia-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .force {

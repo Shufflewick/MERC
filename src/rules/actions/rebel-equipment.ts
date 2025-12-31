@@ -153,10 +153,11 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Invalid sector' };
       }
 
-      // User chose "Done equipping"
+      // Spend action upfront when first starting re-equip
+      useAction(merc, ACTION_COSTS.RE_EQUIP);
+
+      // User chose "Done equipping" without picking anything
       if (!equipment) {
-        // Spend action for the re-equip session
-        useAction(merc, ACTION_COSTS.RE_EQUIP);
         if (sector.stashCount > 0) {
           const remaining = sector.stash.map(e => e.equipmentName).join(', ');
           game.message(`Left in stash: ${remaining}`);
@@ -174,8 +175,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}`);
       }
 
-      // If there are more items in stash, chain another reEquip selection
-      // Use reEquipContinue action to avoid re-spending the action
+      // If there are more items in stash, chain another reEquip selection (no action cost - already spent)
       if (sector.stashCount > 0) {
         return {
           success: true,
@@ -185,14 +185,11 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
             args: {
               mercId: merc.id,
               sectorId: sector.id,
-              actionSpent: true,
             },
           },
         };
       }
 
-      // Spend action for the re-equip session
-      useAction(merc, ACTION_COSTS.RE_EQUIP);
       return { success: true, message: `Equipped ${equipment.equipmentName}` };
     });
 }
@@ -341,17 +338,29 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
     .prompt('Unequip')
     .condition((ctx, tracer) => {
       // Cannot drop equipment during combat
-      if (game.activeCombat) return false;
+      if (game.activeCombat) {
+        if (tracer) tracer.check('activeCombat', true);
+        return false;
+      }
+      if (tracer) tracer.check('activeCombat', false);
+
       // Only rebels can drop equipment
       const isRebel = game.isRebelPlayer(ctx.player as any);
       if (tracer) tracer.check('isRebelPlayer', isRebel);
       if (!isRebel) return false;
+
       const player = ctx.player as RebelPlayer;
+      const livingMercs = player.team.filter(m => !m.isDead);
+      if (tracer) tracer.check('livingMercs.count', livingMercs.length);
+
+      // Log equipment for each living merc to debug
+      for (const m of livingMercs) {
+        const equipment = getMercEquipment(m);
+        if (tracer) tracer.check(`merc.${m.mercName}.equipment.count`, equipment.length);
+      }
 
       // Check if any MERC has equipment to drop
-      const hasEquippedMerc = player.team.some(m =>
-        !m.isDead && getMercEquipment(m).length > 0
-      );
+      const hasEquippedMerc = livingMercs.some(m => getMercEquipment(m).length > 0);
       if (tracer) tracer.check('hasEquippedMerc', hasEquippedMerc);
       return hasEquippedMerc;
     })
@@ -370,6 +379,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       },
     })
     .chooseElement<Equipment>('equipment', {
+      dependsOn: 'actingMerc',  // Equipment choices depend on which merc is selected
       prompt: (ctx) => {
         const merc = getMerc(ctx);
         return merc
