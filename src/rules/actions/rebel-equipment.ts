@@ -22,12 +22,46 @@ import { hasMortar } from '../ai-helpers.js';
 // =============================================================================
 
 /**
- * Re-equip from sector stash, swap between MERCs, or trade with teammate
+ * Re-equip from sector stash.
  * Cost: 1 action (per rules: "Re-Equip (1 action)")
- * Per rules (06-merc-actions.md): Trade = Exchange equipment with another MERC in same sector
- * MERC-gu5: Trading requires both MERCs to spend an action
+ * Uses element selection for proper UI display of equipment.
+ * Chains via followUp if more items remain in stash.
  */
 export function createReEquipAction(game: MERCGame): ActionDefinition {
+  // Helper to resolve merc from ctx.args (handles both numeric ID and resolved element)
+  function getMerc(ctx: any): MercCard | undefined {
+    const mercArg = ctx.args?.actingMerc ?? ctx.args?.mercId;
+    if (typeof mercArg === 'number') {
+      return game.getElementById(mercArg) as MercCard | undefined;
+    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+      return mercArg as MercCard;
+    }
+    return undefined;
+  }
+
+  // Helper to resolve sector from ctx.args
+  function getSector(ctx: any): Sector | undefined {
+    const sectorArg = ctx.args?.sectorId;
+    if (typeof sectorArg === 'number') {
+      return game.getElementById(sectorArg) as Sector | undefined;
+    } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
+      return sectorArg as Sector;
+    }
+    return undefined;
+  }
+
+  // Helper to find merc's sector
+  function findMercSector(merc: MercCard, player: RebelPlayer): Sector | null {
+    for (const squad of [player.primarySquad, player.secondarySquad]) {
+      if (!squad?.sectorId) continue;
+      const mercs = squad.getMercs();
+      if (mercs.some(m => m.id === merc.id)) {
+        return game.getSector(squad.sectorId) || null;
+      }
+    }
+    return null;
+  }
+
   return Action.create('reEquip')
     .prompt('Equip')
     .condition((ctx, tracer) => {
@@ -70,126 +104,202 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (merc.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
 
         // MERC must be in a sector with equipment stash
-        const findMercSector = (): Sector | null => {
-          for (const squad of [player.primarySquad, player.secondarySquad]) {
-            if (!squad?.sectorId) continue;
-            const mercs = squad.getMercs();
-            if (mercs.some(m => m.id === merc.id)) {
-              return game.getSector(squad.sectorId) || null;
-            }
-          }
-          return null;
-        };
-
-        const sector = findMercSector();
+        const sector = findMercSector(merc, player);
         return sector !== null && sector.stash.length > 0;
       },
     })
-    .chooseFrom<string>('equipment', {
-      prompt: 'Select equipment to pick up',
-      dependsOn: 'actingMerc',
-      choices: (ctx) => {
-        const actingMerc = ctx.args?.actingMerc as MercCard;
-        const player = ctx.player as RebelPlayer;
-        if (!actingMerc) return ['Done'];
-
-        // Find the sector where the MERC is
-        const findMercSector = (): Sector | null => {
-          for (const squad of [player.primarySquad, player.secondarySquad]) {
-            if (!squad?.sectorId) continue;
-            const mercs = squad.getMercs();
-            if (mercs.some(m => m.id === actingMerc.id)) {
-              return game.getSector(squad.sectorId) || null;
-            }
-          }
-          return null;
-        };
-
-        const sector = findMercSector();
-        if (!sector) return ['Done'];
-
-        // MERC-70a: Filter out grenades/mortars if Apeiron is the acting MERC
-        let stash = sector.stash;
-        if (actingMerc.mercId === 'apeiron') {
-          stash = stash.filter(e => !isGrenadeOrMortar(e));
-        }
-
-        if (stash.length === 0) return ['Done'];
-
-        const equipmentChoices = stash.map(e => `${e.equipmentName} (${e.equipmentType})`);
-        return [...equipmentChoices, 'Done'];
+    .chooseElement<Equipment>('equipment', {
+      prompt: (ctx) => {
+        const merc = getMerc(ctx);
+        const sector = getSector(ctx) || (merc ? findMercSector(merc, ctx.player as RebelPlayer) : null);
+        const remaining = sector?.stashCount || 0;
+        return merc
+          ? `What should ${capitalize(merc.mercName)} equip? (${remaining} item${remaining !== 1 ? 's' : ''} in stash)`
+          : 'Select equipment';
       },
-      repeat: {
-        until: (_ctx, choice) => choice === 'Done',
-        onEach: (ctx, choice) => {
-          if (choice === 'Done') return;
+      display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
+      optional: 'Done equipping',
+      elementClass: Equipment,
+      filter: (element, ctx) => {
+        const merc = getMerc(ctx);
+        if (!merc) return false;
 
-          const actingMerc = ctx.args?.actingMerc as MercCard;
-          const player = ctx.player as RebelPlayer;
-          if (!actingMerc) return;
+        const player = ctx.player as RebelPlayer;
+        const sector = getSector(ctx) || findMercSector(merc, player);
+        if (!sector) return false;
 
-          // Find the sector where the MERC is
-          const findMercSector = (): Sector | null => {
-            for (const squad of [player.primarySquad, player.secondarySquad]) {
-              if (!squad?.sectorId) continue;
-              const mercs = squad.getMercs();
-              if (mercs.some(m => m.id === actingMerc.id)) {
-                return game.getSector(squad.sectorId) || null;
-              }
-            }
-            return null;
-          };
+        // Check if this equipment is in the sector's stash
+        const inStash = sector.stash.some(e => e.id === element.id);
+        if (!inStash) return false;
 
-          const sector = findMercSector();
-          if (!sector) return;
-
-          const stash = sector.stash;
-
-          // Parse the choice string to find the equipment
-          const match = (choice as string).match(/^(.+) \((Weapon|Armor|Accessory)\)$/);
-          if (!match) return;
-
-          const [, equipName, equipType] = match;
-          const equipIndex = stash.findIndex(
-            e => e.equipmentName === equipName && e.equipmentType === equipType
-          );
-
-          if (equipIndex === -1) return;
-
-          const item = stash[equipIndex];
-
-          // Equip the item on the MERC (handles replacement)
-          const replaced = actingMerc.equip(item);
-
-          // Remove from stash
-          stash.splice(equipIndex, 1);
-
-          if (replaced) {
-            // Put replaced item back in the stash
-            stash.push(replaced);
-            game.message(`${capitalize(actingMerc.mercName)} equipped ${item.equipmentName}, returned ${replaced.equipmentName} to stash`);
-          } else {
-            game.message(`${capitalize(actingMerc.mercName)} equipped ${item.equipmentName}`);
-          }
-        },
+        // MERC-70a: Filter out grenades/mortars if Apeiron
+        if (merc.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+          return false;
+        }
+        return true;
       },
     })
     .execute((args, ctx) => {
+      const merc = getMerc(ctx) || (args.actingMerc as MercCard);
       const player = ctx.player as RebelPlayer;
-      const actingMerc = args.actingMerc as MercCard;
-      const equipment = args.equipment as string[];
+      const equipment = args.equipment as Equipment | null;
 
-      // Filter out "Done" from selections
-      const selected = equipment?.filter(e => e !== 'Done') || [];
-
-      if (selected.length === 0) {
-        return { success: false, message: 'No equipment selected' };
+      if (!merc) {
+        return { success: false, message: 'Invalid merc' };
       }
 
-      // Spend action only once for the entire re-equip action (not per item)
-      useAction(actingMerc, ACTION_COSTS.RE_EQUIP);
+      const sector = getSector(ctx) || findMercSector(merc, player);
+      if (!sector) {
+        return { success: false, message: 'Invalid sector' };
+      }
 
-      return { success: true, message: `Re-equipped ${selected.length} item(s)` };
+      // User chose "Done equipping"
+      if (!equipment) {
+        // Spend action for the re-equip session
+        useAction(merc, ACTION_COSTS.RE_EQUIP);
+        if (sector.stashCount > 0) {
+          const remaining = sector.stash.map(e => e.equipmentName).join(', ');
+          game.message(`Left in stash: ${remaining}`);
+        }
+        return { success: true, message: 'Done equipping' };
+      }
+
+      // Equip the item
+      const replaced = merc.equip(equipment);
+
+      if (replaced) {
+        sector.addToStash(replaced);
+        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+      } else {
+        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}`);
+      }
+
+      // If there are more items in stash, chain another reEquip selection
+      // Use reEquipContinue action to avoid re-spending the action
+      if (sector.stashCount > 0) {
+        return {
+          success: true,
+          message: `Equipped ${equipment.equipmentName}`,
+          followUp: {
+            action: 'reEquipContinue',
+            args: {
+              mercId: merc.id,
+              sectorId: sector.id,
+              actionSpent: true,
+            },
+          },
+        };
+      }
+
+      // Spend action for the re-equip session
+      useAction(merc, ACTION_COSTS.RE_EQUIP);
+      return { success: true, message: `Equipped ${equipment.equipmentName}` };
+    });
+}
+
+// =============================================================================
+// Re-Equip Continue Action (chained from reEquip via followUp)
+// =============================================================================
+
+/**
+ * Continue re-equipping from sector stash (no action cost - action already spent).
+ * This is chained from reEquip via followUp to allow picking multiple items.
+ */
+export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
+  // Helper to resolve merc from ctx.args
+  function getMerc(ctx: any): MercCard | undefined {
+    const mercArg = ctx.args?.mercId;
+    if (typeof mercArg === 'number') {
+      return game.getElementById(mercArg) as MercCard | undefined;
+    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+      return mercArg as MercCard;
+    }
+    return undefined;
+  }
+
+  // Helper to resolve sector from ctx.args
+  function getSector(ctx: any): Sector | undefined {
+    const sectorArg = ctx.args?.sectorId;
+    if (typeof sectorArg === 'number') {
+      return game.getElementById(sectorArg) as Sector | undefined;
+    } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
+      return sectorArg as Sector;
+    }
+    return undefined;
+  }
+
+  return Action.create('reEquipContinue')
+    .prompt('Continue equipping')
+    .chooseElement<Equipment>('equipment', {
+      prompt: (ctx) => {
+        const merc = getMerc(ctx);
+        const sector = getSector(ctx);
+        const remaining = sector?.stashCount || 0;
+        return merc
+          ? `What else should ${capitalize(merc.mercName)} equip? (${remaining} item${remaining !== 1 ? 's' : ''} left)`
+          : 'Select equipment';
+      },
+      display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
+      optional: 'Done equipping',
+      elementClass: Equipment,
+      filter: (element, ctx) => {
+        const sector = getSector(ctx);
+        if (!sector) return false;
+        const inStash = sector.stash.some(e => e.id === element.id);
+        if (!inStash) return false;
+
+        // MERC-70a: Filter out grenades/mortars if Apeiron
+        const merc = getMerc(ctx);
+        if (merc?.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+          return false;
+        }
+        return true;
+      },
+    })
+    .execute((args, ctx) => {
+      const merc = getMerc(ctx);
+      const sector = getSector(ctx);
+      const equipment = args.equipment as Equipment | null;
+
+      if (!merc || !sector) {
+        return { success: false, message: 'Invalid merc or sector' };
+      }
+
+      // User chose "Done equipping"
+      if (!equipment) {
+        if (sector.stashCount > 0) {
+          const remaining = sector.stash.map(e => e.equipmentName).join(', ');
+          game.message(`Left in stash: ${remaining}`);
+        }
+        return { success: true, message: 'Done equipping' };
+      }
+
+      // Equip the item
+      const replaced = merc.equip(equipment);
+
+      if (replaced) {
+        sector.addToStash(replaced);
+        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+      } else {
+        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}`);
+      }
+
+      // Chain another if more items remain
+      if (sector.stashCount > 0) {
+        return {
+          success: true,
+          message: `Equipped ${equipment.equipmentName}`,
+          followUp: {
+            action: 'reEquipContinue',
+            args: {
+              mercId: typeof ctx.args?.mercId === 'number' ? ctx.args.mercId : merc.id,
+              sectorId: typeof ctx.args?.sectorId === 'number' ? ctx.args.sectorId : sector.id,
+            },
+          },
+        };
+      }
+
+      return { success: true, message: `Equipped ${equipment.equipmentName}` };
     });
 }
 
@@ -203,6 +313,30 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
  * Allows MERCs to drop equipment they're carrying into the current sector.
  */
 export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
+  // Helper to resolve merc from ctx.args (handles both numeric ID and resolved element)
+  function getMerc(ctx: any): MercCard | undefined {
+    const mercArg = ctx.args?.actingMerc;
+    if (typeof mercArg === 'number') {
+      return game.getElementById(mercArg) as MercCard | undefined;
+    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+      return mercArg as MercCard;
+    }
+    return undefined;
+  }
+
+  // Helper to get all equipment a MERC has equipped
+  function getMercEquipment(merc: MercCard): Equipment[] {
+    const equipment: Equipment[] = [];
+    if (merc.weaponSlot) equipment.push(merc.weaponSlot);
+    if (merc.armorSlot) equipment.push(merc.armorSlot);
+    if (merc.accessorySlot) equipment.push(merc.accessorySlot);
+    // Add bandolier items
+    for (const item of merc.bandolierSlots) {
+      if (item) equipment.push(item);
+    }
+    return equipment;
+  }
+
   return Action.create('dropEquipment')
     .prompt('Unequip')
     .condition((ctx, tracer) => {
@@ -214,15 +348,9 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       if (!isRebel) return false;
       const player = ctx.player as RebelPlayer;
 
-      // Check if any MERC has equipment to drop (including bandolier slots)
-      // Use both slot refs and slotData since element refs aren't serialized
+      // Check if any MERC has equipment to drop
       const hasEquippedMerc = player.team.some(m =>
-        !m.isDead && (
-          m.weaponSlot || m.weaponSlotData ||
-          m.armorSlot || m.armorSlotData ||
-          m.accessorySlot || m.accessorySlotData ||
-          m.bandolierSlotsData.length > 0
-        )
+        !m.isDead && getMercEquipment(m).length > 0
       );
       if (tracer) tracer.check('hasEquippedMerc', hasEquippedMerc);
       return hasEquippedMerc;
@@ -236,75 +364,31 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
 
-        // MERC must be in player's team and have equipment (including bandolier slots)
-        // Use both slot refs and slotData since element refs aren't serialized
+        // MERC must be in player's team and have equipment
         if (!isInPlayerTeam(merc, player)) return false;
-        return !!(
-          merc.weaponSlot || merc.weaponSlotData ||
-          merc.armorSlot || merc.armorSlotData ||
-          merc.accessorySlot || merc.accessorySlotData ||
-          merc.bandolierSlotsData.length > 0
-        );
+        return getMercEquipment(merc).length > 0;
       },
     })
-    .chooseFrom<string>('slot', {
-      prompt: 'Select equipment to drop',
-      dependsOn: 'actingMerc',
-      // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
-      choices: (ctx) => {
-        const mercRef = ctx.args?.actingMerc;
-        // During availability check, actingMerc won't be set yet - return placeholder
-        if (!mercRef) return ['(select MERC first)'];
-
-        // BoardSmith may pass the element ID (number) or the element object
-        let actualMerc: MercCard | undefined;
-        if (typeof mercRef === 'number') {
-          // It's an element ID - look up using game.getElementById
-          actualMerc = game.getElementById(mercRef) as MercCard | undefined;
-        } else {
-          // It's an object - get the ID and look up the actual element
-          const mercId = (mercRef as any).id;
-          if (typeof mercId === 'number') {
-            actualMerc = game.getElementById(mercId) as MercCard | undefined;
-          } else {
-            // Try to find by mercId string
-            const mercIdStr = (mercRef as any).mercId;
-            actualMerc = game.first(MercCard, m => m.mercId === mercIdStr);
-          }
-        }
-
-        if (!actualMerc) return ['(select MERC first)'];
-
-        const choices: string[] = [];
-        // Use slot references if available, otherwise fall back to slotData (element refs aren't serialized)
-        const weaponName = actualMerc.weaponSlot?.equipmentName || actualMerc.weaponSlotData?.equipmentName;
-        const armorName = actualMerc.armorSlot?.equipmentName || actualMerc.armorSlotData?.equipmentName;
-        const accessoryName = actualMerc.accessorySlot?.equipmentName || actualMerc.accessorySlotData?.equipmentName;
-
-        if (weaponName) {
-          choices.push(`Weapon: ${weaponName}`);
-        }
-        if (armorName) {
-          choices.push(`Armor: ${armorName}`);
-        }
-        if (accessoryName) {
-          choices.push(`Accessory: ${accessoryName}`);
-        }
-        // Add bandolier slot items (use data as source of truth)
-        for (let i = 0; i < actualMerc.bandolierSlotsData.length; i++) {
-          const itemData = actualMerc.bandolierSlotsData[i];
-          if (itemData?.equipmentName) {
-            choices.push(`Bandolier:${i}: ${itemData.equipmentName}`);
-          }
-        }
-        // Return at least one choice to prevent action from being marked unavailable
-        return choices.length > 0 ? choices : ['(no equipment)'];
+    .chooseElement<Equipment>('equipment', {
+      prompt: (ctx) => {
+        const merc = getMerc(ctx);
+        return merc
+          ? `Select equipment to drop from ${capitalize(merc.mercName)}`
+          : 'Select equipment to drop';
+      },
+      display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
+      elementClass: Equipment,
+      filter: (element, ctx) => {
+        const merc = getMerc(ctx);
+        if (!merc) return false;
+        // Check if this equipment is equipped by this MERC
+        return getMercEquipment(merc).some(e => e.id === element.id);
       },
     })
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
-      const slotChoice = args.slot as string;
+      const equipment = args.equipment as Equipment;
 
       // Find which squad the MERC is in to get the sector
       const findMercSector = (): Sector | null => {
@@ -323,20 +407,21 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'MERC is not in a valid sector' };
       }
 
-      // Parse the slot choice and drop the equipment using unequip() to sync UI data
+      // Unequip the equipment based on which slot it's in
       let droppedItem: Equipment | undefined;
-      if (slotChoice.startsWith('Weapon:')) {
+      if (actingMerc.weaponSlot?.id === equipment.id) {
         droppedItem = actingMerc.unequip('Weapon');
-      } else if (slotChoice.startsWith('Armor:')) {
+      } else if (actingMerc.armorSlot?.id === equipment.id) {
         droppedItem = actingMerc.unequip('Armor');
-      } else if (slotChoice.startsWith('Accessory:')) {
+      } else if (actingMerc.accessorySlot?.id === equipment.id) {
         droppedItem = actingMerc.unequip('Accessory');
-      } else if (slotChoice.startsWith('Bandolier:')) {
-        // Parse "Bandolier:N: equipmentName" format
-        const match = slotChoice.match(/^Bandolier:(\d+):/);
-        if (match) {
-          const slotIndex = parseInt(match[1], 10);
-          droppedItem = actingMerc.unequipBandolierSlot(slotIndex);
+      } else {
+        // Check bandolier slots
+        for (let i = 0; i < actingMerc.bandolierSlots.length; i++) {
+          if (actingMerc.bandolierSlots[i]?.id === equipment.id) {
+            droppedItem = actingMerc.unequipBandolierSlot(i);
+            break;
+          }
         }
       }
 

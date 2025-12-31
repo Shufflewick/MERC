@@ -73,6 +73,7 @@ import {
 
 import {
   createReEquipAction,
+  createReEquipContinueAction,
   createDropEquipmentAction,
   createDocHealAction,
   createFeedbackDiscardAction,
@@ -131,6 +132,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createTakeFromStashAction(game));
   game.registerAction(createTrainAction(game));
   game.registerAction(createReEquipAction(game));
+  game.registerAction(createReEquipContinueAction(game));
   game.registerAction(createDropEquipmentAction(game));
   game.registerAction(createDocHealAction(game)); // MERC-m4k: Doc's free heal
   game.registerAction(createFeedbackDiscardAction(game)); // MERC-24h: Feedback discard retrieval

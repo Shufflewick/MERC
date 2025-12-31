@@ -935,16 +935,28 @@ const sectorTypeIcon = computed(() => {
       <!-- Normal View: Squad and Actions -->
       <template v-else>
         <!-- Squad MERCs (if squad is in this sector) -->
-        <div v-if="squadInSector && squadInSector.mercs.length > 0" class="squad-mercs">
+        <div v-if="squadInSector && squadInSector.mercs.length > 0" class="squad-section">
+          <div class="squad-mercs">
+            <div
+              v-for="merc in squadInSector.mercs"
+              :key="getAttr(merc, 'mercId', '')"
+              class="merc-portrait"
+              :style="{ borderColor: getPlayerColor(playerPosition) }"
+              @click="openMercCard(merc)"
+              :title="getMercName(merc)"
+            >
+              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
+            </div>
+          </div>
+          <!-- Stash indicator next to MERCs -->
           <div
-            v-for="merc in squadInSector.mercs"
-            :key="getAttr(merc, 'mercId', '')"
-            class="merc-portrait"
-            :style="{ borderColor: getPlayerColor(playerPosition) }"
-            @click="openMercCard(merc)"
-            :title="getMercName(merc)"
+            v-if="stashContents && stashContents.length > 0"
+            class="stash-badge clickable"
+            @click="showStashModal = true"
+            title="Click to view stash"
           >
-            <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
+            <span class="stash-icon">📦</span>
+            <span class="stash-count">{{ stashContents.length }}</span>
           </div>
         </div>
 
@@ -962,15 +974,6 @@ const sectorTypeIcon = computed(() => {
           <div v-if="isCity" class="facilities">
             <span class="facility">🏥</span>
             <span class="facility">🔫</span>
-          </div>
-          <div
-            v-if="stashContents && stashContents.length > 0 && hasSquadInSector"
-            class="stash-info clickable"
-            @click="showStashModal = true"
-            title="Click to view stash"
-          >
-            <span class="stash-icon">📦</span>
-            <span class="stash-count">{{ stashContents.length }} items</span>
           </div>
         </div>
 
@@ -1007,7 +1010,17 @@ const sectorTypeIcon = computed(() => {
 
     <!-- Stash Modal -->
     <DetailModal :show="showStashModal" @close="showStashModal = false">
-      <div class="stash-modal">
+      <div
+        class="stash-modal"
+        :style="{
+          background: UI_COLORS.surface,
+          border: `1px solid ${UI_COLORS.border}`,
+          borderRadius: '12px',
+          padding: '16px',
+          minWidth: '400px',
+          maxWidth: '600px',
+        }"
+      >
         <EquipmentTable
           :items="stashContents || []"
           :title="`${sector.sectorName} Stash`"
@@ -1331,10 +1344,49 @@ const sectorTypeIcon = computed(() => {
 }
 
 /* Normal View */
+.squad-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .squad-mercs {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.stash-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(139, 90, 43, 0.3);
+  border: 1px solid rgba(139, 90, 43, 0.6);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #d4a84b;
+  font-weight: 600;
+}
+
+.stash-badge.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stash-badge.clickable:hover {
+  background: rgba(139, 90, 43, 0.5);
+  border-color: #d4a84b;
+  transform: scale(1.05);
+}
+
+.stash-badge .stash-icon {
+  font-size: 1rem;
+}
+
+.stash-badge .stash-count {
+  font-weight: bold;
 }
 
 .merc-portrait {

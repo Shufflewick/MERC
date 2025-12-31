@@ -232,20 +232,30 @@ const selectedSectorStash = computed(() => {
 
   if (!sectorElement) return [];
 
-  const stash = getAttr(sectorElement, 'stash', []);
-  return stash.map((e: any) => ({
-    equipmentName: getAttr(e, 'equipmentName', 'Unknown'),
-    equipmentType: getAttr(e, 'equipmentType', 'Accessory'),
-    equipmentId: getAttr(e, 'equipmentId', ''),
-    description: getAttr(e, 'description', ''),
-    combatBonus: getAttr(e, 'combatBonus', 0),
-    initiative: getAttr(e, 'initiative', 0),
-    training: getAttr(e, 'training', 0),
-    armorBonus: getAttr(e, 'armorBonus', 0),
-    targets: getAttr(e, 'targets', 0),
-    negatesArmor: getAttr(e, 'negatesArmor', false),
-    image: getAttr(e, 'image', ''),
-  }));
+  // Stash is stored as a Space zone named 'stash' containing Equipment children
+  // Look for the Space zone in sector's children
+  const stashZone = sectorElement.children?.find((c: any) =>
+    c.className === 'Space' && getAttr(c, 'name', '') === 'stash'
+  );
+
+  if (!stashZone?.children) return [];
+
+  // Get equipment from stash zone children
+  return stashZone.children
+    .filter((e: any) => e.className === 'Equipment')
+    .map((e: any) => ({
+      equipmentName: getAttr(e, 'equipmentName', 'Unknown'),
+      equipmentType: getAttr(e, 'equipmentType', 'Accessory'),
+      equipmentId: getAttr(e, 'equipmentId', ''),
+      description: getAttr(e, 'description', ''),
+      combatBonus: getAttr(e, 'combatBonus', 0),
+      initiative: getAttr(e, 'initiative', 0),
+      training: getAttr(e, 'training', 0),
+      armorBonus: getAttr(e, 'armorBonus', 0),
+      targets: getAttr(e, 'targets', 0),
+      negatesArmor: getAttr(e, 'negatesArmor', false),
+      image: getAttr(e, 'image', ''),
+    }));
 });
 
 // Check if player has Doc on team

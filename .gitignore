@@ -3,3 +3,5 @@ dist/
 .boardsmith/
 .DS_Store
 *.log
+BUGS.md
+TODO.md
