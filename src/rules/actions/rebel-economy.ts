@@ -26,6 +26,35 @@ import {
 // Hire MERC Action
 // =============================================================================
 
+// Settings key for drawn MERCs cache (persists across BoardSmith contexts)
+const HIRE_DRAWN_MERCS_KEY = 'hireDrawnMercs';
+
+// Helper to get cached MERC IDs from game.settings
+function getHireDrawnMercIds(game: MERCGame, playerId: string): number[] | undefined {
+  const key = `${HIRE_DRAWN_MERCS_KEY}:${playerId}`;
+  return game.settings[key] as number[] | undefined;
+}
+
+// Helper to set cached MERC IDs in game.settings
+function setHireDrawnMercIds(game: MERCGame, playerId: string, mercIds: number[]): void {
+  const key = `${HIRE_DRAWN_MERCS_KEY}:${playerId}`;
+  game.settings[key] = mercIds;
+}
+
+// Helper to clear cached MERC IDs from game.settings
+function clearHireDrawnMercIds(game: MERCGame, playerId: string): void {
+  const key = `${HIRE_DRAWN_MERCS_KEY}:${playerId}`;
+  delete game.settings[key];
+}
+
+// Helper to get MercCard elements from cached IDs
+function getHireDrawnMercs(game: MERCGame, playerId: string): MercCard[] | undefined {
+  const ids = getHireDrawnMercIds(game, playerId);
+  if (!ids) return undefined; // No cache - caller should draw
+  if (ids.length === 0) return []; // Cache exists but empty
+  return ids.map(id => game.getElementById(id) as MercCard).filter(Boolean);
+}
+
 /**
  * Hire MERCs from the deck
  * Cost: 2 actions
@@ -34,9 +63,6 @@ import {
  * MERC-l1q: New MERCs join existing squad
  */
 export function createHireMercAction(game: MERCGame): ActionDefinition {
-  // Cache drawn mercs per player during action
-  const drawnMercsCache = new Map<string, MercCard[]>();
-
   return Action.create('hireMerc')
     .prompt('Hire mercenaries')
     .condition((ctx) => {
@@ -100,15 +126,15 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       },
       choices: (ctx) => {
         const player = ctx.player as RebelPlayer;
-        const cacheKey = `${player.position}`;
+        const playerId = `${player.position}`;
 
         // Draw 3 MERCs if not already cached
-        if (!drawnMercsCache.has(cacheKey)) {
+        let drawnMercs = getHireDrawnMercs(game, playerId);
+        if (!drawnMercs) {
           const drawn = drawMercsForHiring(game, 3);
-          drawnMercsCache.set(cacheKey, drawn);
+          setHireDrawnMercIds(game, playerId, drawn.map(m => m.id));
+          drawnMercs = drawn;
         }
-
-        const drawnMercs = drawnMercsCache.get(cacheKey) || [];
 
         // MERC-s37: Filter out MERCs incompatible with current team
         const compatibleMercs = drawnMercs.filter(m =>
@@ -120,8 +146,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
-      const cacheKey = `${player.position}`;
-      const drawnMercs = drawnMercsCache.get(cacheKey) || [];
+      const playerId = `${player.position}`;
+      const drawnMercs = getHireDrawnMercs(game, playerId) || [];
       const selectedNames = (args.selectedMercs as string[]) || [];
       const fireChoice = args.fireFirst as string;
 
@@ -131,7 +157,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         for (const merc of drawnMercs) {
           merc.putInto(game.mercDiscard);
         }
-        drawnMercsCache.delete(cacheKey);
+        clearHireDrawnMercIds(game, playerId);
         return { success: false, message: 'Not enough actions' };
       }
 
@@ -271,7 +297,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         }
       }
 
-      drawnMercsCache.delete(cacheKey);
+      clearHireDrawnMercIds(game, playerId);
 
       if (hired.length > 0) {
         game.message(`${player.name} hired: ${hired.join(', ')}`);

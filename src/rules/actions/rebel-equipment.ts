@@ -728,19 +728,39 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
 // Hagness Draw Action
 // =============================================================================
 
-// Local cache for equipment element reference (keyed by `playerId:equipmentType`)
-const hagnessEquipmentCache = new Map<string, Equipment>();
+// Settings key prefix for Hagness equipment cache (keyed by `playerId:equipmentType`)
+const HAGNESS_EQUIPMENT_KEY = 'hagnessDrawnEquipmentId';
 
 // Helper to get cache key for Hagness equipment
 function getHagnessCacheKey(playerId: string, equipmentType: string): string {
-  return `${playerId}:${equipmentType}`;
+  return `${HAGNESS_EQUIPMENT_KEY}:${playerId}:${equipmentType}`;
+}
+
+// Helper to get cached equipment ID from game.settings
+function getHagnessEquipmentId(game: MERCGame, playerId: string, equipmentType: string): number | undefined {
+  const key = getHagnessCacheKey(playerId, equipmentType);
+  return game.settings[key] as number | undefined;
+}
+
+// Helper to set cached equipment ID in game.settings
+function setHagnessEquipmentId(game: MERCGame, playerId: string, equipmentType: string, equipmentId: number): void {
+  const key = getHagnessCacheKey(playerId, equipmentType);
+  game.settings[key] = equipmentId;
+}
+
+// Helper to get Equipment element from cached ID
+function getHagnessEquipment(game: MERCGame, playerId: string, equipmentType: string): Equipment | undefined {
+  const id = getHagnessEquipmentId(game, playerId, equipmentType);
+  if (id === undefined) return undefined;
+  return game.getElementById(id) as Equipment | undefined;
 }
 
 // Helper to clear all cache entries for a player (used on action completion/failure)
-function clearHagnessCache(playerId: string): void {
-  for (const key of hagnessEquipmentCache.keys()) {
-    if (key.startsWith(`${playerId}:`)) {
-      hagnessEquipmentCache.delete(key);
+function clearHagnessCache(game: MERCGame, playerId: string): void {
+  const prefix = `${HAGNESS_EQUIPMENT_KEY}:${playerId}:`;
+  for (const key of Object.keys(game.settings)) {
+    if (key.startsWith(prefix)) {
+      delete game.settings[key];
     }
   }
 }
@@ -779,8 +799,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
 
         // Try to find cached equipment for any type (we may not know which type was selected)
         if (equipmentType) {
-          const cacheKey = getHagnessCacheKey(playerId, equipmentType);
-          const equipment = hagnessEquipmentCache.get(cacheKey);
+          const equipment = getHagnessEquipment(game, playerId, equipmentType);
           if (equipment) {
             return `Drew ${equipment.equipmentName}! Give to which squad member?`;
           }
@@ -814,10 +833,10 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         // If recipient is already set, the user already clicked - don't redraw!
         const recipientAlreadySet = ctx.args?.recipient !== undefined;
 
-        if (!hagnessEquipmentCache.has(cacheKey) && !recipientAlreadySet) {
+        if (getHagnessEquipmentId(game, playerId, equipmentType) === undefined && !recipientAlreadySet) {
           const eq = game.drawEquipment(equipmentType);
           if (eq) {
-            hagnessEquipmentCache.set(cacheKey, eq);
+            setHagnessEquipmentId(game, playerId, equipmentType, eq.id);
             equipmentData = {
               equipmentId: eq.id,
               equipmentName: eq.equipmentName,
@@ -837,7 +856,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
             game.hagnessDrawnEquipmentData[stateKey] = equipmentData as any;
           }
         } else {
-          const eq = hagnessEquipmentCache.get(cacheKey)!;
+          const eq = getHagnessEquipment(game, playerId, equipmentType)!;
           equipmentData = {
             equipmentId: eq.id,
             equipmentName: eq.equipmentName,
@@ -899,7 +918,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       // Find recipient MERC
       const hagnessSquad = player.getSquadContaining(hagness);
       if (!hagnessSquad) {
-        clearHagnessCache(playerId);
+        clearHagnessCache(game, playerId);
         for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
           if (key.startsWith(`${playerId}:`)) delete game.hagnessDrawnEquipmentData[key];
         }
@@ -908,7 +927,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
 
       const recipient = hagnessSquad.getLivingMercs().find(m => capitalize(m.mercName) === recipientName);
       if (!recipient) {
-        clearHagnessCache(playerId);
+        clearHagnessCache(game, playerId);
         for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
           if (key.startsWith(`${playerId}:`)) delete game.hagnessDrawnEquipmentData[key];
         }
@@ -916,9 +935,9 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       }
 
       // Get cached equipment element using typed key
-      const equipment = hagnessEquipmentCache.get(cacheKey);
+      const equipment = getHagnessEquipment(game, playerId, equipmentType);
       if (!equipment) {
-        clearHagnessCache(playerId);
+        clearHagnessCache(game, playerId);
         for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
           if (key.startsWith(`${playerId}:`)) delete game.hagnessDrawnEquipmentData[key];
         }
@@ -935,7 +954,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       }
 
       // Clean up caches
-      clearHagnessCache(playerId);
+      clearHagnessCache(game, playerId);
       // Clean up all typed state keys for this player
       for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
         if (key.startsWith(`${playerId}:`)) {
