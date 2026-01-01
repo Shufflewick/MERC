@@ -57,8 +57,6 @@ export {
   // Fire MERC is now only part of hire action (MERC-yi7)
   createPlayTacticsAction,
   createReinforceAction,
-  createMoveMilitiaAction,
-  createSkipMilitiaMoveAction,
   // Day 1 specific actions
   createHireFirstMercAction,
   createHireSecondMercAction,

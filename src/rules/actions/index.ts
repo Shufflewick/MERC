@@ -88,8 +88,6 @@ import {
 import {
   createPlayTacticsAction,
   createReinforceAction,
-  createMoveMilitiaAction,
-  createSkipMilitiaMoveAction,
   createDictatorMoveAction,
   createDictatorExploreAction,
   createDictatorTrainAction,
@@ -176,8 +174,6 @@ export function registerAllActions(game: MERCGame): void {
   // Dictator actions
   game.registerAction(createPlayTacticsAction(game));
   game.registerAction(createReinforceAction(game));
-  game.registerAction(createMoveMilitiaAction(game));
-  game.registerAction(createSkipMilitiaMoveAction(game));
 
   // Dictator MERC actions
   game.registerAction(createDictatorMoveAction(game));
