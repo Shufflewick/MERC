@@ -412,14 +412,15 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
 
         // Chain to collectEquipment action with pre-filled args
+        // Pass objects with name property so chips display names instead of IDs
         return {
           success: true,
           message: `Explored ${sector.sectorName}`,
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: actingMerc.id,
-              sectorId: sector.id,
+              mercId: { id: actingMerc.id, name: capitalize(actingMerc.mercName) },
+              sectorId: { id: sector.id, name: sector.sectorName },
             },
           },
         };
@@ -455,24 +456,26 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
  * This is simpler than using repeat which has issues with followUp actions.
  */
 export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve sector from ctx.args (handles both numeric ID and resolved element)
+  // Helper to resolve sector from ctx.args (handles numeric ID or object with id)
   function getSector(ctx: any): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
       return game.getElementById(sectorArg) as Sector | undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
-      return sectorArg as Sector;
+      // Object with id property - look up the actual Sector element
+      return game.getElementById(sectorArg.id) as Sector | undefined;
     }
     return undefined;
   }
 
-  // Helper to resolve merc from ctx.args
+  // Helper to resolve merc from ctx.args (handles numeric ID or object with id)
   function getMerc(ctx: any): MercCard | undefined {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
       return game.getElementById(mercArg) as MercCard | undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      return mercArg as MercCard;
+      // Object with id property - look up the actual MercCard element
+      return game.getElementById(mercArg.id) as MercCard | undefined;
     }
     return undefined;
   }
@@ -543,14 +546,24 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
       // If there are more items in stash, chain another collectEquipment
       if (sector.stashCount > 0) {
+        // Preserve display names if passed as objects, otherwise create new objects
+        const mercArg = ctx.args?.mercId;
+        const sectorArg = ctx.args?.sectorId;
+        const mercIdArg = (mercArg && typeof mercArg === 'object' && 'name' in mercArg)
+          ? mercArg
+          : { id: merc.id, name: capitalize(merc.mercName) };
+        const sectorIdArg = (sectorArg && typeof sectorArg === 'object' && 'name' in sectorArg)
+          ? sectorArg
+          : { id: sector.id, name: sector.sectorName };
+
         return {
           success: true,
           message: `Equipped ${equipment.equipmentName}`,
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: typeof ctx.args?.mercId === 'number' ? ctx.args.mercId : merc.id,
-              sectorId: typeof ctx.args?.sectorId === 'number' ? ctx.args.sectorId : sector.id,
+              mercId: mercIdArg,
+              sectorId: sectorIdArg,
               // Track the just-returned equipment to prevent infinite swap loops
               // This prevents auto-fill from immediately picking up what we just put down
               lastReturnedEquipmentId: replaced ? replaced.id : undefined,
