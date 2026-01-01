@@ -88,13 +88,6 @@ import {
 import {
   createPlayTacticsAction,
   createReinforceAction,
-  createDictatorMoveAction,
-  createDictatorExploreAction,
-  createDictatorTrainAction,
-  createDictatorReEquipAction,
-  createDictatorHealAction,
-  createDictatorMortarAction,
-  createDictatorEndMercActionsAction,
 } from './dictator-actions.js';
 
 import {
@@ -176,13 +169,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createReinforceAction(game));
 
   // Dictator MERC actions
-  game.registerAction(createDictatorMoveAction(game));
-  game.registerAction(createDictatorExploreAction(game));
-  game.registerAction(createDictatorTrainAction(game));
-  game.registerAction(createDictatorReEquipAction(game));
-  game.registerAction(createDictatorHealAction(game)); // MERC-7fy
-  game.registerAction(createDictatorMortarAction(game)); // MERC-9m9
-  game.registerAction(createDictatorEndMercActionsAction(game));
+  // Note: All basic MERC actions are now unified with rebel actions
+  // (move, explore, train, reEquip, dropEquipment, mortar, endTurn work for both player types)
 
   // MERC-xj2: Privacy Player setup
   game.registerAction(createDesignatePrivacyPlayerAction(game));

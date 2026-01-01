@@ -19,6 +19,7 @@ import { hasMortar } from '../ai-helpers.js';
 
 // =============================================================================
 // Re-Equip Action
+// Works for both rebel and dictator players.
 // =============================================================================
 
 /**
@@ -26,6 +27,7 @@ import { hasMortar } from '../ai-helpers.js';
  * Cost: 1 action (per rules: "Re-Equip (1 action)")
  * Uses element selection for proper UI display of equipment.
  * Chains via followUp if more items remain in stash.
+ * Works for both rebel and dictator players.
  */
 export function createReEquipAction(game: MERCGame): ActionDefinition {
   // Helper to resolve merc from ctx.args (handles both numeric ID and resolved element)
@@ -50,16 +52,62 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  // Helper to find merc's sector
-  function findMercSector(merc: MercCard, player: RebelPlayer): Sector | null {
-    for (const squad of [player.primarySquad, player.secondarySquad]) {
-      if (!squad?.sectorId) continue;
-      const mercs = squad.getMercs();
-      if (mercs.some(m => m.id === merc.id)) {
+  // Helper to find merc's sector (works for any player type)
+  function findMercSector(merc: MercCard, player: any): Sector | null {
+    if (game.isRebelPlayer(player)) {
+      const rebelPlayer = player as RebelPlayer;
+      for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
+        if (!squad?.sectorId) continue;
+        const mercs = squad.getMercs();
+        if (mercs.some(m => m.id === merc.id)) {
+          return game.getSector(squad.sectorId) || null;
+        }
+      }
+    }
+    if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+      const squad = game.dictatorPlayer.getSquadContaining(merc);
+      if (squad?.sectorId) {
         return game.getSector(squad.sectorId) || null;
+      }
+      // Fallback to merc's sectorId
+      if (merc.sectorId) {
+        return game.getSector(merc.sectorId) || null;
       }
     }
     return null;
+  }
+
+  // Helper to get living MERCs with actions for any player type
+  function getPlayerMercsWithActions(player: any): MercCard[] {
+    if (game.isRebelPlayer(player)) {
+      return (player as RebelPlayer).team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
+    }
+    if (game.isDictatorPlayer(player)) {
+      return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
+    }
+    return [];
+  }
+
+  // Helper to check if merc belongs to player
+  function isMercOwnedByPlayer(merc: MercCard, player: any): boolean {
+    if (game.isRebelPlayer(player)) {
+      return isInPlayerTeam(merc, player as RebelPlayer);
+    }
+    if (game.isDictatorPlayer(player)) {
+      const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+      return dictatorMercs.some(m => m.id === merc.id);
+    }
+    return false;
+  }
+
+  // Helper to check if any merc can re-equip (in a sector with stash and has actions)
+  function canAnyMercReEquip(player: any): boolean {
+    const mercs = getPlayerMercsWithActions(player);
+    for (const merc of mercs) {
+      const sector = findMercSector(merc, player);
+      if (sector && sector.stash.length > 0) return true;
+    }
+    return false;
   }
 
   return Action.create('reEquip')
@@ -67,51 +115,39 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     .condition((ctx, tracer) => {
       // Cannot re-equip during combat
       if (game.activeCombat) return false;
-      // Only rebels can re-equip
+
+      // Must be rebel or dictator player
       const isRebel = game.isRebelPlayer(ctx.player as any);
+      const isDictator = game.isDictatorPlayer(ctx.player as any);
       if (tracer) tracer.check('isRebelPlayer', isRebel);
-      if (!isRebel) return false;
-      const player = ctx.player as RebelPlayer;
+      if (tracer) tracer.check('isDictatorPlayer', isDictator);
+      if (!isRebel && !isDictator) return false;
 
-      // Check both squads for sectors with equipment stash
-      const checkSquad = (squad: typeof player.primarySquad) => {
-        if (!squad?.sectorId) return false;
-        const sector = game.getSector(squad.sectorId);
-        return sector && sector.stash.length > 0;
-      };
-
-      const primaryHasStash = checkSquad(player.primarySquad);
-      const secondaryHasStash = checkSquad(player.secondarySquad);
-      const hasStash = primaryHasStash || secondaryHasStash;
-      if (tracer) tracer.check('sectorHasStash', hasStash);
-      if (!hasStash) return false;
-
-      const hasActions = hasActionsRemaining(player, ACTION_COSTS.RE_EQUIP);
-      if (tracer) tracer.check('hasActionsRemaining', hasActions);
-      return hasActions;
+      // Check if any merc can re-equip
+      const canReEquip = canAnyMercReEquip(ctx.player);
+      if (tracer) tracer.check('canAnyMercReEquip', canReEquip);
+      return canReEquip;
     })
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Select MERC to equip',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
 
-        // MERC must be in player's team and have actions
-        if (!isInPlayerTeam(merc, player)) return false;
+        // MERC must belong to player and have actions
+        if (!isMercOwnedByPlayer(merc, ctx.player)) return false;
         if (merc.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
 
         // MERC must be in a sector with equipment stash
-        const sector = findMercSector(merc, player);
+        const sector = findMercSector(merc, ctx.player);
         return sector !== null && sector.stash.length > 0;
       },
     })
     .chooseElement<Equipment>('equipment', {
       prompt: (ctx) => {
         const merc = getMerc(ctx);
-        const sector = getSector(ctx) || (merc ? findMercSector(merc, ctx.player as RebelPlayer) : null);
+        const sector = getSector(ctx) || (merc ? findMercSector(merc, ctx.player) : null);
         const remaining = sector?.stashCount || 0;
         return merc
           ? `What should ${capitalize(merc.mercName)} equip? (${remaining} item${remaining !== 1 ? 's' : ''} in stash)`
@@ -124,8 +160,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         const merc = getMerc(ctx);
         if (!merc) return false;
 
-        const player = ctx.player as RebelPlayer;
-        const sector = getSector(ctx) || findMercSector(merc, player);
+        const sector = getSector(ctx) || findMercSector(merc, ctx.player);
         if (!sector) return false;
 
         // Check if this equipment is in the sector's stash
@@ -141,14 +176,13 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const merc = getMerc(ctx) || (args.actingMerc as MercCard);
-      const player = ctx.player as RebelPlayer;
       const equipment = args.equipment as Equipment | null;
 
       if (!merc) {
         return { success: false, message: 'Invalid merc' };
       }
 
-      const sector = getSector(ctx) || findMercSector(merc, player);
+      const sector = getSector(ctx) || findMercSector(merc, ctx.player);
       if (!sector) {
         return { success: false, message: 'Invalid sector' };
       }
@@ -308,49 +342,96 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
  * Drop equipment into the sector stash.
  * Cost: 0 actions (free)
  * Allows MERCs to drop equipment they're carrying into the current sector.
+ * Works for both rebel and dictator players.
  */
 export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve merc from ctx.args (handles both numeric ID and resolved element)
-  function getMerc(ctx: any): MercCard | undefined {
-    const mercArg = ctx.args?.actingMerc;
-    if (typeof mercArg === 'number') {
-      return game.getElementById(mercArg) as MercCard | undefined;
-    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      return mercArg as MercCard;
-    }
-    return undefined;
-  }
-
-  // Helper to get all equipment a MERC has equipped
+  // Helper to get all equipment a MERC has equipped (uses passed game reference)
   function getMercEquipment(merc: MercCard): Equipment[] {
     const equipment: Equipment[] = [];
     if (merc.weaponSlot) equipment.push(merc.weaponSlot);
     if (merc.armorSlot) equipment.push(merc.armorSlot);
     if (merc.accessorySlot) equipment.push(merc.accessorySlot);
-    // Add bandolier items
     for (const item of merc.bandolierSlots) {
       if (item) equipment.push(item);
     }
     return equipment;
   }
 
+  // Helper to get living MERCs for any player type (uses ctx.game to avoid stale refs)
+  function getPlayerMercsFromCtx(ctx: any): MercCard[] {
+    const g = ctx.game as MERCGame;
+    if (g.isRebelPlayer(ctx.player)) {
+      return (ctx.player as RebelPlayer).team.filter((m: MercCard) => !m.isDead);
+    }
+    if (g.isDictatorPlayer(ctx.player)) {
+      return g.dictatorPlayer?.hiredMercs.filter((m: MercCard) => !m.isDead) || [];
+    }
+    return [];
+  }
+
+  // Helper to resolve merc from ctx.args using ctx.game
+  function getMercFromCtx(ctx: any): MercCard | undefined {
+    const g = ctx.game as MERCGame;
+    const mercArg = ctx.args?.actingMerc;
+    let mercId: number | undefined;
+
+    if (typeof mercArg === 'number') {
+      mercId = mercArg;
+    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+      mercId = mercArg.id;
+    }
+
+    if (mercId !== undefined) {
+      return g.getElementById(mercId) as MercCard | undefined;
+    }
+    return undefined;
+  }
+
+  // Helper to find merc's sector using ctx.game
+  function findMercSectorFromCtx(merc: MercCard, ctx: any): Sector | null {
+    const g = ctx.game as MERCGame;
+    if (g.isRebelPlayer(ctx.player)) {
+      const rebelPlayer = ctx.player as RebelPlayer;
+      for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
+        if (!squad?.sectorId) continue;
+        const mercs = squad.getMercs();
+        if (mercs.some((m: MercCard) => m.id === merc.id)) {
+          return g.getSector(squad.sectorId) || null;
+        }
+      }
+    }
+    if (g.isDictatorPlayer(ctx.player) && g.dictatorPlayer) {
+      const squad = g.dictatorPlayer.getSquadContaining(merc);
+      if (squad?.sectorId) {
+        return g.getSector(squad.sectorId) || null;
+      }
+      if (merc.sectorId) {
+        return g.getSector(merc.sectorId) || null;
+      }
+    }
+    return null;
+  }
+
   return Action.create('dropEquipment')
     .prompt('Unequip')
     .condition((ctx, tracer) => {
+      const g = ctx.game as MERCGame;
+
       // Cannot drop equipment during combat
-      if (game.activeCombat) {
+      if (g.activeCombat) {
         if (tracer) tracer.check('activeCombat', true);
         return false;
       }
       if (tracer) tracer.check('activeCombat', false);
 
-      // Only rebels can drop equipment
-      const isRebel = game.isRebelPlayer(ctx.player as any);
+      // Must be rebel or dictator player
+      const isRebel = g.isRebelPlayer(ctx.player as any);
+      const isDictator = g.isDictatorPlayer(ctx.player as any);
       if (tracer) tracer.check('isRebelPlayer', isRebel);
-      if (!isRebel) return false;
+      if (tracer) tracer.check('isDictatorPlayer', isDictator);
+      if (!isRebel && !isDictator) return false;
 
-      const player = ctx.player as RebelPlayer;
-      const livingMercs = player.team.filter(m => !m.isDead);
+      const livingMercs = getPlayerMercsFromCtx(ctx);
       if (tracer) tracer.check('livingMercs.count', livingMercs.length);
 
       // Log equipment for each living merc to debug
@@ -364,55 +445,65 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       if (tracer) tracer.check('hasEquippedMerc', hasEquippedMerc);
       return hasEquippedMerc;
     })
-    .chooseElement<MercCard>('actingMerc', {
+    .fromElements<MercCard>('actingMerc', {
       prompt: 'Select MERC to drop equipment from',
-      elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-
-        // MERC must be in player's team and have equipment
-        if (!isInPlayerTeam(merc, player)) return false;
-        return getMercEquipment(merc).length > 0;
+      elements: (ctx) => {
+        const mercs = getPlayerMercsFromCtx(ctx);
+        return mercs.filter(m => getMercEquipment(m).length > 0);
       },
     })
-    .chooseElement<Equipment>('equipment', {
-      dependsOn: 'actingMerc',  // Equipment choices depend on which merc is selected
+    .fromElements<Equipment>('equipment', {
+      dependsOn: 'actingMerc',
       prompt: (ctx) => {
-        const merc = getMerc(ctx);
+        const merc = getMercFromCtx(ctx);
         return merc
           ? `Select equipment to drop from ${capitalize(merc.mercName)}`
           : 'Select equipment to drop';
       },
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
-      elementClass: Equipment,
-      filter: (element, ctx) => {
-        const merc = getMerc(ctx);
-        if (!merc) return false;
-        // Check if this equipment is equipped by this MERC
-        return getMercEquipment(merc).some(e => e.id === element.id);
+      // Use ctx.game throughout to avoid stale closures
+      elements: (ctx) => {
+        const g = ctx.game as MERCGame;
+        const mercArg = ctx.args?.actingMerc;
+
+        if (!mercArg) {
+          // Availability check - return ALL equipment from ALL player mercs
+          const mercs = getPlayerMercsFromCtx(ctx);
+          const allEquipment: Equipment[] = [];
+          for (const m of mercs) {
+            allEquipment.push(...getMercEquipment(m));
+          }
+          return allEquipment;
+        }
+
+        // Merc is selected - look up by ID to get proper element with getters
+        const mercId = typeof mercArg === 'number' ? mercArg : (mercArg as any)?.id;
+        if (mercId !== undefined) {
+          const merc = g.getElementById(mercId) as MercCard;
+          if (merc) return getMercEquipment(merc);
+        }
+
+        return [];
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
-      const actingMerc = args.actingMerc as MercCard;
-      const equipment = args.equipment as Equipment;
+      const g = ctx.game as MERCGame;
 
-      // Find which squad the MERC is in to get the sector
-      const findMercSector = (): Sector | null => {
-        for (const squad of [player.primarySquad, player.secondarySquad]) {
-          if (!squad?.sectorId) continue;
-          const mercs = squad.getMercs();
-          if (mercs.some(m => m.id === actingMerc.id)) {
-            return game.getSector(squad.sectorId) || null;
-          }
-        }
-        return null;
-      };
+      // Always resolve by ID to get full element with all properties
+      const mercArg = args.actingMerc;
+      const mercId = typeof mercArg === 'number' ? mercArg : (mercArg as any)?.id;
+      const actingMerc = g.getElementById(mercId) as MercCard;
 
-      const sector = findMercSector();
+      const equipArg = args.equipment;
+      const equipId = typeof equipArg === 'number' ? equipArg : (equipArg as any)?.id;
+      const equipment = g.getElementById(equipId) as Equipment;
+
+      if (!actingMerc || !equipment) {
+        return { success: false, message: 'Could not resolve MERC or equipment' };
+      }
+
+      const sector = findMercSectorFromCtx(actingMerc, ctx);
       if (!sector) {
         return { success: false, message: 'MERC is not in a valid sector' };
       }
@@ -442,7 +533,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       // Add to sector stash
       sector.addToStash(droppedItem);
 
-      game.message(`${capitalize(actingMerc.mercName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
+      g.message(`${capitalize(actingMerc.mercName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
       return { success: true, message: `Dropped ${droppedItem.equipmentName}` };
     });
 }
@@ -1147,45 +1238,126 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
 // Mortar Action (Ranged Attack)
 // =============================================================================
 
+// =============================================================================
+// Mortar Action Helpers (work for both player types)
+// =============================================================================
+
 /**
- * Get valid mortar targets for rebels (sectors with dictator forces).
+ * Get valid mortar targets based on player type.
+ * Rebels target dictator forces, dictator targets rebel forces.
  */
-function getRebelMortarTargets(game: MERCGame, fromSector: Sector): Sector[] {
+function getMortarTargets(game: MERCGame, fromSector: Sector, player: any): Sector[] {
   const adjacent = game.getAdjacentSectors(fromSector);
-  return adjacent.filter(sector => {
-    // Check if sector has dictator forces
-    const hasDictatorMercs = game.dictatorPlayer?.hiredMercs.some(m =>
-      m.sectorId === sector.sectorId && !m.isDead
-    ) ?? false;
-    const hasDictator = game.dictatorPlayer?.dictator?.sectorId === sector.sectorId &&
-                        game.dictatorPlayer?.dictator?.inPlay;
-    const hasDictatorMilitia = sector.dictatorMilitia > 0;
-    return hasDictatorMercs || hasDictator || hasDictatorMilitia;
-  });
+
+  if (game.isRebelPlayer(player)) {
+    // Rebels target dictator forces
+    return adjacent.filter(sector => {
+      const hasDictatorMercs = game.dictatorPlayer?.hiredMercs.some(m =>
+        m.sectorId === sector.sectorId && !m.isDead
+      ) ?? false;
+      const hasDictator = game.dictatorPlayer?.dictator?.sectorId === sector.sectorId &&
+                          game.dictatorPlayer?.dictator?.inPlay;
+      const hasDictatorMilitia = sector.dictatorMilitia > 0;
+      return hasDictatorMercs || hasDictator || hasDictatorMilitia;
+    });
+  } else if (game.isDictatorPlayer(player)) {
+    // Dictator targets rebel forces
+    return adjacent.filter(sector => {
+      // Check for rebel MERCs
+      const hasRebelMercs = game.rebelPlayers.some(rebel =>
+        rebel.team.some(m => m.sectorId === sector.sectorId && !m.isDead)
+      );
+      // Check for rebel militia
+      const hasRebelMilitia = game.rebelPlayers.some(rebel =>
+        sector.getRebelMilitia(`${rebel.position}`) > 0
+      );
+      return hasRebelMercs || hasRebelMilitia;
+    });
+  }
+  return [];
 }
 
 /**
- * Count dictator targets in a sector (MERCs + militia + dictator).
+ * Count enemy targets in a sector based on player type.
  */
-function countDictatorTargetsInSector(game: MERCGame, sector: Sector): number {
+function countEnemyTargetsInSector(game: MERCGame, sector: Sector, player: any): number {
   let count = 0;
 
-  // Count dictator MERCs
-  const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
-    m.sectorId === sector.sectorId && !m.isDead
-  ) ?? [];
-  count += dictatorMercs.length;
+  if (game.isRebelPlayer(player)) {
+    // Count dictator targets
+    const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
+      m.sectorId === sector.sectorId && !m.isDead
+    ) ?? [];
+    count += dictatorMercs.length;
 
-  // Count dictator itself
-  if (game.dictatorPlayer?.dictator?.sectorId === sector.sectorId &&
-      game.dictatorPlayer?.dictator?.inPlay) {
-    count += 1;
+    if (game.dictatorPlayer?.dictator?.sectorId === sector.sectorId &&
+        game.dictatorPlayer?.dictator?.inPlay) {
+      count += 1;
+    }
+    count += sector.dictatorMilitia;
+  } else if (game.isDictatorPlayer(player)) {
+    // Count rebel targets
+    for (const rebel of game.rebelPlayers) {
+      count += rebel.team.filter(m => m.sectorId === sector.sectorId && !m.isDead).length;
+      count += sector.getRebelMilitia(`${rebel.position}`);
+    }
   }
 
-  // Count dictator militia
-  count += sector.dictatorMilitia;
-
   return count;
+}
+
+/**
+ * Get MERCs with mortars for any player type.
+ */
+function getMercsWithMortars(game: MERCGame, player: any): MercCard[] {
+  if (game.isRebelPlayer(player)) {
+    return (player as RebelPlayer).team.filter(m =>
+      !m.isDead && m.actionsRemaining >= 1 && hasMortar(m)
+    );
+  }
+  if (game.isDictatorPlayer(player)) {
+    return game.dictatorPlayer?.hiredMercs.filter(m =>
+      !m.isDead && m.actionsRemaining >= 1 && hasMortar(m)
+    ) || [];
+  }
+  return [];
+}
+
+/**
+ * Find merc's sector for mortar action.
+ */
+function findMercSectorForMortar(merc: MercCard, player: any, game: MERCGame): Sector | null {
+  if (game.isRebelPlayer(player)) {
+    const rebelPlayer = player as RebelPlayer;
+    const squad = rebelPlayer.getSquadContaining(merc);
+    if (squad?.sectorId) {
+      return game.getSector(squad.sectorId) || null;
+    }
+  }
+  if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    const squad = game.dictatorPlayer.getSquadContaining(merc);
+    if (squad?.sectorId) {
+      return game.getSector(squad.sectorId) || null;
+    }
+    if (merc.sectorId) {
+      return game.getSector(merc.sectorId) || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if merc belongs to player (for mortar action).
+ */
+function isMercOwnedForMortar(merc: MercCard, player: any, game: MERCGame): boolean {
+  if (game.isRebelPlayer(player)) {
+    return isInPlayerTeam(merc, player as RebelPlayer);
+  }
+  if (game.isDictatorPlayer(player)) {
+    const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+    return dictatorMercs.some(m => m.id === merc.id);
+  }
+  return false;
 }
 
 /**
@@ -1193,32 +1365,28 @@ function countDictatorTargetsInSector(game: MERCGame, sector: Sector): number {
  * Cost: 1 action
  * Per rules: Mortars attack adjacent sectors without entering them.
  * Deals 1 damage to all enemies in the target sector.
+ * Works for both rebel and dictator players.
  */
 export function createMortarAction(game: MERCGame): ActionDefinition {
-  return Action.create('rebelMortar')
+  return Action.create('mortar')
     .prompt('Fire Mortar')
     .condition((ctx) => {
       // Cannot use during combat
       if (game.activeCombat) return false;
-      // Only rebels can use this
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
 
-      // Check if any MERC has a mortar and actions, and there are valid targets
-      for (const merc of player.team) {
-        if (merc.isDead || merc.actionsRemaining < 1) continue;
-        if (!hasMortar(merc)) continue;
+      // Must be rebel or dictator player
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      if (!isRebel && !isDictator) return false;
 
-        const squad = player.getSquadContaining(merc);
-        if (!squad?.sectorId) continue;
-
-        const sector = game.getSector(squad.sectorId);
+      // Check if any MERC has a mortar and there are valid targets
+      const mercsWithMortars = getMercsWithMortars(game, ctx.player);
+      for (const merc of mercsWithMortars) {
+        const sector = findMercSectorForMortar(merc, ctx.player, game);
         if (!sector) continue;
-
-        const targets = getRebelMortarTargets(game, sector);
+        const targets = getMortarTargets(game, sector, ctx.player);
         if (targets.length > 0) return true;
       }
-
       return false;
     })
     .chooseElement<MercCard>('merc', {
@@ -1226,30 +1394,25 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
 
-        // MERC must be in player's team, have actions, and have mortar
-        if (!isInPlayerTeam(merc, player)) return false;
+        // MERC must belong to player, have actions, and have mortar
+        if (!isMercOwnedForMortar(merc, ctx.player, game)) return false;
         if (merc.isDead || merc.actionsRemaining < 1) return false;
         if (!hasMortar(merc)) return false;
 
         // Must have valid targets
-        const squad = player.getSquadContaining(merc);
-        if (!squad?.sectorId) return false;
-
-        const sector = game.getSector(squad.sectorId);
+        const sector = findMercSectorForMortar(merc, ctx.player, game);
         if (!sector) return false;
 
-        const targets = getRebelMortarTargets(game, sector);
+        const targets = getMortarTargets(game, sector, ctx.player);
         return targets.length > 0;
       },
     })
     .chooseElement<Sector>('targetSector', {
       prompt: 'Select sector to bombard',
       elementClass: Sector,
-      display: (sector) => `${sector.sectorName} (${countDictatorTargetsInSector(game, sector)} targets)`,
+      display: (sector, ctx) => `${sector.sectorName} (${countEnemyTargetsInSector(game, sector, ctx.player)} targets)`,
       boardRef: (sector) => ({ id: sector.id }),
       filter: (element, ctx) => {
         const sector = element as unknown as Sector;
@@ -1259,14 +1422,14 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         const fromSector = game.getSector(merc.sectorId);
         if (!fromSector) return false;
 
-        const validTargets = getRebelMortarTargets(game, fromSector);
+        const validTargets = getMortarTargets(game, fromSector, ctx.player);
         return validTargets.some(t => t.sectorId === sector.sectorId);
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
       const merc = args.merc as MercCard;
       const targetSector = args.targetSector as Sector;
+      const isRebel = game.isRebelPlayer(ctx.player);
 
       // Use action
       merc.useAction(1);
@@ -1278,34 +1441,56 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
 
       let totalDamage = 0;
 
-      // Damage dictator MERCs
-      const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
-        m.sectorId === targetSector.sectorId && !m.isDead
-      ) ?? [];
-      for (const target of dictatorMercs) {
-        target.takeDamage(mortarDamage);
-        totalDamage++;
-        game.message(`Mortar deals ${mortarDamage} damage to ${target.mercName}`);
-      }
-
-      // Damage the Dictator
-      const dictator = game.dictatorPlayer?.dictator;
-      if (dictator?.sectorId === targetSector.sectorId && dictator.inPlay) {
-        dictator.takeDamage(mortarDamage);
-        totalDamage++;
-        game.message(`Mortar deals ${mortarDamage} damage to the Dictator!`);
-
-        if (dictator.isDead) {
-          game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+      if (isRebel) {
+        // Damage dictator MERCs
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
+          m.sectorId === targetSector.sectorId && !m.isDead
+        ) ?? [];
+        for (const target of dictatorMercs) {
+          target.takeDamage(mortarDamage);
+          totalDamage++;
+          game.message(`Mortar deals ${mortarDamage} damage to ${target.mercName}`);
         }
-      }
 
-      // Damage militia
-      if (targetSector.dictatorMilitia > 0) {
-        const militiaKilled = Math.min(mortarDamage, targetSector.dictatorMilitia);
-        targetSector.removeDictatorMilitia(militiaKilled);
-        totalDamage++;
-        game.message(`Mortar kills ${militiaKilled} dictator militia`);
+        // Damage the Dictator
+        const dictator = game.dictatorPlayer?.dictator;
+        if (dictator?.sectorId === targetSector.sectorId && dictator.inPlay) {
+          dictator.takeDamage(mortarDamage);
+          totalDamage++;
+          game.message(`Mortar deals ${mortarDamage} damage to the Dictator!`);
+          if (dictator.isDead) {
+            game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+          }
+        }
+
+        // Damage dictator militia
+        if (targetSector.dictatorMilitia > 0) {
+          const militiaKilled = Math.min(mortarDamage, targetSector.dictatorMilitia);
+          targetSector.removeDictatorMilitia(militiaKilled);
+          totalDamage++;
+          game.message(`Mortar kills ${militiaKilled} dictator militia`);
+        }
+      } else {
+        // Damage rebel MERCs
+        for (const rebel of game.rebelPlayers) {
+          const rebelMercs = rebel.team.filter(m =>
+            m.sectorId === targetSector.sectorId && !m.isDead
+          );
+          for (const target of rebelMercs) {
+            target.takeDamage(mortarDamage);
+            totalDamage++;
+            game.message(`Mortar deals ${mortarDamage} damage to ${target.mercName}`);
+          }
+
+          // Damage rebel militia
+          const rebelMilitia = targetSector.getRebelMilitia(`${rebel.position}`);
+          if (rebelMilitia > 0) {
+            const militiaKilled = Math.min(mortarDamage, rebelMilitia);
+            targetSector.removeRebelMilitia(`${rebel.position}`, militiaKilled);
+            totalDamage++;
+            game.message(`Mortar kills ${militiaKilled} rebel militia`);
+          }
+        }
       }
 
       // Discard the mortar after use (mortars are one-use)
