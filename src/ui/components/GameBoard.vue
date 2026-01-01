@@ -208,27 +208,69 @@ const sectors = computed(() => {
     }));
 });
 
-// Selected sector for SectorPanel
+// Selected sector for SectorPanel (from clicking on map)
 const selectedSector = computed(() => {
   if (!selectedSectorId.value) return null;
   return sectors.value.find(s => s.sectorId === selectedSectorId.value) || null;
 });
 
-// Get stash contents for selected sector (if player can see it)
+// Sector from action context (followUp args) - for actions started from ActionPanel
+const actionContextSectorId = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
+  if (!currentAction) return null;
+
+  // First, check if sectorId is explicitly in args
+  const args = props.actionController.currentArgs.value;
+  if (args?.sectorId) {
+    // Handle both plain ID and {id, name} object formats
+    const sectorId = args.sectorId;
+    if (typeof sectorId === 'object' && sectorId !== null) {
+      return (sectorId as { id: number }).id;
+    }
+    return sectorId as number;
+  }
+
+  // If no explicit sectorId but we're in a sector-relevant action,
+  // infer from player's primary squad location
+  const sectorRelevantActions = [
+    'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
+    'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
+  ];
+  if (sectorRelevantActions.includes(currentAction) && primarySquad.value?.sectorId) {
+    // Find the sector by sectorId string and return its numeric id
+    const sector = sectors.value.find(s => s.sectorId === primarySquad.value?.sectorId);
+    return sector?.id ?? null;
+  }
+
+  return null;
+});
+
+// Active sector - from either clicking on map OR action context
+const actionContextSector = computed(() => {
+  if (!actionContextSectorId.value) return null;
+  return sectors.value.find(s => s.id === actionContextSectorId.value) || null;
+});
+
+// The sector to show in SectorPanel - prefer clicked sector, fall back to action context
+const activeSector = computed(() => {
+  return selectedSector.value ?? actionContextSector.value;
+});
+
+// Get stash contents for active sector (if player can see it)
 const selectedSectorStash = computed(() => {
-  if (!selectedSector.value) return [];
+  if (!activeSector.value) return [];
 
   // Player can see stash if they have a squad in the sector
   const hasSquadInSector =
-    primarySquad.value?.sectorId === selectedSector.value.sectorId ||
-    secondarySquad.value?.sectorId === selectedSector.value.sectorId;
+    primarySquad.value?.sectorId === activeSector.value.sectorId ||
+    secondarySquad.value?.sectorId === activeSector.value.sectorId;
 
   if (!hasSquadInSector) return [];
 
   // Find the sector element in gameView to get stash
-  const sectorElement = findByRef(selectedSector.value.sectorId) ||
+  const sectorElement = findByRef(activeSector.value.sectorId) ||
     findAllByClassName('Sector').find((s: any) =>
-      getAttr(s, 'sectorId', '') === selectedSector.value?.sectorId
+      getAttr(s, 'sectorId', '') === activeSector.value?.sectorId
     );
 
   if (!sectorElement) return [];
@@ -260,10 +302,10 @@ const selectedSectorStash = computed(() => {
     }));
 });
 
-// Get all mercs in selected sector (for display in SectorPanel)
+// Get all mercs in active sector (for display in SectorPanel)
 const selectedSectorMercs = computed(() => {
-  if (!selectedSector.value) return [];
-  return allMercs.value.filter(m => m.sectorId === selectedSector.value?.sectorId);
+  if (!activeSector.value) return [];
+  return allMercs.value.filter(m => m.sectorId === activeSector.value?.sectorId);
 });
 
 // Check if player has Doc on team
@@ -342,25 +384,25 @@ const squidheadHasLandMine = computed(() => {
   return accessoryName.includes('land mine') || accessoryName.includes('landmine');
 });
 
-// Check if selected sector has dictator forces
+// Check if active sector has dictator forces
 const selectedSectorHasDictatorForces = computed(() => {
-  if (!selectedSector.value) return false;
-  if (selectedSector.value.dictatorMilitia > 0) return true;
+  if (!activeSector.value) return false;
+  if (activeSector.value.dictatorMilitia > 0) return true;
 
   // Check for dictator MERCs in sector
   const dictatorMercsInSector = allMercs.value.filter(
-    (m) => m.sectorId === selectedSector.value?.sectorId && m.playerColor === 'dictator'
+    (m) => m.sectorId === activeSector.value?.sectorId && m.playerColor === 'dictator'
   );
   return dictatorMercsInSector.length > 0;
 });
 
-// Check if selected sector is the dictator base
+// Check if active sector is the dictator base
 const selectedSectorIsBase = computed(() => {
-  if (!selectedSector.value) return false;
+  if (!activeSector.value) return false;
 
-  const sectorElement = findByRef(selectedSector.value.sectorId) ||
+  const sectorElement = findByRef(activeSector.value.sectorId) ||
     findAllByClassName('Sector').find((s: any) =>
-      getAttr(s, 'sectorId', '') === selectedSector.value?.sectorId
+      getAttr(s, 'sectorId', '') === activeSector.value?.sectorId
     );
 
   return sectorElement ? getAttr(sectorElement, 'hasBase', false) : false;
@@ -1398,10 +1440,10 @@ const clickableSectors = computed(() => {
       @confirm-targets="handleConfirmTargets"
     />
 
-    <!-- Sector Panel - shown when a sector is selected -->
+    <!-- Sector Panel - shown when a sector is selected OR when an action has sector context -->
     <SectorPanel
-      v-if="selectedSector && !hasActiveCombat && !isHiringMercs"
-      :sector="selectedSector"
+      v-if="activeSector && !hasActiveCombat && !isHiringMercs"
+      :sector="activeSector"
       :player-position="playerPosition"
       :player-color="currentPlayerColor"
       :player-color-map="playerColorMap"
