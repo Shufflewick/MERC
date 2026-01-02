@@ -897,7 +897,53 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
 
 // =============================================================================
 // Hospital Action
+// Works for both rebel and dictator players.
 // =============================================================================
+
+// Helper to get living MERCs for any player type (for hospital/armsDealer)
+function getPlayerMercsForCity(player: any, game: MERCGame): MercCard[] {
+  if (game.isRebelPlayer(player)) {
+    return (player as RebelPlayer).team.filter(m => !m.isDead);
+  }
+  if (game.isDictatorPlayer(player)) {
+    return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
+  }
+  return [];
+}
+
+// Helper to check if merc belongs to player (for hospital/armsDealer)
+function isMercOwnedForCity(merc: MercCard, player: any, game: MERCGame): boolean {
+  if (game.isRebelPlayer(player)) {
+    return isInPlayerTeam(merc, player as RebelPlayer);
+  }
+  if (game.isDictatorPlayer(player)) {
+    const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
+    return dictatorMercs.some(m => m.id === merc.id);
+  }
+  return false;
+}
+
+// Helper to find sector where player's MERC is located (for hospital/armsDealer)
+function findMercSectorForCity(player: any, game: MERCGame): Sector | null {
+  if (game.isRebelPlayer(player)) {
+    const rebelPlayer = player as RebelPlayer;
+    const squad = rebelPlayer.primarySquad;
+    if (squad?.sectorId) {
+      return game.getSector(squad.sectorId) || null;
+    }
+  }
+  if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    // Find first hired merc's sector
+    const mercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
+    for (const merc of mercs) {
+      const squad = game.dictatorPlayer.getSquadContaining(merc);
+      if (squad?.sectorId) {
+        return game.getSector(squad.sectorId) || null;
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * Use hospital in a city sector
@@ -909,32 +955,30 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
     .condition((ctx) => {
       // Cannot visit hospital during combat
       if (game.activeCombat) return false;
-      // Only rebels can visit hospital
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
-      const squad = player.primarySquad;
-      if (!squad?.sectorId) return false;
-      const sector = game.getSector(squad.sectorId);
+      // Must be rebel or dictator
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      if (!isRebel && !isDictator) return false;
+
+      const sector = findMercSectorForCity(ctx.player, game);
       if (!sector?.hasHospital) return false;
+
       // Must have a damaged MERC with actions
-      return player.team.some(m => m.damage > 0 && m.actionsRemaining >= ACTION_COSTS.HOSPITAL);
+      const mercs = getPlayerMercsForCity(ctx.player, game);
+      return mercs.some(m => m.damage > 0 && m.actionsRemaining >= ACTION_COSTS.HOSPITAL);
     })
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to heal',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        // Safety check - only rebels can visit hospital
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-        return isInPlayerTeam(merc, player) &&
+        return isMercOwnedForCity(merc, ctx.player, game) &&
           merc.damage > 0 &&
           merc.actionsRemaining >= ACTION_COSTS.HOSPITAL;
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
       const merc = args.merc as MercCard;
 
       // Spend action
@@ -950,6 +994,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
 
 // =============================================================================
 // Arms Dealer Action
+// Works for both rebel and dictator players.
 // =============================================================================
 
 /**
@@ -959,32 +1004,38 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
   // Helper to get/set drawn equipment in game.settings (persists across choices/execute)
-  const getSettingsKey = (playerPos: number) => `_armsDealer_drawn_${playerPos}`;
+  const getSettingsKey = (player: any) => {
+    if (game.isRebelPlayer(player)) {
+      return `_armsDealer_drawn_${(player as RebelPlayer).position}`;
+    }
+    return '_armsDealer_drawn_dictator';
+  };
 
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
     .condition((ctx) => {
       // Cannot visit arms dealer during combat
       if (game.activeCombat) return false;
-      // Only rebels can visit arms dealer
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
-      const squad = player.primarySquad;
-      if (!squad?.sectorId) return false;
-      const sector = game.getSector(squad.sectorId);
+      // Must be rebel or dictator
+      const isRebel = game.isRebelPlayer(ctx.player as any);
+      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      if (!isRebel && !isDictator) return false;
+
+      const sector = findMercSectorForCity(ctx.player, game);
       if (!sector?.hasArmsDealer) return false;
-      return hasActionsRemaining(player, ACTION_COSTS.ARMS_DEALER);
+
+      // Must have a MERC with actions remaining
+      const mercs = getPlayerMercsForCity(ctx.player, game);
+      return mercs.some(m => m.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
     })
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC visits the dealer?',
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        // Safety check - only rebels can visit arms dealer
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
         const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
-        return isInPlayerTeam(merc, player) && merc.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
+        return isMercOwnedForCity(merc, ctx.player, game) &&
+          merc.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -995,9 +1046,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     .chooseFrom<string>('equipMerc', {
       prompt: 'Free Re-Equip: Which MERC should equip this item? (or skip)',
       choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-        const settingsKey = getSettingsKey(player.position);
+        const settingsKey = getSettingsKey(ctx.player);
 
         // Draw equipment now so we can show what was bought
         // Store in game.settings to persist across choices/execute contexts
@@ -1012,8 +1062,11 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const equipmentId = game.settings[settingsKey] as number | undefined;
         const drawnEquip = equipmentId ? game.getElementById(equipmentId) as Equipment | undefined : undefined;
 
+        // Get mercs for this player type
+        const playerMercs = getPlayerMercsForCity(ctx.player, game);
+
         // MERC-70a: Filter out Apeiron if equipment is a grenade/mortar
-        const eligibleMercs = player.team.filter(m => {
+        const eligibleMercs = playerMercs.filter(m => {
           if (m.mercId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
             return false;
           }
@@ -1029,11 +1082,9 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
       const actingMerc = args.actingMerc as MercCard;
-      const settingsKey = getSettingsKey(player.position);
-      const squad = player.primarySquad;
-      const sector = game.getSector(squad.sectorId!);
+      const settingsKey = getSettingsKey(ctx.player);
+      const sector = findMercSectorForCity(ctx.player, game);
 
       // Spend action
       useAction(actingMerc, ACTION_COSTS.ARMS_DEALER);
@@ -1048,7 +1099,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
         if (equipMercName && equipMercName !== 'skip') {
           // Free re-equip: equip the purchased item directly
-          const targetMerc = player.team.find(m => m.mercName === equipMercName);
+          const playerMercs = getPlayerMercsForCity(ctx.player, game);
+          const targetMerc = playerMercs.find(m => m.mercName === equipMercName);
           if (targetMerc) {
             const replaced = targetMerc.equip(equipment);
             if (replaced) {

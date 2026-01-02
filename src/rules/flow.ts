@@ -358,6 +358,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'train',
                     'reEquip',
                     'dropEquipment',
+                    'hospital',
+                    'armsDealer',
                     'mortar',
                     'endTurn',
                   ],
