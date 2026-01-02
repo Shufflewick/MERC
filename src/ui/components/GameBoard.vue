@@ -562,6 +562,29 @@ const allMercs = computed(() => {
     }
   }
 
+  // Include the dictator himself when in play (base revealed)
+  const dictatorCards = findAllByClassName('DictatorCard');
+  for (const dictator of dictatorCards) {
+    const inPlay = getAttr(dictator, 'inPlay', false);
+    const sectorId = getAttr(dictator, 'sectorId', '');
+    const isDead = getAttr(dictator, 'damage', 0) >= 10; // DictatorCard uses same health as MERCs
+
+    if (inPlay && sectorId && !isDead) {
+      const dictatorId = getAttr(dictator, 'dictatorId', '');
+      const exists = mercs.some((m) => m.mercId === `dictator-${dictatorId}`);
+      if (!exists) {
+        mercs.push({
+          ...dictator,
+          mercId: `dictator-${dictatorId}`,
+          mercName: getAttr(dictator, 'dictatorName', 'The Dictator'),
+          sectorId,
+          playerColor: 'dictator',
+          image: getAttr(dictator, 'image', ''),
+        });
+      }
+    }
+  }
+
   return mercs;
 });
 
