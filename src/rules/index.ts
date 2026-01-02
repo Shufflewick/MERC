@@ -63,11 +63,7 @@ export {
   createEquipStartingAction,
   createPlaceLandingDay1Action,
   // Dictator MERC actions
-  createDictatorMoveAction,
-  createDictatorExploreAction,
-  createDictatorTrainAction,
-  createDictatorReEquipAction,
-  createDictatorEndMercActionsAction,
+  // Note: All basic MERC actions are now unified with rebel actions
   // MERC-n1f: Combat actions
   createCombatContinueAction,
   createCombatRetreatAction,

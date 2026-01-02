@@ -48,6 +48,13 @@ function handleBackdropClick(e: Event) {
   max-height: 90vh;
   overflow-y: auto;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Default background and text styling - can be overridden by slot content */
+  background: #1e231e;
+  color: #e8e6e3;
+  border: 1px solid #3a3f3a;
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 300px;
 }
 
 .close-button {
