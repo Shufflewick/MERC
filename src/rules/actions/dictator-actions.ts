@@ -246,7 +246,6 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
 // - reinforce: Place militia via tactics (dictator only)
 // - castroBonusHire: Castro's per-turn ability to hire a MERC (human players)
 // - kimBonusMilitia: Kim's per-turn ability to place militia (human players)
-// - skipDictatorAbility: Skip the per-turn dictator ability
 
 // =============================================================================
 // Castro's Per-Turn Hire Action (Human Players)
@@ -448,25 +447,3 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
     });
 }
 
-// =============================================================================
-// Skip Dictator Ability Action
-// =============================================================================
-
-/**
- * Skip the per-turn dictator ability (for human players who choose not to use it).
- */
-export function createSkipDictatorAbilityAction(game: MERCGame): ActionDefinition {
-  return Action.create('skipDictatorAbility')
-    .prompt('Skip ability')
-    .condition((ctx) => {
-      // Only for dictator player
-      if (!game.isDictatorPlayer(ctx.player)) return false;
-      // Only if not AI
-      if (game.dictatorPlayer?.isAI) return false;
-      return true;
-    })
-    .execute((args, ctx) => {
-      game.message('Dictator skipped special ability');
-      return { success: true, message: 'Skipped ability' };
-    });
-}
