@@ -172,8 +172,11 @@ const selectedMercPlayerColor = computed(() => {
 const selectedMercSquadName = computed(() => {
   if (!selectedMerc.value) return null;
   const mercColor = selectedMerc.value.playerColor;
-  // Don't show squad label for dictator (enemy) mercs
-  if (mercColor === 'dictator') return null;
+  // Don't show squad label for enemy mercs (perspective-aware)
+  const isEnemy = props.playerColor === 'dictator'
+    ? mercColor !== 'dictator'  // Dictator's enemies are rebels
+    : mercColor === 'dictator'; // Rebel's enemies are dictator
+  if (isEnemy) return null;
   // For my own mercs, determine which squad they're in
   if (mercColor === props.playerColor || !mercColor) {
     const mercId = selectedMerc.value.mercId || getAttr(selectedMerc.value, 'mercId', '');
@@ -403,6 +406,7 @@ const rebelMilitiaEntries = computed(() => {
 });
 
 // Group mercs in sector by team type (my team, allies, enemies)
+// Perspective-aware: dictator sees rebels as enemies, rebels see dictator as enemy
 const myMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
   return props.allMercsInSector.filter(m => m.playerColor === props.playerColor);
@@ -410,6 +414,9 @@ const myMercsInSector = computed(() => {
 
 const allyMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
+  // If I'm dictator, I have no allies (dictator plays solo)
+  if (props.playerColor === 'dictator') return [];
+  // If I'm rebel, allies are other rebels (not me, not dictator)
   return props.allMercsInSector.filter(m =>
     m.playerColor !== props.playerColor &&
     m.playerColor !== 'dictator'
@@ -418,6 +425,11 @@ const allyMercsInSector = computed(() => {
 
 const enemyMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
+  // If I'm dictator, enemies are all non-dictator mercs
+  if (props.playerColor === 'dictator') {
+    return props.allMercsInSector.filter(m => m.playerColor !== 'dictator');
+  }
+  // If I'm rebel, enemies are dictator mercs
   return props.allMercsInSector.filter(m => m.playerColor === 'dictator');
 });
 
