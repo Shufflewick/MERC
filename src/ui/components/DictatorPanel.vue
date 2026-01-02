@@ -65,7 +65,8 @@ const dictatorImagePath = computed(() => {
   return `/dictators/${props.dictator.dictatorId}.jpg`;
 });
 
-// Actions available for dictator
+// Actions available for dictator - only dictator-specific actions
+// Basic MERC actions (move, explore, etc.) are accessed via SectorPanel or ActionPanel
 const dictatorActions = computed(() => {
   if (!props.isMyTurn) return [];
 
@@ -79,43 +80,17 @@ const dictatorActions = computed(() => {
     actions.push({ name: 'reinforce', label: 'Reinforce', icon: '🛡️' });
   }
 
-  // Basic MERC actions (same as rebels)
-  if (props.availableActions.includes('move')) {
-    actions.push({ name: 'move', label: 'Move', icon: '🚶' });
-  }
-  if (props.availableActions.includes('explore')) {
-    actions.push({ name: 'explore', label: 'Explore', icon: '🔍' });
-  }
-  if (props.availableActions.includes('train')) {
-    actions.push({ name: 'train', label: 'Train', icon: '🎯' });
-  }
-  if (props.availableActions.includes('dropEquipment')) {
-    actions.push({ name: 'dropEquipment', label: 'Unequip', icon: '📤' });
-  }
-  if (props.availableActions.includes('reEquip')) {
-    actions.push({ name: 'reEquip', label: 'Re-Equip', icon: '🎒' });
-  }
-  if (props.availableActions.includes('mortar')) {
-    actions.push({ name: 'mortar', label: 'Fire Mortar', icon: '💥' });
-  }
-  if (props.availableActions.includes('endTurn')) {
-    actions.push({ name: 'endTurn', label: 'End Turn', icon: '⏭️' });
-  }
-
   return actions;
 });
 
-// Check if we're currently in an action flow
+// Check if we're currently in an action flow (dictator-specific actions only)
 const isInActionFlow = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   if (!currentAction) return false;
 
-  // Dictator-relevant actions
-  const dictatorRelevantActions = [
-    'playTactics', 'reinforce',
-    'move', 'explore', 'train', 'dropEquipment', 'reEquip', 'mortar', 'endTurn'
-  ];
-  return dictatorRelevantActions.includes(currentAction);
+  // Only track dictator-specific actions in this panel
+  const dictatorSpecificActions = ['playTactics', 'reinforce'];
+  return dictatorSpecificActions.includes(currentAction);
 });
 
 // Get current selection from action controller
