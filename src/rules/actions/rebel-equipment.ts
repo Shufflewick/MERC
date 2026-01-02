@@ -481,7 +481,10 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         const mercId = typeof mercArg === 'number' ? mercArg : (mercArg as any)?.id;
         if (mercId !== undefined) {
           const merc = g.getElementById(mercId) as MercCard;
-          if (merc) return getMercEquipment(merc);
+          if (merc) {
+            const equipment = getMercEquipment(merc);
+            return equipment;
+          }
         }
 
         return [];

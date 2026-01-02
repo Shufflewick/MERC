@@ -338,6 +338,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Step 2: Dictator MERC actions (if any MERCs)
+              // Uses unified action names (same as rebels)
               loop({
                 name: 'dictator-merc-actions',
                 while: () => {
@@ -352,13 +353,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'dictator-merc-action',
                   actions: [
-                    'dictatorMortar', // MERC-9m9: Mortar attack (high priority per rules 4.12)
-                    'dictatorHeal', // MERC-7fy: Heal injured MERCs (priority per rules 4.8)
-                    'dictatorMove',
-                    'dictatorExplore',
-                    'dictatorTrain',
-                    'dictatorReEquip',
-                    'dictatorEndMercActions',
+                    'move',
+                    'explore',
+                    'train',
+                    'reEquip',
+                    'dropEquipment',
+                    'mortar',
+                    'endTurn',
                   ],
                   skipIf: () => game.isFinished(),
                 }),

@@ -7,6 +7,7 @@ import MercCard from './MercCard.vue';
 import EquipmentCard from './EquipmentCard.vue';
 import CombatPanel from './CombatPanel.vue';
 import SectorPanel from './SectorPanel.vue';
+import DictatorPanel from './DictatorPanel.vue';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
@@ -731,6 +732,92 @@ const dictatorSquad = computed(() => {
   };
 });
 
+// MERC-rwdv: Get dictator card data (for DictatorPanel)
+const dictatorCard = computed(() => {
+  console.log('[DictatorPanel] currentPlayerIsDictator:', currentPlayerIsDictator.value);
+  if (!currentPlayerIsDictator.value) return undefined;
+
+  // Find dictator player - try multiple class name patterns
+  let dictatorPlayer = findByClassName('DictatorPlayer');
+  if (!dictatorPlayer) {
+    dictatorPlayer = findByClassName('_DictatorPlayer');
+  }
+  console.log('[DictatorPanel] dictatorPlayer:', dictatorPlayer ? 'found' : 'NOT FOUND');
+
+  // Find dictator card in player (or in entire game view as fallback)
+  let dictatorCardNode = dictatorPlayer ? findByClassName('DictatorCard', dictatorPlayer) : null;
+  if (!dictatorCardNode) {
+    dictatorCardNode = findByClassName('_DictatorCard', dictatorPlayer || props.gameView);
+  }
+  if (!dictatorCardNode) {
+    // Search entire gameView
+    dictatorCardNode = findByClassName('DictatorCard');
+  }
+  console.log('[DictatorPanel] dictatorCardNode:', dictatorCardNode ? 'found' : 'NOT FOUND');
+
+  // If we still can't find it, return a placeholder so panel still shows
+  if (!dictatorCardNode) {
+    console.log('[DictatorPanel] Using placeholder dictator card');
+    return {
+      id: 0,
+      dictatorId: 'unknown',
+      dictatorName: 'Dictator',
+      ability: 'Ability not loaded',
+      bio: '',
+      image: '',
+      inPlay: false,
+      actionsRemaining: 0,
+    };
+  }
+
+  const attrs = dictatorCardNode.attributes || {};
+  console.log('[DictatorPanel] dictatorCard attrs:', attrs);
+  return {
+    id: dictatorCardNode.ref,
+    dictatorId: attrs.dictatorId || getAttr(dictatorCardNode, 'dictatorId', 'unknown'),
+    dictatorName: attrs.dictatorName || getAttr(dictatorCardNode, 'dictatorName', 'Unknown Dictator'),
+    ability: attrs.ability || getAttr(dictatorCardNode, 'ability', ''),
+    bio: attrs.bio || getAttr(dictatorCardNode, 'bio', ''),
+    image: attrs.image || getAttr(dictatorCardNode, 'image', ''),
+    inPlay: attrs.inPlay || getAttr(dictatorCardNode, 'inPlay', false),
+    actionsRemaining: attrs.actionsRemaining || getAttr(dictatorCardNode, 'actionsRemaining', 0),
+  };
+});
+
+// MERC-rwdv: Get dictator's tactics hand (for DictatorPanel)
+const tacticsHand = computed(() => {
+  if (!currentPlayerIsDictator.value) return [];
+
+  // Find tactics hand - search entire gameView since DictatorPlayer may not be found
+  let tacticsHandNode = findByClassName('TacticsHand');
+  if (!tacticsHandNode) {
+    tacticsHandNode = findByClassName('_TacticsHand');
+  }
+  console.log('[DictatorPanel] tacticsHandNode:', tacticsHandNode ? 'found' : 'NOT FOUND');
+  if (!tacticsHandNode) return [];
+
+  // Get all tactics cards from hand
+  const cards = (tacticsHandNode.children || [])
+    .filter((c: any) => normalizeClassName(c.className) === 'TacticsCard')
+    .map((c: any) => {
+      const attrs = c.attributes || {};
+      console.log('[DictatorPanel] tacticsCard:', attrs.tacticsName, attrs);
+      return {
+        id: c.ref,
+        tacticsId: attrs.tacticsId || getAttr(c, 'tacticsId', ''),
+        tacticsName: attrs.tacticsName || getAttr(c, 'tacticsName', 'Unknown'),
+        story: attrs.story || getAttr(c, 'story', ''),
+        description: attrs.description || getAttr(c, 'description', ''),
+      };
+    });
+
+  console.log('[DictatorPanel] tacticsHand cards:', cards.length);
+  return cards;
+});
+
+// State for dictator panel visibility
+const showDictatorPanel = ref(true);
+
 // ============================================================================
 // COMBAT PANEL - Show dice and hit allocation during combat
 // ============================================================================
@@ -1445,14 +1532,14 @@ const clickableSectors = computed(() => {
       v-if="activeSector && !hasActiveCombat && !isHiringMercs"
       :sector="activeSector"
       :player-position="playerPosition"
-      :player-color="currentPlayerColor"
+      :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
       :player-color-map="playerColorMap"
       :all-mercs-in-sector="selectedSectorMercs"
       :available-actions="availableActions"
       :action-controller="actionController"
       :game-view="gameView"
-      :primary-squad="primarySquad"
-      :secondary-squad="secondarySquad"
+      :primary-squad="currentPlayerIsDictator ? dictatorSquad : primarySquad"
+      :secondary-squad="currentPlayerIsDictator ? undefined : secondarySquad"
       :all-sectors="sectors"
       :stash-contents="selectedSectorStash"
       :has-doc="hasDoc"
@@ -1465,6 +1552,17 @@ const clickableSectors = computed(() => {
       :is-base="selectedSectorIsBase"
       :has-explosives-components="hasExplosivesComponents"
       @close="closeSectorPanel"
+    />
+
+    <!-- Dictator Panel - shown when playing as dictator -->
+    <DictatorPanel
+      v-if="currentPlayerIsDictator && dictatorCard && showDictatorPanel && !hasActiveCombat"
+      :dictator="dictatorCard"
+      :tactics-hand="tacticsHand"
+      :available-actions="availableActions"
+      :action-controller="actionController"
+      :is-my-turn="isMyTurn"
+      @close="showDictatorPanel = false"
     />
 
     <!-- Hiring phase - show MERCs to choose from -->
@@ -1581,6 +1679,15 @@ const clickableSectors = computed(() => {
           @drop-equipment="handleDropEquipment"
         />
       </div>
+
+      <!-- Dictator Panel Toggle - shows when panel is closed -->
+      <button
+        v-if="currentPlayerIsDictator && dictatorCard && !showDictatorPanel && !hasActiveCombat"
+        class="dictator-panel-toggle"
+        @click="showDictatorPanel = true"
+      >
+        🎴 Show Tactics
+      </button>
 
       <!-- Squad Panel -->
       <div class="squad-section" v-if="primarySquad || secondarySquad || dictatorSquad">
@@ -2041,6 +2148,24 @@ const clickableSectors = computed(() => {
 .squad-section {
   flex-shrink: 0;
   width: 100%;
+}
+
+.dictator-panel-toggle {
+  padding: 8px 16px;
+  background: rgba(139, 0, 0, 0.3);
+  border: 1px solid rgba(139, 0, 0, 0.6);
+  border-radius: 8px;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.dictator-panel-toggle:hover {
+  background: rgba(139, 0, 0, 0.5);
+  border-color: #8b0000;
 }
 
 .no-data {
