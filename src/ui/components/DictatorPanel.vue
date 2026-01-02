@@ -396,7 +396,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 .dictator-ability {
   font-size: 0.8rem;
   color: v-bind('UI_COLORS.textSecondary');
-  max-width: 300px;
 }
 
 .close-btn {
