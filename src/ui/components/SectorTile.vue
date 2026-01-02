@@ -357,6 +357,7 @@ function closeMercModal() {
   border: 2px solid;
   overflow: hidden;
   background: #333;
+  box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.7);
 }
 
 .merc-portrait img {
