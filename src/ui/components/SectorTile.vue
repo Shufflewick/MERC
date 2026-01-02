@@ -351,8 +351,8 @@ function closeMercModal() {
 }
 
 .merc-portrait {
-  width: 28px;
-  height: 28px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: 2px solid;
   overflow: hidden;
@@ -378,12 +378,12 @@ function closeMercModal() {
 }
 
 .more-mercs {
-  width: 28px;
-  height: 28px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.7);
   color: white;
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
