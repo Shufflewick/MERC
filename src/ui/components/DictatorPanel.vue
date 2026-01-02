@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
 import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
+import MercCard from './MercCard.vue';
 
 // Helper to get attribute from node
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
@@ -89,9 +90,74 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia'];
   return dictatorSpecificActions.includes(currentAction);
 });
+
+// Check if we're in Castro's hire action
+const isCastroHiring = computed(() => {
+  return props.actionController.currentAction.value === 'castroBonusHire';
+});
+
+// Check if we're selecting a MERC (Castro hire)
+const isSelectingMerc = computed(() => {
+  if (!isCastroHiring.value) return false;
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return false;
+  return sel.name === 'selectedMerc';
+});
+
+// Check if we're selecting a sector (Castro hire or Kim militia)
+const isSelectingSector = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
+  if (currentAction !== 'castroBonusHire' && currentAction !== 'kimBonusMilitia') return false;
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return false;
+  return sel.name === 'targetSector';
+});
+
+// Get selectable MERCs for Castro hire
+const selectableMercs = computed(() => {
+  if (!isSelectingMerc.value) return [];
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return [];
+
+  const choices = props.actionController.getChoices(sel) || [];
+  return choices.map((c: any) => ({
+    ...c,
+    mercId: c.value,
+    mercName: c.label,
+    // Try to get full merc data from the choice
+    attributes: c.element?.attributes || {},
+  }));
+});
+
+// Get selectable sectors for placement
+const selectableSectors = computed(() => {
+  if (!isSelectingSector.value) return [];
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return [];
+
+  const choices = props.actionController.getChoices(sel) || [];
+  return choices.map((c: any) => ({
+    sectorId: c.value,
+    sectorName: c.label,
+  }));
+});
+
+// Handle MERC selection for Castro hire
+async function selectMercToHire(merc: any) {
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return;
+  await props.actionController.fill(sel.name, merc.mercId || merc.value);
+}
+
+// Handle sector selection for placement
+async function selectSector(sector: any) {
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return;
+  await props.actionController.fill(sel.name, sector.sectorId);
+}
 
 // Get current selection from action controller
 const currentSelection = computed(() => {
@@ -231,6 +297,37 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
                   {{ card.description }}
                 </span>
               </div>
+            </div>
+          </div>
+
+          <!-- Castro MERC Hiring Selection -->
+          <div v-else-if="isSelectingMerc" class="merc-hiring-section">
+            <div class="hiring-header">
+              <span class="hiring-title">Castro's Ability: Hire a MERC</span>
+            </div>
+            <div class="merc-choices">
+              <div
+                v-for="merc in selectableMercs"
+                :key="merc.mercId"
+                class="merc-choice"
+                @click="selectMercToHire(merc)"
+              >
+                <MercCard :merc="merc" player-color="dictator" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Sector Selection (for Castro hire placement or Kim militia) -->
+          <div v-else-if="isSelectingSector" class="sector-selection">
+            <div class="sector-choices">
+              <button
+                v-for="sector in selectableSectors"
+                :key="sector.sectorId"
+                class="sector-choice"
+                @click="selectSector(sector)"
+              >
+                {{ sector.sectorName }}
+              </button>
             </div>
           </div>
         </div>
@@ -460,6 +557,71 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 .tactics-card-preview .tactics-description {
   font-size: 0.85rem;
   color: v-bind('UI_COLORS.textSecondary');
+}
+
+/* Castro MERC Hiring */
+.merc-hiring-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hiring-header {
+  text-align: center;
+}
+
+.hiring-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ff6b6b;
+}
+
+.merc-choices {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.merc-choice {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 8px;
+}
+
+.merc-choice:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 12px rgba(139, 0, 0, 0.6);
+}
+
+/* Sector Selection */
+.sector-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sector-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sector-choice {
+  padding: 12px 16px;
+  background: rgba(139, 0, 0, 0.2);
+  border: 1px solid rgba(139, 0, 0, 0.4);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.sector-choice:hover {
+  background: rgba(139, 0, 0, 0.4);
+  border-color: #8b0000;
 }
 
 /* Normal View */

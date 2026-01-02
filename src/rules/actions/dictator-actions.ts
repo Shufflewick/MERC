@@ -297,7 +297,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         }
 
         return mercs.map(m => ({
-          label: `${m.mercName} (Combat: ${m.baseCombat}, Training: ${m.baseTraining})`,
+          label: m.mercName,
           value: String(m.id),
         }));
       },
