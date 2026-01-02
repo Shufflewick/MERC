@@ -45,6 +45,7 @@ const props = defineProps<{
   playerColorMap?: Record<string, string>; // Maps player ID to color name
   isClickable?: boolean;
   canDropEquipment?: boolean;
+  isDictatorBase?: boolean; // Show house icon for dictator's base
 }>();
 
 const emit = defineEmits<{
@@ -158,7 +159,10 @@ function closeMercModal() {
     <!-- Top row: Name and Value -->
     <div class="top-row">
       <span class="sector-name">{{ displayName }}</span>
-      <span class="sector-value">Value: {{ sector.value }}</span>
+      <div class="sector-badges">
+        <span v-if="isDictatorBase" class="dictator-base-icon" title="Dictator's Base">🏠</span>
+        <span class="sector-value">Value: {{ sector.value }}</span>
+      </div>
     </div>
 
     <!-- Center: Unexplored or loot -->
@@ -299,6 +303,17 @@ function closeMercModal() {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.sector-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dictator-base-icon {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
 }
 
 .center-area {

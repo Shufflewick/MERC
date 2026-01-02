@@ -784,6 +784,23 @@ const dictatorCard = computed(() => {
   };
 });
 
+// Get dictator base sector if revealed (visible to all players for map icon)
+const dictatorBaseSectorId = computed(() => {
+  // Find dictator player - try multiple class name patterns
+  let dictatorPlayer = findByClassName('DictatorPlayer');
+  if (!dictatorPlayer) {
+    dictatorPlayer = findByClassName('_DictatorPlayer');
+  }
+  if (!dictatorPlayer) return undefined;
+
+  const attrs = dictatorPlayer.attributes || {};
+  // Only return baseSectorId if base has been revealed
+  if (attrs.baseRevealed && attrs.baseSectorId) {
+    return attrs.baseSectorId as string;
+  }
+  return undefined;
+});
+
 // MERC-rwdv: Get dictator's tactics hand (for DictatorPanel)
 const tacticsHand = computed(() => {
   if (!currentPlayerIsDictator.value) return [];
@@ -1675,6 +1692,7 @@ const clickableSectors = computed(() => {
           :control-map="controlMap"
           :clickable-sectors="clickableSectors"
           :can-drop-equipment="canDropEquipment"
+          :dictator-base-sector-id="dictatorBaseSectorId"
           @sector-click="handleSectorClick"
           @drop-equipment="handleDropEquipment"
         />
