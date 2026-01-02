@@ -895,6 +895,8 @@ export class MercCard extends BaseCard {
   private equipToSlot(equipment: Equipment, slot: string): void {
     equipment.putInto(this);
     equipment.equippedSlot = slot;
+    // Equipped items are visible to all players (visibility fix for dictator MERCs)
+    equipment.showToAll();
   }
 
   /**
@@ -1425,6 +1427,8 @@ export class DictatorCard extends BaseCard {
   private equipToSlot(equipment: Equipment, slot: string): void {
     equipment.putInto(this);
     equipment.equippedSlot = slot;
+    // Equipped items are visible to all players
+    equipment.showToAll();
   }
 
   /**
