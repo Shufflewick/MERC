@@ -88,6 +88,9 @@ import {
 import {
   createPlayTacticsAction,
   createReinforceAction,
+  createCastroBonusHireAction,
+  createKimBonusMilitiaAction,
+  createSkipDictatorAbilityAction,
 } from './dictator-actions.js';
 
 import {
@@ -167,6 +170,11 @@ export function registerAllActions(game: MERCGame): void {
   // Dictator actions
   game.registerAction(createPlayTacticsAction(game));
   game.registerAction(createReinforceAction(game));
+
+  // Dictator per-turn ability actions (for human players)
+  game.registerAction(createCastroBonusHireAction(game));
+  game.registerAction(createKimBonusMilitiaAction(game));
+  game.registerAction(createSkipDictatorAbilityAction(game));
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions

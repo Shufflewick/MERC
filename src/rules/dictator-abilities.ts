@@ -104,10 +104,11 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
 
   // MERC-2ay: Set MERC location per AI rules 4.3.2
   // Dictator-controlled sector closest to weakest rebel sector
+  // NOTE: Only set the individual MERC's sectorId, not the squad's
+  // (moving the squad would reset all existing MERCs to this location)
   const targetSector = selectNewMercLocation(game);
   if (targetSector) {
     bestMerc.sectorId = targetSector.sectorId;
-    game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
   }
 
   // All hired MERCs get 1 free equipment - prioritize weapon

@@ -373,8 +373,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Step 3: Apply per-turn dictator special ability
+              // For AI: auto-apply ability; For human: let them choose
               execute(() => {
-                applyDictatorTurnAbilities(game);
+                if (game.dictatorPlayer?.isAI) {
+                  applyDictatorTurnAbilities(game);
+                }
+                // Human players use the actionStep below
+              }),
+
+              // Human dictator ability choice (skipped for AI)
+              actionStep({
+                name: 'dictator-ability',
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'skipDictatorAbility'],
+                skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
               // Apply end-of-turn effects (Conscripts)

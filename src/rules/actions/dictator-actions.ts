@@ -244,3 +244,229 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
 // The only dictator-specific actions remaining are:
 // - playTactics: Play tactics cards (dictator only)
 // - reinforce: Place militia via tactics (dictator only)
+// - castroBonusHire: Castro's per-turn ability to hire a MERC (human players)
+// - kimBonusMilitia: Kim's per-turn ability to place militia (human players)
+// - skipDictatorAbility: Skip the per-turn dictator ability
+
+// =============================================================================
+// Castro's Per-Turn Hire Action (Human Players)
+// =============================================================================
+
+/**
+ * Castro's ability: "Once per turn, draw 3 random MERCs and hire 1."
+ * Human players choose which MERC to hire and where to place them.
+ */
+export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
+  // Settings keys to persist state across choices
+  const DRAWN_MERCS_KEY = '_castro_drawn_mercs';
+  const HIRED_MERC_KEY = '_castro_hired_merc';
+
+  return Action.create('castroBonusHire')
+    .prompt("Castro's Ability: Hire a MERC")
+    .condition((ctx) => {
+      // Only for dictator player
+      if (!game.isDictatorPlayer(ctx.player)) return false;
+      // Only if dictator is Castro
+      const dictator = game.dictatorPlayer?.dictator;
+      if (!dictator || dictator.dictatorId !== 'castro') return false;
+      // Only if not AI (AI uses auto version)
+      if (game.dictatorPlayer?.isAI) return false;
+      return true;
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'Choose a MERC to hire (highest combat shown first)',
+      choices: () => {
+        // Draw 3 MERCs if not already drawn
+        if (!game.settings[DRAWN_MERCS_KEY]) {
+          const drawnMercs: MercCard[] = [];
+          for (let i = 0; i < 3; i++) {
+            const merc = game.drawMerc();
+            if (merc) drawnMercs.push(merc);
+          }
+          // Store merc IDs
+          game.settings[DRAWN_MERCS_KEY] = drawnMercs.map(m => m.id);
+        }
+
+        const mercIds = game.settings[DRAWN_MERCS_KEY] as number[];
+        const mercs = mercIds
+          .map(id => game.getElementById(id) as MercCard)
+          .filter(m => m != null)
+          .sort((a, b) => b.baseCombat - a.baseCombat);
+
+        if (mercs.length === 0) {
+          return [{ label: 'No MERCs available', value: 'none' }];
+        }
+
+        return mercs.map(m => ({
+          label: `${m.mercName} (Combat: ${m.baseCombat}, Training: ${m.baseTraining})`,
+          value: String(m.id),
+        }));
+      },
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy the new MERC',
+      choices: () => {
+        // Get dictator-controlled sectors
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
+
+        if (sectors.length === 0) {
+          // Fallback to any industry
+          const industries = game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry');
+          return industries.map(s => ({
+            label: s.sectorName,
+            value: s.sectorId,
+          }));
+        }
+
+        return sectors.map(s => ({
+          label: `${s.sectorName} (${s.dictatorMilitia} militia)`,
+          value: s.sectorId,
+        }));
+      },
+    })
+    .execute((args, ctx) => {
+      const mercIds = game.settings[DRAWN_MERCS_KEY] as number[] || [];
+      const selectedId = parseInt(args.selectedMerc as string, 10);
+
+      if (isNaN(selectedId) || args.selectedMerc === 'none') {
+        // Clean up and return failure
+        delete game.settings[DRAWN_MERCS_KEY];
+        return { success: false, message: 'No MERC selected' };
+      }
+
+      const selectedMerc = game.getElementById(selectedId) as MercCard;
+      if (!selectedMerc) {
+        delete game.settings[DRAWN_MERCS_KEY];
+        return { success: false, message: 'MERC not found' };
+      }
+
+      // Put hired MERC into dictator's primary squad
+      selectedMerc.putInto(game.dictatorPlayer.primarySquad);
+
+      // Set MERC location
+      const targetSectorId = args.targetSector as string;
+      const targetSector = game.getSector(targetSectorId);
+      if (targetSector) {
+        selectedMerc.sectorId = targetSector.sectorId;
+        game.message(`Castro deployed ${selectedMerc.mercName} to ${targetSector.sectorName}`);
+      }
+
+      // Give free equipment
+      let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+      if (selectedMerc.weaponSlot) {
+        equipType = selectedMerc.armorSlot ? 'Accessory' : 'Armor';
+      }
+      const freeEquipment = game.drawEquipment(equipType);
+      if (freeEquipment) {
+        selectedMerc.equip(freeEquipment);
+        game.message(`${selectedMerc.mercName} equipped free ${freeEquipment.equipmentName}`);
+      }
+
+      // Discard the other MERCs
+      for (const mercId of mercIds) {
+        if (mercId !== selectedId) {
+          const merc = game.getElementById(mercId) as MercCard;
+          if (merc) {
+            merc.putInto(game.mercDiscard);
+          }
+        }
+      }
+
+      // Clean up
+      delete game.settings[DRAWN_MERCS_KEY];
+
+      game.message(`Castro hired ${selectedMerc.mercName}`);
+      return { success: true, message: `Hired ${selectedMerc.mercName}` };
+    });
+}
+
+// =============================================================================
+// Kim's Per-Turn Militia Action (Human Players)
+// =============================================================================
+
+/**
+ * Kim's ability: "Once per turn, count rebel controlled sectors and place that many militia."
+ * Human players choose where to place the militia.
+ */
+export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('kimBonusMilitia')
+    .prompt("Kim's Ability: Place bonus militia")
+    .condition((ctx) => {
+      // Only for dictator player
+      if (!game.isDictatorPlayer(ctx.player)) return false;
+      // Only if dictator is Kim
+      const dictator = game.dictatorPlayer?.dictator;
+      if (!dictator || dictator.dictatorId !== 'kim') return false;
+      // Only if not AI (AI uses auto version)
+      if (game.dictatorPlayer?.isAI) return false;
+      return true;
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: (ctx) => {
+        // Count rebel-controlled sectors
+        let rebelSectorCount = 0;
+        for (const rebel of game.rebelPlayers) {
+          rebelSectorCount += rebel.getControlledSectors(game).length;
+        }
+        return `Place ${rebelSectorCount} militia (rebels control ${rebelSectorCount} sectors)`;
+      },
+      choices: () => {
+        // Get sectors where dictator can place militia
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || s.sectorType === 'Industry');
+
+        return sectors.map(s => ({
+          label: `${s.sectorName} (${s.dictatorMilitia} militia)`,
+          value: s.sectorId,
+        }));
+      },
+    })
+    .execute((args, ctx) => {
+      // Count rebel-controlled sectors
+      let rebelSectorCount = 0;
+      for (const rebel of game.rebelPlayers) {
+        rebelSectorCount += rebel.getControlledSectors(game).length;
+      }
+
+      if (rebelSectorCount === 0) {
+        game.message('Kim: Rebels control no sectors - no bonus militia');
+        return { success: true, message: 'No militia to place' };
+      }
+
+      const targetSectorId = args.targetSector as string;
+      const targetSector = game.getSector(targetSectorId);
+      if (!targetSector) {
+        return { success: false, message: 'Invalid sector' };
+      }
+
+      const placed = targetSector.addDictatorMilitia(rebelSectorCount, true);
+      game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
+
+      return { success: true, message: `Placed ${placed} militia` };
+    });
+}
+
+// =============================================================================
+// Skip Dictator Ability Action
+// =============================================================================
+
+/**
+ * Skip the per-turn dictator ability (for human players who choose not to use it).
+ */
+export function createSkipDictatorAbilityAction(game: MERCGame): ActionDefinition {
+  return Action.create('skipDictatorAbility')
+    .prompt('Skip ability')
+    .condition((ctx) => {
+      // Only for dictator player
+      if (!game.isDictatorPlayer(ctx.player)) return false;
+      // Only if not AI
+      if (game.dictatorPlayer?.isAI) return false;
+      return true;
+    })
+    .execute((args, ctx) => {
+      game.message('Dictator skipped special ability');
+      return { success: true, message: 'Skipped ability' };
+    });
+}
