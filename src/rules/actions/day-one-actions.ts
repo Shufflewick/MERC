@@ -602,31 +602,47 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
   // Key for storing drawn MERC ID
   const DRAWN_MERC_KEY = 'dictatorFirstMercId';
 
+  // Helper to get the drawn MERC
+  const getDrawnMerc = () => {
+    // Draw the MERC if not already drawn
+    if (!game.settings[DRAWN_MERC_KEY]) {
+      const merc = game.drawMerc();
+      if (merc) {
+        game.settings[DRAWN_MERC_KEY] = merc.id;
+        game.message(`Dictator drew ${merc.mercName}`);
+      }
+    }
+    const mercId = game.settings[DRAWN_MERC_KEY] as number;
+    return mercId ? game.getElementById(mercId) as MercCard : null;
+  };
+
   return Action.create('dictatorHireFirstMerc')
     .prompt('Hire your first MERC')
     .condition(() => {
       // Only available during Day 1 setup
       return game.currentDay === 1;
     })
-    .chooseFrom<string>('equipmentType', {
-      prompt: (ctx) => {
-        // Draw the MERC when choices are first requested
-        if (!game.settings[DRAWN_MERC_KEY]) {
-          const merc = game.drawMerc();
-          if (merc) {
-            game.settings[DRAWN_MERC_KEY] = merc.id;
-            game.message(`Dictator drew ${merc.mercName}`);
-          }
-        }
-        const mercId = game.settings[DRAWN_MERC_KEY] as number;
-        const merc = mercId ? game.getElementById(mercId) as any : null;
-        return `Choose starting equipment for ${merc?.mercName || 'your MERC'}`;
+    // Auto-filled selection to pass MERC name forward (shows in action panel)
+    .chooseFrom<string>('merc', {
+      prompt: 'Hiring MERC',
+      choices: () => {
+        const merc = getDrawnMerc();
+        return merc ? [merc.mercName] : ['Unknown'];
       },
+      // Auto-select the only choice
+      aiSelect: () => {
+        const merc = getDrawnMerc();
+        return merc?.mercName || 'Unknown';
+      },
+      skipIf: () => game.dictatorPlayer?.isAI === true,
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
       skipIf: () => game.dictatorPlayer?.isAI === true,
     })
     .chooseFrom<string>('targetSector', {
-      prompt: 'Choose where to deploy your MERC',
+      prompt: 'Choose deployment sector',
       choices: () => {
         // Get dictator-controlled sectors (industries with militia)
         const sectors = game.gameMap.getAllSectors()

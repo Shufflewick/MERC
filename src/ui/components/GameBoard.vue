@@ -1166,23 +1166,13 @@ const equipmentTypeChoices = computed(() => {
   });
 });
 
-// Get the MERC currently being equipped (for showing portrait during equipment type selection)
+// Get the MERC currently being hired (for showing portrait and name during hiring flow)
 const selectedMercForEquipment = computed(() => {
-  if (!isSelectingEquipmentType.value) return null;
+  // Only active during hiring flow (equipment or sector selection)
+  if (!isSelectingEquipmentType.value && !isSelectingSector.value) return null;
 
-  // Try to get MERC name from actionArgs first (rebel flow)
-  let mercName = props.actionArgs['merc'] as string | undefined;
-
-  // For dictator flow, extract name from the prompt: "Choose starting equipment for {mercName}"
-  if (!mercName) {
-    const selection = currentSelection.value;
-    const prompt = selection?.prompt || '';
-    const match = prompt.match(/Choose starting equipment for (.+)$/i);
-    if (match) {
-      mercName = match[1];
-    }
-  }
-
+  // Get MERC name from actionArgs (works for both rebel and dictator flows now)
+  const mercName = props.actionArgs['merc'] as string | undefined;
   if (!mercName) return null;
 
   // Try to find the MERC in the game tree first
@@ -1827,14 +1817,6 @@ const clickableSectors = computed(() => {
         </div>
       </div>
 
-      <!-- Show already-selected MERCs from shared actionArgs -->
-      <div v-if="Object.keys(actionArgs).filter(k => k).length > 0" class="selected-mercs">
-        <span class="selected-label">Selected:</span>
-        <span v-for="(value, key, idx) in actionArgs" :key="key || `arg-${idx}`" class="selected-merc-badge">
-          {{ value }}
-        </span>
-      </div>
-
       <!-- Equipment type selection -->
       <DrawEquipmentType
         v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
@@ -1847,14 +1829,23 @@ const clickableSectors = computed(() => {
 
       <!-- Sector selection (Castro hire placement) - Visual Cards -->
       <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
-        <p class="sector-prompt">{{ currentSelection?.prompt || 'Choose deployment sector' }}</p>
-        <div class="sector-card-choices">
+        <div class="sector-row">
+          <!-- MERC portrait -->
           <div
-            v-for="sector in sectorChoices"
-            :key="sector.value"
-            class="sector-card-choice"
-            @click="selectSector(sector)"
+            v-if="selectedMercImagePath"
+            class="sector-merc-portrait"
+            :style="{ borderColor: currentPlayerIsDictator ? getPlayerColor('dictator') : getPlayerColor(currentPlayerColor) }"
           >
+            <img :src="selectedMercImagePath" :alt="selectedMercName || 'MERC'" />
+          </div>
+          <!-- Sector cards -->
+          <div class="sector-card-choices">
+            <div
+              v-for="sector in sectorChoices"
+              :key="sector.value"
+              class="sector-card-choice"
+              @click="selectSector(sector)"
+            >
             <div class="sector-card-image" :style="{ backgroundImage: `url(${sector.image})` }">
               <div class="sector-card-overlay"></div>
               <div class="sector-card-name">{{ sector.sectorName }}</div>
@@ -1877,6 +1868,7 @@ const clickableSectors = computed(() => {
                 <span class="stat-value">{{ sector.dictatorMilitia }} militia</span>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -2176,6 +2168,30 @@ const clickableSectors = computed(() => {
   align-items: center;
   gap: 16px;
   padding: 20px;
+}
+
+.sector-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sector-merc-portrait {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+}
+
+.sector-merc-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .sector-prompt {
