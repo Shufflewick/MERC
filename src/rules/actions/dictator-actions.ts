@@ -117,10 +117,20 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (game.dictatorPlayer?.isAI) return true;
         if (game.dictatorPlayer?.baseRevealed) return true;
         const card = ctx.args?.card as TacticsCard | undefined;
+        // Skip if no card selected or card doesn't reveal base
         if (!card || !card.revealsBase) return true;
         return false;
       },
       choices: (ctx) => {
+        // Check if we should show choices at all
+        const card = ctx.args?.card as TacticsCard | undefined;
+        if (!card || !card.revealsBase) {
+          // Return empty array to auto-skip this step
+          return [];
+        }
+        if (game.dictatorPlayer?.baseRevealed) {
+          return [];
+        }
         // Get industries controlled by dictator
         const industries = game.gameMap.getAllSectors()
           .filter(s => s.sectorType === 'Industry' && s.dictatorMilitia > 0);
@@ -145,7 +155,13 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (!card || !card.revealsBase) return true;
         return false;
       },
-      choices: () => ['Weapon', 'Armor', 'Accessory'],
+      choices: (ctx) => {
+        // Check if we should show choices at all
+        const card = ctx.args?.card as TacticsCard | undefined;
+        if (!card || !card.revealsBase) return [];
+        if (game.dictatorPlayer?.baseRevealed) return [];
+        return ['Weapon', 'Armor', 'Accessory'];
+      },
     })
     .execute((args) => {
       const card = args.card as TacticsCard;

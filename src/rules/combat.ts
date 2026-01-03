@@ -200,11 +200,18 @@ function isBasic(combatant: Combatant): boolean {
 /**
  * Count hits from dice rolls
  * Uses registry to get hit threshold (e.g., Lucid hits on 3+)
+ * MERC-7zax: Dictator militia hit on 3+ when Better Weapons is active
  */
-function countHitsForCombatant(rolls: number[], combatant: Combatant): number {
+function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MERCGame): number {
   const mercId = combatant.sourceElement instanceof MercCard
     ? combatant.sourceElement.mercId
     : undefined;
+
+  // MERC-7zax: Better Weapons gives dictator militia 3+ hit threshold
+  if (combatant.isMilitia && combatant.isDictatorSide && game && (game as any).betterWeaponsActive) {
+    return rolls.filter(r => r >= 3).length;
+  }
+
   const threshold = mercId ? getHitThreshold(mercId) : CombatConstants.HIT_THRESHOLD;
   return rolls.filter(r => r >= threshold).length;
 }
@@ -973,7 +980,7 @@ function executeGolemPreCombat(
 
     // Roll dice for pre-combat attack
     const rolls = rollDice(golem.combat);
-    const hits = countHitsForCombatant(rolls, golem);
+    const hits = countHitsForCombatant(rolls, golem, game);
     game.message(`${golem.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
     if (hits > 0) {
@@ -1112,18 +1119,27 @@ function dictatorToCombatant(dictator: DictatorCard): Combatant {
 
 /**
  * Build combatants for militia
+ * MERC-ohos: Veteran Militia gives dictator militia +1 initiative
  */
 function militiaToCombatants(
   count: number,
   isDictatorSide: boolean,
-  ownerId?: string
+  ownerId?: string,
+  game?: MERCGame
 ): Combatant[] {
   const combatants: Combatant[] = [];
+
+  // MERC-ohos: Veteran Militia gives dictator militia +1 initiative
+  const baseInitiative = CombatConstants.MILITIA_INITIATIVE;
+  const initiative = isDictatorSide && game && (game as any).veteranMilitiaActive
+    ? baseInitiative + 1
+    : baseInitiative;
+
   for (let i = 0; i < count; i++) {
     combatants.push({
       id: `militia-${isDictatorSide ? 'dictator' : ownerId}-${i}`,
       name: isDictatorSide ? 'Dictator Militia' : 'Rebel Militia',
-      initiative: CombatConstants.MILITIA_INITIATIVE,
+      initiative,
       combat: CombatConstants.MILITIA_COMBAT,
       health: CombatConstants.MILITIA_HEALTH,
       maxHealth: CombatConstants.MILITIA_HEALTH,
@@ -1423,11 +1439,12 @@ export function getCombatants(
 
     // Add this rebel's militia
     const rebelMilitia = sector.getRebelMilitia(`${rebel.position}`);
-    rebels.push(...militiaToCombatants(rebelMilitia, false, `${rebel.position}`));
+    rebels.push(...militiaToCombatants(rebelMilitia, false, `${rebel.position}`, game));
   }
 
   // Add dictator's militia
-  dictator.push(...militiaToCombatants(sector.dictatorMilitia, true));
+  // MERC-ohos: Veteran Militia applies +1 initiative if active
+  dictator.push(...militiaToCombatants(sector.dictatorMilitia, true, undefined, game));
 
   // Add dictator's MERCs if present at this sector
   const dictatorMercs = game.getDictatorMercsInSector(sector);
@@ -1913,10 +1930,11 @@ function executeCombatRound(
 
     // Roll dice
     // MERC-cpb: Lucid hits on 3+ instead of 4+
+    // MERC-7zax: Dictator militia hit on 3+ when Better Weapons is active
     // Medical Kit healing: dice are reduced by healing dice used
     const effectiveDice = getEffectiveCombatDice(attacker, game);
     let rolls = rollDice(effectiveDice);
-    let hits = countHitsForCombatant(rolls, attacker);
+    let hits = countHitsForCombatant(rolls, attacker, game);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
     // MERC-5l3: Basic may reroll all dice once per combat (uses registry)
@@ -1924,7 +1942,7 @@ function executeCombatRound(
       game.message(`${attacker.name} uses reroll ability!`);
       attacker.hasUsedReroll = true;
       rolls = rollDice(effectiveDice);
-      hits = countHitsForCombatant(rolls, attacker);
+      hits = countHitsForCombatant(rolls, attacker, game);
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
     }
 
@@ -2250,7 +2268,7 @@ function executeCombatRound(
     // Note: Healing dice reduction also applies to second shot
     const vandalEffectiveDice = getEffectiveCombatDice(vandal, game);
     const rolls = rollDice(vandalEffectiveDice);
-    const hits = countHitsForCombatant(rolls, vandal);
+    const hits = countHitsForCombatant(rolls, vandal, game);
     game.message(`${vandal.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
     if (hits > 0) {

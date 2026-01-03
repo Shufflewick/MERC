@@ -10,7 +10,7 @@ import {
 import type { MERCGame, RebelPlayer } from './game.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
-import { applyConscriptsEffect } from './tactics-effects.js';
+import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
 import { executeCombat } from './combat.js';
 
 /**
@@ -185,8 +185,17 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           eachPlayer({
             name: 'rebel-turns',
             filter: (player) => game.isRebelPlayer(player as any) && !game.isFinished(),
-            do: loop({
-              name: 'rebel-action-loop',
+            do: sequence(
+              // MERC-vqmi: Apply Oil Reserves free action at start of turn
+              execute((ctx) => {
+                const player = ctx?.player as RebelPlayer | undefined;
+                if (player) {
+                  applyOilReservesEffect(game, true, player);
+                }
+              }),
+
+              loop({
+                name: 'rebel-action-loop',
               while: (ctx) => {
                 if (game.isFinished()) return false;
                 // MERC-t5k: Keep player in loop while combat is active or pending
@@ -305,6 +314,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               ),
             }),
+            ), // Close sequence wrapper for rebel turn
           }),
 
           // Dictator turn
@@ -328,6 +338,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   game.pendingCombat = null;
                 }
                 game.message('--- Dictator Turn ---');
+
+                // MERC-vqmi: Apply Oil Reserves free action at start of turn
+                applyOilReservesEffect(game, false);
               }),
 
               // Step 1: Play a tactics card or reinforce

@@ -124,6 +124,17 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
+  // Helper to resolve merc from ctx.args (uses actingMerc selection)
+  function getMerc(ctx: any): MercCard | undefined {
+    const mercArg = ctx.args?.actingMerc ?? ctx.args?.mercId;
+    if (typeof mercArg === 'number') {
+      return game.getElementById(mercArg) as MercCard | undefined;
+    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+      return mercArg as MercCard;
+    }
+    return undefined;
+  }
+
   // Helper to resolve sector from ctx.args
   function getSector(ctx: any): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;

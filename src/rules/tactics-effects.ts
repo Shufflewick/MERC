@@ -30,6 +30,11 @@ export interface TacticsEffectResult {
 /**
  * Artillery Barrage: Attack sectors adjacent to controlled sectors.
  * Roll d6 per sector, deal that many hits.
+ *
+ * MERC-lw9r: TODO - Rebels should ideally choose how to allocate hits to their
+ * units. Current implementation auto-applies damage (militia first, then MERCs).
+ * Implementing rebel choice would require flow interrupts to switch active player
+ * during dictator's turn, which is a significant architectural change.
  */
 function artilleryBarrage(game: MERCGame): TacticsEffectResult {
   const dictatorSectors = game.gameMap.getAllSectors().filter(s => s.dictatorMilitia > 0);
@@ -239,16 +244,44 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
 }
 
 /**
- * Seizure: Effect is incomplete in data - placeholder that does NOT reveal base
- * The description only says "X = the number of rebel players" with no specified action
+ * Seizure: Flip wilderness sectors and add militia
+ * MERC-wyvg: X = number of rebel players
+ * - Flip X wilderness sectors to explored
+ * - Add X-1 militia to each flipped sector
  */
 function seizure(game: MERCGame): TacticsEffectResult {
-  // TODO: Implement actual seizure effect when card description is complete
-  game.message('Seizure effect triggered (card effect incomplete - no action taken)');
+  const x = game.rebelCount;
+  const militiaToAdd = Math.max(0, x - 1);
+
+  // Find unexplored wilderness sectors
+  const unexploredWilderness = game.gameMap.getAllSectors().filter(
+    s => s.isWilderness && !s.explored
+  );
+
+  // Flip up to X sectors
+  const sectorsToFlip = unexploredWilderness.slice(0, x);
+  let sectorsFlipped = 0;
+  let totalMilitiaPlaced = 0;
+
+  for (const sector of sectorsToFlip) {
+    sector.explore();
+    sectorsFlipped++;
+    game.message(`Seizure: ${sector.sectorName} is now explored`);
+
+    // Add X-1 militia to the sector
+    if (militiaToAdd > 0) {
+      const placed = sector.addDictatorMilitia(militiaToAdd);
+      totalMilitiaPlaced += placed;
+      if (placed > 0) {
+        game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
+      }
+    }
+  }
+
   return {
     success: true,
-    message: 'Seizure: Effect not yet implemented',
-    data: {},
+    message: `Seizure: ${sectorsFlipped} sectors explored, ${totalMilitiaPlaced} militia placed`,
+    data: { sectorsFlipped, totalMilitiaPlaced },
   };
 }
 
@@ -357,6 +390,44 @@ export function applyConscriptsEffect(game: MERCGame): void {
 }
 
 /**
+ * Veteran Militia: Reveals base AND militia get +1 initiative
+ * MERC-ohos: Adds permanent militia initiative bonus
+ */
+function veteranMilitia(game: MERCGame): TacticsEffectResult {
+  // First reveal the base
+  const baseResult = revealBase(game);
+
+  // Set the permanent militia initiative bonus flag
+  (game as any).veteranMilitiaActive = true;
+  game.message('Veteran Militia: Dictator militia now have +1 initiative');
+
+  return {
+    success: baseResult.success,
+    message: `${baseResult.message}. Militia +1 initiative`,
+    data: { ...baseResult.data, militiaInitiativeBonus: true },
+  };
+}
+
+/**
+ * Better Weapons: Reveals base AND militia hit on 3+
+ * MERC-7zax: Adds permanent militia combat bonus
+ */
+function betterWeapons(game: MERCGame): TacticsEffectResult {
+  // First reveal the base
+  const baseResult = revealBase(game);
+
+  // Set the permanent militia bonus flag
+  (game as any).betterWeaponsActive = true;
+  game.message('Better Weapons: Dictator militia now hit on 3+');
+
+  return {
+    success: baseResult.success,
+    message: `${baseResult.message}. Militia hit on 3+`,
+    data: { ...baseResult.data, militiaBonus: true },
+  };
+}
+
+/**
  * Oil Reserves: Permanent effect - free move for oil controller
  * This sets a game flag
  */
@@ -368,6 +439,57 @@ function oilReserves(game: MERCGame): TacticsEffectResult {
     success: true,
     message: 'Oil Reserves permanent effect activated',
   };
+}
+
+/**
+ * Apply Oil Reserves effect at start of turn
+ * MERC-vqmi: Controller of oil industry gains +1 action to one MERC
+ */
+export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, rebelPlayer?: RebelPlayer): void {
+  if (!(game as any).oilReservesActive) return;
+
+  // Find the oil industry sector
+  const oilSector = game.gameMap.getAllSectors().find(s => s.sectorId === 'industry---oil');
+  if (!oilSector) return;
+
+  // Determine who controls the oil industry (who has presence there)
+  const dictatorPresence = oilSector.dictatorMilitia > 0 ||
+    (game.dictatorPlayer.dictator?.inPlay && game.dictatorPlayer.dictator.sectorId === oilSector.sectorId);
+  const hasAnyRebelPresence = game.rebelPlayers.some(r =>
+    r.primarySquad.sectorId === oilSector.sectorId ||
+    r.secondarySquad.sectorId === oilSector.sectorId ||
+    oilSector.getRebelMilitia(`${r.position}`) > 0
+  );
+
+  if (isRebelTurn && rebelPlayer) {
+    // Check if this rebel controls the oil (no dictator presence AND this rebel has presence)
+    const thisRebelPresence =
+      rebelPlayer.primarySquad.sectorId === oilSector.sectorId ||
+      rebelPlayer.secondarySquad.sectorId === oilSector.sectorId ||
+      oilSector.getRebelMilitia(`${rebelPlayer.position}`) > 0;
+
+    if (!dictatorPresence && thisRebelPresence) {
+      // Grant +1 action to the first living MERC with < max actions
+      const merc = rebelPlayer.team.find(m => !m.isDead);
+      if (merc) {
+        merc.actionsRemaining += 1;
+        game.message(`Oil Reserves: ${merc.mercName} gains 1 free action`);
+      }
+    }
+  } else if (!isRebelTurn) {
+    // Dictator turn - check if dictator controls the oil (no rebel presence)
+    if (dictatorPresence && !hasAnyRebelPresence) {
+      // Grant +1 action to first available unit
+      const merc = game.dictatorPlayer.hiredMercs.find(m => !m.isDead);
+      if (merc) {
+        merc.actionsRemaining += 1;
+        game.message(`Oil Reserves: ${merc.mercName} gains 1 free action`);
+      } else if (game.dictatorPlayer.dictator?.inPlay && !game.dictatorPlayer.dictator.isDead) {
+        game.dictatorPlayer.dictator.actionsRemaining += 1;
+        game.message('Oil Reserves: Dictator gains 1 free action');
+      }
+    }
+  }
 }
 
 /**
@@ -420,9 +542,13 @@ export function executeTacticsEffect(game: MERCGame, card: TacticsCard): Tactics
       return artilleryBarrage(game);
 
     case 'better-weapons':
+      return betterWeapons(game);
+
+    case 'veteran-militia':
+      return veteranMilitia(game);
+
     case 'generalisimo':
     case 'lockdown':
-    case 'veteran-militia':
       return revealBase(game);
 
     case 'family-threat':

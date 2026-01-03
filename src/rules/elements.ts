@@ -834,6 +834,18 @@ export class MercCard extends BaseCard {
       }
     }
 
+    // MERC-o7js: Bandolier cannot be combined with another bandolier
+    if (equipment.equipmentId === 'bandolier') {
+      // Check if already have a bandolier equipped
+      if (this.accessorySlot?.equipmentId === 'bandolier') {
+        return false;
+      }
+      // Also check bandolier slots (though bandoliers shouldn't go in there)
+      if (this.bandolierSlots.some(e => e.equipmentId === 'bandolier')) {
+        return false;
+      }
+    }
+
     // MERC-42g: Gunther can use all equipment slots for accessories
     if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
       // Gunther can equip accessory if ANY slot is empty or bandolier slots available

@@ -18,6 +18,7 @@ import {
   type SectorType,
 } from './elements.js';
 import { DictatorConstants } from './constants.js';
+import { DEBUG_TACTICS_ORDER } from './debug-config.js';
 
 // =============================================================================
 // Data Interfaces (matching JSON files)
@@ -315,11 +316,13 @@ export function setupDictator(
  * @param game - The game instance
  * @param tacticsData - Array of tactics data from JSON
  * @param activeTacticsCount - Number of active tactics cards (default: 5)
+ * @param debugTacticsOrder - Optional: specific tactics IDs in draw order (first = top)
  */
 export function setupTacticsDeck(
   game: MERCGame,
   tacticsData: TacticsData[],
-  activeTacticsCount: number = DictatorConstants.ACTIVE_TACTICS_CARDS
+  activeTacticsCount: number = DictatorConstants.ACTIVE_TACTICS_CARDS,
+  debugTacticsOrder?: string[]
 ): void {
   // Create tactics deck for dictator player
   const tacticsDeck = game.create(TacticsDeck, 'tactics-deck');
@@ -345,8 +348,29 @@ export function setupTacticsDeck(
     }
   }
 
-  // Select random tactics for active deck
-  const selectedTactics = selectRandom(allTacticsCards, activeTacticsCount);
+  let selectedTactics: TacticsData[];
+
+  // Check for debug tactics order from: 1) function param, 2) debug-config.ts file
+  const effectiveDebugOrder = debugTacticsOrder || DEBUG_TACTICS_ORDER;
+
+  if (effectiveDebugOrder && effectiveDebugOrder.length > 0) {
+    // Debug mode: use specific tactics in specified order
+    // Reverse order because cards are added to bottom but drawn from top (stacking order)
+    selectedTactics = [];
+    const reversedOrder = [...effectiveDebugOrder].reverse();
+    for (const tacticsId of reversedOrder) {
+      const tactics = tacticsData.find(t => t.id === tacticsId);
+      if (tactics) {
+        selectedTactics.push(tactics);
+      } else {
+        console.warn(`[setupTacticsDeck] Unknown tactics ID: ${tacticsId}`);
+      }
+    }
+    game.message(`[DEBUG] Tactics deck stacked with: ${effectiveDebugOrder.join(', ')}`);
+  } else {
+    // Normal mode: select random tactics for active deck
+    selectedTactics = selectRandom(allTacticsCards, activeTacticsCount);
+  }
 
   // Create the selected tactics cards in the deck
   for (let i = 0; i < selectedTactics.length; i++) {
@@ -360,10 +384,12 @@ export function setupTacticsDeck(
     });
   }
 
-  // Shuffle the tactics deck
-  tacticsDeck.shuffle();
+  // Only shuffle in normal mode
+  if (!effectiveDebugOrder || effectiveDebugOrder.length === 0) {
+    tacticsDeck.shuffle();
+  }
 
-  game.message(`Tactics deck prepared with ${activeTacticsCount} cards`);
+  game.message(`Tactics deck prepared with ${selectedTactics.length} cards`);
 }
 
 // =============================================================================
@@ -407,6 +433,8 @@ export interface SetupOptions {
   tacticsData: TacticsData[];
   dictatorId?: string;
   activeTacticsCount?: number;
+  /** Debug: specify tactics IDs in order (first = top of deck, drawn first) */
+  debugTacticsOrder?: string[];
 }
 
 /**
@@ -431,7 +459,7 @@ export function performSetup(game: MERCGame, options: SetupOptions): void {
   setupDictator(game, options.dictatorData, options.dictatorId);
 
   // 3. Set up tactics deck
-  setupTacticsDeck(game, options.tacticsData, options.activeTacticsCount);
+  setupTacticsDeck(game, options.tacticsData, options.activeTacticsCount, options.debugTacticsOrder);
 
   // 4. Shuffle all decks
   shuffleDecks(game);

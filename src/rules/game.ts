@@ -76,6 +76,8 @@ export interface MERCOptions extends GameOptions {
   gameOptions?: {
     dictatorCharacter?: string;  // 'random', 'castro', 'kim'
   };
+  // Debug: stack tactics deck with specific cards in order (first = top of deck)
+  debugTacticsOrder?: string[];
 }
 
 // =============================================================================
@@ -692,7 +694,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const dictatorId = dictatorCharacter && dictatorCharacter !== 'random'
       ? dictatorCharacter
       : options.dictatorId;
-    this.performSetup(dictatorId);
+    this.performSetup(dictatorId, undefined, options.debugTacticsOrder);
   }
 
   protected override createPlayer(position: number, name: string): MERCPlayer {
@@ -869,8 +871,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    *
    * @param dictatorId - Optional specific dictator to use (random if not specified)
    * @param activeTacticsCount - Number of active tactics cards (default: 5)
+   * @param debugTacticsOrder - Debug: specific tactics IDs in draw order (first = top)
    */
-  performSetup(dictatorId?: string, activeTacticsCount?: number): void {
+  performSetup(dictatorId?: string, activeTacticsCount?: number, debugTacticsOrder?: string[]): void {
     if (!this.setupConfig) {
       throw new Error('Setup configuration not loaded. Call loadSetupConfig first.');
     }
@@ -887,12 +890,16 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       throw new Error('Tactics data not loaded. Call loadTacticsData first.');
     }
 
+    // Check for debug tactics order in settings as well
+    const effectiveTacticsOrder = debugTacticsOrder || this.settings.debugTacticsOrder as string[] | undefined;
+
     performSetup(this, {
       sectorData: this.sectorData as SetupSectorData[],
       dictatorData: this.dictatorData as SetupDictatorData[],
       tacticsData: this.tacticsData as SetupTacticsData[],
       dictatorId,
       activeTacticsCount,
+      debugTacticsOrder: effectiveTacticsOrder,
     });
   }
 
