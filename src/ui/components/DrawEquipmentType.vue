@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { UI_COLORS } from '../colors';
+import { computed } from 'vue';
+import { UI_COLORS, getPlayerColor } from '../colors';
 
 interface EquipmentChoice {
   value: string;
@@ -9,6 +10,9 @@ interface EquipmentChoice {
 const props = defineProps<{
   choices: EquipmentChoice[];
   prompt?: string;
+  mercImage?: string; // MERC portrait image path
+  mercName?: string; // MERC name for alt text
+  playerColor?: string; // Player color for border
 }>();
 
 const emit = defineEmits<{
@@ -25,12 +29,30 @@ function getIcon(label: string): string {
 function handleClick(value: string) {
   emit('select', value);
 }
+
+const portraitBorderColor = computed(() => {
+  return props.playerColor ? getPlayerColor(props.playerColor) : UI_COLORS.accent;
+});
+
+const mercImagePath = computed(() => {
+  if (props.mercImage) return props.mercImage;
+  // No default - don't show portrait if no image
+  return null;
+});
 </script>
 
 <template>
   <div class="draw-equipment-type">
-    <p v-if="prompt" class="type-prompt">{{ prompt }}</p>
-    <div class="equipment-type-buttons">
+    <div class="equipment-row">
+      <!-- MERC portrait -->
+      <div
+        v-if="mercImagePath"
+        class="merc-portrait"
+        :style="{ borderColor: portraitBorderColor }"
+      >
+        <img :src="mercImagePath" :alt="mercName || 'MERC'" />
+      </div>
+      <!-- Equipment type buttons -->
       <button
         v-for="choice in choices"
         :key="choice.value"
@@ -50,17 +72,28 @@ function handleClick(value: string) {
   width: 100%;
 }
 
-.type-prompt {
-  margin: 0 0 12px;
-  color: v-bind('UI_COLORS.textSecondary');
-  font-size: 0.9rem;
-}
-
-.equipment-type-buttons {
+.equipment-row {
   display: flex;
   gap: 16px;
   justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
+}
+
+.merc-portrait {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+}
+
+.merc-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .equipment-type-button {

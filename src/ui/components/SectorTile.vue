@@ -46,6 +46,7 @@ const props = defineProps<{
   isClickable?: boolean;
   canDropEquipment?: boolean;
   isDictatorBase?: boolean; // Show house icon for dictator's base
+  dictatorColor?: string; // Dictator player color for base icon styling
 }>();
 
 const emit = defineEmits<{
@@ -69,6 +70,15 @@ const showTooltip = ref(false);
 const borderColor = computed(() => {
   if (!props.controllingPlayerColor) return 'transparent';
   return getPlayerColor(props.controllingPlayerColor);
+});
+
+// Style for the dictator base icon using dictator's color
+const baseIconStyle = computed(() => {
+  const color = props.dictatorColor ? getPlayerColor(props.dictatorColor) : '#95a5a6';
+  return {
+    borderColor: color,
+    boxShadow: `0 0 6px 2px ${color}80`, // 80 = 50% opacity in hex
+  };
 });
 
 const displayName = computed(() => {
@@ -160,7 +170,6 @@ function closeMercModal() {
     <div class="top-row">
       <span class="sector-name">{{ displayName }}</span>
       <div class="sector-badges">
-        <span v-if="isDictatorBase" class="dictator-base-icon" title="Dictator's Base">🏠</span>
         <span class="sector-value">Value: {{ sector.value }}</span>
       </div>
     </div>
@@ -179,8 +188,17 @@ function closeMercModal() {
     <div class="bottom-row">
       <!-- MERC portraits (clickable) -->
       <div class="mercs-area">
+        <!-- Dictator base icon (merc-sized) -->
         <div
-          v-for="(merc, index) in mercsInSector.slice(0, 4)"
+          v-if="isDictatorBase"
+          class="base-icon-portrait"
+          title="Dictator's Base"
+          :style="baseIconStyle"
+        >
+          🏠
+        </div>
+        <div
+          v-for="(merc, index) in mercsInSector.slice(0, isDictatorBase ? 3 : 4)"
           :key="getMercKey(merc, index)"
           class="merc-portrait clickable"
           :style="{ borderColor: getPlayerColor(merc.playerColor) }"
@@ -189,8 +207,8 @@ function closeMercModal() {
         >
           <img :src="getMercImagePath(merc)" :alt="merc.mercName || merc.mercId" />
         </div>
-        <div v-if="mercsInSector.length > 4" class="more-mercs">
-          +{{ mercsInSector.length - 4 }}
+        <div v-if="mercsInSector.length > (isDictatorBase ? 3 : 4)" class="more-mercs">
+          +{{ mercsInSector.length - (isDictatorBase ? 3 : 4) }}
         </div>
       </div>
 
@@ -311,9 +329,17 @@ function closeMercModal() {
   gap: 6px;
 }
 
-.dictator-base-icon {
-  font-size: 1.2rem;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
+.base-icon-portrait {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid; /* Color set via inline style */
+  background: rgba(50, 30, 10, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  /* box-shadow set via inline style using dictator's color */
 }
 
 .center-area {

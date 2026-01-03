@@ -12,6 +12,21 @@ function getAttr<T>(node: any, key: string, defaultVal: T): T {
   return defaultVal;
 }
 
+
+// Sector type for visual sector cards
+interface SectorData {
+  sectorId: string;
+  sectorName: string;
+  sectorType: string;
+  value: number;
+  image?: string;
+  weaponLoot?: number;
+  armorLoot?: number;
+  accessoryLoot?: number;
+  dictatorMilitia?: number;
+  explored?: boolean;
+}
+
 // Props
 const props = defineProps<{
   dictator: {
@@ -34,6 +49,7 @@ const props = defineProps<{
   availableActions: string[];
   actionController: UseActionControllerReturn;
   isMyTurn: boolean;
+  allSectors?: SectorData[]; // For visual sector card display
 }>();
 
 const emit = defineEmits<{
@@ -95,68 +111,118 @@ const isInActionFlow = computed(() => {
 });
 
 // Check if we're in Castro's hire action
+// Note: Castro hire now uses the main hiring phase UI in GameBoard.vue
 const isCastroHiring = computed(() => {
   return props.actionController.currentAction.value === 'castroBonusHire';
 });
 
 // Check if we're selecting a MERC (Castro hire)
+// Note: This is now handled by the main hiring UI
 const isSelectingMerc = computed(() => {
-  if (!isCastroHiring.value) return false;
-  const sel = props.actionController.currentSelection.value;
-  if (!sel) return false;
-  return sel.name === 'selectedMerc';
+  // Disable - using main hiring UI instead
+  return false;
 });
 
-// Check if we're selecting a sector (Castro hire or Kim militia)
+// Check if we're selecting a sector (Castro hire, Kim militia, or base location)
 const isSelectingSector = computed(() => {
   const currentAction = props.actionController.currentAction.value;
-  if (currentAction !== 'castroBonusHire' && currentAction !== 'kimBonusMilitia') return false;
   const sel = props.actionController.currentSelection.value;
   if (!sel) return false;
-  return sel.name === 'targetSector';
+  // Handle different sector selection contexts
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia') {
+    return sel.name === 'targetSector';
+  }
+  // Base location selection during playTactics
+  if (currentAction === 'playTactics' && sel.name === 'baseLocation') {
+    return true;
+  }
+  return false;
 });
 
-// Get selectable MERCs for Castro hire
-const selectableMercs = computed(() => {
-  if (!isSelectingMerc.value) return [];
+// Check if we're selecting equipment type for the dictator
+const isSelectingEquipmentType = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return false;
+  return currentAction === 'playTactics' && sel.name === 'dictatorEquipment';
+});
+
+// Get equipment type choices
+const equipmentTypeChoices = computed(() => {
+  if (!isSelectingEquipmentType.value) return [];
   const sel = props.actionController.currentSelection.value;
   if (!sel) return [];
-
   const choices = props.actionController.getChoices(sel) || [];
   return choices.map((c: any) => ({
-    ...c,
-    mercId: c.value,
-    mercName: c.label,
-    // Try to get full merc data from the choice
-    attributes: c.element?.attributes || {},
+    value: typeof c === 'string' ? c : c.value,
+    label: typeof c === 'string' ? c : c.label || c.value,
   }));
 });
 
-// Get selectable sectors for placement
+// Note: Castro's hire is now handled by the main hiring UI in GameBoard.vue
+// This panel only handles Kim's militia placement
+const selectableMercs = computed(() => {
+  // Castro's hire uses the main hiring UI - return empty
+  return [];
+});
+
+// Get fallback image for sector type
+function getSectorImageFallback(sectorType: string): string {
+  const type = (sectorType || 'industry').toLowerCase();
+  if (type === 'wilderness') return '/sectors/wilderness.jpg';
+  if (type === 'city') return '/sectors/town---a.jpg';
+  return '/sectors/industry---coal.jpg';
+}
+
+// Get selectable sectors for placement - includes full sector data
 const selectableSectors = computed(() => {
   if (!isSelectingSector.value) return [];
   const sel = props.actionController.currentSelection.value;
   if (!sel) return [];
 
   const choices = props.actionController.getChoices(sel) || [];
-  return choices.map((c: any) => ({
-    sectorId: c.value,
-    sectorName: c.label,
-  }));
+  return choices.map((c: any) => {
+    const sectorName = typeof c === 'string' ? c : (c.value || c.label || c.display || String(c));
+    // Find full sector data by name
+    const sectorData = props.allSectors?.find(s => s.sectorName === sectorName);
+    return {
+      sectorId: sectorData?.sectorId || sectorName,
+      sectorName: sectorData?.sectorName || sectorName,
+      sectorType: sectorData?.sectorType || 'Industry',
+      image: sectorData?.image || getSectorImageFallback(sectorData?.sectorType || 'Industry'),
+      value: sectorData?.value || 0,
+      weaponLoot: sectorData?.weaponLoot || 0,
+      armorLoot: sectorData?.armorLoot || 0,
+      accessoryLoot: sectorData?.accessoryLoot || 0,
+      dictatorMilitia: sectorData?.dictatorMilitia || 0,
+    };
+  });
 });
+
+// Handle equipment type selection
+async function selectEquipmentType(choice: any) {
+  const sel = props.actionController.currentSelection.value;
+  if (!sel) return;
+  await props.actionController.fill(sel.name, choice.value);
+}
 
 // Handle MERC selection for Castro hire
 async function selectMercToHire(merc: any) {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return;
-  await props.actionController.fill(sel.name, merc.mercId || merc.value);
+  // Use _choiceValue if available (from our processing), otherwise fall back
+  const value = merc._choiceValue ?? merc.mercId ?? merc.value;
+  console.log('[DictatorPanel] Selecting MERC with value:', value);
+  await props.actionController.fill(sel.name, value);
 }
 
 // Handle sector selection for placement
 async function selectSector(sector: any) {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return;
-  await props.actionController.fill(sel.name, sector.sectorId);
+  // Use sectorName for base location selection, sectorId for others
+  const value = sel.name === 'baseLocation' ? sector.sectorName : sector.sectorId;
+  await props.actionController.fill(sel.name, value);
 }
 
 // Get current selection from action controller
@@ -317,16 +383,54 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
             </div>
           </div>
 
-          <!-- Sector Selection (for Castro hire placement or Kim militia) -->
+          <!-- Sector Selection (for Castro hire placement, Kim militia, or base location) -->
           <div v-else-if="isSelectingSector" class="sector-selection">
-            <div class="sector-choices">
-              <button
+            <div class="sector-card-choices">
+              <div
                 v-for="sector in selectableSectors"
                 :key="sector.sectorId"
-                class="sector-choice"
+                class="sector-card-choice"
                 @click="selectSector(sector)"
               >
-                {{ sector.sectorName }}
+                <div class="sector-card-image" :style="{ backgroundImage: `url(${sector.image})` }">
+                  <div class="sector-card-overlay"></div>
+                  <div class="sector-card-name">{{ sector.sectorName }}</div>
+                </div>
+                <div class="sector-card-stats">
+                  <div class="sector-stat">
+                    <span class="stat-icon">💰</span>
+                    <span class="stat-value">{{ sector.value }}</span>
+                  </div>
+                  <div class="sector-stat" v-if="sector.weaponLoot > 0 || sector.armorLoot > 0 || sector.accessoryLoot > 0">
+                    <span class="stat-icon">📦</span>
+                    <span class="stat-value">
+                      <span v-if="sector.weaponLoot > 0" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
+                      <span v-if="sector.armorLoot > 0" title="Armor">🛡️{{ sector.armorLoot }}</span>
+                      <span v-if="sector.accessoryLoot > 0" title="Accessories">💍{{ sector.accessoryLoot }}</span>
+                    </span>
+                  </div>
+                  <div class="sector-stat" v-if="sector.dictatorMilitia > 0">
+                    <span class="stat-icon">🎖️</span>
+                    <span class="stat-value">{{ sector.dictatorMilitia }} militia</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Equipment Type Selection (for dictator entering play) -->
+          <div v-else-if="isSelectingEquipmentType" class="equipment-selection">
+            <div class="equipment-choices">
+              <button
+                v-for="choice in equipmentTypeChoices"
+                :key="choice.value"
+                class="equipment-choice"
+                @click="selectEquipmentType(choice)"
+              >
+                <span class="equipment-icon">
+                  {{ choice.value === 'Weapon' ? '⚔️' : choice.value === 'Armor' ? '🛡️' : '💍' }}
+                </span>
+                {{ choice.label }}
               </button>
             </div>
           </div>
@@ -594,34 +698,135 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   box-shadow: 0 0 12px rgba(139, 0, 0, 0.6);
 }
 
-/* Sector Selection */
+/* Sector Selection - Visual Cards */
 .sector-selection {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.sector-choices {
+.sector-card-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.sector-card-choice {
+  width: 160px;
+  background: rgba(30, 30, 30, 0.9);
+  border: 2px solid rgba(139, 0, 0, 0.4);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sector-card-choice:hover {
+  border-color: #8b0000;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(139, 0, 0, 0.4);
+}
+
+.sector-card-image {
+  position: relative;
+  height: 80px;
+  background-size: cover;
+  background-position: center;
+}
+
+.sector-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+
+.sector-card-name {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  right: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.sector-card-stats {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(20, 20, 20, 0.8);
+}
+
+.sector-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-icon {
+  font-size: 0.8rem;
+}
+
+.stat-value {
+  display: flex;
+  gap: 4px;
+  color: #fff;
+}
+
+.stat-value span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Equipment Selection */
+.equipment-selection {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.sector-choice {
-  padding: 12px 16px;
-  background: rgba(139, 0, 0, 0.2);
-  border: 1px solid rgba(139, 0, 0, 0.4);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
+.equipment-choices {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.sector-choice:hover {
+.equipment-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 24px;
+  background: rgba(139, 0, 0, 0.2);
+  border: 2px solid rgba(139, 0, 0, 0.4);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 100px;
+}
+
+.equipment-choice:hover {
   background: rgba(139, 0, 0, 0.4);
   border-color: #8b0000;
+  transform: scale(1.05);
+}
+
+.equipment-icon {
+  font-size: 2rem;
 }
 
 /* Normal View */

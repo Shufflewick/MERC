@@ -141,6 +141,7 @@ interface TacticsData {
   quantity: number;
   story: string;
   description: string;
+  revealsBase?: boolean;
 }
 
 // =============================================================================

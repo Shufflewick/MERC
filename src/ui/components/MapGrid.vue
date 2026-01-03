@@ -37,6 +37,7 @@ const props = defineProps<{
   clickableSectors?: string[];
   canDropEquipment?: boolean;
   dictatorBaseSectorId?: string; // Sector where dictator's base is (if revealed)
+  dictatorColor?: string; // Dictator player color for base icon styling
 }>();
 
 const emit = defineEmits<{
@@ -112,6 +113,7 @@ function handleSectorClick(sectorId: string) {
       :is-clickable="isClickable(sector.sectorId)"
       :can-drop-equipment="canDropEquipment"
       :is-dictator-base="sector.sectorId === dictatorBaseSectorId"
+      :dictator-color="dictatorColor"
       @click="handleSectorClick"
       @drop-equipment="handleDropEquipment"
     />

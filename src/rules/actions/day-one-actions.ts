@@ -596,17 +596,91 @@ export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionD
 /**
  * MERC-i4g5: Hire dictator's first MERC
  * Per rules: Dictator draws 1 random MERC (Castro can draw 3 and pick 1)
+ * Human players get to choose equipment type and placement sector
  */
 export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinition {
+  // Key for storing drawn MERC ID
+  const DRAWN_MERC_KEY = 'dictatorFirstMercId';
+
   return Action.create('dictatorHireFirstMerc')
     .prompt('Hire your first MERC')
     .condition(() => {
       // Only available during Day 1 setup
       return game.currentDay === 1;
     })
-    .execute(() => {
-      hireDictatorMerc(game);
-      return { success: true, message: 'Dictator MERC hired' };
+    .chooseFrom<string>('equipmentType', {
+      prompt: (ctx) => {
+        // Draw the MERC when choices are first requested
+        if (!game.settings[DRAWN_MERC_KEY]) {
+          const merc = game.drawMerc();
+          if (merc) {
+            game.settings[DRAWN_MERC_KEY] = merc.id;
+            game.message(`Dictator drew ${merc.mercName}`);
+          }
+        }
+        const mercId = game.settings[DRAWN_MERC_KEY] as number;
+        const merc = mercId ? game.getElementById(mercId) as any : null;
+        return `Choose starting equipment for ${merc?.mercName || 'your MERC'}`;
+      },
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+      skipIf: () => game.dictatorPlayer?.isAI === true,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy your MERC',
+      choices: () => {
+        // Get dictator-controlled sectors (industries with militia)
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0);
+        if (sectors.length === 0) {
+          // Fallback to any industry
+          return game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry')
+            .map(s => s.sectorName);
+        }
+        return sectors.map(s => s.sectorName);
+      },
+      skipIf: () => game.dictatorPlayer?.isAI === true,
+    })
+    .execute((args) => {
+      // AI path - use auto hire
+      if (game.dictatorPlayer?.isAI) {
+        hireDictatorMerc(game);
+        return { success: true, message: 'Dictator MERC hired' };
+      }
+
+      // Human path - use selected equipment and sector
+      const mercId = game.settings[DRAWN_MERC_KEY] as number;
+      const merc = mercId ? game.getElementById(mercId) as MercCard : null;
+
+      if (!merc) {
+        delete game.settings[DRAWN_MERC_KEY];
+        return { success: false, message: 'No MERC drawn' };
+      }
+
+      // Put MERC in primary squad
+      merc.putInto(game.dictatorPlayer.primarySquad);
+
+      // Find target sector
+      const sectorName = args.targetSector as string;
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+
+      if (targetSector) {
+        merc.sectorId = targetSector.sectorId;
+        game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
+        game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
+        game.message(`Dictator deployed ${merc.mercName} to ${targetSector.sectorName}`);
+      }
+
+      // Give equipment of chosen type
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const freeEquipment = game.drawEquipment(equipType);
+      if (freeEquipment) {
+        merc.equip(freeEquipment);
+        game.message(`${merc.mercName} equipped ${freeEquipment.equipmentName}`);
+      }
+
+      delete game.settings[DRAWN_MERC_KEY];
+      return { success: true, message: `Hired ${merc.mercName}` };
     });
 }
 

@@ -98,12 +98,16 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
  * MERC-897: Uses AI criteria (furthest from rebels, most defended, highest value)
  */
 function revealBase(game: MERCGame): TacticsEffectResult {
+  console.log('[revealBase] Starting, baseRevealed:', game.dictatorPlayer.baseRevealed);
+  console.log('[revealBase] baseSectorId:', game.dictatorPlayer.baseSectorId);
+
   if (game.dictatorPlayer.baseRevealed) {
     return { success: true, message: 'Base was already revealed' };
   }
 
   // MERC-897: Use AI base selection criteria per rules 4.1
   if (!game.dictatorPlayer.baseSectorId) {
+    console.log('[revealBase] No baseSectorId set, selecting AI location...');
     const baseSector = selectAIBaseLocation(game);
     if (baseSector) {
       game.dictatorPlayer.baseSectorId = baseSector.sectorId;
@@ -111,12 +115,19 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     }
   }
 
+  console.log('[revealBase] Setting baseRevealed=true, baseSectorId:', game.dictatorPlayer.baseSectorId);
   game.dictatorPlayer.baseRevealed = true;
   game.dictatorPlayer.dictator?.enterPlay();
+  console.log('[revealBase] dictator.inPlay:', game.dictatorPlayer.dictator?.inPlay);
 
   // Set dictator card location to base sector
   if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {
     game.dictatorPlayer.dictator.sectorId = game.dictatorPlayer.baseSectorId;
+    console.log('[revealBase] Set dictator.sectorId to:', game.dictatorPlayer.dictator.sectorId);
+  } else {
+    console.log('[revealBase] WARNING: Could not set dictator.sectorId!',
+      'dictator:', !!game.dictatorPlayer.dictator,
+      'baseSectorId:', game.dictatorPlayer.baseSectorId);
   }
 
   game.message('The Dictator reveals their base!');
@@ -228,13 +239,17 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
 }
 
 /**
- * Seizure: Effect is incomplete in data, treating as reveal base
+ * Seizure: Effect is incomplete in data - placeholder that does NOT reveal base
+ * The description only says "X = the number of rebel players" with no specified action
  */
 function seizure(game: MERCGame): TacticsEffectResult {
-  // The description only says "X = the number of rebel players" with no action
-  // This appears incomplete, so we treat it as a reveal base effect
-  game.message('Seizure effect triggered (incomplete card effect)');
-  return revealBase(game);
+  // TODO: Implement actual seizure effect when card description is complete
+  game.message('Seizure effect triggered (card effect incomplete - no action taken)');
+  return {
+    success: true,
+    message: 'Seizure: Effect not yet implemented',
+    data: {},
+  };
 }
 
 /**

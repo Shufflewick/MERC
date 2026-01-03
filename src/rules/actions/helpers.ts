@@ -132,6 +132,45 @@ export function useTrainingAction(merc: MercCard, cost: number): boolean {
 }
 
 // =============================================================================
+// Dictator Combatant Helpers
+// =============================================================================
+
+/**
+ * Get all dictator combatants that can take actions (MERCs + dictator card if in play)
+ * Returns items with a common interface: id, actionsRemaining, isDead, sectorId
+ */
+export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<MercCard | { id: number; mercId: string; mercName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> {
+  const combatants: Array<MercCard | { id: number; mercId: string; mercName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> = [];
+
+  // Add hired MERCs with enough actions
+  const hiredMercs = game.dictatorPlayer?.hiredMercs || [];
+  combatants.push(...hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= cost));
+
+  // Add dictator card if in play with enough actions
+  const dictatorCard = game.dictatorPlayer?.dictator;
+  if (dictatorCard?.inPlay && !dictatorCard.isDead && dictatorCard.actionsRemaining >= cost) {
+    combatants.push({
+      id: dictatorCard.id,
+      mercId: `dictator-${dictatorCard.dictatorId}`,
+      mercName: dictatorCard.dictatorName,
+      actionsRemaining: dictatorCard.actionsRemaining,
+      isDead: dictatorCard.isDead,
+      sectorId: dictatorCard.sectorId,
+      isDictatorCard: true,
+    });
+  }
+
+  return combatants;
+}
+
+/**
+ * Check if dictator player has any combatant with enough actions
+ */
+export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boolean {
+  return getDictatorCombatantsWithActions(game, cost).length > 0;
+}
+
+// =============================================================================
 // Type exports for convenience
 // =============================================================================
 

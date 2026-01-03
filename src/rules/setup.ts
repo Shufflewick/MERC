@@ -53,6 +53,7 @@ export interface TacticsData {
   quantity: number;
   story: string;
   description: string;
+  revealsBase?: boolean;
 }
 
 // =============================================================================
@@ -355,6 +356,7 @@ export function setupTacticsDeck(
       tacticsName: tactics.name,
       story: tactics.story,
       description: tactics.description,
+      revealsBase: tactics.revealsBase ?? false,
     });
   }
 

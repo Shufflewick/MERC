@@ -34,6 +34,7 @@ interface SquadData {
 const props = defineProps<{
   primarySquad?: SquadData;
   secondarySquad?: SquadData;
+  baseSquad?: SquadData; // Dictator's base squad (third squad when at home)
   playerColor: string;
   canDropEquipment?: boolean;
   mercAbilitiesAvailable?: string[]; // List of mercIds that have abilities available
@@ -68,6 +69,7 @@ const borderColor = computed(() => getPlayerColor(props.playerColor));
 
 const hasPrimaryMercs = computed(() => (props.primarySquad?.mercs?.length || 0) > 0);
 const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length || 0) > 0);
+const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
 </script>
 
 <template>
@@ -131,8 +133,35 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
       </div>
     </div>
 
+    <!-- Base Squad (Dictator's home location) -->
+    <div class="squad-section base" v-if="baseSquad">
+      <div class="squad-header">
+        <span class="squad-label">🏠 Base</span>
+        <span class="squad-location" v-if="baseSquad.sectorName">
+          @ {{ baseSquad.sectorName }}
+        </span>
+      </div>
+      <div class="mercs-list" v-if="hasBaseMercs">
+        <MercCard
+          v-for="(merc, index) in baseSquad.mercs"
+          :key="getMercKey(merc, 200 + index)"
+          :merc="merc"
+          :player-color="playerColor"
+          :squad-name="'Base'"
+          :show-equipment="true"
+          :can-drop-equipment="canDropEquipment"
+          :ability-available="isMercAbilityAvailable(merc)"
+          @drop-equipment="handleDropEquipment"
+          @activate-ability="handleActivateAbility"
+        />
+      </div>
+      <div class="empty-squad" v-else>
+        Dictator is away from base
+      </div>
+    </div>
+
     <!-- No squads message -->
-    <div class="no-squads" v-if="!primarySquad && !secondarySquad">
+    <div class="no-squads" v-if="!primarySquad && !secondarySquad && !baseSquad">
       No squads available
     </div>
   </div>
@@ -170,6 +199,11 @@ const hasSecondaryMercs = computed(() => (props.secondarySquad?.mercs?.length ||
 }
 
 .squad-section.secondary {
+  padding-top: 16px;
+  border-top: 1px solid v-bind('UI_COLORS.border');
+}
+
+.squad-section.base {
   padding-top: 16px;
   border-top: 1px solid v-bind('UI_COLORS.border');
 }

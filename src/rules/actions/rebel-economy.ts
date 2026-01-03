@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, Squad, isGrenadeOrMortar } from '../elements.js';
+import { MercCard, Sector, Equipment, Squad, isGrenadeOrMortar, DictatorCard } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { executeCombat } from '../combat.js';
@@ -314,10 +314,27 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 // Works for both rebel and dictator players.
 // =============================================================================
 
-// Helper to find the sector a MERC is in (works for any player type)
-function findMercSectorForExplore(merc: MercCard, player: any, game: MERCGame): Sector | null {
+// Type for units that can explore (MERCs or DictatorCard)
+type ExplorableUnit = MercCard | DictatorCard;
+
+// Helper to check if unit is a DictatorCard
+function isDictatorCardUnit(unit: ExplorableUnit): unit is DictatorCard {
+  return unit instanceof DictatorCard;
+}
+
+// Helper to get unit name for display
+function getUnitNameForExplore(unit: ExplorableUnit): string {
+  if (isDictatorCardUnit(unit)) {
+    return unit.dictatorName;
+  }
+  return unit.mercName;
+}
+
+// Helper to find the sector a unit is in (works for any player type)
+function findUnitSectorForExplore(unit: ExplorableUnit, player: any, game: MERCGame): Sector | null {
   if (game.isRebelPlayer(player)) {
     const rebelPlayer = player as RebelPlayer;
+    const merc = unit as MercCard;
     for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
       if (!squad?.sectorId) continue;
       const mercs = squad.getMercs();
@@ -327,6 +344,15 @@ function findMercSectorForExplore(merc: MercCard, player: any, game: MERCGame): 
     }
   }
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    // DictatorCard uses its own sectorId directly
+    if (isDictatorCardUnit(unit)) {
+      if (unit.sectorId) {
+        return game.getSector(unit.sectorId) || null;
+      }
+      return null;
+    }
+    // MercCard - check squad first
+    const merc = unit as MercCard;
     const squad = game.dictatorPlayer.getSquadContaining(merc);
     if (squad?.sectorId) {
       return game.getSector(squad.sectorId) || null;
@@ -339,26 +365,62 @@ function findMercSectorForExplore(merc: MercCard, player: any, game: MERCGame): 
   return null;
 }
 
-// Helper to check if merc belongs to player (for explore action)
-function isMercOwnedForExplore(merc: MercCard, player: any, game: MERCGame): boolean {
+// Helper to check if unit belongs to player (for explore action)
+function isUnitOwnedForExplore(unit: ExplorableUnit, player: any, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
+    const merc = unit as MercCard;
     return isInPlayerTeam(merc, player as RebelPlayer);
   }
   if (game.isDictatorPlayer(player)) {
+    // DictatorCard always belongs to dictator
+    if (isDictatorCardUnit(unit)) {
+      return unit.inPlay && !unit.isDead;
+    }
     const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
-    return dictatorMercs.some(m => m.id === merc.id);
+    return dictatorMercs.some(m => m.id === unit.id);
   }
   return false;
 }
 
-// Helper to check if merc can explore (in unexplored sector with actions)
-function canMercExplore(merc: MercCard, player: any, game: MERCGame): boolean {
-  if (merc.actionsRemaining < ACTION_COSTS.EXPLORE) return false;
-  const sector = findMercSectorForExplore(merc, player, game);
+// Helper to check if unit can explore (in unexplored sector with actions)
+function canUnitExplore(unit: ExplorableUnit, player: any, game: MERCGame): boolean {
+  if (unit.actionsRemaining < ACTION_COSTS.EXPLORE) return false;
+  if (isDictatorCardUnit(unit) && (!unit.inPlay || unit.isDead)) return false;
+  const sector = findUnitSectorForExplore(unit, player, game);
   return sector !== null && !sector.explored;
 }
 
-// Helper to get living MERCs for any player type (for explore action)
+// Helper to get living units for any player type (for explore action)
+// Returns MERCs + DictatorCard if applicable
+function getPlayerUnitsForExplore(player: any, game: MERCGame): ExplorableUnit[] {
+  if (game.isRebelPlayer(player)) {
+    return (player as RebelPlayer).team.filter(m => !m.isDead);
+  }
+  if (game.isDictatorPlayer(player)) {
+    const units: ExplorableUnit[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
+    // Include DictatorCard if in play
+    const dictatorCard = game.dictatorPlayer?.dictator;
+    if (dictatorCard?.inPlay && !dictatorCard.isDead) {
+      units.push(dictatorCard);
+    }
+    return units;
+  }
+  return [];
+}
+
+// Legacy helpers for backward compatibility
+function findMercSectorForExplore(merc: MercCard, player: any, game: MERCGame): Sector | null {
+  return findUnitSectorForExplore(merc, player, game);
+}
+
+function isMercOwnedForExplore(merc: MercCard, player: any, game: MERCGame): boolean {
+  return isUnitOwnedForExplore(merc, player, game);
+}
+
+function canMercExplore(merc: MercCard, player: any, game: MERCGame): boolean {
+  return canUnitExplore(merc, player, game);
+}
+
 function getPlayerMercsForExplore(player: any, game: MERCGame): MercCard[] {
   if (game.isRebelPlayer(player)) {
     return (player as RebelPlayer).team.filter(m => !m.isDead);
@@ -394,41 +456,54 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       if (tracer) tracer.check('isDictatorPlayer', isDictator);
       if (!isRebel && !isDictator) return false;
 
-      // Get living MERCs for this player
-      const livingMercs = getPlayerMercsForExplore(ctx.player, game);
-      if (tracer) tracer.check('livingMercs.count', livingMercs.length);
+      // Get living units for this player (MERCs + DictatorCard)
+      const livingUnits = getPlayerUnitsForExplore(ctx.player, game);
+      if (tracer) tracer.check('livingUnits.count', livingUnits.length);
 
-      // Check if any MERC can explore (in unexplored sector with actions)
-      const canExplore = livingMercs.some(m => canMercExplore(m, ctx.player, game));
+      // Check if any unit can explore (in unexplored sector with actions)
+      const canExplore = livingUnits.some(u => canUnitExplore(u, ctx.player, game));
       if (tracer) tracer.check('hasExplorerCapable', canExplore);
       return canExplore;
     })
-    .chooseElement<MercCard>('actingMerc', {
-      prompt: 'Which MERC explores?',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        const merc = element as unknown as MercCard;
-        // MERC must belong to player and be able to explore
-        if (!isMercOwnedForExplore(merc, ctx.player, game)) return false;
-        return canMercExplore(merc, ctx.player, game);
+    .chooseFrom<{ id: number; name: string; isDictatorCard: boolean }>('actingUnit', {
+      prompt: 'Which unit explores?',
+      choices: (ctx) => {
+        const units = getPlayerUnitsForExplore(ctx.player, game);
+        return units
+          .filter(u => canUnitExplore(u, ctx.player, game))
+          .map(u => ({
+            value: {
+              id: u.id,
+              name: getUnitNameForExplore(u),
+              isDictatorCard: isDictatorCardUnit(u),
+            },
+            label: capitalize(getUnitNameForExplore(u)),
+          }));
       },
     })
     .execute((args, ctx) => {
-      const actingMerc = args.actingMerc as MercCard;
+      const unitChoice = args.actingUnit as { id: number; name: string; isDictatorCard: boolean };
 
-      if (!actingMerc) {
-        return { success: false, message: 'MERC not found' };
+      // Find the actual unit
+      let actingUnit: ExplorableUnit | null = null;
+      if (unitChoice.isDictatorCard) {
+        actingUnit = game.dictatorPlayer?.dictator || null;
+      } else {
+        actingUnit = game.all(MercCard).find(m => m.id === unitChoice.id) || null;
+      }
+
+      if (!actingUnit) {
+        return { success: false, message: 'Unit not found' };
       }
 
       // Find the sector
-      const sector = findMercSectorForExplore(actingMerc, ctx.player, game);
+      const sector = findUnitSectorForExplore(actingUnit, ctx.player, game);
       if (!sector) {
         return { success: false, message: 'No sector found' };
       }
 
-      // Spend action
-      useAction(actingMerc, ACTION_COSTS.EXPLORE);
+      // Spend action (works for both MercCard and DictatorCard)
+      actingUnit.actionsRemaining -= ACTION_COSTS.EXPLORE;
 
       // Draw equipment to stash
       for (let i = 0; i < sector.weaponLoot; i++) {
@@ -454,10 +529,13 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       // Mark explored
       sector.explore();
 
+      // Get unit name for messages
+      const unitName = getUnitNameForExplore(actingUnit);
+
       // Report what was found
       if (sector.stashCount > 0) {
         const equipmentList = sector.stash.map(e => e.equipmentName).join(', ');
-        game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found: ${equipmentList}`);
+        game.message(`${capitalize(unitName)} explored ${sector.sectorName} and found: ${equipmentList}`);
 
         // Chain to collectEquipment action with pre-filled args
         // Pass objects with name property so chips display names instead of IDs
@@ -467,13 +545,13 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: { id: actingMerc.id, name: capitalize(actingMerc.mercName) },
+              mercId: { id: actingUnit.id, name: capitalize(unitName) },
               sectorId: { id: sector.id, name: sector.sectorName },
             },
           },
         };
       } else {
-        game.message(`${capitalize(actingMerc.mercName)} explored ${sector.sectorName} and found nothing`);
+        game.message(`${capitalize(unitName)} explored ${sector.sectorName} and found nothing`);
         return {
           success: true,
           message: `Explored ${sector.sectorName}`,
@@ -729,10 +807,27 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 // Works for both rebel and dictator players.
 // =============================================================================
 
-// Helper to find merc's sector for training (works for any player type)
-function findMercSectorForTrain(merc: MercCard, player: any, game: MERCGame): Sector | null {
+// Type for units that can train (MERCs or DictatorCard)
+type TrainableUnit = MercCard | DictatorCard;
+
+// Helper to check if unit is a DictatorCard (for train)
+function isDictatorCardForTrain(unit: TrainableUnit): unit is DictatorCard {
+  return unit instanceof DictatorCard;
+}
+
+// Helper to get unit name for train display
+function getUnitNameForTrain(unit: TrainableUnit): string {
+  if (isDictatorCardForTrain(unit)) {
+    return unit.dictatorName;
+  }
+  return unit.mercName;
+}
+
+// Helper to find unit's sector for training (works for any player type)
+function findUnitSectorForTrain(unit: TrainableUnit, player: any, game: MERCGame): Sector | null {
   if (game.isRebelPlayer(player)) {
     const rebelPlayer = player as RebelPlayer;
+    const merc = unit as MercCard;
     for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
       if (!squad?.sectorId) continue;
       const mercs = squad.getMercs();
@@ -742,6 +837,15 @@ function findMercSectorForTrain(merc: MercCard, player: any, game: MERCGame): Se
     }
   }
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    // DictatorCard uses its own sectorId directly
+    if (isDictatorCardForTrain(unit)) {
+      if (unit.sectorId) {
+        return game.getSector(unit.sectorId) || null;
+      }
+      return null;
+    }
+    // MercCard - check squad first
+    const merc = unit as MercCard;
     const squad = game.dictatorPlayer.getSquadContaining(merc);
     if (squad?.sectorId) {
       return game.getSector(squad.sectorId) || null;
@@ -754,12 +858,13 @@ function findMercSectorForTrain(merc: MercCard, player: any, game: MERCGame): Se
   return null;
 }
 
-// Helper to check if merc can train (training > 0, has actions, sector not at max militia)
-function canMercTrain(merc: MercCard, player: any, game: MERCGame): boolean {
-  if (merc.training <= 0) return false;
-  if (!canTrainWith(merc, ACTION_COSTS.TRAIN)) return false;
+// Helper to check if unit can train (training > 0, has actions, sector not at max militia)
+function canUnitTrain(unit: TrainableUnit, player: any, game: MERCGame): boolean {
+  if (unit.training <= 0) return false;
+  if (unit.actionsRemaining < ACTION_COSTS.TRAIN) return false;
+  if (isDictatorCardForTrain(unit) && (!unit.inPlay || unit.isDead)) return false;
 
-  const sector = findMercSectorForTrain(merc, player, game);
+  const sector = findUnitSectorForTrain(unit, player, game);
   if (!sector) return false;
 
   // Check max militia for this side
@@ -772,7 +877,33 @@ function canMercTrain(merc: MercCard, player: any, game: MERCGame): boolean {
   return false;
 }
 
-// Helper to check if merc belongs to player (for train action)
+// Helper to get living units for any player type (for train action)
+// Returns MERCs + DictatorCard if applicable
+function getPlayerUnitsForTrain(player: any, game: MERCGame): TrainableUnit[] {
+  if (game.isRebelPlayer(player)) {
+    return (player as RebelPlayer).team.filter(m => !m.isDead);
+  }
+  if (game.isDictatorPlayer(player)) {
+    const units: TrainableUnit[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
+    // Include DictatorCard if in play
+    const dictatorCard = game.dictatorPlayer?.dictator;
+    if (dictatorCard?.inPlay && !dictatorCard.isDead) {
+      units.push(dictatorCard);
+    }
+    return units;
+  }
+  return [];
+}
+
+// Legacy helpers for backward compatibility
+function findMercSectorForTrain(merc: MercCard, player: any, game: MERCGame): Sector | null {
+  return findUnitSectorForTrain(merc, player, game);
+}
+
+function canMercTrain(merc: MercCard, player: any, game: MERCGame): boolean {
+  return canUnitTrain(merc, player, game);
+}
+
 function isMercOwnedForTrain(merc: MercCard, player: any, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
     return isInPlayerTeam(merc, player as RebelPlayer);
@@ -784,7 +915,6 @@ function isMercOwnedForTrain(merc: MercCard, player: any, game: MERCGame): boole
   return false;
 }
 
-// Helper to get living MERCs for any player type (for train action)
 function getPlayerMercsForTrain(player: any, game: MERCGame): MercCard[] {
   if (game.isRebelPlayer(player)) {
     return (player as RebelPlayer).team.filter(m => !m.isDead);
@@ -812,42 +942,64 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       const isDictator = game.isDictatorPlayer(ctx.player as any);
       if (!isRebel && !isDictator) return false;
 
-      // Get living MERCs for this player
-      const livingMercs = getPlayerMercsForTrain(ctx.player, game);
+      // Get living units for this player (MERCs + DictatorCard)
+      const livingUnits = getPlayerUnitsForTrain(ctx.player, game);
 
-      // Must have a MERC with training > 0 and actions remaining
-      // MERC-bd4: Faustina can use her training-only action for this
-      return livingMercs.some(m => canMercTrain(m, ctx.player, game));
+      // Must have a unit with training > 0 and actions remaining
+      return livingUnits.some(u => canUnitTrain(u, ctx.player, game));
     })
-    .chooseElement<MercCard>('merc', {
-      prompt: 'Select MERC to train militia',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        const merc = element as unknown as MercCard;
-        // MERC must belong to player and be able to train
-        if (!isMercOwnedForTrain(merc, ctx.player, game)) return false;
-        // MERC-bd4: Faustina can use her training-only action
-        return canMercTrain(merc, ctx.player, game);
+    .chooseFrom<{ id: number; name: string; isDictatorCard: boolean }>('unit', {
+      prompt: 'Select unit to train militia',
+      choices: (ctx) => {
+        const units = getPlayerUnitsForTrain(ctx.player, game);
+        return units
+          .filter(u => canUnitTrain(u, ctx.player, game))
+          .map(u => ({
+            value: {
+              id: u.id,
+              name: getUnitNameForTrain(u),
+              isDictatorCard: isDictatorCardForTrain(u),
+            },
+            label: capitalize(getUnitNameForTrain(u)),
+          }));
       },
     })
     .execute((args, ctx) => {
-      const merc = args.merc as MercCard;
+      const unitChoice = args.unit as { id: number; name: string; isDictatorCard: boolean };
 
-      const sector = findMercSectorForTrain(merc, ctx.player, game);
+      // Find the actual unit
+      let actingUnit: TrainableUnit | null = null;
+      if (unitChoice.isDictatorCard) {
+        actingUnit = game.dictatorPlayer?.dictator || null;
+      } else {
+        actingUnit = game.all(MercCard).find(m => m.id === unitChoice.id) || null;
+      }
+
+      if (!actingUnit) {
+        return { success: false, message: 'Unit not found' };
+      }
+
+      const sector = findUnitSectorForTrain(actingUnit, ctx.player, game);
       if (!sector) {
         return { success: false, message: 'No sector found' };
       }
 
-      // Spend action - MERC-bd4: Faustina uses training action first
-      useTrainingAction(merc, ACTION_COSTS.TRAIN);
+      // Spend action - MERC-bd4: Faustina uses training action first (only for MercCard)
+      if (isDictatorCardForTrain(actingUnit)) {
+        actingUnit.actionsRemaining -= ACTION_COSTS.TRAIN;
+      } else {
+        useTrainingAction(actingUnit as MercCard, ACTION_COSTS.TRAIN);
+      }
+
+      // Get unit name for messages
+      const unitName = getUnitNameForTrain(actingUnit);
 
       // Train militia - amount depends on player type
       let trained: number;
       if (game.isRebelPlayer(ctx.player)) {
         const player = ctx.player as RebelPlayer;
-        trained = sector.addRebelMilitia(`${player.position}`, merc.training);
-        game.message(`${merc.mercName} trained ${trained} militia at ${sector.sectorName}`);
+        trained = sector.addRebelMilitia(`${player.position}`, actingUnit.training);
+        game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
 
         // Check if dictator has units at this sector and trigger combat
         if (sector.dictatorMilitia > 0) {
@@ -864,8 +1016,8 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
           };
         }
       } else if (game.isDictatorPlayer(ctx.player)) {
-        trained = sector.addDictatorMilitia(merc.training);
-        game.message(`${merc.mercName} trained ${trained} militia at ${sector.sectorName}`);
+        trained = sector.addDictatorMilitia(actingUnit.training);
+        game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
 
         // Check if any rebel has units at this sector and trigger combat
         for (const rebel of game.rebelPlayers) {

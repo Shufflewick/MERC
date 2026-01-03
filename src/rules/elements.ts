@@ -95,7 +95,8 @@ export class MercCard extends BaseCard {
   damage: number = 0;
   actionsRemaining: number = 2;
   // Location tracking (used for dictator MERCs; rebel MERCs use Squad.sectorId)
-  sectorId?: string;
+  // Must have default value for serialization to gameView
+  sectorId: string = '';
 
   // Haarg's ability bonuses (stored explicitly since parent isn't available during serialization)
   haargTrainingBonus: number = 0;
@@ -1328,7 +1329,8 @@ export class DictatorCard extends BaseCard {
   inPlay: boolean = false;
 
   // MERC-07j: Location tracking (like MercCard)
-  sectorId?: string;
+  // Must have default value for serialization to gameView
+  sectorId: string = '';
 
   // Equipment slots - now stored as child elements with equippedSlot attribute
   // These getters query children, making equipment survive HMR via element hierarchy
@@ -1496,11 +1498,9 @@ export class TacticsCard extends BaseCard {
   tacticsName!: string;
   story!: string;
   description!: string;
-
-  get revealsBase(): boolean {
-    // Cards that mention "Reveal your base" in description
-    return this.description.toLowerCase().includes('reveal your base');
-  }
+  // Cards with "revealsBase": true in JSON will trigger base reveal UI
+  // Must be a property (not getter) for BoardSmith to populate from JSON
+  revealsBase: boolean = false;
 }
 
 // =============================================================================

@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, isGrenadeOrMortar } from '../elements.js';
+import { MercCard, Sector, Equipment, isGrenadeOrMortar, DictatorCard } from '../elements.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -29,14 +29,97 @@ import { hasMortar } from '../ai-helpers.js';
  * Chains via followUp if more items remain in stash.
  * Works for both rebel and dictator players.
  */
+// Type for units that can equip (MERCs or DictatorCard)
+type EquippableUnit = MercCard | DictatorCard;
+
+// Helper to check if unit is a DictatorCard (for equip)
+function isDictatorCardForEquip(unit: EquippableUnit): unit is DictatorCard {
+  return unit instanceof DictatorCard;
+}
+
+// Helper to get unit name for equip display
+function getUnitNameForEquip(unit: EquippableUnit): string {
+  if (isDictatorCardForEquip(unit)) {
+    return unit.dictatorName;
+  }
+  return unit.mercName;
+}
+
+// Helper to find unit's sector (works for any player type)
+function findUnitSectorForEquip(unit: EquippableUnit, player: any, game: MERCGame): Sector | null {
+  if (game.isRebelPlayer(player)) {
+    const rebelPlayer = player as RebelPlayer;
+    const merc = unit as MercCard;
+    for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
+      if (!squad?.sectorId) continue;
+      const mercs = squad.getMercs();
+      if (mercs.some(m => m.id === merc.id)) {
+        return game.getSector(squad.sectorId) || null;
+      }
+    }
+  }
+  if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    // DictatorCard uses its own sectorId directly
+    if (isDictatorCardForEquip(unit)) {
+      if (unit.sectorId) {
+        return game.getSector(unit.sectorId) || null;
+      }
+      return null;
+    }
+    // MercCard - check squad first
+    const merc = unit as MercCard;
+    const squad = game.dictatorPlayer.getSquadContaining(merc);
+    if (squad?.sectorId) {
+      return game.getSector(squad.sectorId) || null;
+    }
+    // Fallback to merc's sectorId
+    if (merc.sectorId) {
+      return game.getSector(merc.sectorId) || null;
+    }
+  }
+  return null;
+}
+
+// Helper to get living units with actions for any player type
+// Returns MERCs + DictatorCard if applicable
+function getPlayerUnitsWithActions(player: any, game: MERCGame): EquippableUnit[] {
+  if (game.isRebelPlayer(player)) {
+    return (player as RebelPlayer).team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
+  }
+  if (game.isDictatorPlayer(player)) {
+    const units: EquippableUnit[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
+    // Include DictatorCard if in play with enough actions
+    const dictatorCard = game.dictatorPlayer?.dictator;
+    if (dictatorCard?.inPlay && !dictatorCard.isDead && dictatorCard.actionsRemaining >= ACTION_COSTS.RE_EQUIP) {
+      units.push(dictatorCard);
+    }
+    return units;
+  }
+  return [];
+}
+
+// Helper to check if any unit can re-equip (in a sector with stash and has actions)
+function canAnyUnitReEquip(player: any, game: MERCGame): boolean {
+  const units = getPlayerUnitsWithActions(player, game);
+  for (const unit of units) {
+    const sector = findUnitSectorForEquip(unit, player, game);
+    if (sector && sector.stash.length > 0) return true;
+  }
+  return false;
+}
+
 export function createReEquipAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve merc from ctx.args (handles both numeric ID and resolved element)
-  function getMerc(ctx: any): MercCard | undefined {
-    const mercArg = ctx.args?.actingMerc ?? ctx.args?.mercId;
-    if (typeof mercArg === 'number') {
-      return game.getElementById(mercArg) as MercCard | undefined;
-    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      return mercArg as MercCard;
+  // Helper to resolve unit from ctx.args
+  function getUnit(ctx: any): EquippableUnit | undefined {
+    const unitArg = ctx.args?.actingUnit ?? ctx.args?.mercId;
+    if (unitArg && typeof unitArg === 'object' && 'isDictatorCard' in unitArg) {
+      if (unitArg.isDictatorCard) {
+        return game.dictatorPlayer?.dictator;
+      }
+      return game.all(MercCard).find(m => m.id === unitArg.id);
+    }
+    if (typeof unitArg === 'number') {
+      return game.getElementById(unitArg) as MercCard | undefined;
     }
     return undefined;
   }
@@ -52,32 +135,12 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  // Helper to find merc's sector (works for any player type)
+  // Legacy helper for backward compatibility
   function findMercSector(merc: MercCard, player: any): Sector | null {
-    if (game.isRebelPlayer(player)) {
-      const rebelPlayer = player as RebelPlayer;
-      for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
-        if (!squad?.sectorId) continue;
-        const mercs = squad.getMercs();
-        if (mercs.some(m => m.id === merc.id)) {
-          return game.getSector(squad.sectorId) || null;
-        }
-      }
-    }
-    if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
-      const squad = game.dictatorPlayer.getSquadContaining(merc);
-      if (squad?.sectorId) {
-        return game.getSector(squad.sectorId) || null;
-      }
-      // Fallback to merc's sectorId
-      if (merc.sectorId) {
-        return game.getSector(merc.sectorId) || null;
-      }
-    }
-    return null;
+    return findUnitSectorForEquip(merc, player, game);
   }
 
-  // Helper to get living MERCs with actions for any player type
+  // Legacy helper for backward compatibility
   function getPlayerMercsWithActions(player: any): MercCard[] {
     if (game.isRebelPlayer(player)) {
       return (player as RebelPlayer).team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
@@ -88,7 +151,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return [];
   }
 
-  // Helper to check if merc belongs to player
+  // Legacy helper for backward compatibility
   function isMercOwnedByPlayer(merc: MercCard, player: any): boolean {
     if (game.isRebelPlayer(player)) {
       return isInPlayerTeam(merc, player as RebelPlayer);
@@ -100,14 +163,9 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return false;
   }
 
-  // Helper to check if any merc can re-equip (in a sector with stash and has actions)
+  // Legacy helper - now uses unit-based check
   function canAnyMercReEquip(player: any): boolean {
-    const mercs = getPlayerMercsWithActions(player);
-    for (const merc of mercs) {
-      const sector = findMercSector(merc, player);
-      if (sector && sector.stash.length > 0) return true;
-    }
-    return false;
+    return canAnyUnitReEquip(player, game);
   }
 
   return Action.create('reEquip')

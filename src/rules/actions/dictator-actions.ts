@@ -73,6 +73,8 @@ function getHealingAmountForItem(equipmentId: string): number {
  * Play a tactics card
  * MERC-5j2: AI plays from top of deck (no hand), auto-selects
  */
+// Cards that reveal the dictator's base now use the revealsBase property on TacticsCard
+
 export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
   return Action.create('playTactics')
     .prompt('Play a tactics card')
@@ -106,6 +108,45 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
       },
     })
+    // Human players choose base location when playing a base-reveal card
+    .chooseFrom<string>('baseLocation', {
+      prompt: 'Choose the location for your base',
+      dependsOn: 'card', // This step depends on the card selection
+      skipIf: (ctx) => {
+        // Skip if AI, base already revealed, or card doesn't reveal base
+        if (game.dictatorPlayer?.isAI) return true;
+        if (game.dictatorPlayer?.baseRevealed) return true;
+        const card = ctx.args?.card as TacticsCard | undefined;
+        if (!card || !card.revealsBase) return true;
+        return false;
+      },
+      choices: (ctx) => {
+        // Get industries controlled by dictator
+        const industries = game.gameMap.getAllSectors()
+          .filter(s => s.sectorType === 'Industry' && s.dictatorMilitia > 0);
+        if (industries.length === 0) {
+          // Fallback to any industry
+          return game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry')
+            .map(s => s.sectorName);
+        }
+        return industries.map(s => s.sectorName);
+      },
+    })
+    // Human dictator chooses starting equipment when base is revealed
+    .chooseFrom<string>('dictatorEquipment', {
+      prompt: 'Choose starting equipment for the Dictator',
+      dependsOn: 'baseLocation', // This step depends on baseLocation (which depends on card)
+      skipIf: (ctx) => {
+        // Skip if AI, base already revealed, or card doesn't reveal base
+        if (game.dictatorPlayer?.isAI) return true;
+        if (game.dictatorPlayer?.baseRevealed) return true;
+        const card = ctx.args?.card as TacticsCard | undefined;
+        if (!card || !card.revealsBase) return true;
+        return false;
+      },
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
     .execute((args) => {
       const card = args.card as TacticsCard;
       game.message(`Dictator plays: ${card.tacticsName}`);
@@ -113,8 +154,34 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       // Move card to discard
       card.putInto(game.dictatorPlayer.tacticsDiscard);
 
-      // Execute the card's effect
+      // For human players playing base-reveal cards, set base location first
+      if (!game.dictatorPlayer?.isAI &&
+          card.revealsBase &&
+          !game.dictatorPlayer?.baseRevealed &&
+          args.baseLocation) {
+        const baseName = args.baseLocation as string;
+        const baseSector = game.gameMap.getAllSectors().find(s => s.sectorName === baseName);
+        if (baseSector) {
+          game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+          game.message(`Dictator established base at ${baseSector.sectorName}`);
+        }
+      }
+
+      // Execute the card's effect (this may reveal base and put dictator in play)
       const result = executeTacticsEffect(game, card);
+
+      // For human players playing base-reveal cards, equip the dictator
+      if (!game.dictatorPlayer?.isAI &&
+          card.revealsBase &&
+          game.dictatorPlayer?.dictator?.inPlay &&
+          args.dictatorEquipment) {
+        const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
+        const equipment = game.drawEquipment(equipType);
+        if (equipment && game.dictatorPlayer.dictator) {
+          game.dictatorPlayer.dictator.equip(equipment);
+          game.message(`${game.dictatorPlayer.dictator.dictatorName} equipped ${equipment.equipmentName}`);
+        }
+      }
 
       return {
         success: result.success,
@@ -258,7 +325,6 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
 export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
   // Settings keys to persist state across choices
   const DRAWN_MERCS_KEY = '_castro_drawn_mercs';
-  const HIRED_MERC_KEY = '_castro_hired_merc';
 
   return Action.create('castroBonusHire')
     .prompt("Castro's Ability: Hire a MERC")
@@ -273,7 +339,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       return true;
     })
     .chooseFrom<string>('selectedMerc', {
-      prompt: 'Choose a MERC to hire (highest combat shown first)',
+      prompt: 'Choose a MERC to hire',
+      defer: true, // Draw MERCs when action starts
       choices: () => {
         // Draw 3 MERCs if not already drawn
         if (!game.settings[DRAWN_MERCS_KEY]) {
@@ -293,14 +360,16 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
           .sort((a, b) => b.baseCombat - a.baseCombat);
 
         if (mercs.length === 0) {
-          return [{ label: 'No MERCs available', value: 'none' }];
+          return ['No MERCs available'];
         }
 
-        return mercs.map(m => ({
-          label: m.mercName,
-          value: String(m.id),
-        }));
+        // Return just capitalized names (UI finds MERC data via findMercByName)
+        return mercs.map(m => capitalize(m.mercName));
       },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     .chooseFrom<string>('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
@@ -313,63 +382,107 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
           // Fallback to any industry
           const industries = game.gameMap.getAllSectors()
             .filter(s => s.sectorType === 'Industry');
-          return industries.map(s => ({
-            label: s.sectorName,
-            value: s.sectorId,
-          }));
+          return industries.map(s => s.sectorName);
         }
 
-        return sectors.map(s => ({
-          label: `${s.sectorName} (${s.dictatorMilitia} militia)`,
-          value: s.sectorId,
-        }));
+        return sectors.map(s => `${s.sectorName} (${s.dictatorMilitia} militia)`);
       },
     })
     .execute((args, ctx) => {
       const mercIds = game.settings[DRAWN_MERCS_KEY] as number[] || [];
-      const selectedId = parseInt(args.selectedMerc as string, 10);
+      const selectedMercName = args.selectedMerc as string;
 
-      if (isNaN(selectedId) || args.selectedMerc === 'none') {
-        // Clean up and return failure
+      if (!selectedMercName || selectedMercName === 'No MERCs available') {
         delete game.settings[DRAWN_MERCS_KEY];
         return { success: false, message: 'No MERC selected' };
       }
 
-      const selectedMerc = game.getElementById(selectedId) as MercCard;
+      // Find the MERC by name
+      const mercs = mercIds
+        .map(id => game.getElementById(id) as MercCard)
+        .filter(m => m != null);
+      const selectedMerc = mercs.find(m => capitalize(m.mercName) === selectedMercName);
+
       if (!selectedMerc) {
         delete game.settings[DRAWN_MERCS_KEY];
         return { success: false, message: 'MERC not found' };
       }
 
-      // Put hired MERC into dictator's primary squad
-      selectedMerc.putInto(game.dictatorPlayer.primarySquad);
+      // Set MERC location from selected sector
+      const targetSectorChoice = args.targetSector as string;
+      game.message(`DEBUG: Raw targetSector arg = "${targetSectorChoice}" (type: ${typeof targetSectorChoice})`);
 
-      // Set MERC location
-      const targetSectorId = args.targetSector as string;
-      const targetSector = game.getSector(targetSectorId);
-      if (targetSector) {
-        selectedMerc.sectorId = targetSector.sectorId;
-        game.message(`Castro deployed ${selectedMerc.mercName} to ${targetSector.sectorName}`);
+      // Extract sector name (remove militia count suffix if present)
+      const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      game.message(`DEBUG: Extracted sector name = "${sectorName}"`);
+
+      // Try multiple matching strategies
+      const allSectors = game.gameMap.getAllSectors();
+      let targetSector = allSectors.find(s => s.sectorName === sectorName);
+
+      // Fallback: match by startsWith (in case of formatting differences)
+      if (!targetSector) {
+        targetSector = allSectors.find(s => targetSectorChoice.startsWith(s.sectorName));
       }
 
-      // Give free equipment
-      let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
-      if (selectedMerc.weaponSlot) {
-        equipType = selectedMerc.armorSlot ? 'Accessory' : 'Armor';
+      if (!targetSector) {
+        // Debug: log what we tried to match
+        game.message(`WARNING: Could not find sector "${sectorName}" from choice "${targetSectorChoice}"`);
+        // Fallback to first dictator-controlled sector
+        targetSector = allSectors.find(s => s.dictatorMilitia > 0);
+        if (targetSector) {
+          game.message(`Falling back to ${targetSector.sectorName}`);
+        }
       }
+
+      if (!targetSector) {
+        delete game.settings[DRAWN_MERCS_KEY];
+        return { success: false, message: 'No valid sector found' };
+      }
+
+      // Determine which squad to use based on target sector
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+
+      // Check if primary squad is already at this sector or has no MERCs
+      const primaryMercs = primarySquad.getLivingMercs();
+      const secondaryMercs = secondarySquad.getLivingMercs();
+
+      let targetSquad: typeof primarySquad;
+      if (primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) {
+        // Primary squad is empty or already at target - use primary
+        targetSquad = primarySquad;
+        game.message(`Placing ${selectedMerc.mercName} in primary squad at ${targetSector.sectorName}`);
+      } else if (secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) {
+        // Secondary squad is empty or already at target - use secondary
+        targetSquad = secondarySquad;
+        game.message(`Placing ${selectedMerc.mercName} in secondary squad at ${targetSector.sectorName}`);
+      } else {
+        // Both squads occupied elsewhere - default to primary (this is an edge case)
+        targetSquad = primarySquad;
+        game.message(`Both squads occupied - adding to primary squad`);
+      }
+
+      // Put MERC into chosen squad
+      selectedMerc.putInto(targetSquad);
+
+      // Set BOTH the MERC's sectorId AND the squad's sectorId
+      selectedMerc.sectorId = targetSector.sectorId;
+      targetSquad.sectorId = targetSector.sectorId;
+      game.message(`Castro deployed ${selectedMerc.mercName} to ${targetSector.sectorName}`);
+
+      // Give equipment of chosen type
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const freeEquipment = game.drawEquipment(equipType);
       if (freeEquipment) {
         selectedMerc.equip(freeEquipment);
-        game.message(`${selectedMerc.mercName} equipped free ${freeEquipment.equipmentName}`);
+        game.message(`${selectedMerc.mercName} equipped ${freeEquipment.equipmentName}`);
       }
 
       // Discard the other MERCs
-      for (const mercId of mercIds) {
-        if (mercId !== selectedId) {
-          const merc = game.getElementById(mercId) as MercCard;
-          if (merc) {
-            merc.putInto(game.mercDiscard);
-          }
+      for (const merc of mercs) {
+        if (merc !== selectedMerc) {
+          merc.putInto(game.mercDiscard);
         }
       }
 
@@ -407,7 +520,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         // Count rebel-controlled sectors
         let rebelSectorCount = 0;
         for (const rebel of game.rebelPlayers) {
-          rebelSectorCount += rebel.getControlledSectors(game).length;
+          rebelSectorCount += game.getControlledSectors(rebel).length;
         }
         return `Place ${rebelSectorCount} militia (rebels control ${rebelSectorCount} sectors)`;
       },
@@ -426,7 +539,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       // Count rebel-controlled sectors
       let rebelSectorCount = 0;
       for (const rebel of game.rebelPlayers) {
-        rebelSectorCount += rebel.getControlledSectors(game).length;
+        rebelSectorCount += game.getControlledSectors(rebel).length;
       }
 
       if (rebelSectorCount === 0) {

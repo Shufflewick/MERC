@@ -387,6 +387,15 @@ const hasSquadAdjacent = computed(() => {
 const isCity = computed(() => props.sector.sectorType === 'City');
 const isIndustry = computed(() => props.sector.sectorType === 'Industry');
 
+// Style for the dictator base icon using dictator's color (black)
+const baseIconStyle = computed(() => {
+  const color = getPlayerColor('dictator');
+  return {
+    borderColor: color,
+    boxShadow: `0 0 6px 2px ${color}80`, // 80 = 50% opacity in hex
+  };
+});
+
 // Calculate total rebel militia for this player (legacy - kept for reference)
 const playerMilitia = computed(() => {
   return props.sector.rebelMilitia[String(props.playerPosition)] || 0;
@@ -1119,6 +1128,8 @@ const sectorTypeIcon = computed(() => {
         <div v-if="squadInSector && squadInSector.mercs.length > 0" class="squad-section">
           <div class="squad-header-label">My Squad</div>
           <div class="squad-mercs">
+            <!-- Dictator base icon -->
+            <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
             <div
               v-for="merc in squadInSector.mercs"
               :key="getAttr(merc, 'mercId', '')"
@@ -1139,6 +1150,25 @@ const sectorTypeIcon = computed(() => {
           >
             <span class="stash-icon">📦</span>
             <span class="stash-count">{{ stashContents.length }}</span>
+          </div>
+        </div>
+
+        <!-- My MERCs when not in squad location (e.g., dictator's base) -->
+        <div v-else-if="myMercsInSector.length > 0" class="squad-section">
+          <div class="squad-header-label">My Forces</div>
+          <div class="squad-mercs">
+            <!-- Dictator base icon -->
+            <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
+            <div
+              v-for="merc in myMercsInSector"
+              :key="merc.mercId"
+              class="merc-portrait"
+              :style="{ borderColor: getPlayerColor(playerColor) }"
+              @click="openMercCard(merc)"
+              :title="getMercName(merc)"
+            >
+              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
+            </div>
           </div>
         </div>
 
@@ -1683,6 +1713,20 @@ const sectorTypeIcon = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.base-icon-portrait {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid; /* Color set via inline style */
+  background: rgba(50, 30, 10, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  /* box-shadow set via inline style using dictator's color */
+  flex-shrink: 0;
 }
 
 .forces-info {

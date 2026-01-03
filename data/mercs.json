@@ -1,7 +1,7 @@
 [
   {
     "id": "apeiron",
-    "name": "apeiron",
+    "name": "Apeiron",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -12,7 +12,7 @@
   },
   {
     "id": "badger",
-    "name": "badger",
+    "name": "Badger",
     "quantity": 1,
     "training": 1,
     "combat": 3,
@@ -23,7 +23,7 @@
   },
   {
     "id": "basic",
-    "name": "basic",
+    "name": "Basic",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -34,7 +34,7 @@
   },
   {
     "id": "borris",
-    "name": "borris",
+    "name": "Borris",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -45,7 +45,7 @@
   },
   {
     "id": "bouba",
-    "name": "bouba",
+    "name": "Bouba",
     "quantity": 1,
     "training": 0,
     "combat": 1,
@@ -56,7 +56,7 @@
   },
   {
     "id": "buzzkill",
-    "name": "buzzkill",
+    "name": "Buzzkill",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -67,7 +67,7 @@
   },
   {
     "id": "doc",
-    "name": "doc",
+    "name": "Doc",
     "quantity": 1,
     "training": 2,
     "combat": 1,
@@ -78,7 +78,7 @@
   },
   {
     "id": "ewok",
-    "name": "ewok",
+    "name": "Ewok",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -90,7 +90,7 @@
   },
   {
     "id": "faustina",
-    "name": "faustina",
+    "name": "Faustina",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -102,7 +102,7 @@
   },
   {
     "id": "feedback",
-    "name": "feedback",
+    "name": "Feedback",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -113,7 +113,7 @@
   },
   {
     "id": "genesis",
-    "name": "genesis",
+    "name": "Genesis",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -124,7 +124,7 @@
   },
   {
     "id": "gunther",
-    "name": "gunther",
+    "name": "Gunther",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -135,7 +135,7 @@
   },
   {
     "id": "haarg",
-    "name": "haarg",
+    "name": "Haarg",
     "quantity": 1,
     "training": 1,
     "combat": 3,
@@ -146,7 +146,7 @@
   },
   {
     "id": "juicer",
-    "name": "juicer",
+    "name": "Juicer",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -157,7 +157,7 @@
   },
   {
     "id": "kastern",
-    "name": "kastern",
+    "name": "Kastern",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -168,7 +168,7 @@
   },
   {
     "id": "khenn",
-    "name": "khenn",
+    "name": "Khenn",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -179,7 +179,7 @@
   },
   {
     "id": "lucid",
-    "name": "lucid",
+    "name": "Lucid",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -190,7 +190,7 @@
   },
   {
     "id": "max",
-    "name": "max",
+    "name": "Max",
     "quantity": 1,
     "training": 4,
     "combat": 2,
@@ -201,7 +201,7 @@
   },
   {
     "id": "mayhem",
-    "name": "mayhem",
+    "name": "Mayhem",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -212,7 +212,7 @@
   },
   {
     "id": "meatbop",
-    "name": "meatbop",
+    "name": "Meatbop",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -223,7 +223,7 @@
   },
   {
     "id": "moose",
-    "name": "moose",
+    "name": "Moose",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -234,7 +234,7 @@
   },
   {
     "id": "natasha",
-    "name": "natasha",
+    "name": "Natasha",
     "quantity": 1,
     "training": 2,
     "combat": 3,
@@ -246,7 +246,7 @@
   },
   {
     "id": "preaction",
-    "name": "preaction",
+    "name": "Preaction",
     "quantity": 1,
     "training": 0,
     "combat": 2,
@@ -257,7 +257,7 @@
   },
   {
     "id": "ra",
-    "name": "ra",
+    "name": "Ra",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -268,7 +268,7 @@
   },
   {
     "id": "rizen",
-    "name": "rizen",
+    "name": "Rizen",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -279,7 +279,7 @@
   },
   {
     "id": "rozeske",
-    "name": "rozeske",
+    "name": "Rozeske",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -290,7 +290,7 @@
   },
   {
     "id": "runde",
-    "name": "runde",
+    "name": "Runde",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -301,7 +301,7 @@
   },
   {
     "id": "sarge",
-    "name": "sarge",
+    "name": "Sarge",
     "quantity": 1,
     "training": 2,
     "combat": 1,
@@ -312,7 +312,7 @@
   },
   {
     "id": "shadkaam",
-    "name": "shadkaam",
+    "name": "Shadkaam",
     "quantity": 1,
     "training": 1,
     "combat": 3,
@@ -323,7 +323,7 @@
   },
   {
     "id": "shooter",
-    "name": "shooter",
+    "name": "Shooter",
     "quantity": 1,
     "training": 0,
     "combat": 3,
@@ -334,7 +334,7 @@
   },
   {
     "id": "snake",
-    "name": "snake",
+    "name": "Snake",
     "quantity": 1,
     "training": 0,
     "combat": 3,
@@ -345,7 +345,7 @@
   },
   {
     "id": "sonia",
-    "name": "sonia",
+    "name": "Sonia",
     "quantity": 1,
     "training": 4,
     "combat": 2,
@@ -357,7 +357,7 @@
   },
   {
     "id": "squidhead",
-    "name": "squidhead",
+    "name": "Squidhead",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -368,7 +368,7 @@
   },
   {
     "id": "squirrel",
-    "name": "squirrel",
+    "name": "Squirrel",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -379,7 +379,7 @@
   },
   {
     "id": "stumpy",
-    "name": "stumpy",
+    "name": "Stumpy",
     "quantity": 1,
     "training": 0,
     "combat": 2,
@@ -390,7 +390,7 @@
   },
   {
     "id": "surgeon",
-    "name": "surgeon",
+    "name": "Surgeon",
     "quantity": 1,
     "training": 3,
     "combat": 3,
@@ -401,7 +401,7 @@
   },
   {
     "id": "tack",
-    "name": "tack",
+    "name": "Tack",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -413,7 +413,7 @@
   },
   {
     "id": "tao",
-    "name": "tao",
+    "name": "Tao",
     "quantity": 1,
     "training": 1,
     "combat": 3,
@@ -424,7 +424,7 @@
   },
   {
     "id": "tavisto",
-    "name": "tavisto",
+    "name": "Tavisto",
     "quantity": 1,
     "training": 3,
     "combat": 2,
@@ -435,7 +435,7 @@
   },
   {
     "id": "teresa",
-    "name": "teresa",
+    "name": "Teresa",
     "quantity": 1,
     "training": 0,
     "combat": 0,
@@ -447,7 +447,7 @@
   },
   {
     "id": "valkyrie",
-    "name": "valkyrie",
+    "name": "Valkyrie",
     "quantity": 1,
     "training": 2,
     "combat": 3,
@@ -459,7 +459,7 @@
   },
   {
     "id": "vandal",
-    "name": "vandal",
+    "name": "Vandal",
     "quantity": 1,
     "training": 1,
     "combat": 3,
@@ -470,7 +470,7 @@
   },
   {
     "id": "vandradi",
-    "name": "vandradi",
+    "name": "Vandradi",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -481,7 +481,7 @@
   },
   {
     "id": "vrbansk",
-    "name": "vrbansk",
+    "name": "Vrbansk",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -492,7 +492,7 @@
   },
   {
     "id": "vulture",
-    "name": "vulture",
+    "name": "Vulture",
     "quantity": 1,
     "training": 1,
     "combat": 2,
@@ -503,7 +503,7 @@
   },
   {
     "id": "walter",
-    "name": "walter",
+    "name": "Walter",
     "quantity": 1,
     "training": 7,
     "combat": 2,
@@ -514,7 +514,7 @@
   },
   {
     "id": "wolverine",
-    "name": "wolverine",
+    "name": "Wolverine",
     "quantity": 1,
     "training": 4,
     "combat": 2,
@@ -548,7 +548,7 @@
   },
   {
     "id": "golem",
-    "name": "golem",
+    "name": "Golem",
     "quantity": 1,
     "training": 2,
     "combat": 3,
@@ -559,7 +559,7 @@
   },
   {
     "id": "hagness",
-    "name": "hagness",
+    "name": "Hagness",
     "quantity": 1,
     "training": 2,
     "combat": 2,
@@ -570,7 +570,7 @@
   },
   {
     "id": "moe",
-    "name": "moe",
+    "name": "Moe",
     "quantity": 1,
     "training": 3,
     "combat": 2,

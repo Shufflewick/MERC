@@ -184,6 +184,9 @@ const sectors = computed(() => {
         row: getAttr(s, 'row', 0),
         col: getAttr(s, 'col', 0),
         image: getAttr(s, 'image', undefined),
+        weaponLoot: getAttr(s, 'weaponLoot', 0),
+        armorLoot: getAttr(s, 'armorLoot', 0),
+        accessoryLoot: getAttr(s, 'accessoryLoot', 0),
         explored: getAttr(s, 'explored', false),
         dictatorMilitia: getAttr(s, 'dictatorMilitia', 0),
         rebelMilitia: getAttr(s, 'rebelMilitia', {}),
@@ -203,6 +206,9 @@ const sectors = computed(() => {
       row: getAttr(c, 'row', 0),
       col: getAttr(c, 'col', 0),
       image: getAttr(c, 'image', undefined),
+      weaponLoot: getAttr(c, 'weaponLoot', 0),
+      armorLoot: getAttr(c, 'armorLoot', 0),
+      accessoryLoot: getAttr(c, 'accessoryLoot', 0),
       explored: getAttr(c, 'explored', false),
       dictatorMilitia: getAttr(c, 'dictatorMilitia', 0),
       rebelMilitia: getAttr(c, 'rebelMilitia', {}),
@@ -400,13 +406,8 @@ const selectedSectorHasDictatorForces = computed(() => {
 // Check if active sector is the dictator base
 const selectedSectorIsBase = computed(() => {
   if (!activeSector.value) return false;
-
-  const sectorElement = findByRef(activeSector.value.sectorId) ||
-    findAllByClassName('Sector').find((s: any) =>
-      getAttr(s, 'sectorId', '') === activeSector.value?.sectorId
-    );
-
-  return sectorElement ? getAttr(sectorElement, 'hasBase', false) : false;
+  // Use dictatorBaseSectorId which is computed from DictatorCard.sectorId
+  return activeSector.value.sectorId === dictatorBaseSectorId.value;
 });
 
 // Check if player has both explosives components
@@ -479,6 +480,10 @@ const playerColorMap = computed(() => {
   }
   return map;
 });
+
+// Get dictator player's color key for base icon styling
+// The dictator always uses the 'dictator' color key which maps to black
+const dictatorPlayerColor = computed(() => 'dictator');
 
 // MERC-rwdv: Check if current player is the dictator
 // Players aren't in game view tree, so check if this player has rebel squads or dictator squad
@@ -724,40 +729,132 @@ const secondarySquad = computed(() => {
   };
 });
 
-// MERC-rwdv: Get dictator's merc squad
-const dictatorSquad = computed(() => {
+// Helper to build a dictator squad with optional dictator card inclusion
+function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: any | null) {
+  const sectorId = getAttr(squad, 'sectorId', '');
+  const sector = sectors.value.find((s) => s.sectorId === sectorId);
+
+  // Get MERCs from squad
+  const mercs = (squad.children || [])
+    .filter((c: any) => {
+      if (isMercDead(c)) return false;
+      return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+    })
+    .map((c: any) => c);
+
+  // Include dictator card if in play and at this sector
+  if (dictatorCardNode) {
+    const dictatorInPlay = getAttr(dictatorCardNode, 'inPlay', false);
+    const dictatorSectorId = getAttr(dictatorCardNode, 'sectorId', '');
+    const dictatorDead = getAttr(dictatorCardNode, 'damage', 0) >= 10;
+
+    if (dictatorInPlay && !dictatorDead && dictatorSectorId === sectorId) {
+      // Add dictator as a "merc" for display purposes
+      mercs.unshift({
+        ...dictatorCardNode,
+        mercId: `dictator-${getAttr(dictatorCardNode, 'dictatorId', '')}`,
+        mercName: getAttr(dictatorCardNode, 'dictatorName', 'The Dictator'),
+        isDictator: true,
+      });
+    }
+  }
+
+  return {
+    squadId: squad.ref || `dictator-squad-${isPrimary ? 'primary' : 'secondary'}`,
+    isPrimary,
+    sectorId,
+    sectorName: sector?.sectorName,
+    mercs,
+  };
+}
+
+// MERC-rwdv: Get dictator's primary squad (includes dictator card when at this location)
+const dictatorPrimarySquad = computed(() => {
   if (!currentPlayerIsDictator.value) return undefined;
 
   const squads = findAllByClassName('Squad');
-  // Find squad named "squad-dictator-mercs"
   const squad = squads.find((s: any) => {
     const name = getAttr(s, 'name', '') || s.ref || '';
-    return name.includes('dictator');
+    return name === 'squad-dictator-primary' || name.includes('dictator-primary');
   });
 
   if (!squad) return undefined;
 
-  const sectorId = getAttr(squad, 'sectorId', '');
-  const sector = sectors.value.find((s) => s.sectorId === sectorId);
+  // Find dictator card to check if it should be included
+  let dictatorCardNode = findByClassName('DictatorCard');
+  if (!dictatorCardNode) dictatorCardNode = findByClassName('_DictatorCard');
+
+  return buildDictatorSquad(squad, true, dictatorCardNode);
+});
+
+// MERC-rwdv: Get dictator's secondary squad
+const dictatorSecondarySquad = computed(() => {
+  if (!currentPlayerIsDictator.value) return undefined;
+
+  const squads = findAllByClassName('Squad');
+  const squad = squads.find((s: any) => {
+    const name = getAttr(s, 'name', '') || s.ref || '';
+    return name === 'squad-dictator-secondary' || name.includes('dictator-secondary');
+  });
+
+  if (!squad) return undefined;
+
+  // Find dictator card to check if it should be included
+  let dictatorCardNode = findByClassName('DictatorCard');
+  if (!dictatorCardNode) dictatorCardNode = findByClassName('_DictatorCard');
+
+  return buildDictatorSquad(squad, false, dictatorCardNode);
+});
+
+// MERC-base: Get dictator's base "squad" - shows dictator when at base (third squad)
+// This is separate from primary/secondary squads - dictator can stay home
+const dictatorBaseSquad = computed(() => {
+  if (!currentPlayerIsDictator.value) return undefined;
+
+  // Find dictator card
+  let dictatorCardNode = findByClassName('DictatorCard');
+  if (!dictatorCardNode) dictatorCardNode = findByClassName('_DictatorCard');
+  if (!dictatorCardNode) return undefined;
+
+  const inPlay = getAttr(dictatorCardNode, 'inPlay', false);
+  const dictatorSectorId = getAttr(dictatorCardNode, 'sectorId', '');
+  const dictatorDead = getAttr(dictatorCardNode, 'damage', 0) >= 10;
+
+  if (!inPlay || dictatorDead || !dictatorSectorId) return undefined;
+
+  // Check if dictator is at a different sector than primary/secondary squads
+  const primarySectorId = dictatorPrimarySquad.value?.sectorId;
+  const secondarySectorId = dictatorSecondarySquad.value?.sectorId;
+
+  // If dictator is with primary or secondary squad, don't show base squad
+  // (they'll appear in that squad instead)
+  if (dictatorSectorId === primarySectorId || dictatorSectorId === secondarySectorId) {
+    return undefined;
+  }
+
+  // Dictator is at a third location (the base) - show as separate squad
+  const sector = sectors.value.find((s) => s.sectorId === dictatorSectorId);
 
   return {
-    squadId: squad.ref || 'dictator-squad',
-    isPrimary: true,
-    sectorId,
-    sectorName: sector?.sectorName,
-    mercs: (squad.children || [])
-      .filter((c: any) => {
-        // Skip dead MERCs
-        if (isMercDead(c)) return false;
-        return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
-      })
-      .map((c: any) => c),
+    squadId: 'dictator-base-squad',
+    isPrimary: false,
+    isBase: true, // Flag to indicate this is the base squad
+    sectorId: dictatorSectorId,
+    sectorName: sector?.sectorName || 'Base',
+    mercs: [{
+      ...dictatorCardNode,
+      mercId: `dictator-${getAttr(dictatorCardNode, 'dictatorId', '')}`,
+      mercName: getAttr(dictatorCardNode, 'dictatorName', 'The Dictator'),
+      isDictator: true,
+    }],
   };
 });
 
+// Legacy alias for compatibility
+const dictatorSquad = dictatorPrimarySquad;
+
 // MERC-rwdv: Get dictator card data (for DictatorPanel)
 const dictatorCard = computed(() => {
-  console.log('[DictatorPanel] currentPlayerIsDictator:', currentPlayerIsDictator.value);
   if (!currentPlayerIsDictator.value) return undefined;
 
   // Find dictator player - try multiple class name patterns
@@ -765,7 +862,6 @@ const dictatorCard = computed(() => {
   if (!dictatorPlayer) {
     dictatorPlayer = findByClassName('_DictatorPlayer');
   }
-  console.log('[DictatorPanel] dictatorPlayer:', dictatorPlayer ? 'found' : 'NOT FOUND');
 
   // Find dictator card in player (or in entire game view as fallback)
   let dictatorCardNode = dictatorPlayer ? findByClassName('DictatorCard', dictatorPlayer) : null;
@@ -776,11 +872,9 @@ const dictatorCard = computed(() => {
     // Search entire gameView
     dictatorCardNode = findByClassName('DictatorCard');
   }
-  console.log('[DictatorPanel] dictatorCardNode:', dictatorCardNode ? 'found' : 'NOT FOUND');
 
   // If we still can't find it, return a placeholder so panel still shows
   if (!dictatorCardNode) {
-    console.log('[DictatorPanel] Using placeholder dictator card');
     return {
       id: 0,
       dictatorId: 'unknown',
@@ -794,7 +888,6 @@ const dictatorCard = computed(() => {
   }
 
   const attrs = dictatorCardNode.attributes || {};
-  console.log('[DictatorPanel] dictatorCard attrs:', attrs);
   return {
     id: dictatorCardNode.ref,
     dictatorId: attrs.dictatorId || getAttr(dictatorCardNode, 'dictatorId', 'unknown'),
@@ -808,18 +901,25 @@ const dictatorCard = computed(() => {
 });
 
 // Get dictator base sector if revealed (visible to all players for map icon)
+// NOTE: DictatorPlayer isn't serialized to gameView, so we infer base revealed state
+// from the DictatorCard's inPlay flag. When base is revealed, dictatorCard.inPlay=true
+// and dictatorCard.sectorId is set to the base location.
 const dictatorBaseSectorId = computed(() => {
-  // Find dictator player - try multiple class name patterns
-  let dictatorPlayer = findByClassName('DictatorPlayer');
-  if (!dictatorPlayer) {
-    dictatorPlayer = findByClassName('_DictatorPlayer');
+  // Find the DictatorCard - when base is revealed, it enters play at the base sector
+  let dictatorCardNode = findByClassName('DictatorCard');
+  if (!dictatorCardNode) {
+    dictatorCardNode = findByClassName('_DictatorCard');
   }
-  if (!dictatorPlayer) return undefined;
+  if (!dictatorCardNode) {
+    return undefined;
+  }
 
-  const attrs = dictatorPlayer.attributes || {};
-  // Only return baseSectorId if base has been revealed
-  if (attrs.baseRevealed && attrs.baseSectorId) {
-    return attrs.baseSectorId as string;
+  const inPlay = getAttr(dictatorCardNode, 'inPlay', false);
+  const sectorId = getAttr(dictatorCardNode, 'sectorId', '');
+
+  // If dictator card is in play and has a sector, base is revealed at that sector
+  if (inPlay && sectorId) {
+    return sectorId as string;
   }
   return undefined;
 });
@@ -833,7 +933,6 @@ const tacticsHand = computed(() => {
   if (!tacticsHandNode) {
     tacticsHandNode = findByClassName('_TacticsHand');
   }
-  console.log('[DictatorPanel] tacticsHandNode:', tacticsHandNode ? 'found' : 'NOT FOUND');
   if (!tacticsHandNode) return [];
 
   // Get all tactics cards from hand
@@ -841,7 +940,6 @@ const tacticsHand = computed(() => {
     .filter((c: any) => normalizeClassName(c.className) === 'TacticsCard')
     .map((c: any) => {
       const attrs = c.attributes || {};
-      console.log('[DictatorPanel] tacticsCard:', attrs.tacticsName, attrs);
       return {
         id: c.ref,
         tacticsId: attrs.tacticsId || getAttr(c, 'tacticsId', ''),
@@ -851,7 +949,6 @@ const tacticsHand = computed(() => {
       };
     });
 
-  console.log('[DictatorPanel] tacticsHand cards:', cards.length);
   return cards;
 });
 
@@ -925,11 +1022,18 @@ const actionChoices = computed(() => {
   return props.actionArgs || {};
 });
 
-// Check if we're in MERC hiring mode (Day 1)
+// Check if we're in MERC hiring mode (Day 1 or Castro's ability)
 const isHiringMercs = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
   return props.availableActions.includes('hireFirstMerc') ||
          props.availableActions.includes('hireSecondMerc') ||
-         props.availableActions.includes('hireThirdMerc');
+         props.availableActions.includes('hireThirdMerc') ||
+         props.availableActions.includes('dictatorHireFirstMerc') ||
+         currentAction === 'hireFirstMerc' ||
+         currentAction === 'hireSecondMerc' ||
+         currentAction === 'hireThirdMerc' ||
+         currentAction === 'dictatorHireFirstMerc' ||
+         currentAction === 'castroBonusHire';
 });
 
 // Use actionController to detect when hagnessDraw action is active
@@ -942,8 +1046,8 @@ watch(() => props.availableActions, (actions) => {
   // Only auto-start if no action is currently active
   if (props.actionController.currentAction.value) return;
 
-  // Check for hiring actions and start them
-  const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc'];
+  // Check for hiring actions and start them (Day 1 + Castro)
+  const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'castroBonusHire'];
   for (const action of hiringActions) {
     if (actions.includes(action)) {
       props.actionController.start(action);
@@ -986,11 +1090,64 @@ const isEquipping = computed(() => {
   return props.availableActions.includes('equipStarting');
 });
 
-// Check if current selection is for equipment type (not MERC selection)
+// Check if current selection is for equipment type (Day 1 hiring or Castro hire)
 const isSelectingEquipmentType = computed(() => {
   const selection = currentSelection.value;
   return selection?.name === 'equipmentType';
 });
+
+// Check if we're in Castro hiring flow (to show equipment selection properly)
+const isCastroHiring = computed(() => {
+  return props.actionController.currentAction.value === 'castroBonusHire';
+});
+
+// Check if current selection is for sector (Castro hire placement)
+const isSelectingSector = computed(() => {
+  const selection = currentSelection.value;
+  return selection?.name === 'targetSector';
+});
+
+// Get sector choices for Castro hire placement - includes full sector data
+const sectorChoices = computed(() => {
+  if (!isSelectingSector.value) return [];
+  const selection = currentSelection.value;
+  if (!selection) return [];
+  const choices = props.actionController.getChoices(selection) || [];
+  return choices.map((choice: any) => {
+    const sectorName = typeof choice === 'string' ? choice : (choice.value || choice.display || String(choice));
+    // Find full sector data by name
+    const sectorData = sectors.value.find(s => s.sectorName === sectorName);
+    return {
+      value: sectorName,
+      label: sectorName,
+      // Include full sector data for visual card display
+      sectorName: sectorData?.sectorName || sectorName,
+      sectorType: sectorData?.sectorType || 'Industry',
+      image: sectorData?.image || getSectorImageFallback(sectorData?.sectorType || 'Industry'),
+      value_points: sectorData?.value || 0,
+      weaponLoot: sectorData?.weaponLoot || 0,
+      armorLoot: sectorData?.armorLoot || 0,
+      accessoryLoot: sectorData?.accessoryLoot || 0,
+      dictatorMilitia: sectorData?.dictatorMilitia || 0,
+      explored: sectorData?.explored || false,
+    };
+  });
+});
+
+// Get fallback image for sector type
+function getSectorImageFallback(sectorType: string): string {
+  const type = sectorType.toLowerCase();
+  if (type === 'wilderness') return '/sectors/wilderness.jpg';
+  if (type === 'city') return '/sectors/town---a.jpg';
+  return '/sectors/industry---coal.jpg';
+}
+
+// Handle sector selection for Castro hire
+function selectSector(sector: { value: string; label: string }) {
+  const selection = currentSelection.value;
+  if (!selection) return;
+  props.actionController.fill(selection.name, sector.value);
+}
 
 // Get equipment type choices when selecting equipment
 // Normalize to array of { value, label } objects
@@ -1007,6 +1164,56 @@ const equipmentTypeChoices = computed(() => {
     }
     return { value: choice.value || choice, label: choice.display || choice.value || String(choice) };
   });
+});
+
+// Get the MERC currently being equipped (for showing portrait during equipment type selection)
+const selectedMercForEquipment = computed(() => {
+  if (!isSelectingEquipmentType.value) return null;
+
+  // Try to get MERC name from actionArgs first (rebel flow)
+  let mercName = props.actionArgs['merc'] as string | undefined;
+
+  // For dictator flow, extract name from the prompt: "Choose starting equipment for {mercName}"
+  if (!mercName) {
+    const selection = currentSelection.value;
+    const prompt = selection?.prompt || '';
+    const match = prompt.match(/Choose starting equipment for (.+)$/i);
+    if (match) {
+      mercName = match[1];
+    }
+  }
+
+  if (!mercName) return null;
+
+  // Try to find the MERC in the game tree first
+  const merc = findMercByName(mercName);
+  if (merc) return merc;
+
+  // During Day 1 hiring, the MERC isn't in the tree yet - create minimal data
+  // The mercId is typically the lowercase version of the name
+  return {
+    mercName,
+    mercId: mercName.toLowerCase(),
+    attributes: { mercName, mercId: mercName.toLowerCase() },
+  };
+});
+
+// Get the image path for the selected MERC
+const selectedMercImagePath = computed(() => {
+  const merc = selectedMercForEquipment.value;
+  if (!merc) return null;
+  const img = getAttr(merc, 'image', '');
+  if (img) return img;
+  // Use mercId to construct path - during Day 1, mercId is lowercase name
+  const mercId = getAttr(merc, 'mercId', '') || (merc as any).mercId;
+  return mercId ? `/mercs/${mercId}.jpg` : null;
+});
+
+// Get the name for the selected MERC
+const selectedMercName = computed(() => {
+  const merc = selectedMercForEquipment.value;
+  if (!merc) return '';
+  return getAttr(merc, 'mercName', '') || (merc as any).mercName || '';
 });
 
 // Check if Hagness is selecting equipment type (first step)
@@ -1125,11 +1332,13 @@ const currentActionMetadata = computed(() => {
   const metadata = props.state?.state?.actionMetadata;
   if (!metadata) return null;
 
-  // Check for hiring actions
+  // Check for hiring actions (Day 1 or Castro's ability)
   if (isHiringMercs.value) {
     return metadata.hireFirstMerc ||
            metadata.hireSecondMerc ||
-           metadata.hireThirdMerc;
+           metadata.hireThirdMerc ||
+           metadata.dictatorHireFirstMerc ||
+           metadata.castroBonusHire;
   }
 
   // Check for Hagness draw action FIRST (when user is actively interacting with it)
@@ -1185,6 +1394,7 @@ function getCurrentActionName(): string | null {
   if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
   if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
   if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
+  if (props.actionController.currentAction.value === 'castroBonusHire') return 'castroBonusHire';
   // Check hagnessDraw FIRST (when user is actively interacting with it)
   if (isHagnessDrawActive.value && props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
   if (props.availableActions.includes('explore')) return 'explore';
@@ -1567,6 +1777,19 @@ const clickableSectors = computed(() => {
       @confirm-targets="handleConfirmTargets"
     />
 
+    <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->
+    <!-- Hidden during Castro hire since hiring phase UI takes over -->
+    <DictatorPanel
+      v-if="currentPlayerIsDictator && dictatorCard && showDictatorPanel && !hasActiveCombat && !isHiringMercs"
+      :dictator="dictatorCard"
+      :tactics-hand="tacticsHand"
+      :available-actions="availableActions"
+      :action-controller="actionController"
+      :is-my-turn="isMyTurn"
+      :all-sectors="sectors"
+      @close="showDictatorPanel = false"
+    />
+
     <!-- Sector Panel - shown when a sector is selected OR when an action has sector context -->
     <SectorPanel
       v-if="activeSector && !hasActiveCombat && !isHiringMercs"
@@ -1578,8 +1801,8 @@ const clickableSectors = computed(() => {
       :available-actions="availableActions"
       :action-controller="actionController"
       :game-view="gameView"
-      :primary-squad="currentPlayerIsDictator ? dictatorSquad : primarySquad"
-      :secondary-squad="currentPlayerIsDictator ? undefined : secondarySquad"
+      :primary-squad="currentPlayerIsDictator ? dictatorPrimarySquad : primarySquad"
+      :secondary-squad="currentPlayerIsDictator ? dictatorSecondarySquad : secondarySquad"
       :all-sectors="sectors"
       :stash-contents="selectedSectorStash"
       :has-doc="hasDoc"
@@ -1592,17 +1815,6 @@ const clickableSectors = computed(() => {
       :is-base="selectedSectorIsBase"
       :has-explosives-components="hasExplosivesComponents"
       @close="closeSectorPanel"
-    />
-
-    <!-- Dictator Panel - shown when playing as dictator -->
-    <DictatorPanel
-      v-if="currentPlayerIsDictator && dictatorCard && showDictatorPanel && !hasActiveCombat"
-      :dictator="dictatorCard"
-      :tactics-hand="tacticsHand"
-      :available-actions="availableActions"
-      :action-controller="actionController"
-      :is-my-turn="isMyTurn"
-      @close="showDictatorPanel = false"
     />
 
     <!-- Hiring phase - show MERCs to choose from -->
@@ -1627,8 +1839,47 @@ const clickableSectors = computed(() => {
       <DrawEquipmentType
         v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
         :choices="equipmentTypeChoices"
+        :merc-image="selectedMercImagePath"
+        :merc-name="selectedMercName"
+        :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
         @select="selectEquipmentType"
       />
+
+      <!-- Sector selection (Castro hire placement) - Visual Cards -->
+      <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
+        <p class="sector-prompt">{{ currentSelection?.prompt || 'Choose deployment sector' }}</p>
+        <div class="sector-card-choices">
+          <div
+            v-for="sector in sectorChoices"
+            :key="sector.value"
+            class="sector-card-choice"
+            @click="selectSector(sector)"
+          >
+            <div class="sector-card-image" :style="{ backgroundImage: `url(${sector.image})` }">
+              <div class="sector-card-overlay"></div>
+              <div class="sector-card-name">{{ sector.sectorName }}</div>
+            </div>
+            <div class="sector-card-stats">
+              <div class="sector-stat">
+                <span class="stat-icon">💰</span>
+                <span class="stat-value">{{ sector.value_points }}</span>
+              </div>
+              <div class="sector-stat" v-if="sector.weaponLoot > 0 || sector.armorLoot > 0 || sector.accessoryLoot > 0">
+                <span class="stat-icon">📦</span>
+                <span class="stat-value">
+                  <span v-if="sector.weaponLoot > 0" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
+                  <span v-if="sector.armorLoot > 0" title="Armor">🛡️{{ sector.armorLoot }}</span>
+                  <span v-if="sector.accessoryLoot > 0" title="Accessories">💍{{ sector.accessoryLoot }}</span>
+                </span>
+              </div>
+              <div class="sector-stat" v-if="sector.dictatorMilitia > 0">
+                <span class="stat-icon">🎖️</span>
+                <span class="stat-value">{{ sector.dictatorMilitia }} militia</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- MERC selection -->
       <div class="merc-choices-container" v-else-if="hirableMercs.length > 0 || hasSkipOption">
@@ -1639,7 +1890,7 @@ const clickableSectors = computed(() => {
             class="merc-choice"
             @click="selectMercToHire(merc)"
           >
-            <MercCard :merc="merc" :player-color="currentPlayerColor" />
+            <MercCard :merc="merc" :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor" />
           </div>
         </div>
 
@@ -1716,6 +1967,7 @@ const clickableSectors = computed(() => {
           :clickable-sectors="clickableSectors"
           :can-drop-equipment="canDropEquipment"
           :dictator-base-sector-id="dictatorBaseSectorId"
+          :dictator-color="dictatorPlayerColor"
           @sector-click="handleSectorClick"
           @drop-equipment="handleDropEquipment"
         />
@@ -1731,10 +1983,11 @@ const clickableSectors = computed(() => {
       </button>
 
       <!-- Squad Panel -->
-      <div class="squad-section" v-if="primarySquad || secondarySquad || dictatorSquad">
+      <div class="squad-section" v-if="primarySquad || secondarySquad || dictatorPrimarySquad || dictatorSecondarySquad || dictatorBaseSquad">
         <SquadPanel
-          :primary-squad="currentPlayerIsDictator ? dictatorSquad : primarySquad"
-          :secondary-squad="currentPlayerIsDictator ? undefined : secondarySquad"
+          :primary-squad="currentPlayerIsDictator ? dictatorPrimarySquad : primarySquad"
+          :secondary-squad="currentPlayerIsDictator ? dictatorSecondarySquad : secondarySquad"
+          :base-squad="currentPlayerIsDictator ? dictatorBaseSquad : undefined"
           :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
           :can-drop-equipment="canDropEquipment"
           :merc-abilities-available="mercAbilitiesAvailable"
@@ -1914,6 +2167,132 @@ const clickableSectors = computed(() => {
 .equipment-type-button.accessory:hover {
   background: rgba(129, 212, 168, 0.15);
   box-shadow: 0 0 0 3px #81d4a8, 0 8px 24px rgba(129, 212, 168, 0.3);
+}
+
+/* Sector selection for Castro hire */
+.sector-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.sector-prompt {
+  font-size: 1rem;
+  color: v-bind('UI_COLORS.textSecondary');
+  margin: 0;
+}
+
+.sector-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  max-width: 600px;
+}
+
+.sector-choice-btn {
+  background: v-bind('UI_COLORS.surface');
+  border: 2px solid v-bind('UI_COLORS.border');
+  border-radius: 8px;
+  padding: 12px 20px;
+  color: v-bind('UI_COLORS.text');
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sector-choice-btn:hover {
+  background: rgba(139, 0, 0, 0.2);
+  border-color: #8b0000;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Visual Sector Card Selection */
+.sector-card-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  max-width: 800px;
+}
+
+.sector-card-choice {
+  width: 180px;
+  background: v-bind('UI_COLORS.surface');
+  border: 2px solid v-bind('UI_COLORS.border');
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sector-card-choice:hover {
+  border-color: #8b0000;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.sector-card-image {
+  position: relative;
+  height: 100px;
+  background-size: cover;
+  background-position: center;
+}
+
+.sector-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+
+.sector-card-name {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.sector-card-stats {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: v-bind('UI_COLORS.backgroundLight');
+}
+
+.sector-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: v-bind('UI_COLORS.textSecondary');
+}
+
+.stat-icon {
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  display: flex;
+  gap: 6px;
+  color: v-bind('UI_COLORS.text');
+}
+
+.stat-value span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .skip-hire-section {

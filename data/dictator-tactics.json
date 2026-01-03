@@ -10,6 +10,7 @@
     "id": "better-weapons",
     "name": "Better Weapons",
     "quantity": 1,
+    "revealsBase": true,
     "story": "You decide to stop being cheap and upgrade your militia's guns.",
     "description": "Reveal your base and bring the dictator into play if you have not already done so."
   },
@@ -31,6 +32,7 @@
     "id": "generalisimo",
     "name": "Generalisimo",
     "quantity": 1,
+    "revealsBase": true,
     "story": "It's time to bring out the big guns.",
     "description": "Reveal your base and bring the dictator into play if you have not already done so. The dictator fights alongside your forces at the base."
   },
@@ -38,6 +40,7 @@
     "id": "lockdown",
     "name": "Lockdown",
     "quantity": 1,
+    "revealsBase": true,
     "story": "It's time to prepare for the assault.",
     "description": "Reveal your base and bring the dictator into play if you have not already done so. Prepare your defenses for the final battle."
   },
@@ -66,6 +69,7 @@
     "id": "veteran-militia",
     "name": "Veteran Militia",
     "quantity": 1,
+    "revealsBase": true,
     "story": "You train better militia by using your elite guards to train them.",
     "description": "Reveal your base and bring the dictator into play if you have not already done so. Your militia benefit from elite training."
   },
