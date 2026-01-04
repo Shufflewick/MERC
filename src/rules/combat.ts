@@ -208,7 +208,7 @@ function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MER
     : undefined;
 
   // MERC-7zax: Better Weapons gives dictator militia 3+ hit threshold
-  if (combatant.isMilitia && combatant.isDictatorSide && game && (game as any).betterWeaponsActive) {
+  if (combatant.isMilitia && combatant.isDictatorSide && game?.betterWeaponsActive) {
     return rolls.filter(r => r >= 3).length;
   }
 
@@ -1131,7 +1131,7 @@ function militiaToCombatants(
 
   // MERC-ohos: Veteran Militia gives dictator militia +1 initiative
   const baseInitiative = CombatConstants.MILITIA_INITIATIVE;
-  const initiative = isDictatorSide && game && (game as any).veteranMilitiaActive
+  const initiative = isDictatorSide && game?.veteranMilitiaActive
     ? baseInitiative + 1
     : baseInitiative;
 

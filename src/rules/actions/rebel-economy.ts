@@ -465,31 +465,36 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       if (tracer) tracer.check('hasExplorerCapable', canExplore);
       return canExplore;
     })
-    .chooseFrom<{ id: number; name: string; isDictatorCard: boolean }>('actingUnit', {
+    .chooseFrom<string>('actingUnit', {
       prompt: 'Which unit explores?',
       choices: (ctx) => {
         const units = getPlayerUnitsForExplore(ctx.player, game);
         return units
           .filter(u => canUnitExplore(u, ctx.player, game))
-          .map(u => ({
-            value: {
-              id: u.id,
-              name: getUnitNameForExplore(u),
-              isDictatorCard: isDictatorCardUnit(u),
-            },
-            label: capitalize(getUnitNameForExplore(u)),
-          }));
+          .map(u => {
+            // Use string format: "id:name:isDictatorCard"
+            const isDictator = isDictatorCardUnit(u);
+            return {
+              value: `${u.id}:${getUnitNameForExplore(u)}:${isDictator}`,
+              label: capitalize(getUnitNameForExplore(u)),
+            };
+          });
       },
     })
     .execute((args, ctx) => {
-      const unitChoice = args.actingUnit as { id: number; name: string; isDictatorCard: boolean };
+      const unitChoiceStr = args.actingUnit as string;
+
+      // Parse string format: "id:name:isDictatorCard"
+      const [idStr, name, isDictatorStr] = unitChoiceStr.split(':');
+      const unitId = parseInt(idStr, 10);
+      const isDictatorCard = isDictatorStr === 'true';
 
       // Find the actual unit
       let actingUnit: ExplorableUnit | null = null;
-      if (unitChoice.isDictatorCard) {
+      if (isDictatorCard) {
         actingUnit = game.dictatorPlayer?.dictator || null;
       } else {
-        actingUnit = game.all(MercCard).find(m => m.id === unitChoice.id) || null;
+        actingUnit = game.all(MercCard).find(m => m.id === unitId) || null;
       }
 
       if (!actingUnit) {
@@ -581,6 +586,22 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
  * Chains via followUp if more items remain in stash.
  * This is simpler than using repeat which has issues with followUp actions.
  */
+// Type for units that can collect equipment (MERCs or DictatorCard)
+type CollectableUnit = MercCard | DictatorCard;
+
+// Helper to check if unit is a DictatorCard (for collect)
+function isDictatorCardForCollect(unit: CollectableUnit): unit is DictatorCard {
+  return unit instanceof DictatorCard;
+}
+
+// Helper to get unit name for collect display
+function getUnitNameForCollect(unit: CollectableUnit): string {
+  if (isDictatorCardForCollect(unit)) {
+    return unit.dictatorName;
+  }
+  return unit.mercName;
+}
+
 export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
   // Helper to resolve sector from ctx.args (handles numeric ID or object with id)
   function getSector(ctx: any): Sector | undefined {
@@ -588,20 +609,28 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     if (typeof sectorArg === 'number') {
       return game.getElementById(sectorArg) as Sector | undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
-      // Object with id property - look up the actual Sector element
       return game.getElementById(sectorArg.id) as Sector | undefined;
     }
     return undefined;
   }
 
-  // Helper to resolve merc from ctx.args (handles numeric ID or object with id)
-  function getMerc(ctx: any): MercCard | undefined {
+  // Helper to resolve unit from ctx.args (handles MercCard or DictatorCard)
+  function getUnit(ctx: any): CollectableUnit | undefined {
     const mercArg = ctx.args?.mercId;
+    let id: number | undefined;
     if (typeof mercArg === 'number') {
-      return game.getElementById(mercArg) as MercCard | undefined;
+      id = mercArg;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      // Object with id property - look up the actual MercCard element
-      return game.getElementById(mercArg.id) as MercCard | undefined;
+      id = mercArg.id;
+    }
+    if (id === undefined) return undefined;
+
+    const element = game.getElementById(id);
+    if (element instanceof MercCard) {
+      return element;
+    }
+    if (element instanceof DictatorCard) {
+      return element;
     }
     return undefined;
   }
@@ -610,11 +639,11 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     .prompt('Take from stash')
     .chooseElement<Equipment>('equipment', {
       prompt: (ctx) => {
-        const merc = getMerc(ctx);
+        const unit = getUnit(ctx);
         const sector = getSector(ctx);
         const remaining = sector?.stashCount || 0;
-        return merc
-          ? `What should ${capitalize(merc.mercName)} take? (${remaining} item${remaining !== 1 ? 's' : ''} left, or skip)`
+        return unit
+          ? `What should ${capitalize(getUnitNameForCollect(unit))} take? (${remaining} item${remaining !== 1 ? 's' : ''} left, or skip)`
           : 'Select equipment';
       },
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
@@ -623,33 +652,27 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       filter: (element, ctx) => {
         const sector = getSector(ctx);
         if (!sector) return false;
-        // Check if this equipment is in the sector's stash
         const inStash = sector.stash.some(e => e.id === element.id);
         if (!inStash) return false;
 
-        // Prevent infinite loop: don't offer the item that was just returned to stash
-        // This stops the auto-fill from immediately picking up what we just put down
-        const lastReturnedId = ctx.args?.lastReturnedEquipmentId;
-        if (lastReturnedId && element.id === lastReturnedId) {
-          return false;
-        }
-
         // MERC-70a: Filter out grenades/mortars if Apeiron
-        const merc = getMerc(ctx);
-        if (merc?.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        const unit = getUnit(ctx);
+        if (unit && !isDictatorCardForCollect(unit) && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
       },
     })
     .execute((args, ctx) => {
-      const merc = getMerc(ctx);
+      const unit = getUnit(ctx);
       const sector = getSector(ctx);
       const equipment = args.equipment as Equipment | null;
 
-      if (!merc || !sector) {
-        return { success: false, message: 'Invalid merc or sector' };
+      if (!unit || !sector) {
+        return { success: false, message: 'Invalid unit or sector' };
       }
+
+      const unitName = getUnitNameForCollect(unit);
 
       // User chose "Done collecting"
       if (!equipment) {
@@ -661,38 +684,25 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const replaced = merc.equip(equipment);
+      const replaced = unit.equip(equipment);
 
       if (replaced) {
         sector.addToStash(replaced);
-        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+        game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
       } else {
-        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}`);
+        game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       }
 
-      // If there are more items in stash, chain another collectEquipment
+      // Chain back to collectEquipment if stash still has items
       if (sector.stashCount > 0) {
-        // Preserve display names if passed as objects, otherwise create new objects
-        const mercArg = ctx.args?.mercId;
-        const sectorArg = ctx.args?.sectorId;
-        const mercIdArg = (mercArg && typeof mercArg === 'object' && 'name' in mercArg)
-          ? mercArg
-          : { id: merc.id, name: capitalize(merc.mercName) };
-        const sectorIdArg = (sectorArg && typeof sectorArg === 'object' && 'name' in sectorArg)
-          ? sectorArg
-          : { id: sector.id, name: sector.sectorName };
-
         return {
           success: true,
           message: `Equipped ${equipment.equipmentName}`,
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: mercIdArg,
-              sectorId: sectorIdArg,
-              // Track the just-returned equipment to prevent infinite swap loops
-              // This prevents auto-fill from immediately picking up what we just put down
-              lastReturnedEquipmentId: replaced ? replaced.id : undefined,
+              mercId: ctx.args?.mercId,
+              sectorId: ctx.args?.sectorId,
             },
           },
         };
@@ -709,20 +719,57 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 /**
  * Take equipment from the sector stash.
  * Cost: 0 actions (free)
- * Only available to the MERC who just explored the sector.
+ * Available when a unit just explored the sector.
+ * Works for both rebel and dictator players.
  */
 export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
+  // Helper to get unit name
+  function getUnitName(unit: MercCard | DictatorCard): string {
+    if (unit instanceof DictatorCard) return unit.dictatorName;
+    return unit.mercName;
+  }
+
+  // Helper to find the unit that explored
+  function findExplorerUnit(ctx: any): MercCard | DictatorCard | null {
+    if (!game.lastExplorer) return null;
+    const unitId = game.lastExplorer.mercId;
+
+    if (game.isRebelPlayer(ctx.player)) {
+      const player = ctx.player as RebelPlayer;
+      return player.team.find(m => String(m.id) === unitId) || null;
+    }
+
+    if (game.isDictatorPlayer(ctx.player) && game.dictatorPlayer) {
+      // Check if it's the dictator card
+      const dictator = game.dictatorPlayer.dictator;
+      if (dictator && String(dictator.id) === unitId) {
+        return dictator;
+      }
+      // Check hired mercs
+      return game.dictatorPlayer.hiredMercs.find(m => String(m.id) === unitId) || null;
+    }
+
+    return null;
+  }
+
   return Action.create('takeFromStash')
     .prompt('Take equipment from stash')
     .condition((ctx, tracer) => {
-      // Only available when a MERC just explored
+      // Only available when a unit just explored
       const hasExplorer = !!game.lastExplorer;
       if (tracer) tracer.check('hasLastExplorer', hasExplorer);
       if (!hasExplorer) return false;
 
+      // Must be rebel or dictator player
       const isRebel = game.isRebelPlayer(ctx.player as any);
-      if (tracer) tracer.check('isRebelPlayer', isRebel);
-      if (!isRebel) return false;
+      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      if (tracer) tracer.check('isRebelOrDictator', isRebel || isDictator);
+      if (!isRebel && !isDictator) return false;
+
+      // Check that the explorer belongs to this player
+      const explorer = findExplorerUnit(ctx);
+      if (tracer) tracer.check('explorerBelongsToPlayer', !!explorer);
+      if (!explorer) return false;
 
       // Check stash still has items
       const sector = game.getSector(game.lastExplorer!.sectorId);
@@ -733,16 +780,21 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
     .chooseFrom<string>('equipment', {
       prompt: (ctx) => {
         // Find the explorer's name
-        if (!game.lastExplorer) return 'Select equipment to take';
-        const player = ctx.player as RebelPlayer;
-        const merc = player.team.find(m => String(m.id) === game.lastExplorer!.mercId);
-        return merc ? `What should ${capitalize(merc.mercName)} take?` : 'Select equipment to take';
+        const unit = findExplorerUnit(ctx);
+        return unit ? `What should ${capitalize(getUnitName(unit))} take?` : 'Select equipment to take';
       },
-      choices: () => {
+      choices: (ctx) => {
         if (!game.lastExplorer) return ['Done'];
         const sector = game.getSector(game.lastExplorer.sectorId);
         if (!sector || sector.stash.length === 0) return ['Done'];
-        const equipmentChoices = sector.stash.map(e => `${e.equipmentName} (${e.equipmentType})`);
+
+        // MERC-70a: Filter out grenades/mortars if Apeiron
+        const unit = findExplorerUnit(ctx);
+        const isApeiron = unit instanceof MercCard && unit.mercId === 'apeiron';
+
+        const equipmentChoices = sector.stash
+          .filter(e => !isApeiron || !isGrenadeOrMortar(e))
+          .map(e => `${e.equipmentName} (${e.equipmentType})`);
         return [...equipmentChoices, 'Done'];
       },
     })
@@ -761,10 +813,9 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         return { success: true, message: 'Finished taking equipment' };
       }
 
-      const player = ctx.player as RebelPlayer;
-      const targetMerc = player.team.find(m => String(m.id) === explorer.mercId);
-      if (!targetMerc) {
-        return { success: false, message: 'Explorer MERC not found' };
+      const targetUnit = findExplorerUnit(ctx);
+      if (!targetUnit) {
+        return { success: false, message: 'Explorer unit not found' };
       }
 
       const sector = game.getSector(explorer.sectorId);
@@ -780,24 +831,26 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Equipment not found in stash' };
       }
 
-      // Equip to merc - equip() uses putInto() which moves equipment from stash
-      const replaced = targetMerc.equip(equipment);
+      const unitName = getUnitName(targetUnit);
+
+      // Equip to unit - equip() uses putInto() which moves equipment from stash
+      const replaced = targetUnit.equip(equipment);
       if (replaced) {
         sector.addToStash(replaced);
-        game.message(`${targetMerc.mercName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
+        game.message(`${unitName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
         // Allow taking more since there's still stash (reset explorer)
-        game.lastExplorer = { mercId: String(targetMerc.id), sectorId: sector.sectorId };
+        game.lastExplorer = { mercId: String(targetUnit.id), sectorId: sector.sectorId };
       } else {
-        game.message(`${targetMerc.mercName} equipped ${equipment.equipmentName}`);
+        game.message(`${unitName} equipped ${equipment.equipmentName}`);
         // Allow taking more if stash still has items
         if (sector.stash.length > 0) {
-          game.lastExplorer = { mercId: String(targetMerc.id), sectorId: sector.sectorId };
+          game.lastExplorer = { mercId: String(targetUnit.id), sectorId: sector.sectorId };
         }
       }
 
       return {
         success: true,
-        message: `${targetMerc.mercName} took ${equipment.equipmentName}`,
+        message: `${unitName} took ${equipment.equipmentName}`,
       };
     });
 }
@@ -1334,48 +1387,61 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
 /**
  * View equipment in a sector's stash.
  * Cost: 0 actions (free, information only)
- * Available when player has a squad in an explored sector with stash contents.
+ * Available when player has a squad/unit in an explored sector with stash contents.
+ * Works for both rebel and dictator players.
  */
 export function createViewStashAction(game: MERCGame): ActionDefinition {
+  // Helper to check if a sector has viewable stash
+  const canViewSector = (sectorId: string | undefined): boolean => {
+    if (!sectorId) return false;
+    const sector = game.getSector(sectorId);
+    return !!(sector && sector.explored && sector.stash.length > 0);
+  };
+
+  // Helper to get sectors with stash for a player
+  const getSectorsWithStash = (ctx: any): string[] => {
+    const choices: string[] = [];
+    const addIfHasStash = (sectorId: string | undefined) => {
+      if (sectorId && canViewSector(sectorId) && !choices.includes(sectorId)) {
+        choices.push(sectorId);
+      }
+    };
+
+    if (game.isRebelPlayer(ctx.player)) {
+      const player = ctx.player as RebelPlayer;
+      addIfHasStash(player.primarySquad?.sectorId);
+      addIfHasStash(player.secondarySquad?.sectorId);
+    }
+
+    if (game.isDictatorPlayer(ctx.player) && game.dictatorPlayer) {
+      addIfHasStash(game.dictatorPlayer.primarySquad?.sectorId);
+      addIfHasStash(game.dictatorPlayer.secondarySquad?.sectorId);
+      // Also check DictatorCard location
+      const dictator = game.dictatorPlayer.dictator;
+      if (dictator?.inPlay && dictator.sectorId) {
+        addIfHasStash(dictator.sectorId);
+      }
+    }
+
+    return choices;
+  };
+
   return Action.create('viewStash')
     .prompt('View sector stash')
     .condition((ctx, tracer) => {
-      // Only rebels can view stash
+      // Must be rebel or dictator player
       const isRebel = game.isRebelPlayer(ctx.player as any);
-      if (tracer) tracer.check('isRebelPlayer', isRebel);
-      if (!isRebel) return false;
+      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      if (tracer) tracer.check('isRebelOrDictator', isRebel || isDictator);
+      if (!isRebel && !isDictator) return false;
 
-      const player = ctx.player as RebelPlayer;
-
-      // Check if any squad is in an explored sector with stash
-      const canViewFrom = (squad: Squad | null | undefined): boolean => {
-        if (!squad?.sectorId) return false;
-        const sector = game.getSector(squad.sectorId);
-        return !!(sector && sector.explored && sector.stash.length > 0);
-      };
-
-      const hasStash = canViewFrom(player.primarySquad) || canViewFrom(player.secondarySquad);
+      const hasStash = getSectorsWithStash(ctx).length > 0;
       if (tracer) tracer.check('hasAccessibleStash', hasStash);
       return hasStash;
     })
     .chooseFrom<string>('sector', {
       prompt: 'Which sector stash to view?',
-      choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
-        const choices: string[] = [];
-
-        const addIfHasStash = (squad: Squad | null | undefined) => {
-          if (!squad?.sectorId) return;
-          const sector = game.getSector(squad.sectorId);
-          if (sector && sector.explored && sector.stash.length > 0) {
-            choices.push(sector.sectorId);
-          }
-        };
-
-        addIfHasStash(player.primarySquad);
-        addIfHasStash(player.secondarySquad);
-        return choices;
-      },
+      choices: (ctx) => getSectorsWithStash(ctx),
       display: (sectorId) => {
         const sector = game.getSector(sectorId);
         return sector ? `${sector.sectorName} (${sector.stash.length} items)` : sectorId;

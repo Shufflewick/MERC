@@ -6,4 +6,4 @@
  */
 
 // Set this to an array of tactics IDs to stack the deck, or null for normal random behavior
-export const DEBUG_TACTICS_ORDER: string[] | null = ['family-threat'];
+export const DEBUG_TACTICS_ORDER: string[] | null = null;

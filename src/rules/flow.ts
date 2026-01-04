@@ -8,6 +8,7 @@ import {
   type FlowDefinition,
 } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from './game.js';
+import { TacticsCard } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
@@ -121,11 +122,46 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 game.message('=== Dictator Day 1 Phase ===');
               }),
 
+              // Step 0: Human dictator chooses which dictator to play as
+              actionStep({
+                name: 'select-dictator',
+                actions: ['selectDictator'],
+                prompt: 'Choose your Dictator',
+                skipIf: () => game.dictatorPlayer?.isAI === true || game.dictatorPlayer?.dictator !== undefined,
+              }),
+
               // Step 1: Place initial militia on unoccupied industries
               actionStep({
                 name: 'dictator-place-initial-militia',
                 actions: ['dictatorPlaceInitialMilitia'],
                 prompt: 'Place initial militia on unoccupied industries',
+              }),
+
+              // Step 1.5: Human Kim chooses base location (before hiring MERC)
+              // Kim's ability reveals base immediately, so this must happen early
+              actionStep({
+                name: 'choose-kim-base',
+                actions: ['chooseKimBase'],
+                prompt: "Kim's Ability: Choose your base location",
+                skipIf: () => {
+                  const dictator = game.dictatorPlayer?.dictator;
+                  // Skip if not Kim, or AI, or base already set
+                  return dictator?.dictatorId !== 'kim' ||
+                         game.dictatorPlayer?.isAI === true ||
+                         !!game.dictatorPlayer?.baseSectorId;
+                },
+              }),
+
+              // Step 1.6: Apply Kim's setup ability immediately after base choice
+              // This reveals base and places militia before hiring
+              actionStep({
+                name: 'dictator-kim-ability',
+                actions: ['dictatorSetupAbility'],
+                prompt: "Apply Kim's ability",
+                skipIf: () => {
+                  const dictator = game.dictatorPlayer?.dictator;
+                  return dictator?.dictatorId !== 'kim';
+                },
               }),
 
               // Step 2: Hire dictator's first MERC
@@ -135,11 +171,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 prompt: 'Hire your first MERC',
               }),
 
-              // Step 3: Apply dictator special ability
+              // Step 3: Apply dictator special ability (for non-Kim dictators)
               actionStep({
                 name: 'dictator-setup-ability',
                 actions: ['dictatorSetupAbility'],
                 prompt: 'Apply dictator special ability',
+                skipIf: () => {
+                  const dictator = game.dictatorPlayer?.dictator;
+                  // Skip for Kim (already applied above)
+                  return dictator?.dictatorId === 'kim';
+                },
               }),
 
               // Step 4: Draw tactics hand
@@ -149,11 +190,27 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 prompt: 'Draw tactics cards',
               }),
 
-              // Step 5: Place extra militia
-              actionStep({
-                name: 'dictator-place-extra-militia',
-                actions: ['dictatorPlaceExtraMilitia', 'dictatorSkipExtraMilitia'],
-                prompt: 'Place extra militia',
+              // Step 5: Place extra militia (loop for human player to place multiple times)
+              loop({
+                name: 'extra-militia-loop',
+                while: () => {
+                  const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
+                  if (extra === 0) return false;
+                  // For AI, only run once
+                  if (game.dictatorPlayer?.isAI) {
+                    const remaining = game.settings['_extra_militia_remaining'] as number | undefined;
+                    return remaining === undefined; // Run once, then stop
+                  }
+                  // For human, continue while militia remaining
+                  const remaining = game.settings['_extra_militia_remaining'] as number | undefined;
+                  return remaining === undefined || remaining > 0;
+                },
+                maxIterations: 20,
+                do: actionStep({
+                  name: 'dictator-place-extra-militia',
+                  actions: ['dictatorPlaceExtraMilitia', 'dictatorSkipExtraMilitia'],
+                  prompt: 'Place extra militia',
+                }),
               }),
 
               execute(() => {
@@ -338,6 +395,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   game.pendingCombat = null;
                 }
                 game.message('--- Dictator Turn ---');
+
+                // Ensure human dictator has cards in hand at start of turn
+                // This handles cases where Day 1 drawing may have been skipped
+                if (!game.dictatorPlayer?.isAI) {
+                  const handCount = game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0;
+                  if (handCount === 0) {
+                    drawTacticsHand(game);
+                  }
+                }
 
                 // MERC-vqmi: Apply Oil Reserves free action at start of turn
                 applyOilReservesEffect(game, false);

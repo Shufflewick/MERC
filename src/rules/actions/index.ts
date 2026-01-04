@@ -98,8 +98,10 @@ import {
   createHireThirdMercAction,
   createEquipStartingAction,
   createPlaceLandingAction,
+  createSelectDictatorAction,
   createDictatorPlaceInitialMilitiaAction,
   createDictatorHireFirstMercAction,
+  createChooseKimBaseAction,
   createDictatorSetupAbilityAction,
   createDictatorDrawTacticsAction,
   createDictatorPlaceExtraMilitiaAction,
@@ -159,8 +161,10 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createEquipStartingAction(game));
 
   // Day 1 specific actions (Dictator) - MERC-mtoq
+  game.registerAction(createSelectDictatorAction(game)); // Human dictator chooses their dictator
   game.registerAction(createDictatorPlaceInitialMilitiaAction(game));
   game.registerAction(createDictatorHireFirstMercAction(game));
+  game.registerAction(createChooseKimBaseAction(game)); // Human Kim chooses base location
   game.registerAction(createDictatorSetupAbilityAction(game));
   game.registerAction(createDictatorDrawTacticsAction(game));
   game.registerAction(createDictatorPlaceExtraMilitiaAction(game));

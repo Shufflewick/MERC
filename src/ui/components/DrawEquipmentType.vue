@@ -17,7 +17,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'select', value: string): void;
+  (e: 'clickMerc'): void;
 }>();
+
+function handleMercClick() {
+  emit('clickMerc');
+}
 
 function getIcon(label: string): string {
   const lower = label.toLowerCase();
@@ -44,11 +49,13 @@ const mercImagePath = computed(() => {
 <template>
   <div class="draw-equipment-type">
     <div class="equipment-row">
-      <!-- MERC portrait -->
+      <!-- MERC portrait (clickable to view details) -->
       <div
         v-if="mercImagePath"
-        class="merc-portrait"
+        class="merc-portrait clickable"
         :style="{ borderColor: portraitBorderColor }"
+        @click="handleMercClick"
+        title="Click to view MERC details"
       >
         <img :src="mercImagePath" :alt="mercName || 'MERC'" />
       </div>
@@ -94,6 +101,16 @@ const mercImagePath = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.merc-portrait.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.merc-portrait.clickable:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(212, 168, 75, 0.6);
 }
 
 .equipment-type-button {

@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector } from '../elements.js';
+import { MercCard, Sector, DictatorCard } from '../elements.js';
 import {
   drawMercsForHiring,
   isValidLandingSector,
@@ -17,6 +17,7 @@ import {
   drawTacticsHand,
   autoPlaceExtraMilitia,
 } from '../day-one.js';
+import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
 import { capitalize, isInPlayerTeam, canHireMercWithTeam } from './helpers.js';
 
@@ -576,6 +577,53 @@ export function createPlaceLandingDay1Action(game: MERCGame): ActionDefinition {
 // =============================================================================
 
 /**
+ * Select Dictator - Human dictator players choose which dictator to play as
+ * AI dictators get a random selection during setup, so this is skipped for them.
+ * Uses defer: true to trigger the hiring-style UI with dictator cards.
+ */
+export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
+  return Action.create('selectDictator')
+    .prompt('Choose your Dictator')
+    .condition(() => {
+      // Only available during Day 1 and only if dictator not yet selected
+      if (game.currentDay !== 1) return false;
+      // Skip if dictator already selected (AI or specified via options)
+      if (game.dictatorPlayer?.dictator) return false;
+      // Skip if AI player
+      if (game.dictatorPlayer?.isAI) return false;
+      return true;
+    })
+    .chooseFrom<string>('dictatorChoice', {
+      prompt: 'Select your Dictator',
+      defer: true, // Triggers hiring-style UI
+      choices: () => {
+        // Get available dictators from game data - just return names
+        const dictators = game.dictatorData || [];
+        return dictators.map((d: any) => d.name);
+      },
+    })
+    .execute((args) => {
+      const dictatorName = args.dictatorChoice as string;
+
+      // Find the dictator by name and set up
+      const dictatorData = game.dictatorData as DictatorData[];
+      const dictator = dictatorData.find(d => d.name === dictatorName);
+      if (!dictator) {
+        return { success: false, message: `Unknown dictator: ${dictatorName}` };
+      }
+
+      const dictatorCard = setupDictator(game, dictatorData, dictator.id);
+
+      game.message(`You have chosen to play as ${dictatorCard.dictatorName}!`);
+
+      return {
+        success: true,
+        message: `Selected ${dictatorCard.dictatorName}`,
+      };
+    });
+}
+
+/**
  * MERC-f6m6: Place initial militia on unoccupied industries
  * For human dictator: Shows where militia will be placed and confirms
  * For AI dictator: Auto-executes
@@ -701,6 +749,50 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 }
 
 /**
+ * Choose base location for human Kim player
+ * Kim's ability requires a base location to be set before applying
+ */
+export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
+  return Action.create('chooseKimBase')
+    .prompt("Kim's Ability: Choose your base location")
+    .condition(() => {
+      // Only available during Day 1 setup
+      if (game.currentDay !== 1) return false;
+      // Only for Kim
+      const dictator = game.dictatorPlayer?.dictator;
+      if (!dictator || dictator.dictatorId !== 'kim') return false;
+      // Only for human players
+      if (game.dictatorPlayer?.isAI) return false;
+      // Only if base not yet set
+      if (game.dictatorPlayer?.baseSectorId) return false;
+      return true;
+    })
+    .chooseElement<Sector>('baseLocation', {
+      prompt: 'Choose where to establish your revealed base',
+      elementClass: Sector,
+      filter: (element) => {
+        const sector = element as unknown as Sector;
+        // Only industries with dictator militia
+        return sector.isIndustry && sector.dictatorMilitia > 0;
+      },
+      display: (sector) => sector.sectorName,
+      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+    })
+    .execute((args) => {
+      const baseSector = args.baseLocation as Sector;
+
+      if (!baseSector) {
+        return { success: false, message: 'Invalid base location' };
+      }
+
+      game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      game.message(`Kim established base at ${baseSector.sectorName}`);
+
+      return { success: true, message: `Base set at ${baseSector.sectorName}` };
+    });
+}
+
+/**
  * Apply dictator's special setup ability
  * This is automatic based on which dictator is selected
  */
@@ -708,6 +800,11 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
   return Action.create('dictatorSetupAbility')
     .prompt('Apply dictator special ability')
     .condition(() => {
+      // Skip if Kim and base not set (human Kim needs to choose first)
+      const dictator = game.dictatorPlayer?.dictator;
+      if (dictator?.dictatorId === 'kim' && !game.dictatorPlayer?.isAI && !game.dictatorPlayer?.baseSectorId) {
+        return false;
+      }
       return game.currentDay === 1;
     })
     .execute(() => {
@@ -735,17 +832,117 @@ export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinitio
 /**
  * MERC-l2nb: Place extra militia
  * For AI: Distributes evenly among controlled sectors
- * For human: Could allow choice of distribution (future enhancement)
+ * For human: Choose where to place each militia
  */
 export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDefinition {
+  // Key for tracking remaining militia to place
+  const REMAINING_MILITIA_KEY = '_extra_militia_remaining';
+
   return Action.create('dictatorPlaceExtraMilitia')
-    .prompt('Place extra militia')
-    .condition(() => {
-      return game.currentDay === 1 && game.setupConfig.dictatorStrength.extra > 0;
+    .prompt(() => {
+      const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+      const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
+      if (remaining !== undefined) {
+        return `Place extra militia (${remaining} remaining)`;
+      }
+      return `Place ${total} extra militia`;
     })
-    .execute(() => {
-      autoPlaceExtraMilitia(game);
-      return { success: true, message: 'Extra militia placed' };
+    .condition(() => {
+      const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
+      if (game.currentDay !== 1 || extra === 0) return false;
+      // Check if there are remaining militia to place
+      const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+      return remaining === undefined || remaining > 0;
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: () => {
+        const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+        const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
+        const toPlace = remaining ?? total;
+        return `Choose sector to place militia (${toPlace} remaining)`;
+      },
+      skipIf: () => game.dictatorPlayer?.isAI === true,
+      choices: () => {
+        // Get dictator-controlled sectors
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0);
+        if (sectors.length === 0) {
+          // Fallback to any industry
+          return game.gameMap.getAllSectors()
+            .filter(s => s.isIndustry)
+            .map(s => `${s.sectorName} (${s.dictatorMilitia} militia)`);
+        }
+        return sectors.map(s => `${s.sectorName} (${s.dictatorMilitia} militia)`);
+      },
+    })
+    .chooseFrom<string>('amount', {
+      prompt: 'How many militia to place here?',
+      skipIf: () => game.dictatorPlayer?.isAI === true,
+      dependsOn: 'targetSector',
+      choices: () => {
+        const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+        const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
+        const toPlace = remaining ?? total;
+        // Offer 1 to remaining amount
+        const options: string[] = [];
+        for (let i = 1; i <= Math.min(toPlace, 10); i++) {
+          options.push(`${i}`);
+        }
+        if (toPlace > 10) {
+          options.push(`${toPlace} (all)`);
+        }
+        return options;
+      },
+    })
+    .execute((args) => {
+      // AI path - use auto placement
+      if (game.dictatorPlayer?.isAI) {
+        autoPlaceExtraMilitia(game);
+        delete game.settings[REMAINING_MILITIA_KEY];
+        return { success: true, message: 'Extra militia placed' };
+      }
+
+      // Human path - place specified amount at chosen sector
+      const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
+      let remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined ?? total;
+
+      const targetChoice = args.targetSector as string;
+      const amountChoice = args.amount as string;
+
+      // Parse amount
+      let amount = parseInt(amountChoice, 10);
+      if (amountChoice.includes('all')) {
+        amount = remaining;
+      }
+      amount = Math.min(amount, remaining);
+
+      // Extract sector name (remove militia count suffix)
+      const sectorName = targetChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+
+      if (!targetSector) {
+        return { success: false, message: 'Invalid sector' };
+      }
+
+      const placed = targetSector.addDictatorMilitia(amount);
+      remaining -= placed;
+
+      game.message(`Placed ${placed} extra militia at ${targetSector.sectorName}`);
+
+      if (remaining > 0) {
+        // More militia to place - store remaining count
+        game.settings[REMAINING_MILITIA_KEY] = remaining;
+        return {
+          success: true,
+          message: `Placed ${placed} militia, ${remaining} remaining`,
+          followUp: 'dictatorPlaceExtraMilitia', // Continue placing
+        };
+      }
+
+      // Done placing
+      delete game.settings[REMAINING_MILITIA_KEY];
+      game.message(`All extra militia placed`);
+      return { success: true, message: 'All extra militia placed' };
     });
 }
 

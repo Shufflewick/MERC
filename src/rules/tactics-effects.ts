@@ -103,16 +103,12 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
  * MERC-897: Uses AI criteria (furthest from rebels, most defended, highest value)
  */
 function revealBase(game: MERCGame): TacticsEffectResult {
-  console.log('[revealBase] Starting, baseRevealed:', game.dictatorPlayer.baseRevealed);
-  console.log('[revealBase] baseSectorId:', game.dictatorPlayer.baseSectorId);
-
   if (game.dictatorPlayer.baseRevealed) {
     return { success: true, message: 'Base was already revealed' };
   }
 
   // MERC-897: Use AI base selection criteria per rules 4.1
   if (!game.dictatorPlayer.baseSectorId) {
-    console.log('[revealBase] No baseSectorId set, selecting AI location...');
     const baseSector = selectAIBaseLocation(game);
     if (baseSector) {
       game.dictatorPlayer.baseSectorId = baseSector.sectorId;
@@ -120,19 +116,12 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     }
   }
 
-  console.log('[revealBase] Setting baseRevealed=true, baseSectorId:', game.dictatorPlayer.baseSectorId);
   game.dictatorPlayer.baseRevealed = true;
   game.dictatorPlayer.dictator?.enterPlay();
-  console.log('[revealBase] dictator.inPlay:', game.dictatorPlayer.dictator?.inPlay);
 
   // Set dictator card location to base sector
   if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {
     game.dictatorPlayer.dictator.sectorId = game.dictatorPlayer.baseSectorId;
-    console.log('[revealBase] Set dictator.sectorId to:', game.dictatorPlayer.dictator.sectorId);
-  } else {
-    console.log('[revealBase] WARNING: Could not set dictator.sectorId!',
-      'dictator:', !!game.dictatorPlayer.dictator,
-      'baseSectorId:', game.dictatorPlayer.baseSectorId);
   }
 
   game.message('The Dictator reveals their base!');
@@ -398,7 +387,7 @@ function veteranMilitia(game: MERCGame): TacticsEffectResult {
   const baseResult = revealBase(game);
 
   // Set the permanent militia initiative bonus flag
-  (game as any).veteranMilitiaActive = true;
+  game.veteranMilitiaActive = true;
   game.message('Veteran Militia: Dictator militia now have +1 initiative');
 
   return {
@@ -417,7 +406,7 @@ function betterWeapons(game: MERCGame): TacticsEffectResult {
   const baseResult = revealBase(game);
 
   // Set the permanent militia bonus flag
-  (game as any).betterWeaponsActive = true;
+  game.betterWeaponsActive = true;
   game.message('Better Weapons: Dictator militia now hit on 3+');
 
   return {

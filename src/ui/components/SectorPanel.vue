@@ -6,6 +6,7 @@ import DetailModal from './DetailModal.vue';
 import MercCard from './MercCard.vue';
 import EquipmentTable from './EquipmentTable.vue';
 import MilitiaIndicator from './MilitiaIndicator.vue';
+import MilitiaCard from './MilitiaCard.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 
 // Helper to get attribute from node
@@ -86,6 +87,11 @@ const props = defineProps<{
   hasDictatorForces?: boolean;
   isBase?: boolean;
   hasExplosivesComponents?: boolean;
+  // Militia bonuses (from dictator tactics)
+  militiaBonuses?: {
+    betterWeapons: boolean;  // +1 combat die per militia (hit on 3+)
+    veteranMilitia: boolean; // +1 initiative for militia
+  };
 }>();
 
 // Helper to find element by ID in gameView
@@ -140,6 +146,20 @@ const selectedMerc = ref<any>(null);
 
 // Stash modal state
 const showStashModal = ref(false);
+
+// Militia modal state
+const showMilitiaModal = ref(false);
+const selectedMilitia = ref<{ count: number; isDictator: boolean; playerColor?: string } | null>(null);
+
+function openMilitiaCard(count: number, isDictator: boolean, playerColor?: string) {
+  selectedMilitia.value = { count, isDictator, playerColor };
+  showMilitiaModal.value = true;
+}
+
+function closeMilitiaModal() {
+  showMilitiaModal.value = false;
+  selectedMilitia.value = null;
+}
 
 function openMercCard(merc: any) {
   selectedMerc.value = merc;
@@ -1207,19 +1227,31 @@ const sectorTypeIcon = computed(() => {
 
         <!-- Forces info -->
         <div class="forces-info">
-          <!-- Militia indicators (using MilitiaIndicator for proper colored badges) -->
+          <!-- Militia indicators (clickable to show details) -->
           <div class="militia-area">
-            <MilitiaIndicator
+            <div
               v-if="sector.dictatorMilitia > 0"
-              :count="sector.dictatorMilitia"
-              :is-dictator="true"
-            />
-            <MilitiaIndicator
+              class="militia-clickable"
+              @click="openMilitiaCard(sector.dictatorMilitia, true)"
+              title="Click for militia details"
+            >
+              <MilitiaIndicator
+                :count="sector.dictatorMilitia"
+                :is-dictator="true"
+              />
+            </div>
+            <div
               v-for="entry in rebelMilitiaEntries"
               :key="entry.playerId"
-              :count="entry.count"
-              :player-color="entry.color"
-            />
+              class="militia-clickable"
+              @click="openMilitiaCard(entry.count, false, entry.color)"
+              title="Click for militia details"
+            >
+              <MilitiaIndicator
+                :count="entry.count"
+                :player-color="entry.color"
+              />
+            </div>
           </div>
           <span v-if="isBase" class="base-badge">Base</span>
           <div v-if="isCity" class="facilities">
@@ -1280,6 +1312,18 @@ const sectorTypeIcon = computed(() => {
           :title="`${sector.sectorName} Stash`"
         />
       </div>
+    </DetailModal>
+
+    <!-- Militia Modal -->
+    <DetailModal :show="showMilitiaModal" @close="closeMilitiaModal">
+      <MilitiaCard
+        v-if="selectedMilitia"
+        :count="selectedMilitia.count"
+        :is-dictator="selectedMilitia.isDictator"
+        :player-color="selectedMilitia.playerColor"
+        :better-weapons="selectedMilitia.isDictator && militiaBonuses?.betterWeapons"
+        :veteran-militia="selectedMilitia.isDictator && militiaBonuses?.veteranMilitia"
+      />
     </DetailModal>
   </div>
 </template>
@@ -1740,6 +1784,17 @@ const sectorTypeIcon = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.militia-clickable {
+  cursor: pointer;
+  transition: transform 0.2s, filter 0.2s;
+  border-radius: 6px;
+}
+
+.militia-clickable:hover {
+  transform: scale(1.1);
+  filter: brightness(1.2);
 }
 
 .force {

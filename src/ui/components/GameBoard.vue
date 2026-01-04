@@ -267,12 +267,19 @@ const activeSector = computed(() => {
 const selectedSectorStash = computed(() => {
   if (!activeSector.value) return [];
 
-  // Player can see stash if they have a squad in the sector
-  const hasSquadInSector =
+  // Player can see stash if they have a squad or unit in the sector
+  // Check rebel squads
+  const hasRebelSquadInSector =
     primarySquad.value?.sectorId === activeSector.value.sectorId ||
     secondarySquad.value?.sectorId === activeSector.value.sectorId;
 
-  if (!hasSquadInSector) return [];
+  // Check dictator squads and DictatorCard location
+  const hasDictatorUnitInSector =
+    dictatorPrimarySquad.value?.sectorId === activeSector.value.sectorId ||
+    dictatorSecondarySquad.value?.sectorId === activeSector.value.sectorId ||
+    (dictatorCard.value?.sectorId === activeSector.value.sectorId && dictatorCard.value?.inPlay);
+
+  if (!hasRebelSquadInSector && !hasDictatorUnitInSector) return [];
 
   // Find the sector element in gameView to get stash
   const sectorElement = findByRef(activeSector.value.sectorId) ||
@@ -888,6 +895,12 @@ const dictatorCard = computed(() => {
   }
 
   const attrs = dictatorCardNode.attributes || {};
+
+  // Extract equipment slot data (similar to how MercCard does it)
+  const weaponSlotData = attrs.weaponSlotData || getAttr(dictatorCardNode, 'weaponSlotData', null);
+  const armorSlotData = attrs.armorSlotData || getAttr(dictatorCardNode, 'armorSlotData', null);
+  const accessorySlotData = attrs.accessorySlotData || getAttr(dictatorCardNode, 'accessorySlotData', null);
+
   return {
     id: dictatorCardNode.ref,
     dictatorId: attrs.dictatorId || getAttr(dictatorCardNode, 'dictatorId', 'unknown'),
@@ -897,6 +910,17 @@ const dictatorCard = computed(() => {
     image: attrs.image || getAttr(dictatorCardNode, 'image', ''),
     inPlay: attrs.inPlay || getAttr(dictatorCardNode, 'inPlay', false),
     actionsRemaining: attrs.actionsRemaining || getAttr(dictatorCardNode, 'actionsRemaining', 0),
+    sectorId: attrs.sectorId || getAttr(dictatorCardNode, 'sectorId', ''),
+    // Equipment slots
+    weaponSlot: weaponSlotData,
+    armorSlot: armorSlotData,
+    accessorySlot: accessorySlotData,
+    // Stats for display
+    baseCombat: attrs.baseCombat || getAttr(dictatorCardNode, 'baseCombat', 0),
+    baseInitiative: attrs.baseInitiative || getAttr(dictatorCardNode, 'baseInitiative', 0),
+    baseTraining: attrs.baseTraining || getAttr(dictatorCardNode, 'baseTraining', 0),
+    maxHealth: attrs.maxHealth || getAttr(dictatorCardNode, 'maxHealth', 10),
+    damage: attrs.damage || getAttr(dictatorCardNode, 'damage', 0),
   };
 });
 
@@ -951,6 +975,58 @@ const tacticsHand = computed(() => {
 
   return cards;
 });
+
+// Get dictator's tactics discard (played cards) - visible to ALL players
+const tacticsDiscard = computed(() => {
+  // Find tactics discard pile - search entire gameView
+  let tacticsDiscardNode = findByClassName('TacticsDiscard');
+  if (!tacticsDiscardNode) {
+    tacticsDiscardNode = findByClassName('_TacticsDiscard');
+  }
+  // Also try DiscardPile with tactics in it
+  if (!tacticsDiscardNode) {
+    const discardPiles = findAllByClassName('DiscardPile');
+    for (const pile of discardPiles) {
+      const hasTactics = (pile.children || []).some(
+        (c: any) => normalizeClassName(c.className) === 'TacticsCard'
+      );
+      if (hasTactics) {
+        tacticsDiscardNode = pile;
+        break;
+      }
+    }
+  }
+  if (!tacticsDiscardNode) return [];
+
+  // Get all tactics cards from discard
+  const cards = (tacticsDiscardNode.children || [])
+    .filter((c: any) => normalizeClassName(c.className) === 'TacticsCard')
+    .map((c: any) => {
+      const attrs = c.attributes || {};
+      return {
+        id: c.ref,
+        tacticsId: attrs.tacticsId || getAttr(c, 'tacticsId', ''),
+        tacticsName: attrs.tacticsName || getAttr(c, 'tacticsName', 'Unknown'),
+        story: attrs.story || getAttr(c, 'story', ''),
+        description: attrs.description || getAttr(c, 'description', ''),
+      };
+    });
+
+  return cards;
+});
+
+// Militia bonus flags (from dictator tactics cards)
+const militiaBonuses = computed(() => {
+  return {
+    betterWeapons: props.gameView?.betterWeaponsActive ||
+                   props.gameView?.attributes?.betterWeaponsActive || false,
+    veteranMilitia: props.gameView?.veteranMilitiaActive ||
+                    props.gameView?.attributes?.veteranMilitiaActive || false,
+  };
+});
+
+// State for viewing dictator's played cards modal
+const showPlayedCardsModal = ref(false);
 
 // State for dictator panel visibility
 const showDictatorPanel = ref(true);
@@ -1029,11 +1105,20 @@ const isHiringMercs = computed(() => {
          props.availableActions.includes('hireSecondMerc') ||
          props.availableActions.includes('hireThirdMerc') ||
          props.availableActions.includes('dictatorHireFirstMerc') ||
+         props.availableActions.includes('selectDictator') ||
          currentAction === 'hireFirstMerc' ||
          currentAction === 'hireSecondMerc' ||
          currentAction === 'hireThirdMerc' ||
          currentAction === 'dictatorHireFirstMerc' ||
-         currentAction === 'castroBonusHire';
+         currentAction === 'castroBonusHire' ||
+         currentAction === 'selectDictator';
+});
+
+// Check if we're selecting a dictator (Day 1 human dictator)
+const isSelectingDictator = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
+  return props.availableActions.includes('selectDictator') ||
+         currentAction === 'selectDictator';
 });
 
 // Use actionController to detect when hagnessDraw action is active
@@ -1046,8 +1131,8 @@ watch(() => props.availableActions, (actions) => {
   // Only auto-start if no action is currently active
   if (props.actionController.currentAction.value) return;
 
-  // Check for hiring actions and start them (Day 1 + Castro)
-  const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'castroBonusHire'];
+  // Check for hiring/selection actions and start them (Day 1 + Castro + Dictator selection)
+  const hiringActions = ['selectDictator', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'castroBonusHire'];
   for (const action of hiringActions) {
     if (actions.includes(action)) {
       props.actionController.start(action);
@@ -1205,6 +1290,21 @@ const selectedMercName = computed(() => {
   if (!merc) return '';
   return getAttr(merc, 'mercName', '') || (merc as any).mercName || '';
 });
+
+// State for showing MERC detail modal during hiring
+const showHiringMercModal = ref(false);
+
+// Open MERC detail modal during hiring phase
+function openHiringMercDetail() {
+  if (selectedMercForEquipment.value) {
+    showHiringMercModal.value = true;
+  }
+}
+
+// Close MERC detail modal
+function closeHiringMercModal() {
+  showHiringMercModal.value = false;
+}
 
 // Check if Hagness is selecting equipment type (first step)
 const isHagnessSelectingType = computed(() => {
@@ -1381,10 +1481,12 @@ const allSelectionsComplete = computed(() => {
 
 // Get current action name that needs custom UI handling (hiring, hagnessDraw, or explore)
 function getCurrentActionName(): string | null {
+  if (props.availableActions.includes('selectDictator')) return 'selectDictator';
   if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
   if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
   if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
   if (props.actionController.currentAction.value === 'castroBonusHire') return 'castroBonusHire';
+  if (props.actionController.currentAction.value === 'selectDictator') return 'selectDictator';
   // Check hagnessDraw FIRST (when user is actively interacting with it)
   if (isHagnessDrawActive.value && props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
   if (props.availableActions.includes('explore')) return 'explore';
@@ -1463,6 +1565,40 @@ const hirableMercs = computed(() => {
 
   // Get already-selected merc names from shared actionArgs to filter them out
   const selectedMercs = Object.values(props.actionArgs || {}) as string[];
+
+  // For dictator selection, convert to MercCard-compatible format
+  if (isSelectingDictator.value) {
+    const dictatorDataList = props.gameView?.attributes?.settings?.dictatorData ||
+                             props.state?.state?.settings?.dictatorData ||
+                             props.gameView?.settings?.dictatorData || [];
+
+    return choices
+      .filter((choice: any) => {
+        const choiceDisplay = choice.display || choice.value || choice;
+        return !selectedMercs.includes(choiceDisplay);
+      })
+      .map((choice: any) => {
+        const choiceDisplay = choice.display || choice.value || choice;
+        const choiceValue = choice.value ?? choice;
+        const dictatorInfo = dictatorDataList.find((d: any) => d.name === choiceDisplay);
+
+        // Return MercCard-compatible data structure
+        return {
+          mercName: choiceDisplay,
+          _choiceValue: choiceValue,
+          attributes: {
+            mercName: choiceDisplay,
+            mercId: dictatorInfo?.id || choiceDisplay.toLowerCase(),
+            image: dictatorInfo?.image || '',
+            baseInitiative: dictatorInfo?.initiative || 0,
+            baseCombat: dictatorInfo?.combat || 0,
+            baseTraining: dictatorInfo?.training || 0,
+            ability: dictatorInfo?.ability || '',
+            bio: dictatorInfo?.bio || '',
+          },
+        };
+      });
+  }
 
   // Find MERCs anywhere in the gameView and attach the original choice value
   // Filter out MERCs that have already been selected AND filter out skip option
@@ -1804,15 +1940,16 @@ const clickableSectors = computed(() => {
       :has-dictator-forces="selectedSectorHasDictatorForces"
       :is-base="selectedSectorIsBase"
       :has-explosives-components="hasExplosivesComponents"
+      :militia-bonuses="militiaBonuses"
       @close="closeSectorPanel"
     />
 
-    <!-- Hiring phase - show MERCs to choose from -->
+    <!-- Hiring phase - show MERCs/Dictators to choose from -->
     <div v-if="isHiringMercs" class="hiring-phase">
       <div class="hiring-header">
         <div class="hiring-icon">👥</div>
         <div class="hiring-content">
-          <h2 class="hiring-title">Hiring Phase</h2>
+          <h2 class="hiring-title">{{ isSelectingDictator ? 'Choose Your Dictator' : 'Hiring Phase' }}</h2>
           <p class="hiring-prompt">{{ currentSelection?.prompt || state?.flowState?.prompt || 'Select your MERCs' }}</p>
         </div>
       </div>
@@ -1825,16 +1962,19 @@ const clickableSectors = computed(() => {
         :merc-name="selectedMercName"
         :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
         @select="selectEquipmentType"
+        @clickMerc="openHiringMercDetail"
       />
 
       <!-- Sector selection (Castro hire placement) - Visual Cards -->
       <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
         <div class="sector-row">
-          <!-- MERC portrait -->
+          <!-- MERC portrait (clickable to view details) -->
           <div
             v-if="selectedMercImagePath"
-            class="sector-merc-portrait"
+            class="sector-merc-portrait clickable"
             :style="{ borderColor: currentPlayerIsDictator ? getPlayerColor('dictator') : getPlayerColor(currentPlayerColor) }"
+            @click="openHiringMercDetail"
+            title="Click to view MERC details"
           >
             <img :src="selectedMercImagePath" :alt="selectedMercName || 'MERC'" />
           </div>
@@ -1898,6 +2038,17 @@ const clickableSectors = computed(() => {
       <div v-else class="use-action-panel">
         <p class="action-panel-hint">Loading MERCs...</p>
       </div>
+
+      <!-- MERC Detail Modal for hiring phase -->
+      <DetailModal :show="showHiringMercModal" @close="closeHiringMercModal">
+        <div class="hiring-merc-modal">
+          <MercCard
+            v-if="selectedMercForEquipment"
+            :merc="selectedMercForEquipment"
+            :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+          />
+        </div>
+      </DetailModal>
     </div>
 
     <!-- Hagness Draw Equipment UI (only when action is actively being executed) -->
@@ -1999,6 +2150,38 @@ const clickableSectors = computed(() => {
     <div v-if="isMyTurn" class="turn-indicator">
       Your Turn
     </div>
+
+    <!-- View Dictator's Played Cards Button - visible to ALL players -->
+    <button
+      v-if="tacticsDiscard.length > 0"
+      class="played-cards-button"
+      @click="showPlayedCardsModal = true"
+      title="View Dictator's Played Tactics Cards"
+    >
+      <span class="played-cards-icon">📜</span>
+      <span class="played-cards-count">{{ tacticsDiscard.length }}</span>
+    </button>
+
+    <!-- Played Cards Modal -->
+    <DetailModal :show="showPlayedCardsModal" @close="showPlayedCardsModal = false">
+      <div class="played-cards-modal">
+        <h2 class="played-cards-title">Dictator's Played Cards</h2>
+        <div class="played-cards-list">
+          <div
+            v-for="card in tacticsDiscard"
+            :key="card.id"
+            class="played-card"
+          >
+            <div class="played-card-name">{{ card.tacticsName }}</div>
+            <div v-if="card.story" class="played-card-story">"{{ card.story }}"</div>
+            <div class="played-card-effect">{{ card.description }}</div>
+          </div>
+        </div>
+        <div v-if="tacticsDiscard.length === 0" class="no-played-cards">
+          No tactics cards have been played yet.
+        </div>
+      </div>
+    </DetailModal>
   </div>
 </template>
 
@@ -2192,6 +2375,22 @@ const clickableSectors = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.sector-merc-portrait.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sector-merc-portrait.clickable:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(212, 168, 75, 0.6);
+}
+
+.hiring-merc-modal {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
 }
 
 .sector-prompt {
@@ -2602,6 +2801,105 @@ const clickableSectors = computed(() => {
 .dictator-panel-toggle:hover {
   background: rgba(139, 0, 0, 0.5);
   border-color: #8b0000;
+}
+
+/* Played Cards Button - bottom right corner */
+.played-cards-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(139, 0, 0, 0.4);
+  border: 2px solid rgba(139, 0, 0, 0.7);
+  border-radius: 10px;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  z-index: 100;
+}
+
+.played-cards-button:hover {
+  background: rgba(139, 0, 0, 0.6);
+  border-color: #8b0000;
+  transform: scale(1.05);
+}
+
+.played-cards-icon {
+  font-size: 1.2rem;
+}
+
+.played-cards-count {
+  background: #8b0000;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+/* Played Cards Modal */
+.played-cards-modal {
+  background: v-bind('UI_COLORS.surface');
+  border: 1px solid v-bind('UI_COLORS.border');
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 500px;
+  min-width: 350px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.played-cards-title {
+  margin: 0 0 16px 0;
+  color: #ff6b6b;
+  font-size: 1.3rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(139, 0, 0, 0.3);
+  padding-bottom: 12px;
+}
+
+.played-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.played-card {
+  background: rgba(139, 0, 0, 0.15);
+  border: 1px solid rgba(139, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.played-card-name {
+  font-weight: 600;
+  color: #ff6b6b;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.played-card-story {
+  font-style: italic;
+  color: v-bind('UI_COLORS.textSecondary');
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.played-card-effect {
+  color: v-bind('UI_COLORS.textPrimary');
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.no-played-cards {
+  text-align: center;
+  color: v-bind('UI_COLORS.textSecondary');
+  font-style: italic;
+  padding: 20px;
 }
 
 .no-data {

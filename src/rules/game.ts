@@ -421,6 +421,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   armorDiscard!: DiscardPile;
   accessoriesDiscard!: DiscardPile;
 
+  // Militia bonus flags (from tactics cards)
+  betterWeaponsActive: boolean = false;  // +1 combat die per dictator militia
+  veteranMilitiaActive: boolean = false; // +1 initiative for dictator militia
+
   // Game state
   // Use 'declare' to avoid class field initialization overwriting the value set in createPlayer()
   declare dictatorPlayer: DictatorPlayer;
@@ -893,6 +897,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Check for debug tactics order in settings as well
     const effectiveTacticsOrder = debugTacticsOrder || this.settings.debugTacticsOrder as string[] | undefined;
 
+    // Skip dictator setup if human player will choose (no dictatorId specified and not AI)
+    const skipDictatorSetup = !dictatorId && !this.dictatorPlayer?.isAI;
+
     performSetup(this, {
       sectorData: this.sectorData as SetupSectorData[],
       dictatorData: this.dictatorData as SetupDictatorData[],
@@ -900,6 +907,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       dictatorId,
       activeTacticsCount,
       debugTacticsOrder: effectiveTacticsOrder,
+      skipDictatorSetup,
     });
   }
 

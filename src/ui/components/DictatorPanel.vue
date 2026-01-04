@@ -27,6 +27,12 @@ interface SectorData {
   explored?: boolean;
 }
 
+// Helper to get equipment name from slot data
+function getEquipmentName(slot: any): string | null {
+  if (!slot) return null;
+  return slot.equipmentName || slot.name || null;
+}
+
 // Props
 const props = defineProps<{
   dictator: {
@@ -38,6 +44,16 @@ const props = defineProps<{
     image?: string;
     inPlay?: boolean;
     actionsRemaining?: number;
+    // Equipment slots
+    weaponSlot?: { equipmentName?: string; name?: string } | null;
+    armorSlot?: { equipmentName?: string; name?: string } | null;
+    accessorySlot?: { equipmentName?: string; name?: string } | null;
+    // Stats
+    baseCombat?: number;
+    baseInitiative?: number;
+    baseTraining?: number;
+    maxHealth?: number;
+    damage?: number;
   };
   tacticsHand: Array<{
     id?: number;
@@ -106,7 +122,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -123,7 +139,7 @@ const isSelectingMerc = computed(() => {
   return false;
 });
 
-// Check if we're selecting a sector (Castro hire, Kim militia, or base location)
+// Check if we're selecting a sector (Castro hire, Kim militia, base location, or reinforce)
 const isSelectingSector = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   const sel = props.actionController.currentSelection.value;
@@ -132,8 +148,12 @@ const isSelectingSector = computed(() => {
   if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia') {
     return sel.name === 'targetSector';
   }
-  // Base location selection during playTactics
-  if (currentAction === 'playTactics' && sel.name === 'baseLocation') {
+  // Base location selection during playTactics or chooseKimBase
+  if ((currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'baseLocation') {
+    return true;
+  }
+  // Reinforce action sector selection
+  if (currentAction === 'reinforce' && sel.name === 'sector') {
     return true;
   }
   return false;
@@ -180,14 +200,69 @@ const selectableSectors = computed(() => {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return [];
 
+  // Use validElements for element-based selections (like reinforce sector)
+  const validEls = props.actionController.validElements.value || [];
+
+  if (validEls.length > 0) {
+    return validEls.map((ve: any) => {
+      const elementId = ve.id || ve.ref?.id;
+      const attrs = ve.element?.attributes || {};
+
+      // Extract sector data from element attributes
+      const sectorId = attrs.sectorId || ve.sectorId || '';
+      const sectorName = attrs.sectorName || ve.display || '';
+      const sectorType = attrs.sectorType || 'Industry';
+
+      // Also try to find in allSectors for additional data
+      const sectorData = props.allSectors?.find(s =>
+        s.sectorId === sectorId || s.sectorName === sectorName
+      );
+
+      return {
+        _choiceValue: elementId, // For selection
+        sectorId: sectorData?.sectorId || sectorId,
+        sectorName: sectorData?.sectorName || sectorName || `Sector ${elementId}`,
+        sectorType: sectorData?.sectorType || sectorType,
+        image: sectorData?.image || attrs.image || getSectorImageFallback(sectorType),
+        value: sectorData?.value ?? attrs.value ?? 0,
+        weaponLoot: sectorData?.weaponLoot ?? attrs.weaponLoot ?? 0,
+        armorLoot: sectorData?.armorLoot ?? attrs.armorLoot ?? 0,
+        accessoryLoot: sectorData?.accessoryLoot ?? attrs.accessoryLoot ?? 0,
+        dictatorMilitia: sectorData?.dictatorMilitia ?? attrs.dictatorMilitia ?? 0,
+      };
+    });
+  }
+
+  // Fallback to getChoices for simple selections (Kim's ability uses this path)
   const choices = props.actionController.getChoices(sel) || [];
   return choices.map((c: any) => {
-    const sectorName = typeof c === 'string' ? c : (c.value || c.label || c.display || String(c));
-    // Find full sector data by name
-    const sectorData = props.allSectors?.find(s => s.sectorName === sectorName);
+    // Parse JSON string if choices were serialized
+    let choice = c;
+    if (typeof c === 'string' && c.startsWith('{')) {
+      try {
+        choice = JSON.parse(c);
+      } catch {
+        // Not valid JSON, use as-is
+      }
+    }
+
+    // Extract label and value from choice
+    const rawLabel = choice?.label;
+    const rawValue = choice?.value;
+    const hasLabelOrValue = rawLabel !== undefined || rawValue !== undefined;
+
+    const choiceValue = hasLabelOrValue ? (rawValue ?? rawLabel) : String(choice);
+    const displayName = hasLabelOrValue ? (rawLabel ?? rawValue) : String(choice);
+
+    // Look up sector data by ID or name
+    const sectorData = props.allSectors?.find(s =>
+      s.sectorId === choiceValue || s.sectorName === displayName || s.sectorName === choiceValue
+    );
+
     return {
-      sectorId: sectorData?.sectorId || sectorName,
-      sectorName: sectorData?.sectorName || sectorName,
+      _choiceValue: choiceValue,
+      sectorId: sectorData?.sectorId || choiceValue,
+      sectorName: sectorData?.sectorName || displayName,
       sectorType: sectorData?.sectorType || 'Industry',
       image: sectorData?.image || getSectorImageFallback(sectorData?.sectorType || 'Industry'),
       value: sectorData?.value || 0,
@@ -220,8 +295,8 @@ async function selectMercToHire(merc: any) {
 async function selectSector(sector: any) {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return;
-  // Use sectorName for base location selection, sectorId for others
-  const value = sel.name === 'baseLocation' ? sector.sectorName : sector.sectorId;
+  // Use _choiceValue if available (element ID), then fallback to sectorName for base location, sectorId for others
+  const value = sector._choiceValue ?? (sel.name === 'baseLocation' ? sector.sectorName : sector.sectorId);
   await props.actionController.fill(sel.name, value);
 }
 
@@ -494,6 +569,34 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
           <h2>{{ dictator.dictatorName }}</h2>
           <p class="ability-text">{{ dictator.ability }}</p>
           <p v-if="dictator.bio" class="bio-text">{{ dictator.bio }}</p>
+
+          <!-- Equipment Slots -->
+          <div class="equipment-section" v-if="dictator.inPlay">
+            <div class="section-title">Equipment</div>
+            <div class="equipment-slots">
+              <div class="equipment-slot">
+                <span class="slot-icon">⚔️</span>
+                <span class="slot-name">{{ getEquipmentName(dictator.weaponSlot) || 'No weapon' }}</span>
+              </div>
+              <div class="equipment-slot">
+                <span class="slot-icon">🛡️</span>
+                <span class="slot-name">{{ getEquipmentName(dictator.armorSlot) || 'No armor' }}</span>
+              </div>
+              <div class="equipment-slot">
+                <span class="slot-icon">💍</span>
+                <span class="slot-name">{{ getEquipmentName(dictator.accessorySlot) || 'No accessory' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-section" v-if="dictator.inPlay">
+            <div class="section-title">Stats</div>
+            <div class="stats-row">
+              <span class="stat">Actions: {{ dictator.actionsRemaining ?? 0 }}</span>
+              <span class="stat">Health: {{ (dictator.maxHealth ?? 10) - (dictator.damage ?? 0) }}/{{ dictator.maxHealth ?? 10 }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </DetailModal>
@@ -989,5 +1092,56 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 .tactics-effect {
   color: v-bind('UI_COLORS.textPrimary');
   margin: 0;
+}
+
+/* Equipment and Stats sections in modal */
+.equipment-section,
+.stats-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: v-bind('UI_COLORS.textSecondary');
+  margin-bottom: 8px;
+}
+
+.equipment-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.equipment-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.slot-icon {
+  font-size: 1rem;
+}
+
+.slot-name {
+  font-size: 0.9rem;
+  color: v-bind('UI_COLORS.textPrimary');
+}
+
+.stats-row {
+  display: flex;
+  gap: 16px;
+}
+
+.stat {
+  font-size: 0.9rem;
+  color: v-bind('UI_COLORS.textPrimary');
 }
 </style>

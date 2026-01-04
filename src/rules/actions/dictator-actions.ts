@@ -122,14 +122,16 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         return false;
       },
       choices: (ctx) => {
+        // If base is already revealed, return placeholder (selection will be skipped)
+        // This ensures the action is available even when this selection isn't needed
+        if (game.dictatorPlayer?.baseRevealed) {
+          return ['(skipped)'];
+        }
         // Check if we should show choices at all
         const card = ctx.args?.card as TacticsCard | undefined;
         if (!card || !card.revealsBase) {
-          // Return empty array to auto-skip this step
-          return [];
-        }
-        if (game.dictatorPlayer?.baseRevealed) {
-          return [];
+          // Return placeholder to keep action available (selection will be skipped)
+          return ['(skipped)'];
         }
         // Get industries controlled by dictator
         const industries = game.gameMap.getAllSectors()
@@ -156,10 +158,11 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         return false;
       },
       choices: (ctx) => {
+        // If base is already revealed, return placeholder (selection will be skipped)
+        if (game.dictatorPlayer?.baseRevealed) return ['(skipped)'];
         // Check if we should show choices at all
         const card = ctx.args?.card as TacticsCard | undefined;
-        if (!card || !card.revealsBase) return [];
-        if (game.dictatorPlayer?.baseRevealed) return [];
+        if (!card || !card.revealsBase) return ['(skipped)'];
         return ['Weapon', 'Armor', 'Accessory'];
       },
     })
@@ -545,8 +548,9 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         const sectors = game.gameMap.getAllSectors()
           .filter(s => s.dictatorMilitia > 0 || s.sectorType === 'Industry');
 
+        // Return just sector names as labels (cleaner UI)
         return sectors.map(s => ({
-          label: `${s.sectorName} (${s.dictatorMilitia} militia)`,
+          label: s.sectorName,
           value: s.sectorId,
         }));
       },

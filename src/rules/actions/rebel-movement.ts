@@ -170,6 +170,15 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         merc.sectorId = destination.sectorId;
       }
 
+      // MERC-dict-move: If dictator player is moving and DictatorCard is in the same sector as this squad, move it too
+      if (!isRebel && game.dictatorPlayer?.dictator?.inPlay) {
+        const dictatorCard = game.dictatorPlayer.dictator;
+        if (dictatorCard.sectorId === sourceSector?.sectorId) {
+          dictatorCard.sectorId = destination.sectorId;
+          game.message(`${dictatorCard.dictatorName} moves with the squad`);
+        }
+      }
+
       const playerName = isRebel ? (ctx.player as RebelPlayer).name : 'Dictator';
       game.message(`${playerName} moved ${mercs.length} MERC(s) to ${destination.sectorName}`);
 

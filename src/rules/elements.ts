@@ -1344,6 +1344,12 @@ export class DictatorCard extends BaseCard {
   // Must have default value for serialization to gameView
   sectorId: string = '';
 
+  // Serialized equipment data for UI (updated when equipment changes)
+  // BoardSmith doesn't serialize element references, only plain data
+  weaponSlotData?: EquipmentSlotData | null;
+  armorSlotData?: EquipmentSlotData | null;
+  accessorySlotData?: EquipmentSlotData | null;
+
   // Equipment slots - now stored as child elements with equippedSlot attribute
   // These getters query children, making equipment survive HMR via element hierarchy
   get weaponSlot(): Equipment | undefined {
@@ -1472,19 +1478,27 @@ export class DictatorCard extends BaseCard {
         this.equipToSlot(equipment, 'accessory');
         break;
     }
+    // Sync slot data for UI serialization
+    this.syncEquipmentSlotData();
     return replaced;
   }
 
   unequip(type: EquipmentType): Equipment | undefined {
+    let removed: Equipment | undefined;
     switch (type) {
       case 'Weapon':
-        return this.clearSlot(this.weaponSlot);
+        removed = this.clearSlot(this.weaponSlot);
+        break;
       case 'Armor':
-        return this.clearSlot(this.armorSlot);
+        removed = this.clearSlot(this.armorSlot);
+        break;
       case 'Accessory':
-        return this.clearSlot(this.accessorySlot);
+        removed = this.clearSlot(this.accessorySlot);
+        break;
     }
-    return undefined;
+    // Sync slot data for UI serialization
+    this.syncEquipmentSlotData();
+    return removed;
   }
 
   getEquipmentOfType(type: EquipmentType): Equipment | undefined {
@@ -1498,6 +1512,32 @@ export class DictatorCard extends BaseCard {
       default:
         return undefined;
     }
+  }
+
+  /**
+   * Sync equipment slot data for UI serialization.
+   * Called after equipment changes to update the plain data properties
+   * that BoardSmith can serialize to the gameView.
+   */
+  syncEquipmentSlotData(): void {
+    const toSlotData = (equip: Equipment | undefined): EquipmentSlotData | null => {
+      if (!equip) return null;
+      return {
+        equipmentId: equip.equipmentId,
+        equipmentName: equip.equipmentName,
+        equipmentType: equip.equipmentType,
+        combatBonus: equip.combatBonus,
+        targets: equip.targets,
+        armorBonus: equip.armorBonus,
+        healthBonus: equip.healthBonus,
+        initiative: equip.initiative,
+        training: equip.training,
+        image: equip.image,
+      };
+    };
+    this.weaponSlotData = toSlotData(this.weaponSlot);
+    this.armorSlotData = toSlotData(this.armorSlot);
+    this.accessorySlotData = toSlotData(this.accessorySlot);
   }
 }
 

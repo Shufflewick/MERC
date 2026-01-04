@@ -44,26 +44,37 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
     return { success: false, message: 'Not Kim' };
   }
 
+  // Skip if already applied (base already revealed)
+  if (game.dictatorPlayer.baseRevealed) {
+    return { success: true, message: 'Kim ability already applied' };
+  }
+
+  // Find base sector first
+  const baseSector = game.getSector(game.dictatorPlayer.baseSectorId!);
+  if (!baseSector) {
+    return { success: false, message: 'No base sector found' };
+  }
+
   // Reveal base
   game.dictatorPlayer.baseRevealed = true;
+
+  // Put dictator card into play at the base
+  dictator.enterPlay();
+  dictator.sectorId = baseSector.sectorId;
 
   // Calculate militia: 5 per rebel, max 20
   const militiaCount = Math.min(5 * game.rebelCount, 20);
 
-  // Find base sector and add militia
+  // Add militia to base sector
   // MERC-td6: Use bypassCap=true to allow Kim's max of 20 militia
-  const baseSector = game.getSector(game.dictatorPlayer.baseSectorId!);
-  if (baseSector) {
-    const placed = baseSector.addDictatorMilitia(militiaCount, true);
-    game.message(`Kim's base is revealed with ${placed} militia!`);
-    return {
-      success: true,
-      message: `Base revealed with ${placed} militia`,
-      data: { militiaPlaced: placed },
-    };
-  }
+  const placed = baseSector.addDictatorMilitia(militiaCount, true);
+  game.message(`Kim's base is revealed at ${baseSector.sectorName} with ${placed} militia!`);
 
-  return { success: false, message: 'No base sector found' };
+  return {
+    success: true,
+    message: `Base revealed with ${placed} militia`,
+    data: { militiaPlaced: placed },
+  };
 }
 
 // =============================================================================

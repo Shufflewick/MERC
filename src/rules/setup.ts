@@ -435,6 +435,8 @@ export interface SetupOptions {
   activeTacticsCount?: number;
   /** Debug: specify tactics IDs in order (first = top of deck, drawn first) */
   debugTacticsOrder?: string[];
+  /** If true, skip dictator setup (human player will choose during Day 1) */
+  skipDictatorSetup?: boolean;
 }
 
 /**
@@ -455,8 +457,12 @@ export function performSetup(game: MERCGame, options: SetupOptions): void {
   // 1. Build the map
   buildMap(game, options.sectorData);
 
-  // 2. Set up the dictator
-  setupDictator(game, options.dictatorData, options.dictatorId);
+  // 2. Set up the dictator (skip if human player will choose during Day 1)
+  if (!options.skipDictatorSetup) {
+    setupDictator(game, options.dictatorData, options.dictatorId);
+  } else {
+    game.message('Dictator selection deferred to Day 1');
+  }
 
   // 3. Set up tactics deck
   setupTacticsDeck(game, options.tacticsData, options.activeTacticsCount, options.debugTacticsOrder);
@@ -469,7 +475,11 @@ export function performSetup(game: MERCGame, options: SetupOptions): void {
 
   game.message('=== Setup Complete ===');
   game.message('Map: All sectors unexplored');
-  game.message(`Dictator: ${game.dictatorPlayer.dictator.dictatorName} selected`);
+  if (game.dictatorPlayer?.dictator) {
+    game.message(`Dictator: ${game.dictatorPlayer.dictator.dictatorName} selected`);
+  } else {
+    game.message('Dictator: Will be selected on Day 1');
+  }
   game.message(`Tactics: ${game.dictatorPlayer.tacticsDeck.count(TacticsCard)} cards in deck`);
   game.message('Equipment: 3 decks ready');
   game.message('MERCs: Deck ready');
