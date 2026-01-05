@@ -266,7 +266,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }
                 return true; // Continue if no player context (shouldn't happen)
               },
-              maxIterations: 30, // Safety limit per turn
+              maxIterations: 50, // Safety limit per turn
               do: sequence(
                 // MERC-t5k: Check for pending combat (from move action) and initiate it
                 // This execute step runs BEFORE the action step, ensuring UI refresh
@@ -428,7 +428,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     (dictator?.inPlay && dictator.actionsRemaining > 0);
                   return hasActionsLeft && !game.isFinished();
                 },
-                maxIterations: 20,
+                maxIterations: 50, // Safety limit per turn
                 do: actionStep({
                   name: 'dictator-merc-action',
                   actions: [
