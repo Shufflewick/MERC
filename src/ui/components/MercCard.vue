@@ -46,6 +46,7 @@ const props = defineProps<{
   compact?: boolean;
   canDropEquipment?: boolean;
   abilityAvailable?: boolean; // Whether the MERC's ability action can be used
+  pendingSlot?: 'Weapon' | 'Armor' | 'Accessory' | null; // Highlight this slot as pending selection
 }>();
 
 const emit = defineEmits<{
@@ -678,7 +679,7 @@ function confirmDropEquipment() {
     <div class="equipment-section" v-if="showEquipment && !compact">
       <div
         class="equipment-slot"
-        :class="{ clickable: weaponSlot }"
+        :class="{ clickable: weaponSlot, pending: pendingSlot === 'Weapon' }"
         @click="showEquipmentDetails(weaponSlot, 'Weapon')"
       >
         <span class="slot-icon">&#9881;</span>
@@ -689,7 +690,7 @@ function confirmDropEquipment() {
       </div>
       <div
         class="equipment-slot"
-        :class="{ clickable: armorSlot }"
+        :class="{ clickable: armorSlot, pending: pendingSlot === 'Armor' }"
         @click="showEquipmentDetails(armorSlot, 'Armor')"
       >
         <span class="slot-icon">&#9830;</span>
@@ -700,7 +701,7 @@ function confirmDropEquipment() {
       </div>
       <div
         class="equipment-slot"
-        :class="{ clickable: accessorySlot }"
+        :class="{ clickable: accessorySlot, pending: pendingSlot === 'Accessory' }"
         @click="showEquipmentDetails(accessorySlot, 'Accessory')"
       >
         <span class="slot-icon">&#9632;</span>
@@ -1030,6 +1031,16 @@ function confirmDropEquipment() {
 
 .equipment-slot.clickable:hover {
   background: v-bind('UI_COLORS.border');
+}
+
+.equipment-slot.pending {
+  background: rgba(212, 168, 75, 0.3);
+  animation: pulse-pending 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-pending {
+  0%, 100% { background: rgba(212, 168, 75, 0.2); }
+  50% { background: rgba(212, 168, 75, 0.4); }
 }
 
 .click-hint {

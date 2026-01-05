@@ -151,6 +151,9 @@ const showStashModal = ref(false);
 const showMilitiaModal = ref(false);
 const selectedMilitia = ref<{ count: number; isDictator: boolean; playerColor?: string } | null>(null);
 
+// Track pending equipment selection for live preview
+const pendingEquipmentId = ref<string | number | null>(null);
+
 function openMilitiaCard(count: number, isDictator: boolean, playerColor?: string) {
   selectedMilitia.value = { count, isDictator, playerColor };
   showMilitiaModal.value = true;
@@ -692,6 +695,116 @@ const isSelectingEquipment = computed(() => {
   return false;
 });
 
+// Get the MERC that is currently selecting equipment (for preview card)
+const actingMercForEquipment = computed(() => {
+  if (!isSelectingEquipment.value) return null;
+
+  const args = props.actionController.currentArgs.value;
+  if (!args) return null;
+
+  // Get mercId from args - different actions use different arg names
+  // collectEquipment uses mercId (from explore followUp)
+  // reEquip uses actingMerc (from first selection)
+  // reEquipContinue uses mercId (from followUp)
+  const mercArg = args.mercId ?? args.actingMerc;
+
+  let mercId: number | undefined;
+  if (typeof mercArg === 'number') {
+    mercId = mercArg;
+  } else if (mercArg && typeof mercArg === 'object') {
+    mercId = (mercArg as { id?: number; ref?: number }).id ?? (mercArg as { id?: number; ref?: number }).ref;
+  }
+
+  if (mercId === undefined) return null;
+
+  // Look up full MERC data from gameView
+  const fullMerc = findElementById(mercId);
+  if (!fullMerc) return null;
+
+  // Also check squads for additional data
+  const allSquadMercs = [
+    ...(props.primarySquad?.mercs || []),
+    ...(props.secondarySquad?.mercs || []),
+  ];
+
+  const squadMerc = allSquadMercs.find((m: any) =>
+    m.ref === mercId || m.id === mercId
+  );
+
+  // Merge data (prefer fullMerc from gameView, add attributes)
+  return {
+    ...squadMerc,
+    ...fullMerc,
+    ...(fullMerc?.attributes || {}),
+  };
+});
+
+// Create a MERC object with pending equipment previewed in slots
+const mercWithPendingEquipment = computed(() => {
+  const baseMerc = actingMercForEquipment.value;
+  if (!baseMerc) return null;
+
+  // If no pending equipment, return base merc as-is
+  if (!pendingEquipmentId.value) return baseMerc;
+
+  // Find the pending equipment from selectableItems
+  const pendingEquip = selectableItems.value.find(
+    (item: any) => (item._choiceValue ?? item.id) === pendingEquipmentId.value
+  );
+
+  if (!pendingEquip) return baseMerc;
+
+  // Determine which slot this equipment would go into
+  const equipType = getAttr(pendingEquip, 'equipmentType', '');
+
+  // Create a copy with the pending equipment in the appropriate slot
+  const previewMerc = { ...baseMerc };
+  const previewAttrs = { ...(baseMerc.attributes || {}) };
+
+  // Create equipment slot data object
+  const slotData = {
+    equipmentId: getAttr(pendingEquip, 'equipmentId', ''),
+    equipmentName: getEquipmentName(pendingEquip),
+    equipmentType: equipType,
+    combatBonus: getAttr(pendingEquip, 'combatBonus', 0),
+    initiative: getAttr(pendingEquip, 'initiative', 0),
+    training: getAttr(pendingEquip, 'training', 0),
+    armorBonus: getAttr(pendingEquip, 'armorBonus', 0),
+    targets: getAttr(pendingEquip, 'targets', 0),
+    negatesArmor: getAttr(pendingEquip, 'negatesArmor', false),
+    image: getAttr(pendingEquip, 'image', ''),
+  };
+
+  // Set the appropriate slot based on equipment type
+  if (equipType === 'Weapon') {
+    previewAttrs.weaponSlotData = slotData;
+  } else if (equipType === 'Armor') {
+    previewAttrs.armorSlotData = slotData;
+  } else if (equipType === 'Accessory') {
+    previewAttrs.accessorySlotData = slotData;
+  }
+
+  previewMerc.attributes = previewAttrs;
+  return previewMerc;
+});
+
+// Get the type of slot being previewed (for highlighting in MercCard)
+const pendingSlotType = computed((): 'Weapon' | 'Armor' | 'Accessory' | null => {
+  if (!pendingEquipmentId.value || !isSelectingEquipment.value) return null;
+
+  const pendingEquip = selectableItems.value.find(
+    (item: any) => (item._choiceValue ?? item.id) === pendingEquipmentId.value
+  );
+
+  if (!pendingEquip) return null;
+
+  const equipType = getAttr(pendingEquip, 'equipmentType', '');
+  if (equipType === 'Weapon' || equipType === 'Armor' || equipType === 'Accessory') {
+    return equipType as 'Weapon' | 'Armor' | 'Accessory';
+  }
+  return null;
+});
+
 // Check if current selection is for equipment type (Weapon/Armor/Accessory)
 const isSelectingEquipmentType = computed(() => {
   const sel = props.actionController.currentSelection.value;
@@ -1075,45 +1188,62 @@ const sectorTypeIcon = computed(() => {
             </button>
           </div>
 
-          <!-- Equipment Selection (Table) -->
-          <div v-else-if="isSelectingEquipment" class="equipment-selection">
-            <table class="equipment-table">
-              <tbody>
-                <tr
-                  v-for="(item, index) in selectableItems"
-                  :key="getAttr(item, 'id', '') || index"
-                  class="equipment-row"
-                  @click="selectEquipment(item)"
-                >
-                  <td class="equip-image-cell">
-                    <div class="equip-image-wrapper">
-                      <img
-                        :src="getEquipmentImagePath(item)"
-                        :alt="getEquipmentName(item)"
-                        class="equip-image"
-                        @error="($event.target as HTMLImageElement).src = '/equipment/unknown.png'"
-                      />
-                    </div>
-                  </td>
-                  <td class="equip-name-cell">
-                    <div class="equip-name-content">
-                      <span class="equip-type-badge" :class="getEquipmentTypeClass(item)">
-                        {{ getEquipmentType(item) }}
+          <!-- Equipment Selection (Table) with MERC Preview -->
+          <div v-else-if="isSelectingEquipment" class="equipment-selection-layout">
+            <!-- Equipment List (Left) -->
+            <div class="equipment-list-section">
+              <table class="equipment-table">
+                <tbody>
+                  <tr
+                    v-for="(item, index) in selectableItems"
+                    :key="getAttr(item, 'id', '') || index"
+                    class="equipment-row"
+                    :class="{ 'is-hovered': pendingEquipmentId === (item._choiceValue ?? item.id) }"
+                    @click="selectEquipment(item)"
+                    @mouseenter="pendingEquipmentId = item._choiceValue ?? item.id"
+                    @mouseleave="pendingEquipmentId = null"
+                  >
+                    <td class="equip-image-cell">
+                      <div class="equip-image-wrapper">
+                        <img
+                          :src="getEquipmentImagePath(item)"
+                          :alt="getEquipmentName(item)"
+                          class="equip-image"
+                          @error="($event.target as HTMLImageElement).src = '/equipment/unknown.png'"
+                        />
+                      </div>
+                    </td>
+                    <td class="equip-name-cell">
+                      <div class="equip-name-content">
+                        <span class="equip-type-badge" :class="getEquipmentTypeClass(item)">
+                          {{ getEquipmentType(item) }}
+                        </span>
+                        <span class="equip-name">{{ getEquipmentName(item) }}</span>
+                      </div>
+                    </td>
+                    <td class="equip-desc-cell">
+                      <div class="equip-stats" v-if="getEquipmentStats(item)">
+                        {{ getEquipmentStats(item) }}
+                      </div>
+                      <span class="equip-description" v-if="getEquipmentDescription(item)">
+                        {{ getEquipmentDescription(item) }}
                       </span>
-                      <span class="equip-name">{{ getEquipmentName(item) }}</span>
-                    </div>
-                  </td>
-                  <td class="equip-desc-cell">
-                    <div class="equip-stats" v-if="getEquipmentStats(item)">
-                      {{ getEquipmentStats(item) }}
-                    </div>
-                    <span class="equip-description" v-if="getEquipmentDescription(item)">
-                      {{ getEquipmentDescription(item) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- MERC Card Preview (Right) -->
+            <div class="merc-preview-section" v-if="actingMercForEquipment">
+              <div class="merc-preview-header">Equipping:</div>
+              <MercCard
+                :merc="mercWithPendingEquipment"
+                :player-color="playerColor"
+                :show-equipment="true"
+                :pending-slot="pendingSlotType"
+              />
+            </div>
           </div>
 
           <!-- Equipment Type Selection (Weapon/Armor/Accessory) -->
@@ -1503,6 +1633,50 @@ const sectorTypeIcon = computed(() => {
   width: 100%;
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* Equipment Selection with MERC Preview Layout */
+.equipment-selection-layout {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.equipment-list-section {
+  flex: 1;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.merc-preview-section {
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.merc-preview-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: v-bind('UI_COLORS.accent');
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Highlight hovered equipment row */
+.equipment-row.is-hovered {
+  background: rgba(212, 168, 75, 0.25);
+}
+
+/* Responsive: Stack vertically on narrow screens */
+@media (max-width: 700px) {
+  .equipment-selection-layout {
+    flex-direction: column;
+  }
+
+  .merc-preview-section {
+    flex: 0 0 auto;
+  }
 }
 
 .equipment-table {
