@@ -238,15 +238,22 @@ const actionContextSectorId = computed(() => {
   }
 
   // If no explicit sectorId but we're in a sector-relevant action,
-  // infer from player's primary squad location
+  // infer from player's primary squad location (or dictator's squad for dictator player)
   const sectorRelevantActions = [
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
   ];
-  if (sectorRelevantActions.includes(currentAction) && primarySquad.value?.sectorId) {
-    // Find the sector by sectorId string and return its numeric id
-    const sector = sectors.value.find(s => s.sectorId === primarySquad.value?.sectorId);
-    return sector?.id ?? null;
+  if (sectorRelevantActions.includes(currentAction)) {
+    // For dictator player, use dictator's squad location
+    const squadSectorId = currentPlayerIsDictator.value
+      ? (dictatorPrimarySquad.value?.sectorId || dictatorSecondarySquad.value?.sectorId)
+      : primarySquad.value?.sectorId;
+
+    if (squadSectorId) {
+      // Find the sector by sectorId string and return its numeric id
+      const sector = sectors.value.find(s => s.sectorId === squadSectorId);
+      return sector?.id ?? null;
+    }
   }
 
   return null;
