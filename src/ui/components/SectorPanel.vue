@@ -245,9 +245,9 @@ const squadInSector = computed(() => {
   return null;
 });
 
-// Get MERC image path
+// Get MERC or Dictator image path
 function getMercImagePath(merc: any): string {
-  // Check for direct image property
+  // Check for direct image property (dictators have full URLs)
   const image = getAttr(merc, 'image', '');
   if (image) return image;
 
@@ -255,6 +255,14 @@ function getMercImagePath(merc: any): string {
   let mercId = getAttr(merc, 'mercId', '');
   if (!mercId && merc?.attributes?.mercId) {
     mercId = merc.attributes.mercId;
+  }
+
+  // Also check for dictatorId
+  if (!mercId) {
+    mercId = getAttr(merc, 'dictatorId', '');
+    if (!mercId && merc?.attributes?.dictatorId) {
+      mercId = merc.attributes.dictatorId;
+    }
   }
 
   if (mercId) {
@@ -270,9 +278,12 @@ function getMercImagePath(merc: any): string {
   return '/mercs/unknown.jpg';
 }
 
-// Get MERC name
+// Get MERC or Dictator name
 function getMercName(merc: any): string {
-  return getAttr(merc, 'mercName', '') || getAttr(merc, 'mercId', 'Unknown');
+  return getAttr(merc, 'mercName', '') ||
+         getAttr(merc, 'dictatorName', '') ||
+         getAttr(merc, 'mercId', '') ||
+         getAttr(merc, 'dictatorId', 'Unknown');
 }
 
 // Get equipment image path
@@ -565,20 +576,37 @@ const isInActionFlow = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   if (!currentAction) return false;
 
-  // Must have a squad in this sector to show action UI
-  if (!hasSquadInSector.value) return false;
-
-  // Actions that are explicitly started from this panel
-  if (activeActionFromPanel.value !== null && currentAction === activeActionFromPanel.value) {
-    return true;
-  }
-
   // Sector-relevant actions - show UI regardless of where action was started
   // These are actions that require selections from MERCs/equipment in a sector
   const sectorRelevantActions = [
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
   ];
+
+  // Check if action args reference this sector (e.g., collectEquipment from dictator explore)
+  // This handles cases where the acting unit (like dictator) isn't in a squad
+  const args = props.actionController.currentArgs.value;
+  if (args && sectorRelevantActions.includes(currentAction)) {
+    const sectorArg = args.sectorId;
+    let actionSectorId: number | undefined;
+    if (typeof sectorArg === 'number') {
+      actionSectorId = sectorArg;
+    } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
+      actionSectorId = (sectorArg as { id: number }).id;
+    }
+    // If action's sectorId matches this sector, show UI here
+    if (actionSectorId !== undefined && props.sector.id === actionSectorId) {
+      return true;
+    }
+  }
+
+  // Must have a squad in this sector for other checks
+  if (!hasSquadInSector.value) return false;
+
+  // Actions that are explicitly started from this panel
+  if (activeActionFromPanel.value !== null && currentAction === activeActionFromPanel.value) {
+    return true;
+  }
 
   if (sectorRelevantActions.includes(currentAction)) {
     return true;
@@ -625,7 +653,7 @@ const allAvailableMercs = computed(() => {
   return mercs;
 });
 
-// Check if current selection is for MERC
+// Check if current selection is for MERC (or unit - includes dictator card)
 const isSelectingMerc = computed(() => {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return false;
@@ -634,8 +662,10 @@ const isSelectingMerc = computed(() => {
   const selName = (sel.name || '').toLowerCase();
   const selPrompt = (sel.prompt || '').toLowerCase();
 
-  // If prompt or name mentions MERC, it's a MERC selection
-  if (selName.includes('merc') || selPrompt.includes('merc')) {
+  // If prompt or name mentions MERC or unit, it's a MERC selection
+  // "unit" is used for actions that can select both MERCs and DictatorCard
+  if (selName.includes('merc') || selPrompt.includes('merc') ||
+      selName.includes('unit') || selPrompt.includes('unit')) {
     return true;
   }
 
@@ -913,7 +943,9 @@ const selectableItems = computed(() => {
   const selName = (sel.name || '').toLowerCase();
 
   // Check if this is a MERC selection (by name or prompt)
+  // Also check for 'unit' which is used for selections that can include both MERCs and DictatorCard
   const isMercSelection = selName.includes('merc') || prompt.includes('merc') ||
+    selName.includes('unit') || prompt.includes('unit') ||
     (validEls.length > 0 && validEls.some((e: any) => e.mercId || e.element?.attributes?.mercId));
 
   if (sel.type === 'element' && validEls.length > 0) {

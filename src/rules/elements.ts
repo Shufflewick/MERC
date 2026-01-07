@@ -75,13 +75,13 @@ export interface EquipmentSlotData {
 }
 
 // =============================================================================
-// MERC Card - The mercenary characters
+// CombatUnit - Abstract base class for MERCs and Dictators
 // =============================================================================
 
-export class MercCard extends BaseCard {
-  // Identity
-  mercId!: string;
-  mercName!: string;
+export abstract class CombatUnit extends BaseCard {
+  // Identity - generic names, subclasses provide aliases
+  unitId!: string;
+  unitName!: string;
   bio!: string;
   ability!: string;
   image!: string;
@@ -94,8 +94,6 @@ export class MercCard extends BaseCard {
   // Current state
   damage: number = 0;
   actionsRemaining: number = 2;
-  // Location tracking (used for dictator MERCs; rebel MERCs use Squad.sectorId)
-  // Must have default value for serialization to gameView
   sectorId: string = '';
 
   // Haarg's ability bonuses (stored explicitly since parent isn't available during serialization)
@@ -115,36 +113,34 @@ export class MercCard extends BaseCard {
   valkyrieSquadInitiativeBonus: number = 0;
 
   // Equipment-conditional combat bonuses (displayed in UI tooltips)
-  boubaHandgunCombatBonus: number = 0;      // Bouba: +1 combat with handgun
-  mayhemUziCombatBonus: number = 0;         // Mayhem: +2 combat with Uzi
-  rozeskeArmorCombatBonus: number = 0;      // Rozeske: +1 combat with armor
-  stumpyExplosiveCombatBonus: number = 0;   // Stumpy: +1 combat with explosives
-  vandradiMultiTargetCombatBonus: number = 0; // Vandradi: +1 combat with multi-target weapon
-  dutchUnarmedCombatBonus: number = 0;      // Dutch: +1 combat without weapon
-  dutchUnarmedInitiativeBonus: number = 0;  // Dutch: +1 initiative without weapon
-  moeSmawTargetBonus: number = 0;           // Moe: +1 target with SMAW
-  raWeaponTargetBonus: number = 0;          // Ra: +1 target with any weapon
+  boubaHandgunCombatBonus: number = 0;
+  mayhemUziCombatBonus: number = 0;
+  rozeskeArmorCombatBonus: number = 0;
+  stumpyExplosiveCombatBonus: number = 0;
+  vandradiMultiTargetCombatBonus: number = 0;
+  dutchUnarmedCombatBonus: number = 0;
+  dutchUnarmedInitiativeBonus: number = 0;
+  moeSmawTargetBonus: number = 0;
+  raWeaponTargetBonus: number = 0;
 
   // Squad-conditional bonuses (displayed in UI tooltips)
-  snakeSoloCombatBonus: number = 0;         // Snake: +1 combat when alone
-  snakeSoloInitiativeBonus: number = 0;     // Snake: +1 initiative when alone
-  snakeSoloTrainingBonus: number = 0;       // Snake: +1 training when alone
-  tavistoWomanCombatBonus: number = 0;      // Tavisto: +1 combat with woman in squad
-  tavistoWomanInitiativeBonus: number = 0;  // Tavisto: +1 initiative with woman in squad
-  tavistoWomanTrainingBonus: number = 0;    // Tavisto: +1 training with woman in squad
+  snakeSoloCombatBonus: number = 0;
+  snakeSoloInitiativeBonus: number = 0;
+  snakeSoloTrainingBonus: number = 0;
+  tavistoWomanCombatBonus: number = 0;
+  tavistoWomanInitiativeBonus: number = 0;
+  tavistoWomanTrainingBonus: number = 0;
 
   // Faustina's extra training-only action (separate from regular actions)
-  trainingActionsRemaining: number = 0;     // Faustina: +1 action for training only
+  trainingActionsRemaining: number = 0;
 
   // Computed stat caches (updated when equipment/abilities change)
-  // These are serialized and sent to the UI since getters aren't serialized by BoardSmith
   effectiveTraining: number = 0;
   effectiveInitiative: number = 0;
   effectiveCombat: number = 0;
   effectiveMaxHealth: number = MercConstants.BASE_HEALTH;
 
-  // Equipment slots - now stored as child elements with equippedSlot attribute
-  // These getters query children, making equipment survive HMR via element hierarchy
+  // Equipment slots - stored as child elements with equippedSlot attribute
   get weaponSlot(): Equipment | undefined {
     return this.first(Equipment, e => e.equippedSlot === 'weapon');
   }
@@ -164,42 +160,33 @@ export class MercCard extends BaseCard {
   }
 
   // Serialized equipment data for UI (updated when equipment changes)
-  // BoardSmith doesn't serialize element references, only plain data
   weaponSlotData?: EquipmentSlotData | null;
   armorSlotData?: EquipmentSlotData | null;
   accessorySlotData?: EquipmentSlotData | null;
   bandolierSlotsData: EquipmentSlotData[] = [];
 
-  // Constants (imported from game constants)
+  // Constants
   static readonly BASE_HEALTH = MercConstants.BASE_HEALTH;
   static readonly BASE_TARGETS = MercConstants.BASE_TARGETS;
   static readonly BASE_ARMOR = MercConstants.BASE_ARMOR;
   static readonly BASE_ACTIONS = MercConstants.ACTIONS_PER_DAY;
 
   // Helper to get equipment value with fallback to serialized data
-  // BoardSmith doesn't serialize element references, so we need to check *SlotData
-  private getEquipValue(
+  protected getEquipValue(
     slot: Equipment | undefined,
     slotData: EquipmentSlotData | null | undefined,
     prop: keyof EquipmentSlotData
   ): number {
-    // Try the slot reference first (available during session)
     if (slot && typeof slot[prop as keyof Equipment] === 'number') {
       return slot[prop as keyof Equipment] as number;
     }
-    // Fall back to serialized data (available after restore)
     if (slotData && typeof slotData[prop] === 'number') {
       return slotData[prop] as number;
     }
     return 0;
   }
 
-  /**
-   * Get the maximum number of bandolier slots available.
-   * Returns 0 if no bandolier is equipped, otherwise the extraAccessorySlots value.
-   */
   getMaxBandolierSlots(): number {
-    // Check accessory slot for bandolier
     const accessoryId = this.accessorySlot?.equipmentId || this.accessorySlotData?.equipmentId;
     if (accessoryId) {
       return getExtraAccessorySlots(accessoryId);
@@ -207,20 +194,12 @@ export class MercCard extends BaseCard {
     return 0;
   }
 
-  /**
-   * Get the number of available (empty) bandolier slots.
-   * Now uses bandolierSlots getter which queries children (survives HMR).
-   */
   getAvailableBandolierSlots(): number {
     const max = this.getMaxBandolierSlots();
     return Math.max(0, max - this.bandolierSlots.length);
   }
 
-  /**
-   * Get the next available bandolier slot index.
-   * Returns -1 if no slots available.
-   */
-  private getNextBandolierIndex(): number {
+  protected getNextBandolierIndex(): number {
     const max = this.getMaxBandolierSlots();
     const used = new Set(this.bandolierSlots.map(e => parseInt(e.equippedSlot!.split(':')[1])));
     for (let i = 0; i < max; i++) {
@@ -229,14 +208,13 @@ export class MercCard extends BaseCard {
     return -1;
   }
 
-  // Helper to get base stat + equipment (without Haarg bonus) for comparison
-  private getBaseStatWithEquip(stat: 'initiative' | 'training' | 'combat'): number {
+  // Helper to get base stat + equipment (without ability bonuses) for comparison
+  protected getBaseStatWithEquip(stat: 'initiative' | 'training' | 'combat'): number {
     if (stat === 'initiative') {
       let value = this.baseInitiative;
       value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
       value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
       value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
-      // Add bandolier slot bonuses (use data length as source of truth - element refs aren't serialized)
       for (let i = 0; i < this.bandolierSlotsData.length; i++) {
         value += this.getEquipValue(this.bandolierSlots[i], this.bandolierSlotsData[i], 'initiative');
       }
@@ -246,7 +224,6 @@ export class MercCard extends BaseCard {
       value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
       value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
       value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
-      // Add bandolier slot bonuses (use data length as source of truth - element refs aren't serialized)
       for (let i = 0; i < this.bandolierSlotsData.length; i++) {
         value += this.getEquipValue(this.bandolierSlots[i], this.bandolierSlotsData[i], 'training');
       }
@@ -256,7 +233,6 @@ export class MercCard extends BaseCard {
       value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
       value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
       value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
-      // Add bandolier slot bonuses (use data length as source of truth - element refs aren't serialized)
       for (let i = 0; i < this.bandolierSlotsData.length; i++) {
         value += this.getEquipValue(this.bandolierSlots[i], this.bandolierSlotsData[i], 'combatBonus');
       }
@@ -269,36 +245,27 @@ export class MercCard extends BaseCard {
    * Call this whenever equipment or abilities change.
    */
   updateComputedStats(): void {
-    // First update equipment-conditional bonuses
     this.updateEquipmentBonuses();
 
-    // MaxHealth - check for ability bonuses (e.g., Juicer's +2 health)
-    const ability = getMercAbility(this.mercId);
+    const ability = getMercAbility(this.unitId);
     const extraHealth = ability?.passive?.extraHealth || 0;
-    this.effectiveMaxHealth = MercCard.BASE_HEALTH + extraHealth;
+    this.effectiveMaxHealth = CombatUnit.BASE_HEALTH + extraHealth;
 
     // Training
     let t = this.baseTraining;
     t += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
     t += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
     t += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       t += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
     }
-    if (this.mercId === 'haarg') {
-      t += this.haargTrainingBonus || 0;
-    }
-    if (this.mercId === 'sarge') {
-      t += this.sargeTrainingBonus || 0;
-    }
-    // Snake's solo training bonus
+    if (this.unitId === 'haarg') t += this.haargTrainingBonus || 0;
+    if (this.unitId === 'sarge') t += this.sargeTrainingBonus || 0;
     t += this.snakeSoloTrainingBonus || 0;
-    // Tavisto's woman-in-squad training bonus
     t += this.tavistoWomanTrainingBonus || 0;
     this.effectiveTraining = t;
 
-    // Initiative - use getEffectiveInitiative() which accounts for Vulture's ability
+    // Initiative
     this.effectiveInitiative = this.getEffectiveInitiative();
 
     // Combat
@@ -306,175 +273,111 @@ export class MercCard extends BaseCard {
     c += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
     c += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
     c += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       c += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
     }
-    if (this.mercId === 'haarg') {
-      c += this.haargCombatBonus || 0;
-    }
-    if (this.mercId === 'sarge') {
-      c += this.sargeCombatBonus || 0;
-    }
-    // Add ability-based combat bonus (e.g., Shooter's +3 combat)
+    if (this.unitId === 'haarg') c += this.haargCombatBonus || 0;
+    if (this.unitId === 'sarge') c += this.sargeCombatBonus || 0;
     c += ability?.passive?.extraCombat || 0;
-    // Equipment-conditional combat bonuses
     c += this.boubaHandgunCombatBonus || 0;
     c += this.mayhemUziCombatBonus || 0;
     c += this.rozeskeArmorCombatBonus || 0;
     c += this.stumpyExplosiveCombatBonus || 0;
     c += this.vandradiMultiTargetCombatBonus || 0;
     c += this.dutchUnarmedCombatBonus || 0;
-    // Snake's solo combat bonus
     c += this.snakeSoloCombatBonus || 0;
-    // Tavisto's woman-in-squad combat bonus
     c += this.tavistoWomanCombatBonus || 0;
     this.effectiveCombat = Math.max(0, c);
   }
 
   /**
    * Update Haarg's ability bonuses based on squad mates.
-   * Call this whenever squad composition changes.
-   * @param squadMates - Array of other MERCs in the same squad
    */
-  updateHaargBonus(squadMates: MercCard[]): void {
-    if (this.mercId !== 'haarg') return;
+  updateHaargBonus(squadMates: CombatUnit[]): void {
+    if (this.unitId !== 'haarg') return;
 
-    // Reset bonuses
     this.haargTrainingBonus = 0;
     this.haargInitiativeBonus = 0;
     this.haargCombatBonus = 0;
 
-    // Check each stat against squad mates' BASE stats
     for (const mate of squadMates) {
-      if (mate.mercId === 'haarg' || mate.isDead) continue;
-
-      if (mate.baseTraining > this.baseTraining) {
-        this.haargTrainingBonus = 1;
-      }
-      if (mate.baseInitiative > this.baseInitiative) {
-        this.haargInitiativeBonus = 1;
-      }
-      if (mate.baseCombat > this.baseCombat) {
-        this.haargCombatBonus = 1;
-      }
+      if (mate.unitId === 'haarg' || mate.isDead) continue;
+      if (mate.baseTraining > this.baseTraining) this.haargTrainingBonus = 1;
+      if (mate.baseInitiative > this.baseInitiative) this.haargInitiativeBonus = 1;
+      if (mate.baseCombat > this.baseCombat) this.haargCombatBonus = 1;
     }
 
-    // Update computed stats after changing bonuses
     this.updateComputedStats();
   }
 
   /**
    * Update Sarge's ability bonuses based on squad mates.
-   * Sarge gets +1 to all skills when his BASE initiative is highest in the squad.
-   * Call this whenever squad composition changes.
-   * @param squadMates - Array of all MERCs in the same squad (including Sarge)
    */
-  updateSargeBonus(squadMates: MercCard[]): void {
-    if (this.mercId !== 'sarge') return;
+  updateSargeBonus(squadMates: CombatUnit[]): void {
+    if (this.unitId !== 'sarge') return;
 
-    // Reset bonuses
     this.sargeTrainingBonus = 0;
     this.sargeInitiativeBonus = 0;
     this.sargeCombatBonus = 0;
 
-    // Check if Sarge has highest BASE initiative in squad
     let hasHighest = true;
     for (const mate of squadMates) {
-      if (mate.mercId === 'sarge' || mate.isDead) continue;
-
-      // Compare BASE initiatives only (no equipment)
+      if (mate.unitId === 'sarge' || mate.isDead) continue;
       if (mate.baseInitiative >= this.baseInitiative) {
         hasHighest = false;
         break;
       }
     }
 
-    // If Sarge has highest base initiative, give +1 to all skills
-    if (hasHighest && squadMates.filter(m => !m.isDead && m.mercId !== 'sarge').length > 0) {
+    if (hasHighest && squadMates.filter(m => !m.isDead && m.unitId !== 'sarge').length > 0) {
       this.sargeTrainingBonus = 1;
       this.sargeInitiativeBonus = 1;
       this.sargeCombatBonus = 1;
     }
 
-    // Update computed stats after changing bonuses
     this.updateComputedStats();
   }
 
   /**
-   * Update Tack's squad initiative bonus for this MERC.
-   * When Tack has highest initiative in the squad, all squad members get +2 initiative.
-   * Call this whenever squad composition or initiative changes.
-   * @param squadMates - Array of all MERCs in the same squad
+   * Update Tack's squad initiative bonus for this unit.
    */
-  updateTackSquadBonus(squadMates: MercCard[]): void {
-    // Reset bonus
+  updateTackSquadBonus(squadMates: CombatUnit[]): void {
     this.tackSquadInitiativeBonus = 0;
 
-    // Find Tack in the squad
-    const tack = squadMates.find(m => m.mercId === 'tack' && !m.isDead);
+    const tack = squadMates.find(m => m.unitId === 'tack' && !m.isDead);
     if (!tack) return;
 
-    // Check if Tack has highest BASE initiative in squad
     let tackHasHighest = true;
     for (const mate of squadMates) {
-      if (mate.mercId === 'tack' || mate.isDead) continue;
-
-      // Compare BASE initiatives only (no equipment or bonuses)
+      if (mate.unitId === 'tack' || mate.isDead) continue;
       if (mate.baseInitiative > tack.baseInitiative) {
         tackHasHighest = false;
         break;
       }
     }
 
-    // If Tack has highest base initiative, give +2 to all squad members (including Tack)
-    if (tackHasHighest) {
-      this.tackSquadInitiativeBonus = 2;
-    }
-
-    // Update computed stats after changing bonuses
+    if (tackHasHighest) this.tackSquadInitiativeBonus = 2;
     this.updateComputedStats();
   }
 
   /**
-   * Update Valkyrie's squad initiative bonus for this MERC.
-   * When Valkyrie is in the squad, all OTHER squad members get +1 initiative.
-   * Call this whenever squad composition changes.
-   * @param squadMates - Array of all MERCs in the same squad
+   * Update Valkyrie's squad initiative bonus for this unit.
    */
-  updateValkyrieSquadBonus(squadMates: MercCard[]): void {
-    // Reset bonus
+  updateValkyrieSquadBonus(squadMates: CombatUnit[]): void {
     this.valkyrieSquadInitiativeBonus = 0;
+    if (this.unitId === 'valkyrie') return;
 
-    // Valkyrie herself doesn't get the bonus
-    if (this.mercId === 'valkyrie') return;
-
-    // Find Valkyrie in the squad
-    const valkyrie = squadMates.find(m => m.mercId === 'valkyrie' && !m.isDead);
+    const valkyrie = squadMates.find(m => m.unitId === 'valkyrie' && !m.isDead);
     if (!valkyrie) return;
 
-    // Give +1 initiative to this squad mate
     this.valkyrieSquadInitiativeBonus = 1;
-
-    // Update computed stats after changing bonuses
     this.updateComputedStats();
   }
 
   /**
-   * Update equipment-conditional bonuses for this MERC.
-   * These bonuses depend on what equipment is equipped:
-   * - Bouba: +1 combat with handgun
-   * - Mayhem: +2 combat with Uzi
-   * - Rozeske: +1 combat with armor
-   * - Stumpy: +1 combat with explosives
-   * - Vandradi: +1 combat with multi-target weapon
-   * - Dutch: +1 combat and +1 initiative without weapon
-   * - Moe: +1 target with SMAW
-   * - Ra: +1 target with any weapon
-   * Call this whenever equipment changes.
+   * Update equipment-conditional bonuses for this unit.
    */
   updateEquipmentBonuses(): void {
-    // Reset all equipment-conditional bonuses
     this.boubaHandgunCombatBonus = 0;
     this.mayhemUziCombatBonus = 0;
     this.rozeskeArmorCombatBonus = 0;
@@ -485,73 +388,35 @@ export class MercCard extends BaseCard {
     this.moeSmawTargetBonus = 0;
     this.raWeaponTargetBonus = 0;
 
-    // Get weapon info
     const weaponId = this.weaponSlot?.equipmentId || this.weaponSlotData?.equipmentId;
     const hasWeaponEquipped = !!weaponId;
     const hasArmorEquipped = !!(this.armorSlot?.equipmentId || this.armorSlotData?.equipmentId);
     const weaponTargets = this.weaponSlot?.targets ?? this.weaponSlotData?.targets ?? 0;
 
-    // Bouba: +1 combat with handgun
-    if (this.mercId === 'bouba' && weaponId && isHandgun(weaponId)) {
-      this.boubaHandgunCombatBonus = 1;
-    }
-
-    // Mayhem: +2 combat with Uzi
-    if (this.mercId === 'mayhem' && weaponId && isUzi(weaponId)) {
-      this.mayhemUziCombatBonus = 2;
-    }
-
-    // Rozeske: +1 combat with armor
-    if (this.mercId === 'rozeske' && hasArmorEquipped) {
-      this.rozeskeArmorCombatBonus = 1;
-    }
-
-    // Stumpy: +1 combat with explosives
-    if (this.mercId === 'stumpy' && weaponId && isExplosive(weaponId)) {
-      this.stumpyExplosiveCombatBonus = 1;
-    }
-
-    // Vandradi: +1 combat with multi-target weapon (targets > 0)
-    if (this.mercId === 'vandradi' && weaponTargets > 0) {
-      this.vandradiMultiTargetCombatBonus = 1;
-    }
-
-    // Dutch: +1 combat and +1 initiative without weapon
-    if (this.mercId === 'dutch' && !hasWeaponEquipped) {
+    if (this.unitId === 'bouba' && weaponId && isHandgun(weaponId)) this.boubaHandgunCombatBonus = 1;
+    if (this.unitId === 'mayhem' && weaponId && isUzi(weaponId)) this.mayhemUziCombatBonus = 2;
+    if (this.unitId === 'rozeske' && hasArmorEquipped) this.rozeskeArmorCombatBonus = 1;
+    if (this.unitId === 'stumpy' && weaponId && isExplosive(weaponId)) this.stumpyExplosiveCombatBonus = 1;
+    if (this.unitId === 'vandradi' && weaponTargets > 0) this.vandradiMultiTargetCombatBonus = 1;
+    if (this.unitId === 'dutch' && !hasWeaponEquipped) {
       this.dutchUnarmedCombatBonus = 1;
       this.dutchUnarmedInitiativeBonus = 1;
     }
-
-    // Moe: +1 target with SMAW
-    if (this.mercId === 'moe' && weaponId && isSmaw(weaponId)) {
-      this.moeSmawTargetBonus = 1;
-    }
-
-    // Ra: +1 target with any weapon
-    if (this.mercId === 'ra' && hasWeaponEquipped) {
-      this.raWeaponTargetBonus = 1;
-    }
+    if (this.unitId === 'moe' && weaponId && isSmaw(weaponId)) this.moeSmawTargetBonus = 1;
+    if (this.unitId === 'ra' && hasWeaponEquipped) this.raWeaponTargetBonus = 1;
   }
 
   /**
-   * Update Snake's solo bonuses for this MERC.
-   * Snake gets +1 to all stats when alone in the squad.
-   * Call this whenever squad composition changes.
-   * @param squadMates - Array of all MERCs in the same squad
+   * Update Snake's solo bonuses for this unit.
    */
-  updateSnakeBonus(squadMates: MercCard[]): void {
-    // Reset bonuses
+  updateSnakeBonus(squadMates: CombatUnit[]): void {
     this.snakeSoloCombatBonus = 0;
     this.snakeSoloInitiativeBonus = 0;
     this.snakeSoloTrainingBonus = 0;
 
-    // Only Snake gets this bonus
-    if (this.mercId !== 'snake') return;
+    if (this.unitId !== 'snake') return;
 
-    // Count living squad mates (excluding self)
-    const livingMates = squadMates.filter(m => !m.isDead && m.mercId !== 'snake').length;
-
-    // If alone in squad, give +1 to all stats
+    const livingMates = squadMates.filter(m => !m.isDead && m.unitId !== 'snake').length;
     if (livingMates === 0) {
       this.snakeSoloCombatBonus = 1;
       this.snakeSoloInitiativeBonus = 1;
@@ -560,24 +425,16 @@ export class MercCard extends BaseCard {
   }
 
   /**
-   * Update Tavisto's woman-in-squad bonuses for this MERC.
-   * Tavisto gets +1 to all stats when there's a woman in the squad.
-   * Call this whenever squad composition changes.
-   * @param squadMates - Array of all MERCs in the same squad
+   * Update Tavisto's woman-in-squad bonuses for this unit.
    */
-  updateTavistoBonus(squadMates: MercCard[]): void {
-    // Reset bonuses
+  updateTavistoBonus(squadMates: CombatUnit[]): void {
     this.tavistoWomanCombatBonus = 0;
     this.tavistoWomanInitiativeBonus = 0;
     this.tavistoWomanTrainingBonus = 0;
 
-    // Only Tavisto gets this bonus
-    if (this.mercId !== 'tavisto') return;
+    if (this.unitId !== 'tavisto') return;
 
-    // Check if there's a living woman in the squad
-    const hasWoman = squadMates.some(m => !m.isDead && FEMALE_MERCS.includes(m.mercId));
-
-    // If there's a woman, give +1 to all stats
+    const hasWoman = squadMates.some(m => !m.isDead && FEMALE_MERCS.includes(m.unitId));
     if (hasWoman) {
       this.tavistoWomanCombatBonus = 1;
       this.tavistoWomanInitiativeBonus = 1;
@@ -585,95 +442,51 @@ export class MercCard extends BaseCard {
     }
   }
 
-  // Computed stats including equipment bonuses and Haarg's ability
-  // Note: Getters are inlined to ensure they work during BoardSmith serialization
+  // Stat getters with full bonus support
   get initiative(): number {
     let value = this.baseInitiative;
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative');
     }
-    // Haarg's ability bonus
-    if (this.mercId === 'haarg') {
-      value += this.haargInitiativeBonus || 0;
-    }
-    // Sarge's ability bonus
-    if (this.mercId === 'sarge') {
-      value += this.sargeInitiativeBonus || 0;
-    }
-    // Tack's squad bonus (when Tack has highest initiative in squad)
-    if (this.tackSquadInitiativeBonus > 0) {
-      value += this.tackSquadInitiativeBonus;
-    }
-    // Valkyrie's squad bonus (squad mates get +1)
-    if (this.valkyrieSquadInitiativeBonus > 0) {
-      value += this.valkyrieSquadInitiativeBonus;
-    }
-    // Dutch's unarmed initiative bonus
+    if (this.unitId === 'haarg') value += this.haargInitiativeBonus || 0;
+    if (this.unitId === 'sarge') value += this.sargeInitiativeBonus || 0;
+    if (this.tackSquadInitiativeBonus > 0) value += this.tackSquadInitiativeBonus;
+    if (this.valkyrieSquadInitiativeBonus > 0) value += this.valkyrieSquadInitiativeBonus;
     value += this.dutchUnarmedInitiativeBonus || 0;
-    // Snake's solo initiative bonus
     value += this.snakeSoloInitiativeBonus || 0;
-    // Tavisto's woman-in-squad initiative bonus
     value += this.tavistoWomanInitiativeBonus || 0;
     return value;
   }
 
   /**
    * Get effective initiative for combat, accounting for Vulture's ability.
-   * Vulture ignores initiative PENALTIES (negative values) from equipment,
-   * but still receives initiative BONUSES (positive values).
    */
   getEffectiveInitiative(): number {
     let value = this.baseInitiative;
+    const ignoresPenalties = ignoresInitiativePenalties(this.unitId);
 
-    // Check if this MERC ignores initiative penalties (Vulture)
-    const ignoresPenalties = ignoresInitiativePenalties(this.mercId);
-
-    // Helper to add initiative value, filtering out penalties if needed
     const addInitiative = (initValue: number) => {
-      if (ignoresPenalties && initValue < 0) {
-        return; // Vulture ignores negative initiative from equipment
-      }
+      if (ignoresPenalties && initValue < 0) return;
       value += initValue;
     };
 
-    // Add equipment initiative (filtering penalties for Vulture)
     addInitiative(this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative'));
     addInitiative(this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative'));
     addInitiative(this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative'));
 
-    // Add bandolier slot bonuses
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       addInitiative(this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative'));
     }
 
-    // Haarg's ability bonus (not equipment, so always applied)
-    if (this.mercId === 'haarg') {
-      value += this.haargInitiativeBonus || 0;
-    }
-    // Sarge's ability bonus (not equipment, so always applied)
-    if (this.mercId === 'sarge') {
-      value += this.sargeInitiativeBonus || 0;
-    }
-
-    // Tack's squad bonus (when Tack has highest initiative in squad)
-    if (this.tackSquadInitiativeBonus > 0) {
-      value += this.tackSquadInitiativeBonus;
-    }
-
-    // Valkyrie's squad bonus (squad mates get +1)
-    if (this.valkyrieSquadInitiativeBonus > 0) {
-      value += this.valkyrieSquadInitiativeBonus;
-    }
-
-    // Dutch's unarmed initiative bonus
+    if (this.unitId === 'haarg') value += this.haargInitiativeBonus || 0;
+    if (this.unitId === 'sarge') value += this.sargeInitiativeBonus || 0;
+    if (this.tackSquadInitiativeBonus > 0) value += this.tackSquadInitiativeBonus;
+    if (this.valkyrieSquadInitiativeBonus > 0) value += this.valkyrieSquadInitiativeBonus;
     value += this.dutchUnarmedInitiativeBonus || 0;
-    // Snake's solo initiative bonus
     value += this.snakeSoloInitiativeBonus || 0;
-    // Tavisto's woman-in-squad initiative bonus
     value += this.tavistoWomanInitiativeBonus || 0;
 
     return value;
@@ -684,21 +497,12 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'training');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'training');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'training');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
     }
-    // Haarg's ability bonus
-    if (this.mercId === 'haarg') {
-      value += this.haargTrainingBonus || 0;
-    }
-    // Sarge's ability bonus
-    if (this.mercId === 'sarge') {
-      value += this.sargeTrainingBonus || 0;
-    }
-    // Snake's solo training bonus
+    if (this.unitId === 'haarg') value += this.haargTrainingBonus || 0;
+    if (this.unitId === 'sarge') value += this.sargeTrainingBonus || 0;
     value += this.snakeSoloTrainingBonus || 0;
-    // Tavisto's woman-in-squad training bonus
     value += this.tavistoWomanTrainingBonus || 0;
     return value;
   }
@@ -708,68 +512,51 @@ export class MercCard extends BaseCard {
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'combatBonus');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'combatBonus');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'combatBonus');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
     }
-    // Haarg's ability bonus
-    if (this.mercId === 'haarg') {
-      value += this.haargCombatBonus || 0;
-    }
-    // Sarge's ability bonus
-    if (this.mercId === 'sarge') {
-      value += this.sargeCombatBonus || 0;
-    }
-    // Equipment-conditional combat bonuses
+    if (this.unitId === 'haarg') value += this.haargCombatBonus || 0;
+    if (this.unitId === 'sarge') value += this.sargeCombatBonus || 0;
     value += this.boubaHandgunCombatBonus || 0;
     value += this.mayhemUziCombatBonus || 0;
     value += this.rozeskeArmorCombatBonus || 0;
     value += this.stumpyExplosiveCombatBonus || 0;
     value += this.vandradiMultiTargetCombatBonus || 0;
     value += this.dutchUnarmedCombatBonus || 0;
-    // Snake's solo combat bonus
     value += this.snakeSoloCombatBonus || 0;
-    // Tavisto's woman-in-squad combat bonus
     value += this.tavistoWomanCombatBonus || 0;
     return Math.max(0, value);
   }
 
   get maxHealth(): number {
-    // Check for ability-based health bonuses (e.g., Juicer's +2 health)
-    const ability = getMercAbility(this.mercId);
+    const ability = getMercAbility(this.unitId);
     const extraHealth = ability?.passive?.extraHealth || 0;
-    return MercCard.BASE_HEALTH + extraHealth;
+    return CombatUnit.BASE_HEALTH + extraHealth;
   }
 
   get health(): number {
-    // MERC-iqe: Per rules 13-clarifications-and-edge-cases.md,
-    // minimum health is 1 to prevent edge cases
     const calculatedHealth = this.maxHealth - this.damage;
     return calculatedHealth <= 0 ? 0 : calculatedHealth;
   }
 
   get targets(): number {
-    let value = MercCard.BASE_TARGETS;
+    let value = CombatUnit.BASE_TARGETS;
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'targets');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'targets');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'targets');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'targets');
     }
-    // Moe's SMAW target bonus
     value += this.moeSmawTargetBonus || 0;
-    // Ra's weapon target bonus
     value += this.raWeaponTargetBonus || 0;
     return value;
   }
 
   get equipmentArmor(): number {
-    let value = MercCard.BASE_ARMOR;
+    let value = CombatUnit.BASE_ARMOR;
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'armorBonus');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'armorBonus');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'armorBonus');
-    // Add bandolier slot bonuses (use data length as source of truth)
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'armorBonus');
     }
@@ -785,8 +572,7 @@ export class MercCard extends BaseCard {
   }
 
   takeDamage(amount: number): number {
-    // Armor absorbs damage first (handled by equipment armor value)
-    const actualDamage = amount; // Armor piercing handled at combat level
+    const actualDamage = amount;
     this.damage = Math.min(this.damage + actualDamage, this.maxHealth);
     return actualDamage;
   }
@@ -802,15 +588,15 @@ export class MercCard extends BaseCard {
   }
 
   resetActions(): void {
-    // MERC-qb1: Ewok gets +1 action (3 total instead of 2)
-    if (this.mercId === 'ewok') {
-      this.actionsRemaining = MercCard.BASE_ACTIONS + 1;
+    // Ewok gets +1 action (3 total instead of 2)
+    if (this.unitId === 'ewok') {
+      this.actionsRemaining = CombatUnit.BASE_ACTIONS + 1;
     } else {
-      this.actionsRemaining = MercCard.BASE_ACTIONS;
+      this.actionsRemaining = CombatUnit.BASE_ACTIONS;
     }
 
-    // MERC-bd4: Faustina gets +1 action for training only (separate from regular actions)
-    if (this.mercId === 'faustina') {
+    // Faustina gets +1 action for training only
+    if (this.unitId === 'faustina') {
       this.trainingActionsRemaining = 1;
     } else {
       this.trainingActionsRemaining = 0;
@@ -826,45 +612,12 @@ export class MercCard extends BaseCard {
   }
 
   canEquip(equipment: Equipment): boolean {
-    // MERC-70a: Apeiron won't use grenades or mortars
-    if (this.mercId === 'apeiron') {
-      const name = equipment.equipmentName.toLowerCase();
-      if (name.includes('grenade') || name.includes('mortar')) {
-        return false;
-      }
-    }
-
-    // MERC-o7js: Bandolier cannot be combined with another bandolier
-    if (equipment.equipmentId === 'bandolier') {
-      // Check if already have a bandolier equipped
-      if (this.accessorySlot?.equipmentId === 'bandolier') {
-        return false;
-      }
-      // Also check bandolier slots (though bandoliers shouldn't go in there)
-      if (this.bandolierSlots.some(e => e.equipmentId === 'bandolier')) {
-        return false;
-      }
-    }
-
-    // MERC-42g: Gunther can use all equipment slots for accessories
-    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
-      // Gunther can equip accessory if ANY slot is empty or bandolier slots available
-      return !this.accessorySlot || !this.weaponSlot || !this.armorSlot || this.getAvailableBandolierSlots() > 0;
-    }
-
-    // MERC-vwi: Genesis can carry a weapon in his accessory slot
-    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
-      // Genesis can equip weapon if weapon slot OR accessory slot is empty
-      return !this.weaponSlot || !this.accessorySlot;
-    }
-
     switch (equipment.equipmentType) {
       case 'Weapon':
         return !this.weaponSlot;
       case 'Armor':
         return !this.armorSlot;
       case 'Accessory':
-        // Can equip accessory if main slot is empty OR bandolier slots available
         return !this.accessorySlot || this.getAvailableBandolierSlots() > 0;
       default:
         return false;
@@ -873,9 +626,8 @@ export class MercCard extends BaseCard {
 
   /**
    * Sync the serialized equipment data properties from the actual slot references.
-   * Called after equip/unequip to ensure UI gets updated data.
    */
-  private syncEquipmentData(): void {
+  protected syncEquipmentData(): void {
     const toSlotData = (equip: Equipment | undefined): EquipmentSlotData | null => {
       if (!equip) return null;
       return {
@@ -897,26 +649,16 @@ export class MercCard extends BaseCard {
     this.weaponSlotData = toSlotData(this.weaponSlot);
     this.armorSlotData = toSlotData(this.armorSlot);
     this.accessorySlotData = toSlotData(this.accessorySlot);
-    // Sync bandolier slots data
     this.bandolierSlotsData = this.bandolierSlots.map(equip => toSlotData(equip)!);
   }
 
-  /**
-   * Helper to equip item to a specific slot.
-   * Moves equipment to be a child of this MERC and sets equippedSlot.
-   */
-  private equipToSlot(equipment: Equipment, slot: string): void {
+  protected equipToSlot(equipment: Equipment, slot: string): void {
     equipment.putInto(this);
     equipment.equippedSlot = slot;
-    // Equipped items are visible to all players (visibility fix for dictator MERCs)
     equipment.showToAll();
   }
 
-  /**
-   * Helper to unequip from a slot.
-   * Clears equippedSlot but does NOT move the equipment - caller must handle that.
-   */
-  private clearSlot(equipment: Equipment | undefined): Equipment | undefined {
+  protected clearSlot(equipment: Equipment | undefined): Equipment | undefined {
     if (equipment) {
       equipment.equippedSlot = undefined;
     }
@@ -925,45 +667,6 @@ export class MercCard extends BaseCard {
 
   equip(equipment: Equipment): Equipment | undefined {
     let replaced: Equipment | undefined;
-
-    // MERC-42g: Gunther can equip accessories in any slot
-    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
-      // Try accessory slot first, then bandolier slots, then weapon, then armor
-      if (!this.accessorySlot) {
-        this.equipToSlot(equipment, 'accessory');
-      } else if (this.getAvailableBandolierSlots() > 0) {
-        const idx = this.getNextBandolierIndex();
-        this.equipToSlot(equipment, `bandolier:${idx}`);
-      } else if (!this.weaponSlot) {
-        this.equipToSlot(equipment, 'weapon');
-      } else if (!this.armorSlot) {
-        this.equipToSlot(equipment, 'armor');
-      } else {
-        // All slots full, replace accessory slot
-        replaced = this.clearSlot(this.accessorySlot);
-        this.equipToSlot(equipment, 'accessory');
-      }
-      this.syncEquipmentData();
-      this.updateComputedStats();
-      return replaced;
-    }
-
-    // MERC-vwi: Genesis can equip weapons in accessory slot
-    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
-      // Try weapon slot first, then accessory slot
-      if (!this.weaponSlot) {
-        this.equipToSlot(equipment, 'weapon');
-      } else if (!this.accessorySlot) {
-        this.equipToSlot(equipment, 'accessory');
-      } else {
-        // Both slots full, replace weapon slot
-        replaced = this.clearSlot(this.weaponSlot);
-        this.equipToSlot(equipment, 'weapon');
-      }
-      this.syncEquipmentData();
-      this.updateComputedStats();
-      return replaced;
-    }
 
     switch (equipment.equipmentType) {
       case 'Weapon':
@@ -975,14 +678,12 @@ export class MercCard extends BaseCard {
         this.equipToSlot(equipment, 'armor');
         break;
       case 'Accessory':
-        // Try main accessory slot first, then bandolier slots
         if (!this.accessorySlot) {
           this.equipToSlot(equipment, 'accessory');
         } else if (this.getAvailableBandolierSlots() > 0) {
           const idx = this.getNextBandolierIndex();
           this.equipToSlot(equipment, `bandolier:${idx}`);
         } else {
-          // No bandolier slots available, replace main accessory
           replaced = this.clearSlot(this.accessorySlot);
           this.equipToSlot(equipment, 'accessory');
         }
@@ -1004,8 +705,6 @@ export class MercCard extends BaseCard {
         break;
       case 'Accessory':
         equipment = this.clearSlot(this.accessorySlot);
-        // Note: When unequipping bandolier, bandolier slots become invalid
-        // The caller should handle clearing bandolierSlots if needed
         break;
     }
     this.syncEquipmentData();
@@ -1013,26 +712,15 @@ export class MercCard extends BaseCard {
     return equipment;
   }
 
-  /**
-   * Unequip an item from a specific bandolier slot.
-   * @param index - The index of the bandolier slot (0-based)
-   * @returns The unequipped equipment, or undefined if slot was empty
-   */
   unequipBandolierSlot(index: number): Equipment | undefined {
     const equipment = this.bandolierSlots.find(e => e.equippedSlot === `bandolier:${index}`);
-    if (!equipment) {
-      return undefined;
-    }
+    if (!equipment) return undefined;
     this.clearSlot(equipment);
     this.syncEquipmentData();
     this.updateComputedStats();
     return equipment;
   }
 
-  /**
-   * Get all items that would be dropped if the bandolier is unequipped.
-   * Used to return bandolier slot items to stash when bandolier is removed.
-   */
   clearBandolierSlots(): Equipment[] {
     const items = [...this.bandolierSlots];
     for (const item of items) {
@@ -1045,17 +733,97 @@ export class MercCard extends BaseCard {
 
   getEquipmentOfType(type: EquipmentType): Equipment | undefined {
     switch (type) {
-      case 'Weapon':
-        return this.weaponSlot;
-      case 'Armor':
-        return this.armorSlot;
-      case 'Accessory':
-        return this.accessorySlot;
-      default:
-        return undefined;
+      case 'Weapon': return this.weaponSlot;
+      case 'Armor': return this.armorSlot;
+      case 'Accessory': return this.accessorySlot;
+      default: return undefined;
     }
   }
+}
 
+// =============================================================================
+// MERC Card - The mercenary characters
+// =============================================================================
+
+export class MercCard extends CombatUnit {
+  // Identity - BoardSmith populates from JSON with these names
+  mercId!: string;
+  mercName!: string;
+
+  // Provide unitId/unitName for base class compatibility
+  get unitId(): string { return this.mercId; }
+  get unitName(): string { return this.mercName; }
+
+  // MERC-specific equip rules override
+  override canEquip(equipment: Equipment): boolean {
+    // MERC-70a: Apeiron won't use grenades or mortars
+    if (this.mercId === 'apeiron') {
+      const name = equipment.equipmentName.toLowerCase();
+      if (name.includes('grenade') || name.includes('mortar')) {
+        return false;
+      }
+    }
+
+    // MERC-o7js: Bandolier cannot be combined with another bandolier
+    if (equipment.equipmentId === 'bandolier') {
+      if (this.accessorySlot?.equipmentId === 'bandolier') return false;
+      if (this.bandolierSlots.some(e => e.equipmentId === 'bandolier')) return false;
+    }
+
+    // MERC-42g: Gunther can use all equipment slots for accessories
+    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
+      return !this.accessorySlot || !this.weaponSlot || !this.armorSlot || this.getAvailableBandolierSlots() > 0;
+    }
+
+    // MERC-vwi: Genesis can carry a weapon in his accessory slot
+    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
+      return !this.weaponSlot || !this.accessorySlot;
+    }
+
+    return super.canEquip(equipment);
+  }
+
+  // MERC-specific equip rules override
+  override equip(equipment: Equipment): Equipment | undefined {
+    let replaced: Equipment | undefined;
+
+    // MERC-42g: Gunther can equip accessories in any slot
+    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
+      if (!this.accessorySlot) {
+        this.equipToSlot(equipment, 'accessory');
+      } else if (this.getAvailableBandolierSlots() > 0) {
+        const idx = this.getNextBandolierIndex();
+        this.equipToSlot(equipment, `bandolier:${idx}`);
+      } else if (!this.weaponSlot) {
+        this.equipToSlot(equipment, 'weapon');
+      } else if (!this.armorSlot) {
+        this.equipToSlot(equipment, 'armor');
+      } else {
+        replaced = this.clearSlot(this.accessorySlot);
+        this.equipToSlot(equipment, 'accessory');
+      }
+      this.syncEquipmentData();
+      this.updateComputedStats();
+      return replaced;
+    }
+
+    // MERC-vwi: Genesis can equip weapons in accessory slot
+    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
+      if (!this.weaponSlot) {
+        this.equipToSlot(equipment, 'weapon');
+      } else if (!this.accessorySlot) {
+        this.equipToSlot(equipment, 'accessory');
+      } else {
+        replaced = this.clearSlot(this.weaponSlot);
+        this.equipToSlot(equipment, 'weapon');
+      }
+      this.syncEquipmentData();
+      this.updateComputedStats();
+      return replaced;
+    }
+
+    return super.equip(equipment);
+  }
 }
 
 // =============================================================================
@@ -1320,224 +1088,26 @@ export class Sector extends GridCell {
 }
 
 // =============================================================================
-// Dictator Card
+// Dictator Card - Extends CombatUnit with minimal dictator-specific logic
 // =============================================================================
 
-export class DictatorCard extends BaseCard {
+export class DictatorCard extends CombatUnit {
+  // Identity - BoardSmith populates from JSON with these names
   dictatorId!: string;
   dictatorName!: string;
-  ability!: string;
-  bio!: string;
-  image!: string;
 
-  // Stats (used when in play after base revealed)
-  baseInitiative!: number;
-  baseTraining!: number;
-  baseCombat!: number;
+  // Provide unitId/unitName for base class compatibility
+  get unitId(): string { return this.dictatorId; }
+  get unitName(): string { return this.dictatorName; }
 
-  // State
-  damage: number = 0;
-  actionsRemaining: number = 2;
+  // Dictator-specific state
   inPlay: boolean = false;
 
-  // MERC-07j: Location tracking (like MercCard)
-  // Must have default value for serialization to gameView
-  sectorId: string = '';
-
-  // Serialized equipment data for UI (updated when equipment changes)
-  // BoardSmith doesn't serialize element references, only plain data
-  weaponSlotData?: EquipmentSlotData | null;
-  armorSlotData?: EquipmentSlotData | null;
-  accessorySlotData?: EquipmentSlotData | null;
-
-  // Equipment slots - now stored as child elements with equippedSlot attribute
-  // These getters query children, making equipment survive HMR via element hierarchy
-  get weaponSlot(): Equipment | undefined {
-    return this.first(Equipment, e => e.equippedSlot === 'weapon');
-  }
-  get armorSlot(): Equipment | undefined {
-    return this.first(Equipment, e => e.equippedSlot === 'armor');
-  }
-  get accessorySlot(): Equipment | undefined {
-    return this.first(Equipment, e => e.equippedSlot === 'accessory');
-  }
-
-  // Constants (same as MercCard)
-  static readonly BASE_ACTIONS = MercConstants.ACTIONS_PER_DAY;
-
-  // Constant (imported from game constants - Dictator uses same health as MERCs)
-  static readonly BASE_HEALTH = MercConstants.BASE_HEALTH;
-
-  get maxHealth(): number {
-    return DictatorCard.BASE_HEALTH;
-  }
-
-  get health(): number {
-    return this.maxHealth - this.damage;
-  }
-
-  get isDead(): boolean {
-    return this.health <= 0;
-  }
-
-  get initiative(): number {
-    let value = this.baseInitiative;
-    if (this.weaponSlot?.initiative) value += this.weaponSlot.initiative;
-    if (this.armorSlot?.initiative) value += this.armorSlot.initiative;
-    if (this.accessorySlot?.initiative) value += this.accessorySlot.initiative;
-    return value;
-  }
-
-  get training(): number {
-    let value = this.baseTraining;
-    if (this.weaponSlot?.training) value += this.weaponSlot.training;
-    if (this.armorSlot?.training) value += this.armorSlot.training;
-    if (this.accessorySlot?.training) value += this.accessorySlot.training;
-    return value;
-  }
-
-  get combat(): number {
-    let value = this.baseCombat;
-    if (this.weaponSlot?.combatBonus) value += this.weaponSlot.combatBonus;
-    if (this.armorSlot?.combatBonus) value += this.armorSlot.combatBonus;
-    if (this.accessorySlot?.combatBonus) value += this.accessorySlot.combatBonus;
-    return Math.max(0, value);
-  }
-
-  takeDamage(amount: number): number {
-    this.damage = Math.min(this.damage + amount, this.maxHealth);
-    return amount;
-  }
-
+  /**
+   * Put the dictator into play (when base is revealed).
+   */
   enterPlay(): void {
     this.inPlay = true;
-  }
-
-  // MERC-07j: Action methods (matching MercCard interface)
-  resetActions(): void {
-    this.actionsRemaining = DictatorCard.BASE_ACTIONS;
-  }
-
-  useAction(cost: number = 1): boolean {
-    if (this.actionsRemaining >= cost) {
-      this.actionsRemaining -= cost;
-      return true;
-    }
-    return false;
-  }
-
-  // MERC-07j: Equipment methods (matching MercCard interface)
-  canEquip(equipment: Equipment): boolean {
-    switch (equipment.equipmentType) {
-      case 'Weapon':
-        return !this.weaponSlot;
-      case 'Armor':
-        return !this.armorSlot;
-      case 'Accessory':
-        return !this.accessorySlot;
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Helper to equip item to a specific slot.
-   * Moves equipment to be a child of this Dictator and sets equippedSlot.
-   */
-  private equipToSlot(equipment: Equipment, slot: string): void {
-    equipment.putInto(this);
-    equipment.equippedSlot = slot;
-    // Equipped items are visible to all players
-    equipment.showToAll();
-  }
-
-  /**
-   * Helper to unequip from a slot.
-   * Clears equippedSlot but does NOT move the equipment - caller must handle that.
-   */
-  private clearSlot(equipment: Equipment | undefined): Equipment | undefined {
-    if (equipment) {
-      equipment.equippedSlot = undefined;
-    }
-    return equipment;
-  }
-
-  equip(equipment: Equipment): Equipment | undefined {
-    let replaced: Equipment | undefined;
-    switch (equipment.equipmentType) {
-      case 'Weapon':
-        replaced = this.clearSlot(this.weaponSlot);
-        this.equipToSlot(equipment, 'weapon');
-        break;
-      case 'Armor':
-        replaced = this.clearSlot(this.armorSlot);
-        this.equipToSlot(equipment, 'armor');
-        break;
-      case 'Accessory':
-        replaced = this.clearSlot(this.accessorySlot);
-        this.equipToSlot(equipment, 'accessory');
-        break;
-    }
-    // Sync slot data for UI serialization
-    this.syncEquipmentSlotData();
-    return replaced;
-  }
-
-  unequip(type: EquipmentType): Equipment | undefined {
-    let removed: Equipment | undefined;
-    switch (type) {
-      case 'Weapon':
-        removed = this.clearSlot(this.weaponSlot);
-        break;
-      case 'Armor':
-        removed = this.clearSlot(this.armorSlot);
-        break;
-      case 'Accessory':
-        removed = this.clearSlot(this.accessorySlot);
-        break;
-    }
-    // Sync slot data for UI serialization
-    this.syncEquipmentSlotData();
-    return removed;
-  }
-
-  getEquipmentOfType(type: EquipmentType): Equipment | undefined {
-    switch (type) {
-      case 'Weapon':
-        return this.weaponSlot;
-      case 'Armor':
-        return this.armorSlot;
-      case 'Accessory':
-        return this.accessorySlot;
-      default:
-        return undefined;
-    }
-  }
-
-  /**
-   * Sync equipment slot data for UI serialization.
-   * Called after equipment changes to update the plain data properties
-   * that BoardSmith can serialize to the gameView.
-   */
-  syncEquipmentSlotData(): void {
-    const toSlotData = (equip: Equipment | undefined): EquipmentSlotData | null => {
-      if (!equip) return null;
-      return {
-        equipmentId: equip.equipmentId,
-        equipmentName: equip.equipmentName,
-        equipmentType: equip.equipmentType,
-        combatBonus: equip.combatBonus,
-        targets: equip.targets,
-        armorBonus: equip.armorBonus,
-        healthBonus: equip.healthBonus,
-        initiative: equip.initiative,
-        training: equip.training,
-        image: equip.image,
-      };
-    };
-    this.weaponSlotData = toSlotData(this.weaponSlot);
-    this.armorSlotData = toSlotData(this.armorSlot);
-    this.accessorySlotData = toSlotData(this.accessorySlot);
   }
 }
 

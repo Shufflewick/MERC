@@ -104,11 +104,52 @@ function getEquipmentBonus(slot: any, statKey: string): number {
   return 0;
 }
 
-// Stats - use computed values from server (includes equipment + abilities)
-// The effectiveX properties are explicitly stored and serialized by the server
-const training = computed(() => getProp('effectiveTraining', 0) || getProp('training', 0) || getProp('baseTraining', 0));
-const combat = computed(() => getProp('effectiveCombat', 0) || getProp('combat', 0) || getProp('baseCombat', 0));
-const initiative = computed(() => getProp('effectiveInitiative', 0) || getProp('initiative', 0) || getProp('baseInitiative', 0));
+// Stats - prefer server-computed effectiveX, fall back to client-side calculation with equipment bonuses
+// Client-side calculation is needed for preview cards during equipment selection
+const training = computed(() => {
+  const effective = getProp('effectiveTraining', 0);
+  if (effective > 0) return effective;
+  // Fallback: calculate client-side
+  const base = getProp('baseTraining', 0) || getProp('training', 0);
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'training');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'training');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'training');
+  let bandolierBonus = 0;
+  for (const bSlot of bandolierSlots.value) {
+    bandolierBonus += getEquipmentBonus(bSlot, 'training');
+  }
+  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus;
+});
+
+const combat = computed(() => {
+  const effective = getProp('effectiveCombat', 0);
+  if (effective > 0) return effective;
+  // Fallback: calculate client-side
+  const base = getProp('baseCombat', 0) || getProp('combat', 0);
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'combat');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'combat');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'combat');
+  let bandolierBonus = 0;
+  for (const bSlot of bandolierSlots.value) {
+    bandolierBonus += getEquipmentBonus(bSlot, 'combat');
+  }
+  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus;
+});
+
+const initiative = computed(() => {
+  const effective = getProp('effectiveInitiative', 0);
+  if (effective > 0) return effective;
+  // Fallback: calculate client-side
+  const base = getProp('baseInitiative', 0) || getProp('initiative', 0);
+  const weaponBonus = getEquipmentBonus(weaponSlot.value, 'initiative');
+  const armorBonus = getEquipmentBonus(armorSlot.value, 'initiative');
+  const accessoryBonus = getEquipmentBonus(accessorySlot.value, 'initiative');
+  let bandolierBonus = 0;
+  for (const bSlot of bandolierSlots.value) {
+    bandolierBonus += getEquipmentBonus(bSlot, 'initiative');
+  }
+  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus;
+});
 
 // Targets - base is 1, plus any equipment bonuses and ability bonuses
 const targets = computed(() => {

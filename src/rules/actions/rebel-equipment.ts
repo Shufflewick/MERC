@@ -288,6 +288,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
             args: {
               mercId: merc.id,
               sectorId: sector.id,
+              // Pass the replaced item's ID to prevent ping-pong loop
+              lastReplacedId: replaced?.id,
             },
           },
         };
@@ -348,6 +350,12 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
         const inStash = sector.stash.some(e => e.id === element.id);
         if (!inStash) return false;
 
+        // Prevent ping-pong loop: exclude the item that was just returned
+        const lastReplacedId = ctx.args?.lastReplacedId;
+        if (lastReplacedId && element.id === lastReplacedId) {
+          return false;
+        }
+
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const merc = getMerc(ctx);
         if (merc?.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
@@ -394,6 +402,8 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
             args: {
               mercId: typeof ctx.args?.mercId === 'number' ? ctx.args.mercId : merc.id,
               sectorId: typeof ctx.args?.sectorId === 'number' ? ctx.args.sectorId : sector.id,
+              // Pass the replaced item's ID to prevent ping-pong loop
+              lastReplacedId: replaced?.id,
             },
           },
         };
