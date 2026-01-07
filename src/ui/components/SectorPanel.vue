@@ -580,6 +580,7 @@ const isInActionFlow = computed(() => {
   // These are actions that require selections from MERCs/equipment in a sector
   const sectorRelevantActions = [
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
+    'reEquipContinue', // Chained from reEquip
     'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
   ];
 
@@ -587,6 +588,7 @@ const isInActionFlow = computed(() => {
   // This handles cases where the acting unit (like dictator) isn't in a squad
   const args = props.actionController.currentArgs.value;
   if (args && sectorRelevantActions.includes(currentAction)) {
+    // sectorId is numeric element ID (display names are in separate display option)
     const sectorArg = args.sectorId;
     let actionSectorId: number | undefined;
     if (typeof sectorArg === 'number') {
@@ -733,12 +735,11 @@ const actingMercForEquipment = computed(() => {
   if (!args) return null;
 
   // Get mercId from args - different actions use different arg names
-  // collectEquipment uses mercId (from explore followUp)
+  // collectEquipment/reEquipContinue use mercId (numeric element ID, display names in separate display option)
   // reEquip uses actingMerc (from first selection)
-  // reEquipContinue uses mercId (from followUp)
-  const mercArg = args.mercId ?? args.actingMerc;
-
   let mercId: number | undefined;
+
+  const mercArg = args.mercId ?? args.actingMerc;
   if (typeof mercArg === 'number') {
     mercId = mercArg;
   } else if (mercArg && typeof mercArg === 'object') {

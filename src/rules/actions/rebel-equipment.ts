@@ -291,6 +291,10 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
               // Pass the replaced item's ID to prevent ping-pong loop
               lastReplacedId: replaced?.id,
             },
+            display: {
+              mercId: capitalize(merc.mercName),
+              sectorId: sector.sectorName,
+            },
           },
         };
       }
@@ -308,24 +312,24 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
  * This is chained from reEquip via followUp to allow picking multiple items.
  */
 export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve merc from ctx.args
+  // Helper to resolve merc from ctx.args (mercId is numeric element ID)
   function getMerc(ctx: any): MercCard | undefined {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
       return game.getElementById(mercArg) as MercCard | undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      return mercArg as MercCard;
+      return game.getElementById(mercArg.id) as MercCard | undefined;
     }
     return undefined;
   }
 
-  // Helper to resolve sector from ctx.args
+  // Helper to resolve sector from ctx.args (sectorId is numeric element ID)
   function getSector(ctx: any): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
       return game.getElementById(sectorArg) as Sector | undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
-      return sectorArg as Sector;
+      return game.getElementById(sectorArg.id) as Sector | undefined;
     }
     return undefined;
   }
@@ -400,10 +404,14 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'reEquipContinue',
             args: {
-              mercId: typeof ctx.args?.mercId === 'number' ? ctx.args.mercId : merc.id,
-              sectorId: typeof ctx.args?.sectorId === 'number' ? ctx.args.sectorId : sector.id,
+              mercId: merc.id,
+              sectorId: sector.id,
               // Pass the replaced item's ID to prevent ping-pong loop
               lastReplacedId: replaced?.id,
+            },
+            display: {
+              mercId: capitalize(merc.mercName),
+              sectorId: sector.sectorName,
             },
           },
         };

@@ -543,15 +543,19 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         game.message(`${capitalize(unitName)} explored ${sector.sectorName} and found: ${equipmentList}`);
 
         // Chain to collectEquipment action with pre-filled args
-        // Pass objects with name property so chips display names instead of IDs
+        // Use display option for friendly chip names while keeping IDs for lookup
         return {
           success: true,
           message: `Explored ${sector.sectorName}`,
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: { id: actingUnit.id, name: capitalize(unitName) },
-              sectorId: { id: sector.id, name: sector.sectorName },
+              mercId: actingUnit.id,
+              sectorId: sector.id,
+            },
+            display: {
+              mercId: capitalize(unitName),
+              sectorId: sector.sectorName,
             },
           },
         };
@@ -603,7 +607,7 @@ function getUnitNameForCollect(unit: CollectableUnit): string {
 }
 
 export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve sector from ctx.args (handles numeric ID or object with id)
+  // Helper to resolve sector from ctx.args (sectorId is numeric element ID)
   function getSector(ctx: any): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
@@ -614,7 +618,8 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  // Helper to resolve unit from ctx.args (handles MercCard or DictatorCard)
+  // Helper to resolve unit from ctx.args (mercId is numeric element ID)
+  // Handles both MercCard and DictatorCard
   function getUnit(ctx: any): CollectableUnit | undefined {
     const mercArg = ctx.args?.mercId;
     let id: number | undefined;
@@ -703,6 +708,10 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
             args: {
               mercId: ctx.args?.mercId,
               sectorId: ctx.args?.sectorId,
+            },
+            display: {
+              mercId: capitalize(unitName),
+              sectorId: sector.sectorName,
             },
           },
         };
