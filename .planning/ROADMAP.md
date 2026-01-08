@@ -46,9 +46,9 @@ Plans:
 - [x] 02-03: Fix dictator-actions.ts
 - [x] 02-04: Fix rebel-movement.ts
 - [x] 02-05: Fix rebel-economy.ts
-- [ ] 02-06: Fix rebel-equipment.ts (largest file)
-- [ ] 02-07: Fix day-one-actions.ts
-- [ ] 02-08: Fix remaining files (combat.ts, rebel-combat.ts, ai-helpers.ts)
+- [x] 02-06: Fix rebel-equipment.ts (largest file)
+- [ ] 02-07: Fix rebel-hiring.ts
+- [ ] 02-08: Fix remaining files (combat.ts, rebel-combat.ts, ai-helpers.ts, day-one-actions.ts)
 
 ### Phase 3: Code Quality: Helpers
 **Goal**: Extract 17 duplicate helper patterns into shared utilities in `helpers.ts`
