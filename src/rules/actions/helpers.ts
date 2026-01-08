@@ -5,7 +5,7 @@
  */
 
 import type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, TacticsCard, Squad } from '../elements.js';
+import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -168,6 +168,28 @@ export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): 
  */
 export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boolean {
   return getDictatorCombatantsWithActions(game, cost).length > 0;
+}
+
+// =============================================================================
+// Unit Type Helpers
+// =============================================================================
+
+/**
+ * Check if a unit is a DictatorCard (type guard).
+ */
+export function isDictatorCard(unit: unknown): unit is DictatorCard {
+  return unit instanceof DictatorCard;
+}
+
+/**
+ * Get the display name from a MercCard or DictatorCard.
+ * Works with any unit type that has mercName or dictatorName.
+ */
+export function getUnitName(unit: MercCard | DictatorCard): string {
+  if (unit instanceof DictatorCard) {
+    return unit.dictatorName;
+  }
+  return unit.mercName;
 }
 
 // =============================================================================
