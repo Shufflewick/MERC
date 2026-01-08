@@ -70,7 +70,7 @@ Plans:
 
 Plans:
 - [x] 04-01: Add global cache helpers + remove legacy pendingLoot
-- [ ] 04-02: Migrate dictator-actions.ts and day-one-actions.ts to cache helpers
+- [x] 04-02: Migrate dictator-actions.ts and day-one-actions.ts to cache helpers
 - [ ] 04-03: Migrate rebel-economy.ts and flow.ts, complete phase
 
 ### Phase 5: Debug Cleanup
@@ -103,6 +103,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Type Safety: Combat State | 1/1 | Complete | 2026-01-08 |
 | 2. Type Safety: Assertions | 8/8 | Complete | 2026-01-08 |
 | 3. Code Quality: Helpers | 4/4 | Complete | 2026-01-08 |
-| 4. Code Quality: State & Legacy | 1/3 | In progress | - |
+| 4. Code Quality: State & Legacy | 2/3 | In progress | - |
 | 5. Debug Cleanup | 0/1 | Not started | - |
 | 6. Test Coverage | 0/3 | Not started | - |
