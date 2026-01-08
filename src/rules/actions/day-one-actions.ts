@@ -19,7 +19,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard, getCachedValue, setCachedValue, clearCachedValue } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -633,14 +633,14 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
   // Helper to get the drawn MERC
   const getDrawnMerc = (): MercCard | null => {
     // Draw the MERC if not already drawn
-    if (!game.settings[DRAWN_MERC_KEY]) {
+    if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
       const merc = game.drawMerc();
       if (merc) {
-        game.settings[DRAWN_MERC_KEY] = merc.id;
+        setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
         game.message(`Dictator drew ${merc.mercName}`);
       }
     }
-    const mercId = game.settings[DRAWN_MERC_KEY] as number;
+    const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
     if (!mercId) return null;
     const el = game.getElementById(mercId);
     return el instanceof MercCard ? el : null;
@@ -695,12 +695,12 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       }
 
       // Human path - use selected equipment and sector
-      const mercId = game.settings[DRAWN_MERC_KEY] as number;
+      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
       const mercEl = mercId ? game.getElementById(mercId) : null;
       const merc = mercEl instanceof MercCard ? mercEl : null;
 
       if (!merc) {
-        delete game.settings[DRAWN_MERC_KEY];
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         return { success: false, message: 'No MERC drawn' };
       }
 
@@ -726,7 +726,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         game.message(`${merc.mercName} equipped ${freeEquipment.equipmentName}`);
       }
 
-      delete game.settings[DRAWN_MERC_KEY];
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
       return { success: true, message: `Hired ${merc.mercName}` };
     });
 }
@@ -823,7 +823,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
 
   return Action.create('dictatorPlaceExtraMilitia')
     .prompt(() => {
-      const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+      const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
       const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
       if (remaining !== undefined) {
         return `Place extra militia (${remaining} remaining)`;
@@ -834,12 +834,12 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
       if (game.currentDay !== 1 || extra === 0) return false;
       // Check if there are remaining militia to place
-      const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+      const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
       return remaining === undefined || remaining > 0;
     })
     .chooseFrom<string>('targetSector', {
       prompt: () => {
-        const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+        const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
         const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
         const toPlace = remaining ?? total;
         return `Choose sector to place militia (${toPlace} remaining)`;
@@ -863,7 +863,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       skipIf: () => game.dictatorPlayer?.isAI === true,
       dependsOn: 'targetSector',
       choices: () => {
-        const remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined;
+        const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
         const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
         const toPlace = remaining ?? total;
         // Offer 1 to remaining amount
@@ -881,13 +881,13 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       // AI path - use auto placement
       if (game.dictatorPlayer?.isAI) {
         autoPlaceExtraMilitia(game);
-        delete game.settings[REMAINING_MILITIA_KEY];
+        clearGlobalCachedValue(game, REMAINING_MILITIA_KEY);
         return { success: true, message: 'Extra militia placed' };
       }
 
       // Human path - place specified amount at chosen sector
       const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
-      let remaining = game.settings[REMAINING_MILITIA_KEY] as number | undefined ?? total;
+      let remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY) ?? total;
 
       const targetChoice = args.targetSector as string;
       const amountChoice = args.amount as string;
@@ -914,7 +914,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
 
       if (remaining > 0) {
         // More militia to place - store remaining count
-        game.settings[REMAINING_MILITIA_KEY] = remaining;
+        setGlobalCachedValue(game, REMAINING_MILITIA_KEY, remaining);
         return {
           success: true,
           message: `Placed ${placed} militia, ${remaining} remaining`,
@@ -923,7 +923,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       }
 
       // Done placing
-      delete game.settings[REMAINING_MILITIA_KEY];
+      clearGlobalCachedValue(game, REMAINING_MILITIA_KEY);
       game.message(`All extra militia placed`);
       return { success: true, message: 'All extra militia placed' };
     });
