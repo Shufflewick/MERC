@@ -18,6 +18,7 @@ import {
   type SectorType,
 } from './elements.js';
 import { DictatorConstants } from './constants.js';
+// Debug config: test-only feature to force deterministic tactics card order
 import { DEBUG_TACTICS_ORDER } from './debug-config.js';
 
 // =============================================================================
