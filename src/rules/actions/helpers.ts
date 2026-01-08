@@ -161,6 +161,34 @@ export function clearCachedValue(game: MERCGame, prefix: string, playerId: strin
 }
 
 // =============================================================================
+// Global Settings Cache Helpers
+// =============================================================================
+
+/**
+ * Get a cached value from game.settings using a simple key (no player scoping).
+ * Use for global/dictator state that doesn't need per-player separation.
+ */
+export function getGlobalCachedValue<T>(game: MERCGame, key: string): T | undefined {
+  return game.settings[key] as T | undefined;
+}
+
+/**
+ * Set a cached value in game.settings using a simple key (no player scoping).
+ * Use for global/dictator state that doesn't need per-player separation.
+ */
+export function setGlobalCachedValue<T>(game: MERCGame, key: string, value: T): void {
+  game.settings[key] = value;
+}
+
+/**
+ * Clear a cached value from game.settings using a simple key (no player scoping).
+ * Use for global/dictator state that doesn't need per-player separation.
+ */
+export function clearGlobalCachedValue(game: MERCGame, key: string): void {
+  delete game.settings[key];
+}
+
+// =============================================================================
 // Dictator Combatant Helpers
 // =============================================================================
 
