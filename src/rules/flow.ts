@@ -72,7 +72,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // Each rebel performs their Day 1 setup
           eachPlayer({
             name: 'rebel-landing',
-            filter: (player) => game.isRebelPlayer(player as any), // Only rebels, skip dictator
+            filter: (player) => game.isRebelPlayer(player), // Only rebels, skip dictator
             do: sequence(
               // Step 1: Choose landing sector first
               actionStep({
@@ -102,7 +102,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 prompt: 'Hire your third MERC (Teresa bonus)',
                 skipIf: (ctx) => {
                   // Skip if Teresa is not on the team
-                  const player = ctx.player as any;
+                  const player = ctx.player;
                   if (!game.isRebelPlayer(player)) return true;
                   const hasTeresa = player.team?.some((m: any) => m.mercId === 'teresa');
                   return !hasTeresa;
@@ -115,7 +115,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // MERC-mtoq: Convert to action steps for human dictator support
           eachPlayer({
             name: 'dictator-landing',
-            filter: (player) => game.isDictatorPlayer(player as any),
+            filter: (player) => game.isDictatorPlayer(player),
             do: sequence(
               execute(() => {
                 game.message('--- Dictator Phase ---');
@@ -241,7 +241,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // Rebel turns
           eachPlayer({
             name: 'rebel-turns',
-            filter: (player) => game.isRebelPlayer(player as any) && !game.isFinished(),
+            filter: (player) => game.isRebelPlayer(player) && !game.isFinished(),
             do: sequence(
               // MERC-vqmi: Apply Oil Reserves free action at start of turn
               execute((ctx) => {
@@ -383,7 +383,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // Step 4: Refill hand to 3 cards
           eachPlayer({
             name: 'dictator-turn',
-            filter: (player) => game.isDictatorPlayer(player as any) && !game.isFinished(),
+            filter: (player) => game.isDictatorPlayer(player) && !game.isFinished(),
             do: sequence(
               execute(() => {
                 // Safety: Clear any stale rebel combat state (shouldn't happen but defensive)

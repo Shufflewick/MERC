@@ -772,16 +772,20 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Check if a player is a rebel (not the dictator)
+   * Check if a player is a rebel (not the dictator).
+   * Type guard that narrows the player type to RebelPlayer.
+   * Accepts unknown to work with BoardSmith framework's Player type.
    */
-  isRebelPlayer(player: MERCPlayer): boolean {
+  isRebelPlayer(player: unknown): player is RebelPlayer {
     return player instanceof RebelPlayer;
   }
 
   /**
-   * Check if a player is the dictator
+   * Check if a player is the dictator.
+   * Type guard that narrows the player type to DictatorPlayer.
+   * Accepts unknown to work with BoardSmith framework's Player type.
    */
-  isDictatorPlayer(player: MERCPlayer): boolean {
+  isDictatorPlayer(player: unknown): player is DictatorPlayer {
     return player instanceof DictatorPlayer;
   }
 
