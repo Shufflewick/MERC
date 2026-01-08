@@ -1,4 +1,4 @@
-import { Game, Player, type GameOptions } from '@boardsmith/engine';
+import { Game, Player, type GameOptions, type ElementClass } from '@boardsmith/engine';
 import {
   MercCard,
   Equipment,
@@ -623,19 +623,21 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     super(options);
 
     // Register all element classes for serialization
-    this._ctx.classRegistry.set('MercCard', MercCard as any);
-    this._ctx.classRegistry.set('Equipment', Equipment as any);
-    this._ctx.classRegistry.set('Sector', Sector as any);
-    this._ctx.classRegistry.set('DictatorCard', DictatorCard as any);
-    this._ctx.classRegistry.set('TacticsCard', TacticsCard as any);
-    this._ctx.classRegistry.set('Squad', Squad as any);
-    this._ctx.classRegistry.set('MercDeck', MercDeck as any);
-    this._ctx.classRegistry.set('EquipmentDeck', EquipmentDeck as any);
-    this._ctx.classRegistry.set('TacticsDeck', TacticsDeck as any);
-    this._ctx.classRegistry.set('TacticsHand', TacticsHand as any);
-    this._ctx.classRegistry.set('DiscardPile', DiscardPile as any);
-    this._ctx.classRegistry.set('GameMap', GameMap as any);
-    this._ctx.classRegistry.set('PlayerArea', PlayerArea as any);
+    // Cast to ElementClass is safe - these are all valid GameElement subclasses
+    // The cast is needed because our constructors have additional parameters beyond ElementContext
+    this._ctx.classRegistry.set('MercCard', MercCard as unknown as ElementClass);
+    this._ctx.classRegistry.set('Equipment', Equipment as unknown as ElementClass);
+    this._ctx.classRegistry.set('Sector', Sector as unknown as ElementClass);
+    this._ctx.classRegistry.set('DictatorCard', DictatorCard as unknown as ElementClass);
+    this._ctx.classRegistry.set('TacticsCard', TacticsCard as unknown as ElementClass);
+    this._ctx.classRegistry.set('Squad', Squad as unknown as ElementClass);
+    this._ctx.classRegistry.set('MercDeck', MercDeck as unknown as ElementClass);
+    this._ctx.classRegistry.set('EquipmentDeck', EquipmentDeck as unknown as ElementClass);
+    this._ctx.classRegistry.set('TacticsDeck', TacticsDeck as unknown as ElementClass);
+    this._ctx.classRegistry.set('TacticsHand', TacticsHand as unknown as ElementClass);
+    this._ctx.classRegistry.set('DiscardPile', DiscardPile as unknown as ElementClass);
+    this._ctx.classRegistry.set('GameMap', GameMap as unknown as ElementClass);
+    this._ctx.classRegistry.set('PlayerArea', PlayerArea as unknown as ElementClass);
 
     // Determine rebel count from players or options
     this.rebelCount = options.rebelCount ?? Math.max(1, this.players.length - 1);
