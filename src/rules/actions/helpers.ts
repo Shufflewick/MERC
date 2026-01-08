@@ -221,6 +221,46 @@ export function getUnitName(unit: MercCard | DictatorCard): string {
   return unit.mercName;
 }
 
+/**
+ * Find the sector containing a unit (MercCard or DictatorCard).
+ * Searches across rebel squads and dictator units.
+ * Returns null if unit is not in any sector.
+ */
+export function findUnitSector(unit: MercCard | DictatorCard, player: unknown, game: MERCGame): Sector | null {
+  // Handle rebel player - search squads for the merc
+  if (isRebelPlayer(player)) {
+    if (!(unit instanceof MercCard)) return null;
+    for (const squad of [player.primarySquad, player.secondarySquad]) {
+      if (!squad?.sectorId) continue;
+      const mercs = squad.getMercs();
+      if (mercs.some(m => m.id === unit.id)) {
+        return game.getSector(squad.sectorId) || null;
+      }
+    }
+    return null;
+  }
+
+  // Handle dictator player
+  if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    // DictatorCard has sectorId directly
+    if (unit instanceof DictatorCard) {
+      return unit.sectorId ? game.getSector(unit.sectorId) || null : null;
+    }
+
+    // MercCard - check squad or direct sectorId
+    const merc = unit as MercCard;
+    const squad = game.dictatorPlayer.getSquadContaining(merc);
+    if (squad?.sectorId) {
+      return game.getSector(squad.sectorId) || null;
+    }
+    if (merc.sectorId) {
+      return game.getSector(merc.sectorId) || null;
+    }
+  }
+
+  return null;
+}
+
 // =============================================================================
 // Type Assertion Helpers
 // =============================================================================
