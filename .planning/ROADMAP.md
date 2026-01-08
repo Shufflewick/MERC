@@ -51,15 +51,16 @@ Plans:
 - [x] 02-08: Fix remaining files (combat.ts, rebel-combat.ts, ai-helpers.ts, rebel-hiring.ts)
 
 ### Phase 3: Code Quality: Helpers
-**Goal**: Extract 17 duplicate helper patterns into shared utilities in `helpers.ts`
-**Depends on**: Phase 2 (type guards may become helpers)
+**Goal**: Extract duplicate helper patterns into shared utilities in `helpers.ts`
+**Depends on**: Phase 2 (type guards established in helpers.ts)
 **Research**: Unlikely (extracting existing patterns)
-**Plans**: TBD
+**Plans**: 4
 
 Plans:
-- [ ] 03-01: Identify and catalog duplicate patterns
-- [ ] 03-02: Extract utilities to helpers.ts
-- [ ] 03-03: Replace duplicates with helper calls
+- [ ] 03-01: Add new helper utilities (isDictatorCard, getUnitName, cache helpers, findUnitSector)
+- [ ] 03-02: Replace duplicates in rebel-economy.ts
+- [ ] 03-03: Replace duplicates in rebel-equipment.ts
+- [ ] 03-04: Replace duplicates in day-one-actions.ts and dictator-actions.ts
 
 ### Phase 4: Code Quality: State & Legacy
 **Goal**: Standardize state persistence pattern and remove legacy `pendingLoot` property
@@ -101,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Type Safety: Combat State | 1/1 | Complete | 2026-01-08 |
 | 2. Type Safety: Assertions | 8/8 | Complete | 2026-01-08 |
-| 3. Code Quality: Helpers | 0/3 | Not started | - |
+| 3. Code Quality: Helpers | 0/4 | Not started | - |
 | 4. Code Quality: State & Legacy | 0/3 | Not started | - |
 | 5. Debug Cleanup | 0/1 | Not started | - |
 | 6. Test Coverage | 0/3 | Not started | - |
