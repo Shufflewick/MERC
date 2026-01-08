@@ -39,27 +39,9 @@ import {
 // Settings key for drawn MERCs cache (persists across BoardSmith contexts)
 const HIRE_DRAWN_MERCS_KEY = 'hireDrawnMercs';
 
-// Helper to get cached MERC IDs from game.settings
-function getHireDrawnMercIds(game: MERCGame, playerId: string): number[] | undefined {
-  const key = `${HIRE_DRAWN_MERCS_KEY}:${playerId}`;
-  return game.settings[key] as number[] | undefined;
-}
-
-// Helper to set cached MERC IDs in game.settings
-function setHireDrawnMercIds(game: MERCGame, playerId: string, mercIds: number[]): void {
-  const key = `${HIRE_DRAWN_MERCS_KEY}:${playerId}`;
-  game.settings[key] = mercIds;
-}
-
-// Helper to clear cached MERC IDs from game.settings
-function clearHireDrawnMercIds(game: MERCGame, playerId: string): void {
-  const key = `${HIRE_DRAWN_MERCS_KEY}:${playerId}`;
-  delete game.settings[key];
-}
-
 // Helper to get MercCard elements from cached IDs
 function getHireDrawnMercs(game: MERCGame, playerId: string): MercCard[] | undefined {
-  const ids = getHireDrawnMercIds(game, playerId);
+  const ids = getCachedValue<number[]>(game, HIRE_DRAWN_MERCS_KEY, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty
   return ids.map(id => game.getElementById(id)).filter((e): e is MercCard => e instanceof MercCard);
@@ -142,7 +124,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         let drawnMercs = getHireDrawnMercs(game, playerId);
         if (!drawnMercs) {
           const drawn = drawMercsForHiring(game, 3);
-          setHireDrawnMercIds(game, playerId, drawn.map(m => m.id));
+          setCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId, drawn.map(m => m.id));
           drawnMercs = drawn;
         }
 
@@ -167,7 +149,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         for (const merc of drawnMercs) {
           merc.putInto(game.mercDiscard);
         }
-        clearHireDrawnMercIds(game, playerId);
+        clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
         return { success: false, message: 'Not enough actions' };
       }
 
@@ -307,7 +289,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         }
       }
 
-      clearHireDrawnMercIds(game, playerId);
+      clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
 
       if (hired.length > 0) {
         game.message(`${player.name} hired: ${hired.join(', ')}`);
