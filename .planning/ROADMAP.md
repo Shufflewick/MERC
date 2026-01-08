@@ -42,7 +42,7 @@ Plans:
 
 Plans:
 - [x] 02-01: Create type guard utilities and fix game.ts
-- [ ] 02-02: Fix flow.ts and tactics-effects.ts (high-risk `as any`)
+- [x] 02-02: Fix flow.ts and tactics-effects.ts (high-risk `as any`)
 - [ ] 02-03: Fix dictator-actions.ts
 - [ ] 02-04: Fix rebel-movement.ts
 - [ ] 02-05: Fix rebel-economy.ts
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Type Safety: Combat State | 1/1 | Complete | 2026-01-08 |
-| 2. Type Safety: Assertions | 1/8 | In progress | - |
+| 2. Type Safety: Assertions | 2/8 | In progress | - |
 | 3. Code Quality: Helpers | 0/3 | Not started | - |
 | 4. Code Quality: State & Legacy | 0/3 | Not started | - |
 | 5. Debug Cleanup | 0/1 | Not started | - |
