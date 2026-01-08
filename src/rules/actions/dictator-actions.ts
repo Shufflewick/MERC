@@ -80,7 +80,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
     .prompt('Play a tactics card')
     .condition((ctx) => {
       // Only the dictator player can play tactics cards
-      if (!game.isDictatorPlayer(ctx.player as any)) return false;
+      if (!game.isDictatorPlayer(ctx.player)) return false;
       // MERC-5j2: AI plays from deck, human plays from hand
       if (game.dictatorPlayer?.isAI) {
         return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
@@ -220,7 +220,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
     .prompt('Reinforce militia')
     .condition((ctx) => {
       // Only the dictator player can reinforce
-      if (!game.isDictatorPlayer(ctx.player as any)) return false;
+      if (!game.isDictatorPlayer(ctx.player)) return false;
       // MERC-5j2: AI plays from deck, human plays from hand
       if (game.dictatorPlayer?.isAI) {
         return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
