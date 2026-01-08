@@ -4,8 +4,8 @@
  * Shared utilities used across all action modules.
  */
 
-import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard } from '../elements.js';
+import type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
+import { MercCard, Sector, Equipment, TacticsCard } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -171,8 +171,101 @@ export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boole
 }
 
 // =============================================================================
+// Type Assertion Helpers
+// =============================================================================
+
+/**
+ * Assert that a player is a RebelPlayer.
+ * Throws if not a rebel (e.g., if it's a DictatorPlayer).
+ */
+export function asRebelPlayer(player: MERCPlayer): RebelPlayer {
+  // Import RebelPlayer at runtime to avoid circular dependency
+  const { RebelPlayer } = require('../game.js');
+  if (player instanceof RebelPlayer) {
+    return player;
+  }
+  const playerType = player?.constructor?.name || 'unknown';
+  throw new Error(`Expected RebelPlayer but got ${playerType}`);
+}
+
+/**
+ * Assert that a player is a RebelPlayer, returning null if undefined or not a rebel.
+ */
+export function asRebelPlayerOrNull(player: MERCPlayer | undefined): RebelPlayer | null {
+  if (!player) return null;
+  // Import RebelPlayer at runtime to avoid circular dependency
+  const { RebelPlayer } = require('../game.js');
+  if (player instanceof RebelPlayer) {
+    return player;
+  }
+  return null;
+}
+
+/**
+ * Assert that an element is a MercCard.
+ * Throws if not a MercCard.
+ */
+export function asMercCard(element: unknown): MercCard {
+  if (element instanceof MercCard) {
+    return element;
+  }
+  const elementType = element?.constructor?.name || typeof element;
+  throw new Error(`Expected MercCard but got ${elementType}`);
+}
+
+/**
+ * Assert that an element is a Sector.
+ * Throws if not a Sector.
+ */
+export function asSector(element: unknown): Sector {
+  if (element instanceof Sector) {
+    return element;
+  }
+  const elementType = element?.constructor?.name || typeof element;
+  throw new Error(`Expected Sector but got ${elementType}`);
+}
+
+/**
+ * Assert that an element is a TacticsCard.
+ * Throws if not a TacticsCard.
+ */
+export function asTacticsCard(element: unknown): TacticsCard {
+  if (element instanceof TacticsCard) {
+    return element;
+  }
+  const elementType = element?.constructor?.name || typeof element;
+  throw new Error(`Expected TacticsCard but got ${elementType}`);
+}
+
+/**
+ * Assert that an element is Equipment.
+ * Throws if not Equipment.
+ */
+export function asEquipment(element: unknown): Equipment {
+  if (element instanceof Equipment) {
+    return element;
+  }
+  const elementType = element?.constructor?.name || typeof element;
+  throw new Error(`Expected Equipment but got ${elementType}`);
+}
+
+/**
+ * Get a typed argument from an args record.
+ * Returns undefined if the key is missing.
+ * Note: This does NOT validate the type at runtime - caller is responsible
+ * for ensuring the value is the expected type.
+ */
+export function getTypedArg<T>(args: Record<string, unknown>, key: string): T | undefined {
+  const value = args[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  return value as T;
+}
+
+// =============================================================================
 // Type exports for convenience
 // =============================================================================
 
-export type { MERCGame, RebelPlayer } from '../game.js';
+export type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
 export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard } from '../elements.js';
