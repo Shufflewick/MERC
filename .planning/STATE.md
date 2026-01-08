@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-01-08)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** Phase 2 — Type Safety: Assertions
+**Current focus:** Phase 3 — Code Quality: Helpers
 
 ## Current Position
 
-Phase: 2 of 6 (Type Safety: Assertions)
-Plan: 7 of 8 in current phase
-Status: In progress
-Last activity: 2026-01-08 — Completed 02-07-PLAN.md
+Phase: 2 of 6 (Type Safety: Assertions) - COMPLETE
+Plan: 8 of 8 in current phase
+Status: Phase complete
+Last activity: 2026-01-08 — Completed 02-08-PLAN.md (Phase 2 complete)
 
-Progress: ████████░░ 40%
+Progress: ████████░░ 44%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 10 min
-- Total execution time: 1.3 hours
+- Total execution time: 1.4 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 1 | 8 min | 8 min |
-| 2 | 7 | 76 min | 11 min |
+| 2 | 8 | 83 min | 10 min |
 
 **Recent Trend:**
-- Last 5 plans: 8 min, 16 min, 11 min, 14 min, 14 min
+- Last 5 plans: 16 min, 11 min, 14 min, 14 min, 7 min
 - Trend: Stable
 
 
@@ -57,6 +57,8 @@ Recent decisions affecting current work:
 - Phase 2-06: Changed helper function params from any to unknown with type guard narrowing
 - Phase 2-07: Updated isRebelPlayer helper to accept unknown for framework compatibility
 - Phase 2-07: Used imported type guards instead of game.isRebelPlayer() with as any
+- Phase 2-08: Used imported isRebelPlayer helper for consistent type narrowing across files
+- Phase 2-08: Typed mixed MercCard/DictatorCard arrays as CombatUnit[] (shared base class)
 
 ### Deferred Issues
 
@@ -68,6 +70,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-08T21:01:15Z
-Stopped at: Completed 02-07-PLAN.md
+Last session: 2026-01-08T21:31:33Z
+Stopped at: Completed 02-08-PLAN.md (Phase 2 complete)
 Resume file: None

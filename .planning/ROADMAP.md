@@ -17,7 +17,7 @@ None
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Type Safety: Combat State** - Replace any[] types with proper Combatant[], CombatResult[] types
-- [ ] **Phase 2: Type Safety: Assertions** - Replace 191 unsafe `as` casts with type guards or validated casts
+- [x] **Phase 2: Type Safety: Assertions** - Replace 191 unsafe `as` casts with type guards or validated casts
 - [ ] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
 - [ ] **Phase 4: Code Quality: State & Legacy** - Standardize state persistence and remove legacy pendingLoot
 - [ ] **Phase 5: Debug Cleanup** - Remove DEBUG messages and gate DEBUG_TACTICS_ORDER
@@ -48,7 +48,7 @@ Plans:
 - [x] 02-05: Fix rebel-economy.ts
 - [x] 02-06: Fix rebel-equipment.ts (largest file)
 - [x] 02-07: Fix day-one-actions.ts
-- [ ] 02-08: Fix remaining files (combat.ts, rebel-combat.ts, ai-helpers.ts, rebel-hiring.ts)
+- [x] 02-08: Fix remaining files (combat.ts, rebel-combat.ts, ai-helpers.ts, rebel-hiring.ts)
 
 ### Phase 3: Code Quality: Helpers
 **Goal**: Extract 17 duplicate helper patterns into shared utilities in `helpers.ts`
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Type Safety: Combat State | 1/1 | Complete | 2026-01-08 |
-| 2. Type Safety: Assertions | 7/8 | In progress | - |
+| 2. Type Safety: Assertions | 8/8 | Complete | 2026-01-08 |
 | 3. Code Quality: Helpers | 0/3 | Not started | - |
 | 4. Code Quality: State & Legacy | 0/3 | Not started | - |
 | 5. Debug Cleanup | 0/1 | Not started | - |
