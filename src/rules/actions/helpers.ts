@@ -5,7 +5,7 @@
  */
 
 import type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, TacticsCard } from '../elements.js';
+import { MercCard, Sector, Equipment, TacticsCard, Squad } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -188,18 +188,18 @@ export function isRebelPlayer(player: MERCPlayer | undefined): player is RebelPl
  * Assert that a player is a RebelPlayer.
  * Throws if not a rebel (e.g., if it's a DictatorPlayer).
  */
-export function asRebelPlayer(player: MERCPlayer): RebelPlayer {
+export function asRebelPlayer(player: unknown): RebelPlayer {
   if (isRebelPlayer(player)) {
     return player;
   }
-  const playerType = player?.constructor?.name || 'unknown';
+  const playerType = (player as { constructor?: { name?: string } })?.constructor?.name || 'unknown';
   throw new Error(`Expected RebelPlayer but got ${playerType}`);
 }
 
 /**
  * Assert that a player is a RebelPlayer, returning null if undefined or not a rebel.
  */
-export function asRebelPlayerOrNull(player: MERCPlayer | undefined): RebelPlayer | null {
+export function asRebelPlayerOrNull(player: unknown): RebelPlayer | null {
   if (!player) return null;
   if (isRebelPlayer(player)) {
     return player;
@@ -229,6 +229,18 @@ export function asSector(element: unknown): Sector {
   }
   const elementType = element?.constructor?.name || typeof element;
   throw new Error(`Expected Sector but got ${elementType}`);
+}
+
+/**
+ * Assert that an element is a Squad.
+ * Throws if not a Squad.
+ */
+export function asSquad(element: unknown): Squad {
+  if (element instanceof Squad) {
+    return element;
+  }
+  const elementType = element?.constructor?.name || typeof element;
+  throw new Error(`Expected Squad but got ${elementType}`);
 }
 
 /**
