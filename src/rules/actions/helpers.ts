@@ -178,10 +178,10 @@ export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boole
  * Check if a player is a RebelPlayer (type guard).
  * Uses constructor name check to avoid circular dependency issues.
  */
-export function isRebelPlayer(player: MERCPlayer | undefined): player is RebelPlayer {
+export function isRebelPlayer(player: unknown): player is RebelPlayer {
   if (!player) return false;
   // Check constructor name to avoid circular dependency with game.js
-  return player.constructor.name === 'RebelPlayer';
+  return (player as { constructor?: { name?: string } }).constructor?.name === 'RebelPlayer';
 }
 
 /**

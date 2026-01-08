@@ -19,7 +19,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -60,7 +60,10 @@ function getMercsFromCache(game: MERCGame, playerId: string): MercCard[] | undef
   const ids = getCachedMercIds(game, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty (all MERCs hired)
-  return ids.map(id => game.getElementById(id) as MercCard).filter(Boolean);
+  return ids.map(id => {
+    const el = game.getElementById(id);
+    return el instanceof MercCard ? el : null;
+  }).filter((m): m is MercCard => m !== null);
 }
 
 /**
@@ -542,10 +545,10 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
       prompt: 'Select an edge industry to land',
       elementClass: Sector,
       filter: (element) => {
-        const sector = element as unknown as Sector;
-        return isValidLandingSector(game, sector);
+        if (!(element instanceof Sector)) return false;
+        return isValidLandingSector(game, element);
       },
-      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+      boardRef: (element) => ({ id: asSector(element).id }),
       // AI: Pick a random valid landing sector
       aiSelect: () => {
         const validSectors = game.gameMap.getAllSectors()
@@ -599,14 +602,15 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
       choices: () => {
         // Get available dictators from game data - just return names
         const dictators = game.dictatorData || [];
-        return dictators.map((d: any) => d.name);
+        return dictators.map(d => d.name);
       },
     })
     .execute((args) => {
       const dictatorName = args.dictatorChoice as string;
 
       // Find the dictator by name and set up
-      const dictatorData = game.dictatorData as DictatorData[];
+      // game.dictatorData is typed as DictatorData[] from game.ts
+      const dictatorData = game.dictatorData;
       const dictator = dictatorData.find(d => d.name === dictatorName);
       if (!dictator) {
         return { success: false, message: `Unknown dictator: ${dictatorName}` };
@@ -651,7 +655,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
   const DRAWN_MERC_KEY = 'dictatorFirstMercId';
 
   // Helper to get the drawn MERC
-  const getDrawnMerc = () => {
+  const getDrawnMerc = (): MercCard | null => {
     // Draw the MERC if not already drawn
     if (!game.settings[DRAWN_MERC_KEY]) {
       const merc = game.drawMerc();
@@ -661,7 +665,9 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       }
     }
     const mercId = game.settings[DRAWN_MERC_KEY] as number;
-    return mercId ? game.getElementById(mercId) as MercCard : null;
+    if (!mercId) return null;
+    const el = game.getElementById(mercId);
+    return el instanceof MercCard ? el : null;
   };
 
   return Action.create('dictatorHireFirstMerc')
@@ -714,7 +720,8 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 
       // Human path - use selected equipment and sector
       const mercId = game.settings[DRAWN_MERC_KEY] as number;
-      const merc = mercId ? game.getElementById(mercId) as MercCard : null;
+      const mercEl = mercId ? game.getElementById(mercId) : null;
+      const merc = mercEl instanceof MercCard ? mercEl : null;
 
       if (!merc) {
         delete game.settings[DRAWN_MERC_KEY];
@@ -771,15 +778,15 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
       prompt: 'Choose where to establish your revealed base',
       elementClass: Sector,
       filter: (element) => {
-        const sector = element as unknown as Sector;
+        if (!(element instanceof Sector)) return false;
         // Only industries with dictator militia
-        return sector.isIndustry && sector.dictatorMilitia > 0;
+        return element.isIndustry && element.dictatorMilitia > 0;
       },
       display: (sector) => sector.sectorName,
-      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+      boardRef: (element) => ({ id: asSector(element).id }),
     })
     .execute((args) => {
-      const baseSector = args.baseLocation as Sector;
+      const baseSector = asSector(args.baseLocation);
 
       if (!baseSector) {
         return { success: false, message: 'Invalid base location' };
@@ -978,12 +985,13 @@ export function createDesignatePrivacyPlayerAction(game: MERCGame): ActionDefini
     .chooseElement<RebelPlayer>('player', {
       prompt: 'Choose which player will handle AI decisions',
       filter: (element) => {
-        return game.rebelPlayers.includes(element as unknown as RebelPlayer);
+        if (!isRebelPlayer(element)) return false;
+        return game.rebelPlayers.includes(element);
       },
-      display: (player) => (player as unknown as RebelPlayer).name,
+      display: (player) => player.name,
     })
     .execute((args) => {
-      const player = args.player as unknown as RebelPlayer;
+      const player = asRebelPlayer(args.player);
       setPrivacyPlayer(game, `${player.position}`);
       return {
         success: true,
