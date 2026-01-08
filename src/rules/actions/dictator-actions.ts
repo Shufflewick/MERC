@@ -28,13 +28,7 @@ import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from 
 // MERC-07j: Type for units that can perform dictator actions (hired MERCs or dictator card)
 type DictatorUnit = MercCard | DictatorCard;
 
-function getDictatorUnitName(unit: DictatorUnit): string {
-  if (unit instanceof DictatorCard) {
-    return unit.dictatorName;
-  }
-  return unit.mercName;
-}
-
+// Note: getDictatorUnitName was removed - use getUnitName from helpers.ts instead
 // Note: move, explore, train, reEquip, dropEquipment actions now unified with rebel actions
 
 function canDictatorUnitFireMortar(unit: DictatorUnit, game: MERCGame): boolean {
