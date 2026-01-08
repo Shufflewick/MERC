@@ -18,7 +18,7 @@ import {
   getAIHealingPriority,
 } from '../ai-helpers.js';
 import { getNextAIAction } from '../ai-executor.js';
-import { ACTION_COSTS, capitalize } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard } from './helpers.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
@@ -92,7 +92,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       elementClass: TacticsCard,
       display: (card) => card.tacticsName,
       filter: (element) => {
-        const card = element as unknown as TacticsCard;
+        const card = asTacticsCard(element);
         // MERC-5j2: AI auto-selects top card from deck
         if (game.dictatorPlayer?.isAI) {
           const topCard = game.dictatorPlayer?.tacticsDeck?.first(TacticsCard);
@@ -167,7 +167,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const card = args.card as TacticsCard;
+      const card = asTacticsCard(args.card);
       game.message(`Dictator plays: ${card.tacticsName}`);
 
       // Move card to discard
@@ -232,7 +232,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       elementClass: TacticsCard,
       display: (card) => card.tacticsName,
       filter: (element) => {
-        const card = element as unknown as TacticsCard;
+        const card = asTacticsCard(element);
         // MERC-5j2: AI auto-selects top card from deck
         if (game.dictatorPlayer?.isAI) {
           const topCard = game.dictatorPlayer?.tacticsDeck?.first(TacticsCard);
@@ -252,7 +252,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       prompt: 'Place reinforcement militia where?',
       elementClass: Sector,
       filter: (element) => {
-        const sector = element as unknown as Sector;
+        const sector = asSector(element);
         // Per rules: "Sector must be Dictator-controlled"
         // Dictator controls if militia >= total rebel militia (ties go to dictator)
         const isControlled = sector.dictatorMilitia >= sector.getTotalRebelMilitia() &&
@@ -261,7 +261,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         const isBase = game.dictatorPlayer.baseSectorId === sector.sectorId;
         return isControlled || isBase;
       },
-      boardRef: (element) => ({ id: (element as unknown as Sector).id }),
+      boardRef: (element) => ({ id: asSector(element).id }),
       // MERC-0m0: AI auto-select per rule 4.4.3 - closest to rebel-controlled sector
       aiSelect: () => {
         if (!game.dictatorPlayer?.isAI) return undefined;
@@ -278,8 +278,8 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const card = args.card as TacticsCard;
-      const sector = args.sector as Sector;
+      const card = asTacticsCard(args.card);
+      const sector = asSector(args.sector);
 
       // Calculate reinforcement amount
       const reinforcements = game.getReinforcementAmount();
@@ -374,8 +374,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
         const mercIds = game.settings[DRAWN_MERCS_KEY] as number[];
         const mercs = mercIds
-          .map(id => game.getElementById(id) as MercCard)
-          .filter(m => m != null)
+          .map(id => game.getElementById(id))
+          .filter((el): el is MercCard => el instanceof MercCard)
           .sort((a, b) => b.baseCombat - a.baseCombat);
 
         if (mercs.length === 0) {
@@ -418,8 +418,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
       // Find the MERC by name
       const mercs = mercIds
-        .map(id => game.getElementById(id) as MercCard)
-        .filter(m => m != null);
+        .map(id => game.getElementById(id))
+        .filter((el): el is MercCard => el instanceof MercCard);
       const selectedMerc = mercs.find(m => capitalize(m.mercName) === selectedMercName);
 
       if (!selectedMerc) {
