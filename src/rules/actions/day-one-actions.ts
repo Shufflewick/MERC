@@ -19,45 +19,21 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard, getCachedValue, setCachedValue, clearCachedValue } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
 // =============================================================================
 
-// Settings keys for drawn MERCs cache (persists across contexts unlike module-level Map)
+// Settings key for drawn MERCs cache (persists across contexts unlike module-level Map)
 const DRAWN_MERCS_KEY = 'drawnMercsForHiring';
-
-/**
- * Get cached drawn MERC IDs for a player from game.settings
- */
-function getCachedMercIds(game: MERCGame, playerId: string): number[] | undefined {
-  const key = `${DRAWN_MERCS_KEY}:${playerId}`;
-  return game.settings[key] as number[] | undefined;
-}
-
-/**
- * Set cached drawn MERC IDs for a player in game.settings
- */
-function setCachedMercIds(game: MERCGame, playerId: string, mercIds: number[]): void {
-  const key = `${DRAWN_MERCS_KEY}:${playerId}`;
-  game.settings[key] = mercIds;
-}
-
-/**
- * Clear cached drawn MERC IDs for a player
- */
-function clearCachedMercIds(game: MERCGame, playerId: string): void {
-  const key = `${DRAWN_MERCS_KEY}:${playerId}`;
-  delete game.settings[key];
-}
 
 /**
  * Get MercCard objects from cached IDs
  * Returns undefined if no cache exists (so callers can distinguish from empty cache)
  */
 function getMercsFromCache(game: MERCGame, playerId: string): MercCard[] | undefined {
-  const ids = getCachedMercIds(game, playerId);
+  const ids = getCachedValue<number[]>(game, DRAWN_MERCS_KEY, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty (all MERCs hired)
   return ids.map(id => {
@@ -79,7 +55,7 @@ function ensureMercsDrawn(game: MERCGame, playerId: string): MercCard[] {
 
   // No cache - draw fresh
   const drawn = drawMercsForHiring(game, 3);
-  setCachedMercIds(game, playerId, drawn.map(m => m.id));
+  setCachedValue(game, DRAWN_MERCS_KEY, playerId, drawn.map(m => m.id));
   game.message(`Drew ${drawn.length} MERCs for hiring: ${drawn.map(m => m.mercName).join(', ')}`);
   return drawn;
 }
@@ -185,7 +161,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
 
       // Remove from cache (keep remaining for second hire)
       const remaining = available.filter(m => m !== merc);
-      setCachedMercIds(game, playerId, remaining.map(m => m.id));
+      setCachedValue(game, DRAWN_MERCS_KEY, playerId, remaining.map(m => m.id));
 
       return {
         success: true,
@@ -301,7 +277,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
 
       // Update cache with remaining MERCs
       const remaining = available.filter(m => m !== merc);
-      setCachedMercIds(game, playerId, remaining.map(m => m.id));
+      setCachedValue(game, DRAWN_MERCS_KEY, playerId, remaining.map(m => m.id));
 
       const hasTeresa = player.team.some(m => m.mercId === 'teresa');
 
@@ -312,7 +288,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
           other.putInto(game.mercDiscard);
           game.message(`${other.mercName} was not selected and is discarded`);
         }
-        clearCachedMercIds(game, playerId);
+        clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
       } else {
         game.message(`Teresa bonus: ${remaining.length} MERC(s) available for third hire!`);
       }
@@ -405,7 +381,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         for (const other of available) {
           other.putInto(game.mercDiscard);
         }
-        clearCachedMercIds(game, playerId);
+        clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
         game.message(`${player.name} skipped third hire`);
         return { success: true, message: 'Skipped third hire' };
       }
@@ -445,7 +421,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       const equipment = equipStartingEquipment(game, merc, equipmentType);
 
       // Clean up cache - no more hiring available
-      clearCachedMercIds(game, playerId);
+      clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
 
       return {
         success: true,
