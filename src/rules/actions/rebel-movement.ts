@@ -94,8 +94,8 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat) return false;
 
       // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player as any);
-      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      const isRebel = game.isRebelPlayer(ctx.player);
+      const isDictator = game.isDictatorPlayer(ctx.player);
       if (!isRebel && !isDictator) return false;
 
       // Check if any squad can move
@@ -136,7 +136,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       const squad = args.squad as Squad;
       const destination = args.destination as Sector;
       const sourceSector = game.getSector(squad.sectorId!);
-      const isRebel = game.isRebelPlayer(ctx.player as any);
+      const isRebel = game.isRebelPlayer(ctx.player);
 
       // Spend action from each living MERC in squad
       const mercs = squad.getLivingMercs();
@@ -229,7 +229,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
     .prompt('Coordinated attack (both squads)')
     .condition((ctx) => {
       // Only rebels can use coordinated attack
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Need both squads with MERCs and they must be in different but adjacent sectors
       // that share a common adjacent target
@@ -262,7 +262,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
       elementClass: Sector,
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        if (!game.isRebelPlayer(ctx.player)) return false;
         const sector = element as unknown as Sector;
         const player = ctx.player as RebelPlayer;
 
@@ -325,7 +325,7 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
     .prompt('Declare coordinated attack (stage for multi-player)')
     .condition((ctx) => {
       // Only rebels can declare coordinated attacks
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       // Only available in multi-player games (need another rebel to coordinate with)
       if (game.rebelPlayers.length <= 1) return false;
       const player = ctx.player as RebelPlayer;
@@ -345,7 +345,7 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       elementClass: Squad,
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        if (!game.isRebelPlayer(ctx.player)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
         // Use name comparison instead of object reference
@@ -361,7 +361,7 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       elementClass: Sector,
       filter: (element, ctx) => {
         // Safety check - only rebels can declare coordinated attacks
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        if (!game.isRebelPlayer(ctx.player)) return false;
         const sector = element as unknown as Sector;
         const player = ctx.player as RebelPlayer;
         const squad = ctx.args?.squad as Squad | undefined;
@@ -405,7 +405,7 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
     .prompt('Join coordinated attack')
     .condition((ctx) => {
       // Only rebels can join coordinated attacks
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       // Only available in multi-player games
       if (game.rebelPlayers.length <= 1) return false;
       const player = ctx.player as RebelPlayer;
@@ -453,7 +453,7 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
       elementClass: Squad,
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        if (!game.isRebelPlayer(ctx.player)) return false;
         const squad = element as unknown as Squad;
         const player = ctx.player as RebelPlayer;
         const targetId = ctx.data?.targetAttack as string;
@@ -502,7 +502,7 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
     .prompt('Execute coordinated attack')
     .condition((ctx) => {
       // Only rebels can execute coordinated attacks
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       // Only available in multi-player games
       if (game.rebelPlayers.length <= 1) return false;
       // Must have pending coordinated attacks
@@ -592,7 +592,7 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
       // Not available during Day 1 setup
       if (game.currentDay < 2) return false;
       // Only rebels can split squads
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Must have at least 2 MERCs in primary and empty secondary
       return player.primarySquad.mercCount > 1 && player.secondarySquad.mercCount === 0;
@@ -603,7 +603,7 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         // Safety check - only rebels have squads
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
+        if (!game.isRebelPlayer(ctx.player)) return false;
         const merc = element as unknown as MercCard;
         const player = ctx.player as RebelPlayer;
         // Only MERCs in primary squad can be split off
@@ -644,7 +644,7 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
       // Not available during Day 1 setup
       if (game.currentDay < 2) return false;
       // Only rebels can merge squads
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Both squads must be in same sector
       return player.secondarySquad.mercCount > 0 &&
