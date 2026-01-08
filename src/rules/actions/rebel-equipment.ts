@@ -904,29 +904,18 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
 // Hagness Draw Action
 // =============================================================================
 
-// Settings key prefix for Hagness equipment cache (keyed by `playerId:equipmentType`)
+// Settings key prefix for Hagness equipment cache (keyed by `prefix:playerId:equipmentType`)
 const HAGNESS_EQUIPMENT_KEY = 'hagnessDrawnEquipmentId';
 
-// Helper to get cache key for Hagness equipment
+// Helper to get cache key for Hagness equipment (combines playerId and equipmentType)
 function getHagnessCacheKey(playerId: string, equipmentType: string): string {
-  return `${HAGNESS_EQUIPMENT_KEY}:${playerId}:${equipmentType}`;
-}
-
-// Helper to get cached equipment ID from game.settings
-function getHagnessEquipmentId(game: MERCGame, playerId: string, equipmentType: string): number | undefined {
-  const key = getHagnessCacheKey(playerId, equipmentType);
-  return game.settings[key] as number | undefined;
-}
-
-// Helper to set cached equipment ID in game.settings
-function setHagnessEquipmentId(game: MERCGame, playerId: string, equipmentType: string, equipmentId: number): void {
-  const key = getHagnessCacheKey(playerId, equipmentType);
-  game.settings[key] = equipmentId;
+  return `${playerId}:${equipmentType}`;
 }
 
 // Helper to get Equipment element from cached ID
 function getHagnessEquipment(game: MERCGame, playerId: string, equipmentType: string): Equipment | undefined {
-  const id = getHagnessEquipmentId(game, playerId, equipmentType);
+  const compositeKey = getHagnessCacheKey(playerId, equipmentType);
+  const id = getCachedValue<number>(game, HAGNESS_EQUIPMENT_KEY, compositeKey);
   if (id === undefined) return undefined;
   return game.getElementById(id) as Equipment | undefined;
 }
@@ -1023,10 +1012,11 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         // If recipient is already set, the user already clicked - don't redraw!
         const recipientAlreadySet = ctx.args?.recipient !== undefined;
 
-        if (getHagnessEquipmentId(game, playerId, equipmentType) === undefined && !recipientAlreadySet) {
+        const compositeKey = getHagnessCacheKey(playerId, equipmentType);
+        if (getCachedValue<number>(game, HAGNESS_EQUIPMENT_KEY, compositeKey) === undefined && !recipientAlreadySet) {
           const eq = game.drawEquipment(equipmentType);
           if (eq) {
-            setHagnessEquipmentId(game, playerId, equipmentType, eq.id);
+            setCachedValue(game, HAGNESS_EQUIPMENT_KEY, compositeKey, eq.id);
             equipmentData = {
               equipmentId: eq.id,
               equipmentName: eq.equipmentName,
