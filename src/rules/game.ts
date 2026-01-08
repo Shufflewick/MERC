@@ -41,6 +41,7 @@ import {
   type DictatorData as SetupDictatorData,
   type TacticsData as SetupTacticsData,
 } from './setup.js';
+import type { Combatant, CombatResult } from './combat.js';
 
 // Import game data from JSON files
 import mercsData from '../../data/mercs.json';
@@ -445,21 +446,21 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     sectorId: string;
     attackingPlayerId: string;
     round: number;
-    rebelCombatants: any[]; // Combatant[]
-    dictatorCombatants: any[]; // Combatant[]
-    rebelCasualties: any[];
-    dictatorCasualties: any[];
+    rebelCombatants: Combatant[];
+    dictatorCombatants: Combatant[];
+    rebelCasualties: Combatant[];
+    dictatorCasualties: Combatant[];
     // MERC-l09: Attack Dog state
-    dogAssignments?: Array<[string, any]>; // [targetId, dog Combatant][] - serializable form
-    dogs?: any[]; // Active dog combatants
+    dogAssignments?: Array<[string, Combatant]>;
+    dogs?: Combatant[];
     // MERC-t5k: Player target selection - turn-by-turn
     currentAttackerIndex?: number; // Position in initiative order (for mid-round pause)
-    roundResults?: any[]; // CombatResult[] - partial results from current round
-    roundCasualties?: any[]; // Combatant[] - casualties from current round so far
+    roundResults?: CombatResult[];
+    roundCasualties?: Combatant[];
     pendingTargetSelection?: {
       attackerId: string; // ID of the attacking combatant
       attackerName: string;
-      validTargets: any[]; // Combatant[] - enemies that can be targeted
+      validTargets: Combatant[];
       maxTargets: number;
     };
     selectedTargets?: Map<string, string[]>; // attackerId -> targetIds
@@ -539,7 +540,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }> = {};
 
   // Legacy pendingLoot for backward compatibility (deprecated)
-  pendingLoot: { sectorId: string; equipment: any[] } | null = null;
+  pendingLoot: { sectorId: string; equipment: Equipment[] } | null = null;
 
   // Static reference data loaded from JSON - stored in settings to survive HMR
   // These are loaded once during initializeGame() and don't change during gameplay
