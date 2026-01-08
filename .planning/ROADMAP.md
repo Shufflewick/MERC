@@ -16,7 +16,7 @@ None
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Type Safety: Combat State** - Replace any[] types with proper Combatant[], CombatResult[] types
+- [ ] **Phase 1: Type Safety: Combat State** - Replace any[] types with proper Combatant[], CombatResult[] types (1/2 plans)
 - [ ] **Phase 2: Type Safety: Assertions** - Replace 191 unsafe `as` casts with type guards or validated casts
 - [ ] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
 - [ ] **Phase 4: Code Quality: State & Legacy** - Standardize state persistence and remove legacy pendingLoot
@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 
 Plans:
-- [ ] 01-01: Audit combat state types and define proper interfaces
+- [x] 01-01: Audit combat state types and define proper interfaces
 - [ ] 01-02: Replace any[] usages with typed arrays
 
 ### Phase 2: Type Safety: Assertions
@@ -96,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Type Safety: Combat State | 0/2 | Not started | - |
+| 1. Type Safety: Combat State | 1/2 | In progress | - |
 | 2. Type Safety: Assertions | 0/4 | Not started | - |
 | 3. Code Quality: Helpers | 0/3 | Not started | - |
 | 4. Code Quality: State & Legacy | 0/3 | Not started | - |
