@@ -734,7 +734,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       rebel.game = this;
 
       // Assign color from player config or default based on position
-      const playerConfig = MERCGame._pendingPlayerConfigs[position];
+      // Note: position is 1-indexed, but arrays are 0-indexed
+      const playerConfig = MERCGame._pendingPlayerConfigs[position - 1];
       if (playerConfig?.color) {
         // Store hex color directly - UI will use this
         rebel.playerColorHex = playerConfig.color;
@@ -742,7 +743,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         rebel.playerColor = hexToPlayerColor(playerConfig.color);
       } else {
         const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
-        rebel.playerColor = colors[position % colors.length];
+        rebel.playerColor = colors[(position - 1) % colors.length];
       }
 
       // Create squads for rebel and store refs (not direct references)

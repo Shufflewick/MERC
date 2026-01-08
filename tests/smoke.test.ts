@@ -90,7 +90,7 @@ describe('MERC Smoke Tests', () => {
 
       // Use assertFlowState helper for cleaner assertions
       assertFlowState(testGame, {
-        currentPlayer: 0, // Rebel player
+        currentPlayer: 1, // Rebel player (1-indexed)
       });
     });
 
@@ -102,7 +102,7 @@ describe('MERC Smoke Tests', () => {
       });
 
       // Landing zone is now chosen first, before hiring MERCs
-      assertActionAvailable(testGame, 0, 'placeLanding');
+      assertActionAvailable(testGame, 1, 'placeLanding');
     });
   });
 

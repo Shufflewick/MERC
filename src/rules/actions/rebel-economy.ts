@@ -1010,39 +1010,45 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       // Must have a unit with training > 0 and actions remaining
       return livingUnits.some(u => canUnitTrain(u, ctx.player, game));
     })
-    .chooseFrom<{ id: number; name: string; isDictatorCard: boolean }>('unit', {
+    .chooseFrom<string>('unit', {
       prompt: 'Select unit to train militia',
       choices: (ctx) => {
         const units = getPlayerUnitsForTrain(ctx.player, game);
         return units
           .filter(u => canUnitTrain(u, ctx.player, game))
-          .map(u => ({
-            value: {
-              id: u.id,
-              name: getUnitNameForTrain(u),
-              isDictatorCard: isDictatorCardForTrain(u),
-            },
-            label: capitalize(getUnitNameForTrain(u)),
-          }));
+          .map(u => {
+            const isDictator = isDictatorCardForTrain(u);
+            return {
+              value: `${u.id}:${getUnitNameForTrain(u)}:${isDictator}`,
+              label: capitalize(getUnitNameForTrain(u)),
+            };
+          });
       },
     })
     .execute((args, ctx) => {
-      const unitChoice = args.unit as { id: number; name: string; isDictatorCard: boolean };
+      const unitChoiceStr = args.unit as string;
 
-      // Find the actual unit
+      // Parse string format: "id:name:isDictatorCard"
+      const [idStr, , isDictatorStr] = unitChoiceStr.split(':');
+      const unitId = parseInt(idStr, 10);
+      const isDictatorCard = isDictatorStr === 'true';
+
+      // Find the actual unit (same pattern as explore action)
       let actingUnit: TrainableUnit | null = null;
-      if (unitChoice.isDictatorCard) {
+      if (isDictatorCard) {
         actingUnit = game.dictatorPlayer?.dictator || null;
       } else {
-        actingUnit = game.all(MercCard).find(m => m.id === unitChoice.id) || null;
+        actingUnit = game.all(MercCard).find(m => m.id === unitId) || null;
       }
 
       if (!actingUnit) {
+        game.message('Error: Unit not found for train action');
         return { success: false, message: 'Unit not found' };
       }
 
       const sector = findUnitSectorForTrain(actingUnit, ctx.player, game);
       if (!sector) {
+        game.message('Error: No sector found for train action');
         return { success: false, message: 'No sector found' };
       }
 
