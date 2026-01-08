@@ -228,7 +228,12 @@ function registerDebugData(game: MERCGame): void {
 
   // Squad locations and MERCs
   game.registerDebug('Squad Locations', () => {
-    const result: any[] = [];
+    const result: Array<{
+      player: number;
+      squad: 'primary' | 'secondary';
+      sectorId: string;
+      mercs: Array<{ name: string; actions: number }>;
+    }> = [];
     for (const player of game.players) {
       if (game.isRebelPlayer(player)) {
         const rebel = player as RebelPlayer;
@@ -329,10 +334,10 @@ function registerDebugData(game: MERCGame): void {
       sectorId: game.activeCombat.sectorId,
       attackingPlayerId: game.activeCombat.attackingPlayerId,
       round: game.activeCombat.round,
-      rebelCombatants: (game.activeCombat.rebelCombatants as any[])?.length ?? 0,
-      dictatorCombatants: (game.activeCombat.dictatorCombatants as any[])?.length ?? 0,
-      rebelCasualties: (game.activeCombat.rebelCasualties as any[])?.length ?? 0,
-      dictatorCasualties: (game.activeCombat.dictatorCasualties as any[])?.length ?? 0,
+      rebelCombatants: game.activeCombat.rebelCombatants?.length ?? 0,
+      dictatorCombatants: game.activeCombat.dictatorCombatants?.length ?? 0,
+      rebelCasualties: game.activeCombat.rebelCasualties?.length ?? 0,
+      dictatorCasualties: game.activeCombat.dictatorCasualties?.length ?? 0,
       // MERC-t5k: Target selection state
       pendingTargetSelection: game.activeCombat.pendingTargetSelection ? {
         attackerId: game.activeCombat.pendingTargetSelection.attackerId,
