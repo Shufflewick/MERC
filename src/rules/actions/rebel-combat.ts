@@ -11,7 +11,7 @@ import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, MercCard, Equipment } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect } from '../equipment-effects.js';
-import { capitalize } from './helpers.js';
+import { capitalize, isRebelPlayer } from './helpers.js';
 
 /**
  * Continue fighting in active combat
@@ -111,7 +111,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
     })
     .condition((ctx) => {
       // Only rebels can select targets (this is a rebel combat action)
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!isRebelPlayer(ctx.player)) return false;
       // Must have active combat with pending target selection and at least one valid target
       const hasActiveCombat = game.activeCombat !== null;
       const hasPending = game.activeCombat?.pendingTargetSelection != null;
@@ -292,7 +292,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       // Must have active combat with pending hit allocation
       if (!game.activeCombat?.pendingHitAllocation) return false;
       // Only rebels can use this (dictator AI auto-allocates)
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!isRebelPlayer(ctx.player)) return false;
       return true;
     })
     .chooseFrom<string>('allocations', {
@@ -340,7 +340,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       for (const choice of allocChoices) {
         // Handle both string format (from CombatPanel) and object format (from ActionPanel)
         const choiceStr = typeof choice === 'string' ? choice :
-          (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as any).value) : String(choice);
+          (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as { value: unknown }).value) : String(choice);
         const parts = choiceStr.split('::');
         const targetId = parts[0];
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
@@ -413,7 +413,7 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
       const pending = game.activeCombat.pendingHitAllocation;
       if (!pending.canReroll || pending.hasRerolled) return false;
       // Only rebels can use this
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!isRebelPlayer(ctx.player)) return false;
       return true;
     })
     .execute(() => {
@@ -473,7 +473,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       // Must have pending Wolverine 6s allocation
       if (!game.activeCombat?.pendingWolverineSixes) return false;
       // Only rebels can use this
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!isRebelPlayer(ctx.player)) return false;
       return true;
     })
     .chooseFrom<string>('bonusTargets', {
@@ -552,7 +552,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat.pendingTargetSelection) return false;
       if (game.activeCombat.pendingHitAllocation) return false;
       // Only rebels can use this
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!isRebelPlayer(ctx.player)) return false;
 
       const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
 
