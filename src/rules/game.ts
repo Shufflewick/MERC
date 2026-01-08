@@ -544,9 +544,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     image: string;
   }> = {};
 
-  // Legacy pendingLoot for backward compatibility (deprecated)
-  pendingLoot: { sectorId: string; equipment: Equipment[] } | null = null;
-
   // Static reference data loaded from JSON - stored in settings to survive HMR
   // These are loaded once during initializeGame() and don't change during gameplay
   get mercData(): MercData[] {
