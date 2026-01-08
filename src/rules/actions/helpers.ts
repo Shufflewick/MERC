@@ -132,6 +132,35 @@ export function useTrainingAction(merc: MercCard, cost: number): boolean {
 }
 
 // =============================================================================
+// Settings Cache Helpers
+// =============================================================================
+
+/**
+ * Get a cached value from game.settings using prefix:playerId key pattern.
+ * Returns undefined if not found.
+ */
+export function getCachedValue<T>(game: MERCGame, prefix: string, playerId: string): T | undefined {
+  const key = `${prefix}:${playerId}`;
+  return game.settings[key] as T | undefined;
+}
+
+/**
+ * Set a cached value in game.settings using prefix:playerId key pattern.
+ */
+export function setCachedValue<T>(game: MERCGame, prefix: string, playerId: string, value: T): void {
+  const key = `${prefix}:${playerId}`;
+  game.settings[key] = value;
+}
+
+/**
+ * Clear a cached value from game.settings using prefix:playerId key pattern.
+ */
+export function clearCachedValue(game: MERCGame, prefix: string, playerId: string): void {
+  const key = `${prefix}:${playerId}`;
+  delete game.settings[key];
+}
+
+// =============================================================================
 // Dictator Combatant Helpers
 // =============================================================================
 
