@@ -19,7 +19,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -94,8 +94,8 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       if (game.currentDay !== 1) return false;
       // Not available during combat
       if (game.activeCombat) return false;
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
+      if (!isRebelPlayer(ctx.player)) return false;
+      const player = ctx.player;
       // Must have landed first (prevents choices from being fetched before landing)
       if (!player.primarySquad.sectorId) return false;
       // Use team.length (not teamSize) since Teresa doesn't count toward teamSize
@@ -105,7 +105,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       prompt: 'Select your FIRST MERC to hire',
       defer: true, // Choices evaluated when action is started, enabling deck manipulation
       choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
 
         // Only draw if cache exists (populated by starting the action)
@@ -127,7 +127,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       },
       // AI: Pick a random available MERC
       aiSelect: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const cached = getMercsFromCache(game, playerId);
         const available = cached ?? ensureMercsDrawn(game, playerId);
@@ -146,7 +146,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = asRebelPlayer(ctx.player);
       const playerId = `${player.position}`;
       const available = getMercsFromCache(game, playerId) || [];
 
@@ -208,8 +208,8 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       if (game.currentDay !== 1) return false;
       // Not available during combat
       if (game.activeCombat) return false;
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
+      if (!isRebelPlayer(ctx.player)) return false;
+      const player = ctx.player;
       // Available when teamSize is 1 OR when teamSize is 0 but have 1+ MERCs (Teresa was first)
       const playerId = `${player.position}`;
       const remaining = getMercsFromCache(game, playerId) || [];
@@ -218,7 +218,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
     .chooseFrom<string>('merc', {
       prompt: 'Select your SECOND MERC to hire',
       choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const available = getMercsFromCache(game, playerId) || [];
 
@@ -238,7 +238,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       },
       // AI: Pick a random compatible MERC
       aiSelect: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const available = getMercsFromCache(game, playerId) || [];
         const compatible = available.filter(m => canHireMercWithTeam(m.mercId, player.team));
@@ -257,7 +257,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = asRebelPlayer(ctx.player);
       const playerId = `${player.position}`;
       const available = getMercsFromCache(game, playerId) || [];
 
@@ -336,8 +336,8 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       // Only available during Day 1 setup
       if (game.currentDay !== 1) return false;
       if (game.activeCombat) return false;
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
+      if (!isRebelPlayer(ctx.player)) return false;
+      const player = ctx.player;
       const playerId = `${player.position}`;
       const remaining = getMercsFromCache(game, playerId) || [];
       // Check if Teresa is on the team (she doesn't count toward limit)
@@ -348,7 +348,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
     .chooseFrom<string>('merc', {
       prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',
       choices: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const available = getMercsFromCache(game, playerId) || [];
 
@@ -363,7 +363,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       },
       // AI: Pick a random compatible MERC (don't skip)
       aiSelect: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const available = getMercsFromCache(game, playerId) || [];
         const compatible = available.filter(m => canHireMercWithTeam(m.mercId, player.team));
@@ -391,7 +391,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = asRebelPlayer(ctx.player);
       const playerId = `${player.position}`;
       const available = getMercsFromCache(game, playerId) || [];
       const mercName = args.merc as string;
@@ -462,7 +462,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
 export function createEquipStartingAction(game: MERCGame): ActionDefinition {
   return Action.create('equipStarting')
     .prompt((ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = asRebelPlayer(ctx.player);
       const unequippedMerc = player.team.find(m =>
         !m.weaponSlot && !m.armorSlot && !m.accessorySlot
       );
@@ -471,15 +471,15 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
     .notUndoable() // Involves randomness (drawing equipment)
     .condition((ctx) => {
       // Only rebels equip starting equipment
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
+      if (!isRebelPlayer(ctx.player)) return false;
+      const player = ctx.player;
       return player.team.some(merc =>
         !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot
       );
     })
     .chooseFrom<string>('equipmentType', {
       prompt: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = asRebelPlayer(ctx.player);
         const unequippedMerc = player.team.find(m =>
           !m.weaponSlot && !m.armorSlot && !m.accessorySlot
         );
@@ -493,7 +493,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = asRebelPlayer(ctx.player);
       // Auto-select the unequipped MERC
       const merc = player.team.find(m =>
         !m.weaponSlot && !m.armorSlot && !m.accessorySlot
@@ -532,8 +532,8 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
       // Only available during Day 1
       if (game.currentDay !== 1) return false;
       // Only rebels place landing zones
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
-      const player = ctx.player as RebelPlayer;
+      if (!isRebelPlayer(ctx.player)) return false;
+      const player = ctx.player;
       // Cannot place if already landed (has a sector)
       if (player.primarySquad.sectorId) return false;
       return true;
@@ -555,8 +555,8 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
-      const sector = args.sector as Sector;
+      const player = asRebelPlayer(ctx.player);
+      const sector = asSector(args.sector);
 
       player.primarySquad.sectorId = sector.sectorId;
       game.message(`${player.name} landed at ${sector.sectorName}`);
