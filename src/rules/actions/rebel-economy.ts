@@ -56,7 +56,7 @@ function getHireDrawnMercs(game: MERCGame, playerId: string): MercCard[] | undef
   const ids = getHireDrawnMercIds(game, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty
-  return ids.map(id => game.getElementById(id) as MercCard).filter(Boolean);
+  return ids.map(id => game.getElementById(id)).filter((e): e is MercCard => e instanceof MercCard);
 }
 
 /**
@@ -612,25 +612,26 @@ function getUnitNameForCollect(unit: CollectableUnit): string {
 
 export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
   // Helper to resolve sector from ctx.args (sectorId is numeric element ID)
-  function getSector(ctx: any): Sector | undefined {
+  function getSector(ctx: { args?: Record<string, unknown> }): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;
+    let element: ReturnType<typeof game.getElementById> | undefined;
     if (typeof sectorArg === 'number') {
-      return game.getElementById(sectorArg) as Sector | undefined;
+      element = game.getElementById(sectorArg);
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
-      return game.getElementById(sectorArg.id) as Sector | undefined;
+      element = game.getElementById((sectorArg as { id: number }).id);
     }
-    return undefined;
+    return element instanceof Sector ? element : undefined;
   }
 
   // Helper to resolve unit from ctx.args (mercId is numeric element ID)
   // Handles both MercCard and DictatorCard
-  function getUnit(ctx: any): CollectableUnit | undefined {
+  function getUnit(ctx: { args?: Record<string, unknown> }): CollectableUnit | undefined {
     const mercArg = ctx.args?.mercId;
     let id: number | undefined;
     if (typeof mercArg === 'number') {
       id = mercArg;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      id = mercArg.id;
+      id = (mercArg as { id: number }).id;
     }
     if (id === undefined) return undefined;
 
@@ -659,6 +660,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       optional: 'Done collecting',
       elementClass: Equipment,
       filter: (element, ctx) => {
+        if (!(element instanceof Equipment)) return false;
         const sector = getSector(ctx);
         if (!sector) return false;
         const inStash = sector.stash.some(e => e.id === element.id);
@@ -666,7 +668,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit && !isDictatorCardForCollect(unit) && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit && unit instanceof MercCard && unit.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -675,7 +677,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const unit = getUnit(ctx);
       const sector = getSector(ctx);
-      const equipment = args.equipment as Equipment | null;
+      const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!unit || !sector) {
         return { success: false, message: 'Invalid unit or sector' };
@@ -1284,7 +1286,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         }
 
         const equipmentId = game.settings[settingsKey] as number | undefined;
-        const drawnEquip = equipmentId ? game.getElementById(equipmentId) as Equipment | undefined : undefined;
+        const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
+        const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
 
         // Get mercs for this player type
         const playerMercs = getPlayerMercsForCity(ctx.player, game);
@@ -1306,7 +1309,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const actingMerc = args.actingMerc as MercCard;
+      const actingMerc = asMercCard(args.actingMerc);
       const settingsKey = getSettingsKey(ctx.player);
       const sector = findMercSectorForCity(ctx.player, game);
 
@@ -1315,7 +1318,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
       // Get equipment from game.settings (stored by choices function)
       const equipmentId = game.settings[settingsKey] as number | undefined;
-      const equipment = equipmentId ? game.getElementById(equipmentId) as Equipment | undefined : undefined;
+      const equipElement = equipmentId ? game.getElementById(equipmentId) : undefined;
+      const equipment = equipElement instanceof Equipment ? equipElement : undefined;
       delete game.settings[settingsKey]; // Clean up
 
       if (equipment && sector) {
