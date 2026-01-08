@@ -423,11 +423,9 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
       // Set MERC location from selected sector
       const targetSectorChoice = args.targetSector as string;
-      game.message(`DEBUG: Raw targetSector arg = "${targetSectorChoice}" (type: ${typeof targetSectorChoice})`);
 
       // Extract sector name (remove militia count suffix if present)
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
-      game.message(`DEBUG: Extracted sector name = "${sectorName}"`);
 
       // Try multiple matching strategies
       const allSectors = game.gameMap.getAllSectors();
