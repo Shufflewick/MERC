@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-08)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** Phase 1 — Type Safety: Combat State
+**Current focus:** Phase 2 — Type Safety: Assertions
 
 ## Current Position
 
-Phase: 1 of 6 (Type Safety: Combat State)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-08 — Completed 01-01-PLAN.md
+Phase: 2 of 6 (Type Safety: Assertions)
+Plan: 0 of 8 in current phase
+Status: Ready to start
+Last activity: 2026-01-08 — Planned Phase 2 (8 plans)
 
-Progress: █░░░░░░░░░ 6%
+Progress: █░░░░░░░░░ 5%
 
 ## Performance Metrics
 

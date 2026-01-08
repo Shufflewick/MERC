@@ -16,7 +16,7 @@ None
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Type Safety: Combat State** - Replace any[] types with proper Combatant[], CombatResult[] types (1/2 plans)
+- [x] **Phase 1: Type Safety: Combat State** - Replace any[] types with proper Combatant[], CombatResult[] types
 - [ ] **Phase 2: Type Safety: Assertions** - Replace 191 unsafe `as` casts with type guards or validated casts
 - [ ] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
 - [ ] **Phase 4: Code Quality: State & Legacy** - Standardize state persistence and remove legacy pendingLoot
@@ -29,23 +29,26 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Goal**: Replace `any[]` types in combat state with proper `Combatant[]`, `CombatResult[]` types
 **Depends on**: Nothing (first phase)
 **Research**: Unlikely (internal codebase patterns, existing types)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [x] 01-01: Audit combat state types and define proper interfaces
-- [ ] 01-02: Replace any[] usages with typed arrays
+- [x] 01-01: Add type imports and fix activeCombat state types
 
 ### Phase 2: Type Safety: Assertions
-**Goal**: Replace unsafe `as` casts with type guards or validated casts across 191 instances
+**Goal**: Replace unsafe `as` casts with type guards or validated casts across ~350 instances
 **Depends on**: Phase 1 (combat types inform some assertions)
 **Research**: Unlikely (TypeScript patterns, internal codebase)
-**Plans**: TBD
+**Plans**: 8
 
 Plans:
-- [ ] 02-01: Categorize assertions by pattern and risk
-- [ ] 02-02: Create type guard utilities
-- [ ] 02-03: Replace high-risk assertions
-- [ ] 02-04: Replace remaining assertions
+- [ ] 02-01: Create type guard utilities and fix game.ts
+- [ ] 02-02: Fix flow.ts and tactics-effects.ts (high-risk `as any`)
+- [ ] 02-03: Fix dictator-actions.ts
+- [ ] 02-04: Fix rebel-movement.ts
+- [ ] 02-05: Fix rebel-economy.ts
+- [ ] 02-06: Fix rebel-equipment.ts (largest file)
+- [ ] 02-07: Fix day-one-actions.ts
+- [ ] 02-08: Fix remaining files (combat.ts, rebel-combat.ts, ai-helpers.ts)
 
 ### Phase 3: Code Quality: Helpers
 **Goal**: Extract 17 duplicate helper patterns into shared utilities in `helpers.ts`
@@ -96,8 +99,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Type Safety: Combat State | 1/2 | In progress | - |
-| 2. Type Safety: Assertions | 0/4 | Not started | - |
+| 1. Type Safety: Combat State | 1/1 | Complete | 2026-01-08 |
+| 2. Type Safety: Assertions | 0/8 | Not started | - |
 | 3. Code Quality: Helpers | 0/3 | Not started | - |
 | 4. Code Quality: State & Legacy | 0/3 | Not started | - |
 | 5. Debug Cleanup | 0/1 | Not started | - |
