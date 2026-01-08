@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-08)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** Phase 5 — Debug Cleanup
+**Current focus:** Phase 6 — Test Coverage
 
 ## Current Position
 
-Phase: 5 of 6 (Debug Cleanup)
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-01-08 — Completed 04-03-PLAN.md, Phase 4 complete
+Phase: 5 of 6 (Debug Cleanup) - COMPLETE
+Plan: 1 of 1 in phase
+Status: Phase complete
+Last activity: 2026-01-08 — Completed 05-01-PLAN.md, Phase 5 complete
 
-Progress: ████████████████ 80%
+Progress: █████████████████ 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
-- Average duration: 8.2 min
-- Total execution time: 2.2 hours
+- Total plans completed: 17
+- Average duration: 8.1 min
+- Total execution time: 2.3 hours
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: ████████████████ 80%
 | 2 | 8 | 83 min | 10 min |
 | 3 | 4 | 21 min | 5 min |
 | 4 | 3 | 20 min | 6.7 min |
+| 5 | 1 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 7 min, 5 min, 10 min, 5 min
+- Last 5 plans: 7 min, 5 min, 10 min, 5 min, 6 min
 - Trend: Stable
 
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - Phase 4-01: Global helpers mirror player-scoped helpers for consistency
 - Phase 4-02: Used explicit type generics on getGlobalCachedValue for type safety
 - Phase 4-03: Extended cache helpers with global variants for dictator/shared state
+- Phase 5-01: Keep WARNING message for sector fallback (legitimate runtime info)
+- Phase 5-01: Keep [DEBUG] prefix in tactics order message (correctly signals debug mode)
 
 ### Deferred Issues
 
@@ -75,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-08T22:50:00Z
-Stopped at: Completed 04-03-PLAN.md, Phase 4 complete
+Last session: 2026-01-08T23:16:00Z
+Stopped at: Completed 05-01-PLAN.md, Phase 5 complete
 Resume file: None

@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Type Safety: Assertions** - Replace 191 unsafe `as` casts with type guards or validated casts
 - [x] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
 - [x] **Phase 4: Code Quality: State & Legacy** - Standardize state persistence and remove legacy pendingLoot
-- [ ] **Phase 5: Debug Cleanup** - Remove DEBUG messages and gate DEBUG_TACTICS_ORDER
+- [x] **Phase 5: Debug Cleanup** - Remove DEBUG messages and gate DEBUG_TACTICS_ORDER
 - [ ] **Phase 6: Test Coverage** - Add tests for action conditions, state persistence, and error conditions
 
 ## Phase Details
@@ -77,10 +77,10 @@ Plans:
 **Goal**: Remove DEBUG messages from dictator-actions.ts and gate DEBUG_TACTICS_ORDER
 **Depends on**: Phase 4
 **Research**: Unlikely (straightforward removal/gating)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 05-01: Remove/gate debug code
+- [x] 05-01: Remove/gate debug code
 
 ### Phase 6: Test Coverage
 **Goal**: Add tests for action `.condition()` validation, state persistence patterns, and error conditions
@@ -104,5 +104,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Type Safety: Assertions | 8/8 | Complete | 2026-01-08 |
 | 3. Code Quality: Helpers | 4/4 | Complete | 2026-01-08 |
 | 4. Code Quality: State & Legacy | 3/3 | Complete | 2026-01-08 |
-| 5. Debug Cleanup | 0/1 | Not started | - |
+| 5. Debug Cleanup | 1/1 | Complete | 2026-01-08 |
 | 6. Test Coverage | 0/3 | Not started | - |
