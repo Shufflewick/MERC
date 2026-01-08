@@ -330,15 +330,15 @@ function blockTrade(game: MERCGame): TacticsEffectResult {
  */
 function conscripts(game: MERCGame): TacticsEffectResult {
   // Store the effect on the game state
-  (game as any).conscriptsActive = true;
-  (game as any).conscriptsAmount = Math.ceil(game.rebelCount / 2);
+  game.conscriptsActive = true;
+  game.conscriptsAmount = Math.ceil(game.rebelCount / 2);
 
-  game.message(`Conscripts activated: ${(game as any).conscriptsAmount} militia will be added each turn`);
+  game.message(`Conscripts activated: ${game.conscriptsAmount} militia will be added each turn`);
 
   return {
     success: true,
     message: 'Conscripts permanent effect activated',
-    data: { amount: (game as any).conscriptsAmount },
+    data: { amount: game.conscriptsAmount },
   };
 }
 
@@ -346,9 +346,9 @@ function conscripts(game: MERCGame): TacticsEffectResult {
  * Apply conscripts effect at end of dictator turn
  */
 export function applyConscriptsEffect(game: MERCGame): void {
-  if (!(game as any).conscriptsActive) return;
+  if (!game.conscriptsActive) return;
 
-  const amount = (game as any).conscriptsAmount || 1;
+  const amount = game.conscriptsAmount ?? 1;
   let totalPlaced = 0;
 
   for (const sector of game.gameMap.getAllSectors()) {
@@ -421,7 +421,7 @@ function betterWeapons(game: MERCGame): TacticsEffectResult {
  * This sets a game flag
  */
 function oilReserves(game: MERCGame): TacticsEffectResult {
-  (game as any).oilReservesActive = true;
+  game.oilReservesActive = true;
   game.message('Oil Reserves activated: Controller of oil industry gains 1 free move action');
 
   return {
@@ -435,7 +435,7 @@ function oilReserves(game: MERCGame): TacticsEffectResult {
  * MERC-vqmi: Controller of oil industry gains +1 action to one MERC
  */
 export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, rebelPlayer?: RebelPlayer): void {
-  if (!(game as any).oilReservesActive) return;
+  if (!game.oilReservesActive) return;
 
   // Find the oil industry sector
   const oilSector = game.gameMap.getAllSectors().find(s => s.sectorId === 'industry---oil');

@@ -426,6 +426,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   betterWeaponsActive: boolean = false;  // +1 combat die per dictator militia
   veteranMilitiaActive: boolean = false; // +1 initiative for dictator militia
 
+  // Tactics card state (permanent effects)
+  conscriptsActive?: boolean;  // Conscripts card: add militia each turn
+  conscriptsAmount?: number;   // Amount of militia to add per turn
+  oilReservesActive?: boolean; // Oil Reserves card: controller gets free action
+
   // Game state
   // Use 'declare' to avoid class field initialization overwriting the value set in createPlayer()
   declare dictatorPlayer: DictatorPlayer;
