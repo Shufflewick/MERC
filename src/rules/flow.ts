@@ -13,6 +13,7 @@ import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
 import { executeCombat } from './combat.js';
+import { getGlobalCachedValue } from './actions/helpers.js';
 
 /**
  * MERC Game Flow
@@ -198,11 +199,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   if (extra === 0) return false;
                   // For AI, only run once
                   if (game.dictatorPlayer?.isAI) {
-                    const remaining = game.settings['_extra_militia_remaining'] as number | undefined;
+                    const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
                     return remaining === undefined; // Run once, then stop
                   }
                   // For human, continue while militia remaining
-                  const remaining = game.settings['_extra_militia_remaining'] as number | undefined;
+                  const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
                   return remaining === undefined || remaining > 0;
                 },
                 maxIterations: 20,
