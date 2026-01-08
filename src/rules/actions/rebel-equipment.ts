@@ -14,7 +14,7 @@ import {
   isInPlayerTeam,
   useAction,
 } from './helpers.js';
-import { isLandMine, isRepairKit, hasRangedAttack, getRangedAttackRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
+import { isLandMine, isRepairKit, hasRangedAttack, getRangedRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
 import { hasMortar } from '../ai-helpers.js';
 
 // =============================================================================
@@ -46,11 +46,10 @@ function getUnitNameForEquip(unit: EquippableUnit): string {
 }
 
 // Helper to find unit's sector (works for any player type)
-function findUnitSectorForEquip(unit: EquippableUnit, player: any, game: MERCGame): Sector | null {
+function findUnitSectorForEquip(unit: EquippableUnit, player: unknown, game: MERCGame): Sector | null {
   if (game.isRebelPlayer(player)) {
-    const rebelPlayer = player as RebelPlayer;
     const merc = unit as MercCard;
-    for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
+    for (const squad of [player.primarySquad, player.secondarySquad]) {
       if (!squad?.sectorId) continue;
       const mercs = squad.getMercs();
       if (mercs.some(m => m.id === merc.id)) {
@@ -82,9 +81,9 @@ function findUnitSectorForEquip(unit: EquippableUnit, player: any, game: MERCGam
 
 // Helper to get living units with actions for any player type
 // Returns MERCs + DictatorCard if applicable
-function getPlayerUnitsWithActions(player: any, game: MERCGame): EquippableUnit[] {
+function getPlayerUnitsWithActions(player: unknown, game: MERCGame): EquippableUnit[] {
   if (game.isRebelPlayer(player)) {
-    return (player as RebelPlayer).team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
+    return player.team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
   }
   if (game.isDictatorPlayer(player)) {
     const units: EquippableUnit[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
@@ -99,7 +98,7 @@ function getPlayerUnitsWithActions(player: any, game: MERCGame): EquippableUnit[
 }
 
 // Helper to check if any unit can re-equip (in a sector with stash and has actions)
-function canAnyUnitReEquip(player: any, game: MERCGame): boolean {
+function canAnyUnitReEquip(player: unknown, game: MERCGame): boolean {
   const units = getPlayerUnitsWithActions(player, game);
   for (const unit of units) {
     const sector = findUnitSectorForEquip(unit, player, game);
@@ -110,51 +109,61 @@ function canAnyUnitReEquip(player: any, game: MERCGame): boolean {
 
 export function createReEquipAction(game: MERCGame): ActionDefinition {
   // Helper to resolve unit from ctx.args
-  function getUnit(ctx: any): EquippableUnit | undefined {
+  function getUnit(ctx: { args?: Record<string, unknown> }): EquippableUnit | undefined {
     const unitArg = ctx.args?.actingUnit ?? ctx.args?.mercId;
     if (unitArg && typeof unitArg === 'object' && 'isDictatorCard' in unitArg) {
-      if (unitArg.isDictatorCard) {
+      const unitObj = unitArg as { isDictatorCard?: boolean; id?: number };
+      if (unitObj.isDictatorCard) {
         return game.dictatorPlayer?.dictator;
       }
-      return game.all(MercCard).find(m => m.id === unitArg.id);
+      return game.all(MercCard).find(m => m.id === unitObj.id);
     }
     if (typeof unitArg === 'number') {
-      return game.getElementById(unitArg) as MercCard | undefined;
+      const el = game.getElementById(unitArg);
+      return el instanceof MercCard ? el : undefined;
     }
     return undefined;
   }
 
   // Helper to resolve merc from ctx.args (uses actingMerc selection)
-  function getMerc(ctx: any): MercCard | undefined {
+  function getMerc(ctx: { args?: Record<string, unknown> }): MercCard | undefined {
     const mercArg = ctx.args?.actingMerc ?? ctx.args?.mercId;
     if (typeof mercArg === 'number') {
-      return game.getElementById(mercArg) as MercCard | undefined;
+      const el = game.getElementById(mercArg);
+      return el instanceof MercCard ? el : undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      return mercArg as MercCard;
+      if (mercArg instanceof MercCard) return mercArg;
+      const mercObj = mercArg as { id: number };
+      const el = game.getElementById(mercObj.id);
+      return el instanceof MercCard ? el : undefined;
     }
     return undefined;
   }
 
   // Helper to resolve sector from ctx.args
-  function getSector(ctx: any): Sector | undefined {
+  function getSector(ctx: { args?: Record<string, unknown> }): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
-      return game.getElementById(sectorArg) as Sector | undefined;
+      const el = game.getElementById(sectorArg);
+      return el instanceof Sector ? el : undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
-      return sectorArg as Sector;
+      if (sectorArg instanceof Sector) return sectorArg;
+      const sectorObj = sectorArg as { id: number };
+      const el = game.getElementById(sectorObj.id);
+      return el instanceof Sector ? el : undefined;
     }
     return undefined;
   }
 
   // Legacy helper for backward compatibility
-  function findMercSector(merc: MercCard, player: any): Sector | null {
+  function findMercSector(merc: MercCard, player: unknown): Sector | null {
     return findUnitSectorForEquip(merc, player, game);
   }
 
   // Legacy helper for backward compatibility
-  function getPlayerMercsWithActions(player: any): MercCard[] {
+  function getPlayerMercsWithActions(player: unknown): MercCard[] {
     if (game.isRebelPlayer(player)) {
-      return (player as RebelPlayer).team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
+      return player.team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
     }
     if (game.isDictatorPlayer(player)) {
       return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
@@ -163,9 +172,9 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
   }
 
   // Legacy helper for backward compatibility
-  function isMercOwnedByPlayer(merc: MercCard, player: any): boolean {
+  function isMercOwnedByPlayer(merc: MercCard, player: unknown): boolean {
     if (game.isRebelPlayer(player)) {
-      return isInPlayerTeam(merc, player as RebelPlayer);
+      return isInPlayerTeam(merc, player);
     }
     if (game.isDictatorPlayer(player)) {
       const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -175,7 +184,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
   }
 
   // Legacy helper - now uses unit-based check
-  function canAnyMercReEquip(player: any): boolean {
+  function canAnyMercReEquip(player: unknown): boolean {
     return canAnyUnitReEquip(player, game);
   }
 
@@ -186,8 +195,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat) return false;
 
       // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player as any);
-      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      const isRebel = game.isRebelPlayer(ctx.player);
+      const isDictator = game.isDictatorPlayer(ctx.player);
       if (tracer) tracer.check('isRebelPlayer', isRebel);
       if (tracer) tracer.check('isDictatorPlayer', isDictator);
       if (!isRebel && !isDictator) return false;
@@ -202,7 +211,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        const merc = element as unknown as MercCard;
+        if (!(element instanceof MercCard)) return false;
+        const merc = element;
 
         // MERC must belong to player and have actions
         if (!isMercOwnedByPlayer(merc, ctx.player)) return false;
@@ -244,8 +254,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const merc = getMerc(ctx) || (args.actingMerc as MercCard);
-      const equipment = args.equipment as Equipment | null;
+      const merc = getMerc(ctx) || (args.actingMerc instanceof MercCard ? args.actingMerc : undefined);
+      const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!merc) {
         return { success: false, message: 'Invalid merc' };
@@ -313,23 +323,29 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
  */
 export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
   // Helper to resolve merc from ctx.args (mercId is numeric element ID)
-  function getMerc(ctx: any): MercCard | undefined {
+  function getMerc(ctx: { args?: Record<string, unknown> }): MercCard | undefined {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
-      return game.getElementById(mercArg) as MercCard | undefined;
+      const el = game.getElementById(mercArg);
+      return el instanceof MercCard ? el : undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      return game.getElementById(mercArg.id) as MercCard | undefined;
+      const mercObj = mercArg as { id: number };
+      const el = game.getElementById(mercObj.id);
+      return el instanceof MercCard ? el : undefined;
     }
     return undefined;
   }
 
   // Helper to resolve sector from ctx.args (sectorId is numeric element ID)
-  function getSector(ctx: any): Sector | undefined {
+  function getSector(ctx: { args?: Record<string, unknown> }): Sector | undefined {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
-      return game.getElementById(sectorArg) as Sector | undefined;
+      const el = game.getElementById(sectorArg);
+      return el instanceof Sector ? el : undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
-      return game.getElementById(sectorArg.id) as Sector | undefined;
+      const sectorObj = sectorArg as { id: number };
+      const el = game.getElementById(sectorObj.id);
+      return el instanceof Sector ? el : undefined;
     }
     return undefined;
   }
@@ -371,7 +387,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const merc = getMerc(ctx);
       const sector = getSector(ctx);
-      const equipment = args.equipment as Equipment | null;
+      const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!merc || !sector) {
         return { success: false, message: 'Invalid merc or sector' };
@@ -445,10 +461,10 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
   }
 
   // Helper to get living MERCs for any player type (uses ctx.game to avoid stale refs)
-  function getPlayerMercsFromCtx(ctx: any): MercCard[] {
+  function getPlayerMercsFromCtx(ctx: { game: unknown; player: unknown }): MercCard[] {
     const g = ctx.game as MERCGame;
     if (g.isRebelPlayer(ctx.player)) {
-      return (ctx.player as RebelPlayer).team.filter((m: MercCard) => !m.isDead);
+      return ctx.player.team.filter((m: MercCard) => !m.isDead);
     }
     if (g.isDictatorPlayer(ctx.player)) {
       return g.dictatorPlayer?.hiredMercs.filter((m: MercCard) => !m.isDead) || [];
@@ -457,7 +473,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
   }
 
   // Helper to resolve merc from ctx.args using ctx.game
-  function getMercFromCtx(ctx: any): MercCard | undefined {
+  function getMercFromCtx(ctx: { game: unknown; args?: Record<string, unknown> }): MercCard | undefined {
     const g = ctx.game as MERCGame;
     const mercArg = ctx.args?.actingMerc;
     let mercId: number | undefined;
@@ -465,21 +481,22 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
     if (typeof mercArg === 'number') {
       mercId = mercArg;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      mercId = mercArg.id;
+      const mercObj = mercArg as { id: number };
+      mercId = mercObj.id;
     }
 
     if (mercId !== undefined) {
-      return g.getElementById(mercId) as MercCard | undefined;
+      const el = g.getElementById(mercId);
+      return el instanceof MercCard ? el : undefined;
     }
     return undefined;
   }
 
   // Helper to find merc's sector using ctx.game
-  function findMercSectorFromCtx(merc: MercCard, ctx: any): Sector | null {
+  function findMercSectorFromCtx(merc: MercCard, ctx: { game: unknown; player: unknown }): Sector | null {
     const g = ctx.game as MERCGame;
     if (g.isRebelPlayer(ctx.player)) {
-      const rebelPlayer = ctx.player as RebelPlayer;
-      for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
+      for (const squad of [ctx.player.primarySquad, ctx.player.secondarySquad]) {
         if (!squad?.sectorId) continue;
         const mercs = squad.getMercs();
         if (mercs.some((m: MercCard) => m.id === merc.id)) {
@@ -512,8 +529,8 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       if (tracer) tracer.check('activeCombat', false);
 
       // Must be rebel or dictator player
-      const isRebel = g.isRebelPlayer(ctx.player as any);
-      const isDictator = g.isDictatorPlayer(ctx.player as any);
+      const isRebel = g.isRebelPlayer(ctx.player);
+      const isDictator = g.isDictatorPlayer(ctx.player);
       if (tracer) tracer.check('isRebelPlayer', isRebel);
       if (tracer) tracer.check('isDictatorPlayer', isDictator);
       if (!isRebel && !isDictator) return false;
@@ -565,12 +582,17 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         }
 
         // Merc is selected - look up by ID to get proper element with getters
-        const mercId = typeof mercArg === 'number' ? mercArg : (mercArg as any)?.id;
+        let mercId: number | undefined;
+        if (typeof mercArg === 'number') {
+          mercId = mercArg;
+        } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+          const mercObj = mercArg as { id: number };
+          mercId = mercObj.id;
+        }
         if (mercId !== undefined) {
-          const merc = g.getElementById(mercId) as MercCard;
-          if (merc) {
-            const equipment = getMercEquipment(merc);
-            return equipment;
+          const el = g.getElementById(mercId);
+          if (el instanceof MercCard) {
+            return getMercEquipment(el);
           }
         }
 
@@ -582,12 +604,26 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
       // Always resolve by ID to get full element with all properties
       const mercArg = args.actingMerc;
-      const mercId = typeof mercArg === 'number' ? mercArg : (mercArg as any)?.id;
-      const actingMerc = g.getElementById(mercId) as MercCard;
+      let mercId: number | undefined;
+      if (typeof mercArg === 'number') {
+        mercId = mercArg;
+      } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
+        const mercObj = mercArg as { id: number };
+        mercId = mercObj.id;
+      }
+      const mercEl = mercId !== undefined ? g.getElementById(mercId) : undefined;
+      const actingMerc = mercEl instanceof MercCard ? mercEl : undefined;
 
       const equipArg = args.equipment;
-      const equipId = typeof equipArg === 'number' ? equipArg : (equipArg as any)?.id;
-      const equipment = g.getElementById(equipId) as Equipment;
+      let equipId: number | undefined;
+      if (typeof equipArg === 'number') {
+        equipId = equipArg;
+      } else if (equipArg && typeof equipArg === 'object' && 'id' in equipArg) {
+        const equipObj = equipArg as { id: number };
+        equipId = equipObj.id;
+      }
+      const equipEl = equipId !== undefined ? g.getElementById(equipId) : undefined;
+      const equipment = equipEl instanceof Equipment ? equipEl : undefined;
 
       if (!actingMerc || !equipment) {
         return { success: false, message: 'Could not resolve MERC or equipment' };
@@ -643,7 +679,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
     .prompt('Doc: Heal squad (free)')
     .condition((ctx) => {
       // Only rebels can use Doc heal
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Must not be in combat
       if (game.activeCombat) return false;
@@ -703,7 +739,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
     .prompt('Feedback: Take from discard')
     .condition((ctx) => {
       // Only rebels can use Feedback ability
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Feedback in team
       const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead);
@@ -775,7 +811,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
     .prompt('Squidhead: Disarm mine')
     .condition((ctx) => {
       // Only rebels can use Squidhead ability
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Squidhead in team
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
@@ -844,7 +880,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
     .prompt('Squidhead: Arm mine')
     .condition((ctx) => {
       // Only rebels can use Squidhead ability
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Squidhead in team with a land mine equipped
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
@@ -961,7 +997,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
     .prompt('Hagness: Draw equipment for squad')
     .condition((ctx) => {
       // Only rebels can use Hagness ability
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
       // Find Hagness in team with actions
       const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
@@ -991,7 +1027,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       dependsOn: 'equipmentType', // Wait for equipmentType to be selected before showing choices
       // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
       choices: (ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) {
+        if (!game.isRebelPlayer(ctx.player)) {
           return ['(select equipment type first)'];
         }
         const player = ctx.player as RebelPlayer;
@@ -1009,7 +1045,21 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         // IMPORTANT: Don't draw equipment during speculative calls!
         // BoardSmith calls choices() for ALL equipment types to precompute options.
         // We only want to draw once per type, and never clear other types' cache.
-        let equipmentData: Record<string, unknown> | null = null;
+        type HagnessEquipmentData = {
+          equipmentId: number;
+          equipmentName: string;
+          equipmentType: string;
+          description: string;
+          combatBonus: number;
+          initiative: number;
+          training: number;
+          targets: number;
+          armorBonus: number;
+          negatesArmor: boolean;
+          serial: number;
+          image: string;
+        };
+        let equipmentData: HagnessEquipmentData | null = null;
 
         // If recipient is already set, the user already clicked - don't redraw!
         const recipientAlreadySet = ctx.args?.recipient !== undefined;
@@ -1034,7 +1084,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
             };
             // Store with typed key to avoid overwriting other equipment types
             const stateKey = `${playerId}:${equipmentType}`;
-            game.hagnessDrawnEquipmentData[stateKey] = equipmentData as any;
+            game.hagnessDrawnEquipmentData[stateKey] = equipmentData;
           }
         } else {
           const eq = getHagnessEquipment(game, playerId, equipmentType)!;
@@ -1091,7 +1141,8 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         recipientName = recipientArg;
       } else if (recipientArg && typeof recipientArg === 'object') {
         // Extract name from object format
-        recipientName = (recipientArg as any).value || (recipientArg as any).display || String(recipientArg);
+        const recipientObj = recipientArg as { value?: string; display?: string };
+        recipientName = recipientObj.value || recipientObj.display || String(recipientArg);
       } else {
         recipientName = String(recipientArg || '');
       }
@@ -1208,7 +1259,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       // Cannot use during combat
       if (game.activeCombat) return false;
       // Only rebels can use repair kit
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
 
       // Check if any MERC has a Repair Kit equipped
@@ -1224,11 +1275,11 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        if (!(element instanceof MercCard)) return false;
+        const merc = element;
 
-        if (!isInPlayerTeam(merc, player)) return false;
+        if (!isInPlayerTeam(merc, ctx.player)) return false;
         if (merc.isDead) return false;
 
         // MERC must have Repair Kit
@@ -1465,8 +1516,8 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       if (game.activeCombat) return false;
 
       // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player as any);
-      const isDictator = game.isDictatorPlayer(ctx.player as any);
+      const isRebel = game.isRebelPlayer(ctx.player);
+      const isDictator = game.isDictatorPlayer(ctx.player);
       if (!isRebel && !isDictator) return false;
 
       // Check if any MERC has a mortar and there are valid targets
@@ -1484,7 +1535,8 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        const merc = element as unknown as MercCard;
+        if (!(element instanceof MercCard)) return false;
+        const merc = element;
 
         // MERC must belong to player, have actions, and have mortar
         if (!isMercOwnedForMortar(merc, ctx.player, game)) return false;
@@ -1505,8 +1557,10 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       display: (sector, ctx) => `${sector.sectorName} (${countEnemyTargetsInSector(game, sector, ctx.player)} targets)`,
       boardRef: (sector) => ({ id: sector.id }),
       filter: (element, ctx) => {
-        const sector = element as unknown as Sector;
-        const merc = ctx.args?.merc as MercCard | undefined;
+        if (!(element instanceof Sector)) return false;
+        const sector = element;
+        const mercArg = ctx.args?.merc;
+        const merc = mercArg instanceof MercCard ? mercArg : undefined;
         if (!merc?.sectorId) return false;
 
         const fromSector = game.getSector(merc.sectorId);
@@ -1517,8 +1571,11 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const merc = args.merc as MercCard;
-      const targetSector = args.targetSector as Sector;
+      const merc = args.merc instanceof MercCard ? args.merc : undefined;
+      const targetSector = args.targetSector instanceof Sector ? args.targetSector : undefined;
+      if (!merc || !targetSector) {
+        return { success: false, message: 'Invalid merc or target sector' };
+      }
       const isRebel = game.isRebelPlayer(ctx.player);
 
       // Use action
@@ -1653,7 +1710,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
       // Cannot use during combat
       if (game.activeCombat) return false;
       // Only rebels can use this
-      if (!game.isRebelPlayer(ctx.player as any)) return false;
+      if (!game.isRebelPlayer(ctx.player)) return false;
       const player = ctx.player as RebelPlayer;
 
       // Base must be revealed
@@ -1684,26 +1741,32 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!game.isRebelPlayer(ctx.player as any)) return false;
-        const merc = element as unknown as MercCard;
-        const player = ctx.player as RebelPlayer;
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        if (!(element instanceof MercCard)) return false;
+        const merc = element;
 
-        if (!isInPlayerTeam(merc, player)) return false;
+        if (!isInPlayerTeam(merc, ctx.player)) return false;
         if (merc.isDead || merc.actionsRemaining < 1) return false;
 
         // Must be in base sector
         const baseSectorId = game.dictatorPlayer?.baseSectorId;
         if (!baseSectorId) return false;
 
-        const squad = player.getSquadContaining(merc);
+        const squad = ctx.player.getSquadContaining(merc);
         if (!squad || squad.sectorId !== baseSectorId) return false;
 
         return hasBothExplosivesComponents(merc);
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
-      const merc = args.merc as MercCard;
+      if (!game.isRebelPlayer(ctx.player)) {
+        return { success: false, message: 'Only rebels can detonate explosives' };
+      }
+      const player = ctx.player;
+      const merc = args.merc instanceof MercCard ? args.merc : undefined;
+      if (!merc) {
+        return { success: false, message: 'Invalid merc' };
+      }
 
       // Use action
       merc.useAction(1);
@@ -1729,7 +1792,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
       for (const { slot, item } of allSlots) {
         if (item && isExplosivesComponent(item.equipmentId)) {
           merc.unequip(slot);
-          const discard = game.getEquipmentDiscard(item.equipmentType as any);
+          const discard = game.getEquipmentDiscard(item.equipmentType as 'Weapon' | 'Armor' | 'Accessory');
           if (discard) item.putInto(discard);
         }
       }
@@ -1746,7 +1809,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
         const idx = bandolierIndicesToRemove[i];
         const item = merc.bandolierSlots[idx];
         merc.unequipBandolierSlot(idx);
-        const discard = game.getEquipmentDiscard(item.equipmentType as any);
+        const discard = game.getEquipmentDiscard(item.equipmentType as 'Weapon' | 'Armor' | 'Accessory');
         if (discard) item.putInto(discard);
       }
 
