@@ -66,12 +66,12 @@ Plans:
 **Goal**: Standardize state persistence pattern and remove legacy `pendingLoot` property
 **Depends on**: Phase 3
 **Research**: Unlikely (internal patterns already exist)
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
-- [ ] 04-01: Audit state persistence patterns
-- [ ] 04-02: Standardize on chosen pattern
-- [ ] 04-03: Remove legacy pendingLoot property
+- [ ] 04-01: Add global cache helpers + remove legacy pendingLoot
+- [ ] 04-02: Migrate dictator-actions.ts and day-one-actions.ts to cache helpers
+- [ ] 04-03: Migrate rebel-economy.ts and flow.ts, complete phase
 
 ### Phase 5: Debug Cleanup
 **Goal**: Remove DEBUG messages from dictator-actions.ts and gate DEBUG_TACTICS_ORDER
