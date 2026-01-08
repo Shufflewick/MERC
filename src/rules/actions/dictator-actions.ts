@@ -18,7 +18,7 @@ import {
   getAIHealingPriority,
 } from '../ai-helpers.js';
 import { getNextAIAction } from '../ai-executor.js';
-import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue } from './helpers.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
@@ -356,17 +356,17 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       defer: true, // Draw MERCs when action starts
       choices: () => {
         // Draw 3 MERCs if not already drawn
-        if (!game.settings[DRAWN_MERCS_KEY]) {
+        if (!getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY)) {
           const drawnMercs: MercCard[] = [];
           for (let i = 0; i < 3; i++) {
             const merc = game.drawMerc();
             if (merc) drawnMercs.push(merc);
           }
           // Store merc IDs
-          game.settings[DRAWN_MERCS_KEY] = drawnMercs.map(m => m.id);
+          setGlobalCachedValue(game, DRAWN_MERCS_KEY, drawnMercs.map(m => m.id));
         }
 
-        const mercIds = game.settings[DRAWN_MERCS_KEY] as number[];
+        const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
         const mercs = mercIds
           .map(id => game.getElementById(id))
           .filter((el): el is MercCard => el instanceof MercCard)
@@ -402,11 +402,11 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const mercIds = game.settings[DRAWN_MERCS_KEY] as number[] || [];
+      const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
       const selectedMercName = args.selectedMerc as string;
 
       if (!selectedMercName || selectedMercName === 'No MERCs available') {
-        delete game.settings[DRAWN_MERCS_KEY];
+        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
         return { success: false, message: 'No MERC selected' };
       }
 
@@ -417,7 +417,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       const selectedMerc = mercs.find(m => capitalize(m.mercName) === selectedMercName);
 
       if (!selectedMerc) {
-        delete game.settings[DRAWN_MERCS_KEY];
+        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
         return { success: false, message: 'MERC not found' };
       }
 
@@ -449,7 +449,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       if (!targetSector) {
-        delete game.settings[DRAWN_MERCS_KEY];
+        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
         return { success: false, message: 'No valid sector found' };
       }
 
@@ -500,7 +500,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       // Clean up
-      delete game.settings[DRAWN_MERCS_KEY];
+      clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
 
       game.message(`Castro hired ${selectedMerc.mercName}`);
       return { success: true, message: `Hired ${selectedMerc.mercName}` };
