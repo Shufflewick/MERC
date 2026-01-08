@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-08)
 
 ## Current Position
 
-Phase: 3 of 6 (Code Quality: Helpers)
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-01-08 — Completed 03-04-PLAN.md
+Phase: 4 of 6 (Code Quality: State & Legacy)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-08 — Completed 04-01-PLAN.md
 
-Progress: ████████████ 65%
+Progress: ██████████████ 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 9 min
-- Total execution time: 1.8 hours
+- Total plans completed: 14
+- Average duration: 8 min
+- Total execution time: 1.9 hours
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: ████████████ 65%
 | 1 | 1 | 8 min | 8 min |
 | 2 | 8 | 83 min | 10 min |
 | 3 | 4 | 21 min | 5 min |
+| 4 | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 7 min, 5 min, 5 min, 4 min, 7 min
+- Last 5 plans: 5 min, 5 min, 4 min, 7 min, 5 min
 - Trend: Stable
 
 
@@ -60,6 +61,7 @@ Recent decisions affecting current work:
 - Phase 2-07: Used imported type guards instead of game.isRebelPlayer() with as any
 - Phase 2-08: Used imported isRebelPlayer helper for consistent type narrowing across files
 - Phase 2-08: Typed mixed MercCard/DictatorCard arrays as CombatUnit[] (shared base class)
+- Phase 4-01: Global helpers mirror player-scoped helpers for consistency
 
 ### Deferred Issues
 
@@ -71,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-08T22:14:00Z
-Stopped at: Completed 03-04-PLAN.md (Phase 3 complete)
+Last session: 2026-01-08T22:32:31Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
