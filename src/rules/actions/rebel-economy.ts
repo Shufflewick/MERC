@@ -1097,19 +1097,23 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
 // Works for both rebel and dictator players.
 // =============================================================================
 
+// Settings key for arms dealer drawn equipment cache
+const ARMS_DEALER_DRAWN_KEY = 'armsDealerDrawn';
+
+// Helper to get player ID for arms dealer cache (distinguishes rebels by position, dictator)
+function getArmsDealerPlayerId(player: unknown, game: MERCGame): string {
+  if (game.isRebelPlayer(player)) {
+    return `${asRebelPlayer(player).position}`;
+  }
+  return 'dictator';
+}
+
 /**
  * Use arms dealer in a city sector
  * Cost: 1 action, draw equipment
  * MERC-dh5: Includes free re-equip option per rules
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
-  // Helper to get/set drawn equipment in game.settings (persists across choices/execute)
-  const getSettingsKey = (player: unknown) => {
-    if (game.isRebelPlayer(player)) {
-      return `_armsDealer_drawn_${asRebelPlayer(player).position}`;
-    }
-    return '_armsDealer_drawn_dictator';
-  };
 
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
@@ -1147,19 +1151,19 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       prompt: 'Free Re-Equip: Which MERC should equip this item? (or skip)',
       choices: (ctx) => {
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-        const settingsKey = getSettingsKey(ctx.player);
+        const playerId = getArmsDealerPlayerId(ctx.player, game);
 
         // Draw equipment now so we can show what was bought
-        // Store in game.settings to persist across choices/execute contexts
-        if (!game.settings[settingsKey]) {
+        // Store in cache to persist across choices/execute contexts
+        if (getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId) === undefined) {
           const equipment = game.drawEquipment(equipmentType);
           if (equipment) {
-            game.settings[settingsKey] = equipment.id;
+            setCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId, equipment.id);
             game.message(`Drew ${equipment.equipmentName} from ${equipmentType} deck`);
           }
         }
 
-        const equipmentId = game.settings[settingsKey] as number | undefined;
+        const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
         const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
         const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
 
@@ -1184,17 +1188,17 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const actingMerc = asMercCard(args.actingMerc);
-      const settingsKey = getSettingsKey(ctx.player);
+      const playerId = getArmsDealerPlayerId(ctx.player, game);
       const sector = findMercSectorForCity(ctx.player, game);
 
       // Spend action
       useAction(actingMerc, ACTION_COSTS.ARMS_DEALER);
 
-      // Get equipment from game.settings (stored by choices function)
-      const equipmentId = game.settings[settingsKey] as number | undefined;
+      // Get equipment from cache (stored by choices function)
+      const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
       const equipElement = equipmentId ? game.getElementById(equipmentId) : undefined;
       const equipment = equipElement instanceof Equipment ? equipElement : undefined;
-      delete game.settings[settingsKey]; // Clean up
+      clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId); // Clean up
 
       if (equipment && sector) {
         const equipMercName = args.equipMerc as string;
