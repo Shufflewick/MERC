@@ -13,6 +13,12 @@ import {
   hasActionsRemaining,
   isInPlayerTeam,
   useAction,
+  isDictatorCard,
+  getUnitName,
+  findUnitSector,
+  getCachedValue,
+  setCachedValue,
+  clearCachedValue,
 } from './helpers.js';
 import { isLandMine, isRepairKit, hasRangedAttack, getRangedRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
 import { hasMortar } from '../ai-helpers.js';
@@ -31,53 +37,6 @@ import { hasMortar } from '../ai-helpers.js';
  */
 // Type for units that can equip (MERCs or DictatorCard)
 type EquippableUnit = MercCard | DictatorCard;
-
-// Helper to check if unit is a DictatorCard (for equip)
-function isDictatorCardForEquip(unit: EquippableUnit): unit is DictatorCard {
-  return unit instanceof DictatorCard;
-}
-
-// Helper to get unit name for equip display
-function getUnitNameForEquip(unit: EquippableUnit): string {
-  if (isDictatorCardForEquip(unit)) {
-    return unit.dictatorName;
-  }
-  return unit.mercName;
-}
-
-// Helper to find unit's sector (works for any player type)
-function findUnitSectorForEquip(unit: EquippableUnit, player: unknown, game: MERCGame): Sector | null {
-  if (game.isRebelPlayer(player)) {
-    const merc = unit as MercCard;
-    for (const squad of [player.primarySquad, player.secondarySquad]) {
-      if (!squad?.sectorId) continue;
-      const mercs = squad.getMercs();
-      if (mercs.some(m => m.id === merc.id)) {
-        return game.getSector(squad.sectorId) || null;
-      }
-    }
-  }
-  if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
-    // DictatorCard uses its own sectorId directly
-    if (isDictatorCardForEquip(unit)) {
-      if (unit.sectorId) {
-        return game.getSector(unit.sectorId) || null;
-      }
-      return null;
-    }
-    // MercCard - check squad first
-    const merc = unit as MercCard;
-    const squad = game.dictatorPlayer.getSquadContaining(merc);
-    if (squad?.sectorId) {
-      return game.getSector(squad.sectorId) || null;
-    }
-    // Fallback to merc's sectorId
-    if (merc.sectorId) {
-      return game.getSector(merc.sectorId) || null;
-    }
-  }
-  return null;
-}
 
 // Helper to get living units with actions for any player type
 // Returns MERCs + DictatorCard if applicable
@@ -101,7 +60,7 @@ function getPlayerUnitsWithActions(player: unknown, game: MERCGame): EquippableU
 function canAnyUnitReEquip(player: unknown, game: MERCGame): boolean {
   const units = getPlayerUnitsWithActions(player, game);
   for (const unit of units) {
-    const sector = findUnitSectorForEquip(unit, player, game);
+    const sector = findUnitSector(unit, player, game);
     if (sector && sector.stash.length > 0) return true;
   }
   return false;
@@ -157,7 +116,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 
   // Legacy helper for backward compatibility
   function findMercSector(merc: MercCard, player: unknown): Sector | null {
-    return findUnitSectorForEquip(merc, player, game);
+    return findUnitSector(merc, player, game);
   }
 
   // Legacy helper for backward compatibility
@@ -1465,29 +1424,6 @@ function getMercsWithMortars(game: MERCGame, player: any): MercCard[] {
 }
 
 /**
- * Find merc's sector for mortar action.
- */
-function findMercSectorForMortar(merc: MercCard, player: any, game: MERCGame): Sector | null {
-  if (game.isRebelPlayer(player)) {
-    const rebelPlayer = player as RebelPlayer;
-    const squad = rebelPlayer.getSquadContaining(merc);
-    if (squad?.sectorId) {
-      return game.getSector(squad.sectorId) || null;
-    }
-  }
-  if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
-    const squad = game.dictatorPlayer.getSquadContaining(merc);
-    if (squad?.sectorId) {
-      return game.getSector(squad.sectorId) || null;
-    }
-    if (merc.sectorId) {
-      return game.getSector(merc.sectorId) || null;
-    }
-  }
-  return null;
-}
-
-/**
  * Check if merc belongs to player (for mortar action).
  */
 function isMercOwnedForMortar(merc: MercCard, player: any, game: MERCGame): boolean {
@@ -1523,7 +1459,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       // Check if any MERC has a mortar and there are valid targets
       const mercsWithMortars = getMercsWithMortars(game, ctx.player);
       for (const merc of mercsWithMortars) {
-        const sector = findMercSectorForMortar(merc, ctx.player, game);
+        const sector = findUnitSector(merc, ctx.player, game);
         if (!sector) continue;
         const targets = getMortarTargets(game, sector, ctx.player);
         if (targets.length > 0) return true;
@@ -1544,7 +1480,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         if (!hasMortar(merc)) return false;
 
         // Must have valid targets
-        const sector = findMercSectorForMortar(merc, ctx.player, game);
+        const sector = findUnitSector(merc, ctx.player, game);
         if (!sector) return false;
 
         const targets = getMortarTargets(game, sector, ctx.player);
