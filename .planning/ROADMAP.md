@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Type Safety: Combat State** - Replace any[] types with proper Combatant[], CombatResult[] types
 - [x] **Phase 2: Type Safety: Assertions** - Replace 191 unsafe `as` casts with type guards or validated casts
-- [ ] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
+- [x] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
 - [ ] **Phase 4: Code Quality: State & Legacy** - Standardize state persistence and remove legacy pendingLoot
 - [ ] **Phase 5: Debug Cleanup** - Remove DEBUG messages and gate DEBUG_TACTICS_ORDER
 - [ ] **Phase 6: Test Coverage** - Add tests for action conditions, state persistence, and error conditions
@@ -60,7 +60,7 @@ Plans:
 - [x] 03-01: Add new helper utilities (isDictatorCard, getUnitName, cache helpers, findUnitSector)
 - [x] 03-02: Replace duplicates in rebel-economy.ts
 - [x] 03-03: Replace duplicates in rebel-equipment.ts
-- [ ] 03-04: Replace duplicates in day-one-actions.ts and dictator-actions.ts
+- [x] 03-04: Replace duplicates in day-one-actions.ts and dictator-actions.ts
 
 ### Phase 4: Code Quality: State & Legacy
 **Goal**: Standardize state persistence pattern and remove legacy `pendingLoot` property
@@ -102,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Type Safety: Combat State | 1/1 | Complete | 2026-01-08 |
 | 2. Type Safety: Assertions | 8/8 | Complete | 2026-01-08 |
-| 3. Code Quality: Helpers | 3/4 | In progress | - |
+| 3. Code Quality: Helpers | 4/4 | Complete | 2026-01-08 |
 | 4. Code Quality: State & Legacy | 0/3 | Not started | - |
 | 5. Debug Cleanup | 0/1 | Not started | - |
 | 6. Test Coverage | 0/3 | Not started | - |
