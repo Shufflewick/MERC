@@ -579,4 +579,360 @@ describe('Error Conditions', () => {
       });
     });
   });
+
+  // =============================================================================
+  // Game State Edge Case Tests
+  // =============================================================================
+
+  describe('Game State Edge Cases', () => {
+    let testGame: ReturnType<typeof createTestGame>;
+    let game: MERCGame;
+
+    beforeEach(() => {
+      testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'game-state-edge-case-test',
+      });
+      game = testGame.game;
+    });
+
+    describe('Empty Deck Scenarios', () => {
+      it('should handle empty MERC deck gracefully', () => {
+        // Move all MERCs to discard
+        const allMercs = game.mercDeck.all(MercCard);
+        for (const merc of allMercs) {
+          merc.putInto(game.mercDiscard);
+        }
+
+        // Deck should be empty
+        expect(game.mercDeck.count(MercCard)).toBe(0);
+
+        // drawMerc should reshuffle and return a card
+        const drawn = game.drawMerc();
+        expect(drawn).toBeDefined();
+
+        // Deck should still work after reshuffle
+        expect(game.mercDeck.count(MercCard) + game.mercDiscard.count(MercCard)).toBeGreaterThan(0);
+      });
+
+      it('should return undefined when MERC deck and discard are both empty', () => {
+        // This is an edge case - normally impossible in real gameplay
+        // Move all MERCs somewhere they can't be reshuffled from
+        const rebel = game.rebelPlayers[0];
+        const allMercs = game.mercDeck.all(MercCard);
+        for (const merc of allMercs) {
+          merc.putInto(rebel.primarySquad);
+        }
+
+        // Ensure discard is empty too
+        const discardMercs = game.mercDiscard.all(MercCard);
+        for (const merc of discardMercs) {
+          merc.putInto(rebel.primarySquad);
+        }
+
+        // Both deck and discard empty - should return undefined
+        const drawn = game.drawMerc();
+        expect(drawn).toBeUndefined();
+      });
+
+      it('should handle empty equipment deck gracefully', () => {
+        // Move all weapons to discard
+        const allWeapons = game.weaponsDeck.all(Equipment);
+        for (const equip of allWeapons) {
+          equip.putInto(game.weaponsDiscard);
+        }
+
+        expect(game.weaponsDeck.count(Equipment)).toBe(0);
+
+        // drawEquipment should reshuffle and return equipment
+        const drawn = game.drawEquipment('Weapon');
+        expect(drawn).toBeDefined();
+      });
+
+      it('should return undefined when equipment deck and discard are both empty', () => {
+        // Move all weapons to a sector stash
+        const sector = game.gameMap.getAllSectors()[0];
+        const allWeapons = game.weaponsDeck.all(Equipment);
+        for (const equip of allWeapons) {
+          sector.addToStash(equip);
+        }
+
+        // Also clear discard
+        const discardWeapons = game.weaponsDiscard.all(Equipment);
+        for (const equip of discardWeapons) {
+          sector.addToStash(equip);
+        }
+
+        // Both deck and discard empty - should return undefined
+        const drawn = game.drawEquipment('Weapon');
+        expect(drawn).toBeUndefined();
+      });
+
+      it('should handle empty tactics deck for game ending', () => {
+        const dictator = game.dictatorPlayer;
+        if (!dictator || !dictator.tacticsDeck || !dictator.tacticsHand) return;
+
+        // Move all tactics cards to discard
+        const deckCards = dictator.tacticsDeck.all(TacticsCard);
+        for (const card of deckCards) {
+          card.putInto(dictator.tacticsDiscard);
+        }
+
+        const handCards = dictator.tacticsHand.all(TacticsCard);
+        for (const card of handCards) {
+          card.putInto(dictator.tacticsDiscard);
+        }
+
+        // Verify empty
+        expect(dictator.tacticsDeck.count(TacticsCard)).toBe(0);
+        expect(dictator.tacticsHand.count(TacticsCard)).toBe(0);
+
+        // Game should be finished (empty tactics = game over)
+        expect(game.isFinished()).toBe(true);
+      });
+    });
+
+    describe('Day Counter Boundary Conditions', () => {
+      it('should handle Day 1 (setup day) correctly', () => {
+        game.currentDay = 1;
+        expect(game.isSetupDay()).toBe(true);
+        expect(game.currentDay).toBe(1);
+      });
+
+      it('should handle Day 6 (last day) correctly', () => {
+        game.currentDay = 6;
+        expect(game.isLastDay()).toBe(true);
+        expect(game.getRemainingDays()).toBe(0);
+      });
+
+      it('should handle past last day (day limit reached)', () => {
+        game.currentDay = 7;
+        expect(game.isDayLimitReached()).toBe(true);
+        expect(game.isFinished()).toBe(true);
+      });
+
+      it('should advance day and reset actions correctly', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          merc.sectorId = sector.sectorId;
+          merc.actionsRemaining = 0; // Exhausted
+
+          expect(merc.actionsRemaining).toBe(0);
+
+          game.currentDay = 1;
+          game.advanceDay();
+
+          expect(game.currentDay).toBe(2);
+          expect(merc.actionsRemaining).toBe(2); // Actions reset
+        }
+      });
+
+      it('should return correct remaining days', () => {
+        game.currentDay = 1;
+        expect(game.getRemainingDays()).toBe(5);
+
+        game.currentDay = 3;
+        expect(game.getRemainingDays()).toBe(3);
+
+        game.currentDay = 6;
+        expect(game.getRemainingDays()).toBe(0);
+      });
+    });
+
+    describe('Credits and Team Size Boundaries', () => {
+      it('should handle team at maximum limit', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        // Team limit starts at BASE_TEAM_LIMIT (3 per constants)
+        // Add MERCs up to limit
+        const mercs = game.mercDeck.children.slice(0, 10) as MercCard[];
+        let added = 0;
+        for (const merc of mercs) {
+          if (rebel.canHireMerc(game)) {
+            merc.putInto(rebel.primarySquad);
+            added++;
+          }
+        }
+
+        // Should be at or near limit
+        expect(rebel.teamSize).toBeLessThanOrEqual(rebel.getTeamLimit(game));
+      });
+
+      it('should correctly calculate team limit with controlled sectors', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        // Add a MERC to control the sector
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          merc.sectorId = sector.sectorId;
+
+          // Team limit should be BASE (1 per constants) + controlled sectors
+          const teamLimit = rebel.getTeamLimit(game);
+          // With 1 controlled sector, limit should be at least 2
+          expect(teamLimit).toBeGreaterThanOrEqual(2);
+        }
+      });
+
+      it('should not count Teresa toward team size limit', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        // Find Teresa if available
+        const teresa = game.mercDeck.all(MercCard).find(m => m.mercId === 'teresa');
+        const basicMerc = game.mercDeck.all(MercCard).find(m => m.mercId === 'basic');
+
+        if (teresa && basicMerc) {
+          basicMerc.putInto(rebel.primarySquad);
+          expect(rebel.teamSize).toBe(1);
+
+          teresa.putInto(rebel.primarySquad);
+          // Teresa doesn't count toward team size
+          expect(rebel.teamSize).toBe(1);
+          expect(rebel.team.length).toBe(2); // But is on the team
+        }
+      });
+    });
+
+    describe('Null/Missing Element Handling', () => {
+      it('should handle sector lookup with non-existent ID', () => {
+        const sector = game.getSector('non-existent-sector-id');
+        expect(sector).toBeUndefined();
+      });
+
+      it('should handle sector lookup with empty string', () => {
+        const sector = game.getSector('');
+        expect(sector).toBeUndefined();
+      });
+
+      it('should handle getControlledSectors with no units', () => {
+        const rebel = game.rebelPlayers[0];
+        // No MERCs placed - should control no sectors
+        const controlled = game.getControlledSectors(rebel);
+        expect(controlled).toEqual([]);
+      });
+
+      it('should handle getMercsInSector with no MERCs', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        // Squad not at this sector
+        const mercs = game.getMercsInSector(sector, rebel);
+        expect(mercs).toEqual([]);
+      });
+
+      it('should handle getAdjacentSectors for corner sector', () => {
+        // Get corner sector (should have only 2 neighbors)
+        const cornerSector = game.gameMap.getSector(0, 0);
+        if (cornerSector) {
+          const adjacent = game.getAdjacentSectors(cornerSector);
+          expect(adjacent.length).toBeLessThanOrEqual(2);
+        }
+      });
+
+      it('should handle equipment not found in stash', () => {
+        const sector = game.gameMap.getAllSectors()[0];
+        // Try to take from empty stash
+        const taken = sector.takeFromStash(0);
+        expect(taken).toBeUndefined();
+
+        // Try with negative index
+        const takenNeg = sector.takeFromStash(-1);
+        expect(takenNeg).toBeUndefined();
+
+        // Try with large index
+        const takenLarge = sector.takeFromStash(999);
+        expect(takenLarge).toBeUndefined();
+      });
+
+      it('should handle findInStash with no matching equipment', () => {
+        const sector = game.gameMap.getAllSectors()[0];
+        // Empty stash
+        const found = sector.findInStash('Weapon');
+        expect(found).toBeUndefined();
+      });
+
+      it('should handle damaged equipment not added to stash', () => {
+        const sector = game.gameMap.getAllSectors()[0];
+        const equip = game.weaponsDeck.first(Equipment);
+        if (equip) {
+          equip.damage(); // Mark as damaged
+          const added = sector.addToStash(equip);
+          expect(added).toBe(false); // Damaged equipment cannot be stashed
+        }
+      });
+    });
+
+    describe('Victory Condition Edge Cases', () => {
+      it('should not end game on Day 1 even with no units', () => {
+        game.currentDay = 1;
+        // No units placed yet - game should not be finished on Day 1
+        expect(game.allDictatorUnitsEliminated()).toBe(false);
+        expect(game.allRebelUnitsEliminated()).toBe(false);
+      });
+
+      it('should detect dictator defeat when base captured', () => {
+        const dictator = game.dictatorPlayer;
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+
+        if (dictator) {
+          // Set up base
+          dictator.baseRevealed = true;
+          dictator.baseSectorId = sector.sectorId;
+          sector.dictatorMilitia = 0; // No militia defending
+
+          // Place rebel at base
+          rebel.primarySquad.sectorId = sector.sectorId;
+          const merc = game.mercDeck.first(MercCard);
+          if (merc) {
+            merc.putInto(rebel.primarySquad);
+            merc.sectorId = sector.sectorId;
+          }
+
+          // Make sure dictator card is dead or not in play
+          if (dictator.dictator) {
+            dictator.dictator.inPlay = false;
+          }
+
+          // Base should be captured
+          expect(game.isBaseCaptured()).toBe(true);
+        }
+      });
+
+      it('should calculate victory points correctly with controlled sectors', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+
+        // Place rebel at sector (to control it)
+        rebel.primarySquad.sectorId = sector.sectorId;
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          merc.sectorId = sector.sectorId;
+        }
+
+        const points = game.calculateVictoryPoints();
+        // Should have some points allocated
+        expect(points.rebelPoints + points.dictatorPoints).toBeGreaterThan(0);
+      });
+
+      it('should handle explosives victory flag', () => {
+        expect(game.explosivesVictory).toBe(false);
+        game.explosivesVictory = true;
+        expect(game.isFinished()).toBe(true);
+        expect(game.getWinners()).toContain(game.rebelPlayers[0]);
+      });
+    });
+  });
 });
