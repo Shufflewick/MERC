@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 8 of 8 (Artillery Barrage)
-Plan: 1 of TBD in current phase
+Plan: 2 of TBD in current phase
 Status: In progress
-Last activity: 2026-01-09 — Completed 08-01-PLAN.md (artillery state types)
+Last activity: 2026-01-09 — Completed 08-02-PLAN.md (artillery flow loop)
 
-Progress: █████████████████████░░░ 88%
+Progress: ██████████████████████░░ 90%
 
 ## Performance Metrics
 
@@ -34,7 +34,7 @@ Progress: █████████████████████░░�
 | 5 | 1 | 6 min | 6 min |
 | 6 | 3 | 17 min | 5.7 min |
 | 7 | 2 | - | - |
-| 8 | 1 | 9 min | 9 min |
+| 8 | 2 | 21 min | 10.5 min |
 
 ## Accumulated Context
 
@@ -42,10 +42,12 @@ Progress: █████████████████████░░�
 
 - Artillery allocation follows pendingHitAllocation pattern
 - Includes sectorsRemaining queue for multi-sector processing
+- Flow loop placed after playTactics step for Artillery Barrage card
+- Stub action condition checks pendingArtilleryAllocation for integration
 
 ### Deferred Issues
 
-- Artillery Barrage flow integration (planned for 08-02)
+None active.
 
 ### Blockers/Concerns
 
@@ -54,5 +56,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-09
-Stopped at: Completed 08-01-PLAN.md
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
