@@ -462,26 +462,49 @@ const players = computed(() => {
   const all = [...rebelPlayers, ...dictatorPlayers, ...playerAreas];
 
   if (all.length === 0) {
-    // Fallback: create player entries from flowState if available
-    // For now, just create a basic entry for current player
-    return [{
-      position: props.playerPosition,
-      playerColor: 'red', // Default color
-      isDictator: false,
-    }];
+    console.warn('[players] No player elements found in game state');
+    return [];
   }
 
-  return all.map((p: any, index: number) => ({
-    position: getAttr(p, 'position', index),
-    playerColor: getAttr(p, 'playerColor', '') || getAttr(p, 'color', '') || ['red', 'blue', 'green', 'yellow'][index] || 'red',
-    isDictator: normalizeClassName(p.className) === 'DictatorPlayer',
-  }));
+  return all.map((p: any) => {
+    // Get position from attribute, or parse from name (e.g., "area-2" -> 2)
+    let position = getAttr(p, 'position', undefined);
+    if (position === undefined) {
+      const name = getAttr(p, 'name', '') || p.name || '';
+      const match = name.match(/area-(\d+)/);
+      if (match) {
+        position = parseInt(match[1], 10);
+      }
+    }
+    if (position === undefined) {
+      console.warn('[players] Could not determine position for player element:', p);
+    }
+
+    const playerColor = getAttr(p, 'playerColor', '') || getAttr(p, 'color', '');
+    if (!playerColor) {
+      console.warn('[players] No playerColor for player at position', position, p);
+    }
+
+    return {
+      position,
+      playerColor,
+      isDictator: normalizeClassName(p.className) === 'DictatorPlayer',
+    };
+  });
 });
 
 // Current player's color
 const currentPlayerColor = computed(() => {
   const player = players.value.find((p) => p.position === props.playerPosition);
-  return player?.playerColor || 'red';
+  if (!player) {
+    console.warn('[currentPlayerColor] No player found for position', props.playerPosition, 'in', players.value);
+    return '';
+  }
+  if (!player.playerColor) {
+    console.warn('[currentPlayerColor] Player has no color:', player);
+    return '';
+  }
+  return player.playerColor;
 });
 
 // Map player positions to colors (for militia display in SectorPanel)
@@ -540,7 +563,12 @@ const allMercs = computed(() => {
       playerColor = 'dictator';
     } else if (playerPos >= 0) {
       const player = players.value.find(p => p.position === playerPos);
-      playerColor = player?.playerColor || ['red', 'blue', 'green', 'yellow', 'purple', 'orange'][playerPos] || 'red';
+      if (!player) {
+        console.warn('[allMercs] No player found for squad position', playerPos, 'squad:', squadName);
+      } else if (!player.playerColor) {
+        console.warn('[allMercs] Player has no color for position', playerPos);
+      }
+      playerColor = player?.playerColor || '';
     }
 
     if (squad.children) {

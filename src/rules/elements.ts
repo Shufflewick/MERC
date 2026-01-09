@@ -1275,4 +1275,6 @@ export class GameMap extends Grid {
 
 export class PlayerArea extends Space {
   // Contains the player's squads, hired MERCs, etc.
+  position!: number;
+  playerColor!: string;
 }
