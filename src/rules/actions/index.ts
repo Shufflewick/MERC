@@ -57,6 +57,7 @@ import {
   createCombatAllocateHitsAction,
   createCombatBasicRerollAction,
   createCombatAllocateWolverineSixesAction,
+  createArtilleryAllocateHitsAction,
 } from './rebel-combat.js';
 
 import {
@@ -153,6 +154,9 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatAllocateHitsAction(game));
   game.registerAction(createCombatBasicRerollAction(game));
   game.registerAction(createCombatAllocateWolverineSixesAction(game));
+
+  // MERC-lw9r: Artillery Barrage hit allocation (stub until Plan 04)
+  game.registerAction(createArtilleryAllocateHitsAction(game));
 
   // Day 1 specific actions (Rebel)
   game.registerAction(createHireFirstMercAction(game));

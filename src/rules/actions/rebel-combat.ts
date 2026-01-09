@@ -708,3 +708,32 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       };
     });
 }
+
+// =============================================================================
+// MERC-lw9r: Artillery Barrage Hit Allocation
+// =============================================================================
+
+/**
+ * Stub action for artillery hit allocation.
+ * This placeholder ensures the flow.ts reference to 'artilleryAllocateHits' doesn't error.
+ * Full implementation will be added in Plan 04.
+ *
+ * When implemented, this will allow rebels to choose how Artillery Barrage damage
+ * is allocated to their units in the targeted sector.
+ */
+export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinition {
+  return Action.create('artilleryAllocateHits')
+    .prompt('Allocate artillery damage')
+    .condition(() => {
+      // Stub: Always false until Plan 04 implements the full action
+      // This prevents the action from appearing while keeping flow.ts valid
+      return game.pendingArtilleryAllocation != null;
+    })
+    .execute(() => {
+      // Stub: Will be replaced with actual implementation in Plan 04
+      return {
+        success: false,
+        message: 'Artillery allocation not yet implemented',
+      };
+    });
+}
