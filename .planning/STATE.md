@@ -5,23 +5,30 @@
 See: .planning/PROJECT.md (updated 2026-01-09)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** v1.1 Polish — Artillery Barrage player choice
+**Current focus:** All milestones complete — Game ready for release
 
 ## Current Position
 
-Phase: 8 of 8 (Artillery Barrage)
-Plan: 4 of 4 in current phase
-Status: Complete
-Last activity: 2026-01-09 — Completed 08-04-PLAN.md (artillery allocate hits action)
+Phase: 8 of 8 (All Complete)
+Plan: All plans complete
+Status: Shipped
+Last activity: 2026-01-09 — v1.1 Polish milestone complete
 
 Progress: ████████████████████████ 100%
+
+## Milestones Completed
+
+- v1.0 Codebase Cleanup (Phases 1-6) — 20 plans
+- v1.1 Polish (Phases 7-8) — 6 plans
+
+Total: 8 phases, 26 plans, 2 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: 7.9 min
-- Total execution time: 2.9 hours
+- Total plans completed: 26
+- Total execution time: ~3.8 hours
+- Average duration: 8.8 min/plan
 
 **By Phase:**
 
@@ -33,19 +40,14 @@ Progress: ███████████████████████�
 | 4 | 3 | 20 min | 6.7 min |
 | 5 | 1 | 6 min | 6 min |
 | 6 | 3 | 17 min | 5.7 min |
-| 7 | 2 | - | - |
+| 7 | 2 | 18 min | 9 min |
 | 8 | 4 | 34 min | 8.5 min |
 
 ## Accumulated Context
 
 ### Decisions
 
-- Artillery allocation follows pendingHitAllocation pattern
-- Includes sectorsRemaining queue for multi-sector processing
-- Flow loop placed after playTactics step for Artillery Barrage card
-- Stub action condition checks pendingArtilleryAllocation for integration
-- Dice rolled for all sectors upfront before setting pending state
-- Use mercId (string) instead of id (number) for MERC target identification
+All key decisions documented in PROJECT.md Key Decisions table.
 
 ### Deferred Issues
 
@@ -58,5 +60,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-09
-Stopped at: Completed 08-04-PLAN.md — v1.1 milestone complete
+Stopped at: v1.1 milestone complete — All cleanup work shipped
 Resume file: None

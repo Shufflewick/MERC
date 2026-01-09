@@ -12,7 +12,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 ## Completed Milestones
 
 - ✅ [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) (Phases 1-6) — SHIPPED 2026-01-09
-- ✅ **v1.1 Polish** (Phases 7-8) — SHIPPED 2026-01-09
+- ✅ [v1.1 Polish](milestones/v1.1-ROADMAP.md) (Phases 7-8) — SHIPPED 2026-01-09
 
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
@@ -23,6 +23,14 @@ A systematic cleanup moving from type safety foundations through code quality im
 - [x] Phase 4: Code Quality: State & Legacy (3/3 plans) — completed 2026-01-08
 - [x] Phase 5: Debug Cleanup (1/1 plan) — completed 2026-01-08
 - [x] Phase 6: Test Coverage (3/3 plans) — completed 2026-01-09
+
+</details>
+
+<details>
+<summary>✅ v1.1 Polish (Phases 7-8) — SHIPPED 2026-01-09</summary>
+
+- [x] Phase 7: File Organization (2/2 plans) — completed 2026-01-09
+- [x] Phase 8: Artillery Barrage (4/4 plans) — completed 2026-01-09
 
 </details>
 
@@ -39,35 +47,8 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 7. File Organization | v1.1 | 2/2 | Complete | 2026-01-09 |
 | 8. Artillery Barrage | v1.1 | 4/4 | Complete | 2026-01-09 |
 
-## Planned Phases
+## Status
 
-### Phase 7: File Organization
-**Goal**: Split large files for better maintainability
-**Depends on**: v1.0 complete
-**Research**: Unlikely (straightforward splitting)
-**Plans**: 2
-
-Plans:
-- [x] 07-01: Split combat.ts into combat-types.ts and combat-retreat.ts
-- [x] 07-02: Split ai-helpers.ts into ai-combat-helpers.ts and ai-action-helpers.ts
-
-Scope:
-- Split `combat.ts` (2,879 lines) by combat phases or domains
-- Split `ai-helpers.ts` (1,326 lines) by AI strategy type
-
-### Phase 8: Artillery Barrage ✅
-**Goal**: Implement player choice for Artillery Barrage hit allocation
-**Depends on**: Phase 7 (optional)
-**Research**: Likely (requires flow interrupt architecture)
-**Plans**: 4/4 complete
-
-Plans:
-- [x] 08-01: Analyze artillery barrage flow
-- [x] 08-02: Register artillery allocation action stub and add flow loop
-- [x] 08-03: Refactor artilleryBarrage to use pending allocation state
-- [x] 08-04: Create artilleryAllocateHits action
-
-Scope:
-- Allow rebels to choose which units take Artillery Barrage damage
-- Requires interrupting dictator's turn for rebel input
-- Implemented pending state pattern with multi-sector queue
+All phases complete. See milestone archives for details:
+- [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)
+- [v1.1 Polish](milestones/v1.1-ROADMAP.md)

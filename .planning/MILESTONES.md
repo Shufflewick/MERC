@@ -1,5 +1,32 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.1 Polish (Shipped: 2026-01-09)
+
+**Delivered:** Code organization improvements and Artillery Barrage player choice mechanism.
+
+**Phases completed:** 7-8 (6 plans total)
+
+**Key accomplishments:**
+
+- Split combat.ts into combat-types.ts and combat-retreat.ts (reduced 132 lines)
+- Split ai-helpers.ts into ai-combat-helpers.ts and ai-action-helpers.ts (reduced 428 lines)
+- Implemented Artillery Barrage player choice — rebels allocate hits during dictator's turn
+- Added pendingArtilleryAllocation state with multi-sector queue
+- Created artilleryAllocateHits action following combat allocation pattern
+
+**Stats:**
+
+- 22 files created/modified
+- +2,154 / -643 lines changed
+- 2 phases, 6 plans
+- 52 minutes execution time
+
+**Git range:** `feat(07-01)` → `feat(08-04)`
+
+**What's next:** Game ready for release
+
+---
+
 ## v1.0 Codebase Cleanup (Shipped: 2026-01-09)
 
 **Delivered:** Ship-ready codebase with full type safety, standardized patterns, and comprehensive test coverage.

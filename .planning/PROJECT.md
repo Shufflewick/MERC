@@ -10,12 +10,15 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ## Current State
 
-**Shipped:** v1.0 Codebase Cleanup (2026-01-09)
+**Shipped:** v1.1 Polish (2026-01-09)
 
-- 25,687 lines of TypeScript
+- 25,687 lines of TypeScript (modular structure)
 - Zero `as any` casts in src/rules/
 - Standardized cache helpers for state persistence
 - 81+ new tests for error conditions and edge cases
+- combat.ts split into focused modules (2,747 lines)
+- ai-helpers.ts split into focused modules (899 lines)
+- Artillery Barrage player choice implemented
 
 ## Requirements
 
@@ -31,6 +34,8 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Add tests for action `.condition()` validation logic — v1.0
 - ✓ Add tests for state persistence patterns — v1.0
 - ✓ Add tests for error conditions and edge cases — v1.0
+- ✓ Split large files: combat.ts (2,879→2,747 lines), ai-helpers.ts (1,327→899 lines) — v1.1
+- ✓ Artillery Barrage player choice — rebels choose hit allocation during dictator's Artillery Barrage — v1.1
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -43,8 +48,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ### Active
 
-- [ ] Consider splitting large files: `combat.ts` (2,879 lines), `ai-helpers.ts` (1,326 lines)
-- [ ] Artillery Barrage player choice — rebels choose hit allocation during dictator's Artillery Barrage
+(All cleanup requirements completed. Game ready for release.)
 
 ### Out of Scope
 
@@ -82,6 +86,10 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | CombatUnit[] for mixed arrays | Shared base class for MercCard/DictatorCard | ✓ Good |
 | Global cache helpers mirror player-scoped | Consistent API, easy to use | ✓ Good |
 | Keep WARNING for sector fallback | Legitimate runtime info, not debug noise | ✓ Good |
+| Re-export pattern for file splits | Backwards compatibility, no import changes | ✓ Good |
+| pendingArtilleryAllocation state pattern | Mirrors existing pendingHitAllocation | ✓ Good |
+| Roll dice upfront for Artillery | Avoid partial state during allocation | ✓ Good |
+| mercId for MERC target identification | String matching consistent with other code | ✓ Good |
 
 ---
-*Last updated: 2026-01-09 after v1.0 milestone*
+*Last updated: 2026-01-09 after v1.1 milestone*
