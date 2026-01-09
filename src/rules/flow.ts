@@ -417,6 +417,20 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => game.isFinished(),
               }),
 
+              // MERC-lw9r: Artillery hit allocation - rebels choose how damage is allocated
+              // This runs after playTactics in case Artillery Barrage was played
+              loop({
+                name: 'artillery-allocation',
+                while: () => game.pendingArtilleryAllocation != null && !game.isFinished(),
+                maxIterations: 50, // Safety: max sectors * max allocations per sector
+                do: actionStep({
+                  name: 'artillery-allocate',
+                  actions: ['artilleryAllocateHits'],
+                  prompt: 'Allocate artillery damage to your units',
+                  skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
+                }),
+              }),
+
               // Step 2: Dictator MERC actions (if any MERCs)
               // Uses unified action names (same as rebels)
               loop({
