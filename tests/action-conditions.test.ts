@@ -496,4 +496,464 @@ describe('Action Conditions', () => {
       expect(conditionResult).toBe(true);
     });
   });
+
+  // =============================================================================
+  // Economy Action Conditions
+  // =============================================================================
+
+  describe('explore action conditions', () => {
+    it('should return false during active combat', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'explore-combat-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC in an unexplored sector
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 2;
+      }
+
+      // Ensure sector is unexplored
+      sector.explored = false;
+
+      // Simulate active combat
+      game.activeCombat = {
+        sectorId: sector.sectorId,
+        rebels: [],
+        dictator: { militia: 1, mercs: [] },
+        round: 1,
+      };
+
+      const conditionResult = checkActionCondition(game, 'explore', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false when no MERC has actions remaining', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'explore-no-actions-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with no actions
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 0;
+      }
+
+      sector.explored = false;
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'explore', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false when sector already explored', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'explore-already-explored-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with actions
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 2;
+      }
+
+      // Sector already explored
+      sector.explored = true;
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'explore', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return true when MERC has actions and sector unexplored', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'explore-valid-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with actions in unexplored sector
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 2;
+        merc.damage = 0;
+      }
+
+      sector.explored = false;
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'explore', rebel);
+      expect(conditionResult).toBe(true);
+    });
+  });
+
+  describe('train action conditions', () => {
+    it('should return false during active combat', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'train-combat-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with training stat
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 2;
+      }
+
+      game.currentDay = 2;
+
+      // Simulate active combat
+      game.activeCombat = {
+        sectorId: sector.sectorId,
+        rebels: [],
+        dictator: { militia: 1, mercs: [] },
+        round: 1,
+      };
+
+      const conditionResult = checkActionCondition(game, 'train', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false when no actions remaining', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'train-no-actions-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with training stat but no actions
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 0;
+      }
+
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'train', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false when MERC has no training stat', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'train-no-training-stat-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC and manually set training to 0
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 2;
+        // Override training to 0 for this test
+        (merc as any).baseTraining = 0;
+      }
+
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'train', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return true when MERC can train', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'train-valid-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with training stat and actions
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      // Find a MERC with training > 0
+      const mercs = game.mercDeck.children.filter(
+        (c): c is MercCard => c instanceof MercCard && c.training > 0
+      );
+      const merc = mercs[0];
+
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 2;
+        merc.damage = 0;
+      }
+
+      game.currentDay = 2;
+
+      // Only test if we found a merc with training > 0
+      if (merc && merc.training > 0) {
+        const conditionResult = checkActionCondition(game, 'train', rebel);
+        expect(conditionResult).toBe(true);
+      }
+    });
+  });
+
+  describe('hireMerc action conditions', () => {
+    it('should return false during active combat', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'hire-combat-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with enough actions (2 required for hire)
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 3;
+      }
+
+      game.currentDay = 2;
+
+      // Simulate active combat
+      game.activeCombat = {
+        sectorId: sector.sectorId,
+        rebels: [],
+        dictator: { militia: 1, mercs: [] },
+        round: 1,
+      };
+
+      const conditionResult = checkActionCondition(game, 'hireMerc', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false when insufficient actions (needs 2)', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'hire-insufficient-actions-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with only 1 action (not enough for hire)
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 1; // Need 2 for hire
+      }
+
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'hireMerc', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false when MERC deck is empty', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'hire-empty-deck-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with enough actions
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 3;
+      }
+
+      // Empty the MERC deck
+      const allMercs = game.mercDeck.all(MercCard);
+      for (const m of allMercs) {
+        m.putInto(game.mercDiscard);
+      }
+
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'hireMerc', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false for dictator player (rebels only)', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'hire-dictator-test',
+      });
+
+      const game = testGame.game;
+      const dictator = game.dictatorPlayer;
+
+      game.currentDay = 2;
+
+      // hireMerc is rebels only
+      const conditionResult = checkActionCondition(game, 'hireMerc', dictator);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return true when all conditions are met', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'hire-valid-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      // Set up a MERC with enough actions
+      const sector = game.gameMap.getAllSectors()[0];
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      const merc = game.mercDeck.first(MercCard);
+      if (merc) {
+        merc.putInto(rebel.primarySquad);
+        merc.sectorId = sector.sectorId;
+        merc.actionsRemaining = 3;
+        merc.damage = 0;
+      }
+
+      // Ensure deck has MERCs
+      expect(game.mercDeck.count(MercCard)).toBeGreaterThan(0);
+
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'hireMerc', rebel);
+      expect(conditionResult).toBe(true);
+    });
+  });
+
+  describe('endTurn action conditions', () => {
+    it('should return false during active combat', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'endturn-combat-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      game.currentDay = 2;
+
+      // Simulate active combat
+      game.activeCombat = {
+        sectorId: 'test',
+        rebels: [],
+        dictator: { militia: 1, mercs: [] },
+        round: 1,
+      };
+
+      const conditionResult = checkActionCondition(game, 'endTurn', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return false on Day 1', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'endturn-day1-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      game.currentDay = 1;
+
+      const conditionResult = checkActionCondition(game, 'endTurn', rebel);
+      expect(conditionResult).toBe(false);
+    });
+
+    it('should return true on Day 2+', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'endturn-valid-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      game.currentDay = 2;
+
+      const conditionResult = checkActionCondition(game, 'endTurn', rebel);
+      expect(conditionResult).toBe(true);
+    });
+  });
 });
