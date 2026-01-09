@@ -35,7 +35,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 4. Code Quality: State & Legacy | v1.0 | 3/3 | Complete | 2026-01-08 |
 | 5. Debug Cleanup | v1.0 | 1/1 | Complete | 2026-01-08 |
 | 6. Test Coverage | v1.0 | 3/3 | Complete | 2026-01-09 |
-| 7. File Organization | v1.1 | 0/TBD | Not started | - |
+| 7. File Organization | v1.1 | 0/2 | In progress | - |
 | 8. Artillery Barrage | v1.1 | 0/TBD | Not started | - |
 
 ## Planned Phases
@@ -44,7 +44,11 @@ A systematic cleanup moving from type safety foundations through code quality im
 **Goal**: Split large files for better maintainability
 **Depends on**: v1.0 complete
 **Research**: Unlikely (straightforward splitting)
-**Plans**: TBD
+**Plans**: 2
+
+Plans:
+- [ ] 07-01: Split combat.ts into combat-types.ts and combat-retreat.ts
+- [ ] 07-02: Split ai-helpers.ts into ai-combat-helpers.ts and ai-action-helpers.ts
 
 Scope:
 - Split `combat.ts` (2,879 lines) by combat phases or domains
