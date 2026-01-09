@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Code Quality: Helpers** - Extract 17 duplicate helper patterns into shared utilities
 - [x] **Phase 4: Code Quality: State & Legacy** - Standardize state persistence and remove legacy pendingLoot
 - [x] **Phase 5: Debug Cleanup** - Remove DEBUG messages and gate DEBUG_TACTICS_ORDER
-- [ ] **Phase 6: Test Coverage** - Add tests for action conditions, state persistence, and error conditions
+- [x] **Phase 6: Test Coverage** - Add tests for action conditions, state persistence, and error conditions
 
 ## Phase Details
 
@@ -91,7 +91,7 @@ Plans:
 Plans:
 - [x] 06-01: Add action condition tests
 - [x] 06-02: Add state persistence tests
-- [ ] 06-03: Add error condition tests
+- [x] 06-03: Add error condition tests
 
 ## Progress
 
@@ -105,4 +105,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Code Quality: Helpers | 4/4 | Complete | 2026-01-08 |
 | 4. Code Quality: State & Legacy | 3/3 | Complete | 2026-01-08 |
 | 5. Debug Cleanup | 1/1 | Complete | 2026-01-08 |
-| 6. Test Coverage | 2/3 | In progress | - |
+| 6. Test Coverage | 3/3 | Complete | 2026-01-09 |
