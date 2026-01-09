@@ -30,7 +30,7 @@ export interface TacticsEffectResult {
 /**
  * Build list of valid targets for artillery allocation in a sector
  */
-function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
+export function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
   id: string;
   name: string;
   type: 'militia' | 'merc';
