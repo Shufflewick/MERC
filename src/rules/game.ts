@@ -537,6 +537,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }>;
   } | null = null;
 
+  /** Check if artillery allocation is pending (rebels need to allocate hits) */
+  get hasArtilleryPending(): boolean {
+    return this.pendingArtilleryAllocation !== null;
+  }
+
   // Track last explorer for "Take from stash" action
   // Only the MERC who just explored can take from stash (until they do or action changes)
   lastExplorer: { mercId: string; sectorId: string } | null = null;
