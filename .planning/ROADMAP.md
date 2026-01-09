@@ -90,7 +90,7 @@ Plans:
 
 Plans:
 - [x] 06-01: Add action condition tests
-- [ ] 06-02: Add state persistence tests
+- [x] 06-02: Add state persistence tests
 - [ ] 06-03: Add error condition tests
 
 ## Progress
@@ -105,4 +105,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Code Quality: Helpers | 4/4 | Complete | 2026-01-08 |
 | 4. Code Quality: State & Legacy | 3/3 | Complete | 2026-01-08 |
 | 5. Debug Cleanup | 1/1 | Complete | 2026-01-08 |
-| 6. Test Coverage | 1/3 | In progress | - |
+| 6. Test Coverage | 2/3 | In progress | - |
