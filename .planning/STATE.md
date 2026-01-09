@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 8 of 8 (Artillery Barrage)
-Plan: 2 of TBD in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-09 — Completed 08-02-PLAN.md (artillery flow loop)
+Last activity: 2026-01-09 — Completed 08-03-PLAN.md (artillery pending state)
 
-Progress: ██████████████████████░░ 90%
+Progress: ███████████████████████░ 95%
 
 ## Performance Metrics
 
@@ -34,7 +34,7 @@ Progress: ██████████████████████░�
 | 5 | 1 | 6 min | 6 min |
 | 6 | 3 | 17 min | 5.7 min |
 | 7 | 2 | - | - |
-| 8 | 2 | 21 min | 10.5 min |
+| 8 | 3 | 22 min | 7.3 min |
 
 ## Accumulated Context
 
@@ -44,6 +44,8 @@ Progress: ██████████████████████░�
 - Includes sectorsRemaining queue for multi-sector processing
 - Flow loop placed after playTactics step for Artillery Barrage card
 - Stub action condition checks pendingArtilleryAllocation for integration
+- Dice rolled for all sectors upfront before setting pending state
+- Use mercId (string) instead of id (number) for MERC target identification
 
 ### Deferred Issues
 
@@ -56,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-09
-Stopped at: Completed 08-02-PLAN.md
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
