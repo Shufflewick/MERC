@@ -11,6 +11,7 @@ import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, MercCard, Equipment } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect } from '../equipment-effects.js';
+import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer } from './helpers.js';
 
 /**
@@ -714,26 +715,152 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
 // =============================================================================
 
 /**
- * Stub action for artillery hit allocation.
- * This placeholder ensures the flow.ts reference to 'artilleryAllocateHits' doesn't error.
- * Full implementation will be added in Plan 04.
- *
- * When implemented, this will allow rebels to choose how Artillery Barrage damage
- * is allocated to their units in the targeted sector.
+ * Allocate artillery barrage hits to rebel units.
+ * Called during dictator's turn when Artillery Barrage targets rebel sectors.
+ * Each rebel allocates hits to their own units in the targeted sector.
  */
 export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinition {
   return Action.create('artilleryAllocateHits')
     .prompt('Allocate artillery damage')
-    .condition(() => {
-      // Stub: Always false until Plan 04 implements the full action
-      // This prevents the action from appearing while keeping flow.ts valid
-      return game.pendingArtilleryAllocation != null;
+    .condition((ctx) => {
+      // Must have pending artillery allocation
+      if (!game.pendingArtilleryAllocation) return false;
+
+      // Must be a rebel player
+      if (!isRebelPlayer(ctx.player)) return false;
+
+      // Player must have units in the targeted sector
+      const pending = game.pendingArtilleryAllocation;
+      const playerId = `${ctx.player.position}`;
+      const hasTargets = pending.validTargets.some(t => t.ownerId === playerId);
+
+      return hasTargets;
     })
-    .execute(() => {
-      // Stub: Will be replaced with actual implementation in Plan 04
+    .chooseFrom<string>('allocations', {
+      prompt: 'Choose which of your units take the artillery hits',
+      multiSelect: () => {
+        const pending = game.pendingArtilleryAllocation;
+        if (!pending) return undefined;
+        // Must allocate exactly `hits` damage (or all available health)
+        const totalHits = pending.hits - pending.allocatedHits;
+        return { min: 1, max: totalHits };
+      },
+      choices: (ctx) => {
+        const pending = game.pendingArtilleryAllocation;
+        if (!pending) return [];
+
+        const playerId = `${ctx.player.position}`;
+        const choices: Array<{ value: string; display: string }> = [];
+
+        // Build choices for this player's targets only
+        for (const target of pending.validTargets) {
+          if (target.ownerId !== playerId) continue;
+
+          // Allow selecting up to currentHealth times
+          for (let i = 0; i < target.currentHealth; i++) {
+            choices.push({
+              value: `${target.id}::${i}`,
+              display: target.type === 'militia'
+                ? `Militia (${target.currentHealth - i} remaining)`
+                : target.name,
+            });
+          }
+        }
+        return choices;
+      },
+    })
+    .execute((args, ctx) => {
+      if (!game.pendingArtilleryAllocation) {
+        return { success: false, message: 'No artillery allocation pending' };
+      }
+
+      const pending = game.pendingArtilleryAllocation;
+      const playerId = `${ctx.player.position}`;
+      const player = ctx.player as RebelPlayer;
+
+      // Parse allocations
+      const allocChoices = Array.isArray(args.allocations)
+        ? args.allocations as unknown[]
+        : [args.allocations];
+
+      const hitsByTarget = new Map<string, number>();
+      for (const choice of allocChoices) {
+        const choiceStr = typeof choice === 'string' ? choice :
+          (choice && typeof choice === 'object' && 'value' in choice)
+            ? String((choice as { value: unknown }).value)
+            : String(choice);
+        const targetId = choiceStr.split('::')[0];
+        hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
+      }
+
+      // Apply damage
+      const sector = game.getSector(pending.sectorId);
+      let totalApplied = 0;
+
+      for (const [targetId, hits] of hitsByTarget) {
+        const target = pending.validTargets.find(t => t.id === targetId);
+        if (!target || target.ownerId !== playerId) continue;
+
+        if (target.type === 'militia') {
+          // Remove militia from sector
+          const removed = sector?.removeRebelMilitia(playerId, hits) ?? 0;
+          if (removed > 0) {
+            game.message(`${removed} militia killed by artillery at ${pending.sectorName}`);
+          }
+          totalApplied += removed;
+
+          // Update target health in pending state
+          target.currentHealth -= removed;
+        } else {
+          // Damage MERC
+          const merc = player.team.find(m => m.mercId === targetId);
+          if (merc) {
+            for (let i = 0; i < hits; i++) {
+              merc.takeDamage(1);
+              game.message(`${merc.mercName} takes 1 artillery damage`);
+              totalApplied++;
+            }
+            target.currentHealth = merc.health - merc.damage;
+          }
+        }
+      }
+
+      // Update allocated count
+      pending.allocatedHits += totalApplied;
+
+      // Check if all hits for this sector are allocated
+      // (or all targets exhausted)
+      const remainingTargets = pending.validTargets.filter(t => t.currentHealth > 0);
+      const allHitsAllocated = pending.allocatedHits >= pending.hits || remainingTargets.length === 0;
+
+      if (allHitsAllocated) {
+        // Move to next sector or complete
+        if (pending.sectorsRemaining.length > 0) {
+          const next = pending.sectorsRemaining.shift()!;
+          const nextSector = game.getSector(next.sectorId);
+          if (nextSector) {
+            const nextTargets = buildArtilleryTargets(game, nextSector);
+            game.pendingArtilleryAllocation = {
+              sectorId: next.sectorId,
+              sectorName: next.sectorName,
+              hits: next.hits,
+              allocatedHits: 0,
+              validTargets: nextTargets,
+              sectorsRemaining: pending.sectorsRemaining,
+            };
+            game.message(`Artillery Barrage continues: ${next.hits} hits at ${next.sectorName}`);
+          }
+        } else {
+          // All sectors processed
+          game.pendingArtilleryAllocation = null;
+          game.message('Artillery Barrage complete');
+        }
+      }
+
       return {
-        success: false,
-        message: 'Artillery allocation not yet implemented',
+        success: true,
+        message: `Allocated ${totalApplied} artillery hits`,
+        data: { allocated: totalApplied },
       };
     });
 }
