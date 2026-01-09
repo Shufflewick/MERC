@@ -516,6 +516,27 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Explosives victory - set when rebels detonate explosives in palace
   explosivesVictory: boolean = false;
 
+  // Pending artillery allocation - rebels choose how to allocate hits during dictator's turn
+  pendingArtilleryAllocation: {
+    sectorId: string;        // Which sector is being attacked
+    sectorName: string;      // For display
+    hits: number;            // Total hits to allocate
+    allocatedHits: number;   // Hits allocated so far
+    validTargets: Array<{
+      id: string;            // Target identifier
+      name: string;          // Display name
+      type: 'militia' | 'merc';
+      ownerId: string;       // Which rebel owns this target
+      currentHealth: number; // For MERCs
+      maxHealth: number;     // For MERCs
+    }>;
+    sectorsRemaining: Array<{  // Queue of sectors still to process
+      sectorId: string;
+      sectorName: string;
+      hits: number;
+    }>;
+  } | null = null;
+
   // Track last explorer for "Take from stash" action
   // Only the MERC who just explored can take from stash (until they do or action changes)
   lastExplorer: { mercId: string; sectorId: string } | null = null;
