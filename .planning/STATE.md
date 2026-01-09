@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-09)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** v1.0 Complete — Ready to ship
+**Current focus:** v1.0 Complete — v1.1 planned (file organization, Artillery Barrage)
 
 ## Current Position
 

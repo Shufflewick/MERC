@@ -44,10 +44,11 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 ### Active
 
 - [ ] Consider splitting large files: `combat.ts` (2,879 lines), `ai-helpers.ts` (1,326 lines)
+- [ ] Artillery Barrage player choice — rebels choose hit allocation during dictator's Artillery Barrage
 
 ### Out of Scope
 
-- Artillery Barrage player choice mechanic — requires architectural flow interrupts, too complex for cleanup scope
+(None currently)
 
 ## Context
 

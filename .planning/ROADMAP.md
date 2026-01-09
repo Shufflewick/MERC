@@ -7,6 +7,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 ## Milestones
 
 - ✅ **v1.0 Codebase Cleanup** — Phases 1-6 (shipped 2026-01-09)
+- 📋 **v1.1 Polish** — Phases 7-8 (planned)
 
 ## Completed Milestones
 
@@ -34,3 +35,28 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 4. Code Quality: State & Legacy | v1.0 | 3/3 | Complete | 2026-01-08 |
 | 5. Debug Cleanup | v1.0 | 1/1 | Complete | 2026-01-08 |
 | 6. Test Coverage | v1.0 | 3/3 | Complete | 2026-01-09 |
+| 7. File Organization | v1.1 | 0/TBD | Not started | - |
+| 8. Artillery Barrage | v1.1 | 0/TBD | Not started | - |
+
+## Planned Phases
+
+### Phase 7: File Organization
+**Goal**: Split large files for better maintainability
+**Depends on**: v1.0 complete
+**Research**: Unlikely (straightforward splitting)
+**Plans**: TBD
+
+Scope:
+- Split `combat.ts` (2,879 lines) by combat phases or domains
+- Split `ai-helpers.ts` (1,326 lines) by AI strategy type
+
+### Phase 8: Artillery Barrage
+**Goal**: Implement player choice for Artillery Barrage hit allocation
+**Depends on**: Phase 7 (optional)
+**Research**: Likely (requires flow interrupt architecture)
+**Plans**: TBD
+
+Scope:
+- Allow rebels to choose which units take Artillery Barrage damage
+- Requires interrupting dictator's turn for rebel input
+- Current workaround: auto-applies damage (militia first, then MERCs)
