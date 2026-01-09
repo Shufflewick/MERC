@@ -911,11 +911,11 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       // Parse string format: "id:name:isDictatorCard"
       const [idStr, , isDictatorStr] = unitChoiceStr.split(':');
       const unitId = parseInt(idStr, 10);
-      const isDictatorCard = isDictatorStr === 'true';
+      const isUnitDictatorCard = isDictatorStr === 'true';
 
       // Find the actual unit (same pattern as explore action)
       let actingUnit: TrainableUnit | null = null;
-      if (isDictatorCard) {
+      if (isUnitDictatorCard) {
         actingUnit = game.dictatorPlayer?.dictator || null;
       } else {
         actingUnit = game.all(MercCard).find(m => m.id === unitId) || null;
