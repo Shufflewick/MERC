@@ -304,4 +304,279 @@ describe('Error Conditions', () => {
       });
     });
   });
+
+  // =============================================================================
+  // Helper Function Edge Case Tests
+  // =============================================================================
+
+  describe('Helper Function Edge Cases', () => {
+    let testGame: ReturnType<typeof createTestGame>;
+    let game: MERCGame;
+
+    beforeEach(() => {
+      testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'helper-edge-case-test',
+      });
+      game = testGame.game;
+    });
+
+    describe('canHireMercWithTeam', () => {
+      it('should allow any MERC when team is empty', () => {
+        const emptyTeam: MercCard[] = [];
+        // Borris can be hired with empty team
+        expect(canHireMercWithTeam('borris', emptyTeam)).toBe(true);
+        // Squirrel can be hired with empty team
+        expect(canHireMercWithTeam('squirrel', emptyTeam)).toBe(true);
+        // Any MERC can be hired with empty team
+        expect(canHireMercWithTeam('basic', emptyTeam)).toBe(true);
+      });
+
+      it('should allow unknown MERC IDs (not in incompatibilities)', () => {
+        const emptyTeam: MercCard[] = [];
+        // Unknown MERC should work (no incompatibilities defined)
+        expect(canHireMercWithTeam('unknown-merc', emptyTeam)).toBe(true);
+        expect(canHireMercWithTeam('totally-made-up', emptyTeam)).toBe(true);
+      });
+
+      it('should check bidirectional incompatibility (A blocks B)', () => {
+        // Set up a team with Borris
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        // Find or create a MERC named 'borris' in the deck
+        const borris = game.mercDeck.all(MercCard).find(m => m.mercId === 'borris');
+        if (borris) {
+          borris.putInto(rebel.primarySquad);
+          const team = rebel.team;
+
+          // Borris blocks Squirrel
+          expect(canHireMercWithTeam('squirrel', team)).toBe(false);
+          // Squirrel blocks Borris (bidirectional in the data)
+          // But we're checking if squirrel can join a team with borris
+        }
+      });
+
+      it('should check bidirectional incompatibility (B blocks A)', () => {
+        // Set up a team with Squirrel
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const squirrel = game.mercDeck.all(MercCard).find(m => m.mercId === 'squirrel');
+        if (squirrel) {
+          squirrel.putInto(rebel.primarySquad);
+          const team = rebel.team;
+
+          // Squirrel blocks Borris
+          expect(canHireMercWithTeam('borris', team)).toBe(false);
+          // Squirrel blocks Natasha
+          expect(canHireMercWithTeam('natasha', team)).toBe(false);
+        }
+      });
+
+      it('should handle multiple team members with different incompatibilities', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        // Add multiple MERCs without incompatibilities
+        const merc1 = game.mercDeck.all(MercCard).find(m => m.mercId === 'basic');
+        const merc2 = game.mercDeck.all(MercCard).find(m => m.mercId === 'preaction');
+
+        if (merc1 && merc2) {
+          merc1.putInto(rebel.primarySquad);
+          merc2.putInto(rebel.primarySquad);
+          const team = rebel.team;
+
+          // With no conflicting MERCs, borris should be hireable
+          expect(canHireMercWithTeam('borris', team)).toBe(true);
+        }
+      });
+
+      it('should allow compatible MERCs even with existing team', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const natasha = game.mercDeck.all(MercCard).find(m => m.mercId === 'natasha');
+        if (natasha) {
+          natasha.putInto(rebel.primarySquad);
+          const team = rebel.team;
+
+          // Natasha doesn't block Borris (only Moose)
+          expect(canHireMercWithTeam('borris', team)).toBe(true);
+          // But Natasha does block Moose
+          expect(canHireMercWithTeam('moose', team)).toBe(false);
+        }
+      });
+    });
+
+    describe('hasActionsRemaining', () => {
+      it('should return false for empty team', () => {
+        const rebel = game.rebelPlayers[0];
+        // Team starts empty
+        expect(rebel.team.length).toBe(0);
+        expect(hasActionsRemaining(rebel, 1)).toBe(false);
+        expect(hasActionsRemaining(rebel, 0)).toBe(false);
+      });
+
+      it('should return false when all MERCs are exhausted', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          merc.sectorId = sector.sectorId;
+          merc.actionsRemaining = 0;
+
+          expect(hasActionsRemaining(rebel, 1)).toBe(false);
+        }
+      });
+
+      it('should return true when at least one MERC has enough actions', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
+        if (mercs.length >= 2) {
+          mercs[0].putInto(rebel.primarySquad);
+          mercs[0].sectorId = sector.sectorId;
+          mercs[0].actionsRemaining = 0; // Exhausted
+
+          mercs[1].putInto(rebel.primarySquad);
+          mercs[1].sectorId = sector.sectorId;
+          mercs[1].actionsRemaining = 2; // Has actions
+
+          expect(hasActionsRemaining(rebel, 1)).toBe(true);
+          expect(hasActionsRemaining(rebel, 2)).toBe(true);
+          expect(hasActionsRemaining(rebel, 3)).toBe(false); // Need 3, only have 2
+        }
+      });
+
+      it('should handle high action costs correctly', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          merc.sectorId = sector.sectorId;
+          merc.actionsRemaining = 2;
+
+          // Hire cost is 2
+          expect(hasActionsRemaining(rebel, ACTION_COSTS.HIRE_MERC)).toBe(true);
+          // Move cost is 1
+          expect(hasActionsRemaining(rebel, ACTION_COSTS.MOVE)).toBe(true);
+          // Cost of 3 exceeds available
+          expect(hasActionsRemaining(rebel, 3)).toBe(false);
+        }
+      });
+    });
+
+    describe('findUnitSector', () => {
+      it('should return null for unit not in any sector', () => {
+        const merc = game.mercDeck.first(MercCard);
+        const rebel = game.rebelPlayers[0];
+        // MERC is in deck, not in any squad or sector
+        expect(findUnitSector(merc!, rebel, game)).toBeNull();
+      });
+
+      it('should return sector for rebel squad MERCs', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          merc.sectorId = sector.sectorId;
+
+          const foundSector = findUnitSector(merc, rebel, game);
+          expect(foundSector).toBe(sector);
+        }
+      });
+
+      it('should return null when rebel squad has no sectorId', () => {
+        const rebel = game.rebelPlayers[0];
+        // Don't set squad sectorId - squad not placed on map
+
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          // Don't set merc sectorId either
+
+          const foundSector = findUnitSector(merc, rebel, game);
+          expect(foundSector).toBeNull();
+        }
+      });
+
+      it('should return null for MERC in rebel squad when passed dictator', () => {
+        const rebel = game.rebelPlayers[0];
+        const sector = game.gameMap.getAllSectors()[0];
+        rebel.primarySquad.sectorId = sector.sectorId;
+
+        const merc = game.mercDeck.first(MercCard);
+        if (merc) {
+          merc.putInto(rebel.primarySquad);
+          // Don't set merc.sectorId - merc is only in rebel squad
+
+          // Pass dictator player - dictator doesn't have this merc in their squad
+          const dictator = game.dictatorPlayer;
+          const foundSector = findUnitSector(merc, dictator, game);
+          // Should return null because merc not in dictator's squads and has no sectorId
+          expect(foundSector).toBeNull();
+        }
+      });
+
+      it('should return sector for dictator card', () => {
+        const dictator = game.dictatorPlayer;
+        const dictatorCard = dictator?.dictator;
+        const sector = game.gameMap.getAllSectors()[0];
+
+        if (dictatorCard) {
+          dictatorCard.sectorId = sector.sectorId;
+          dictatorCard.inPlay = true;
+          dictator.baseSectorId = sector.sectorId;
+
+          const foundSector = findUnitSector(dictatorCard, dictator, game);
+          expect(foundSector).toBe(sector);
+        }
+      });
+
+      it('should return null for dictator card without sectorId', () => {
+        const dictator = game.dictatorPlayer;
+        const dictatorCard = dictator?.dictator;
+
+        if (dictatorCard) {
+          dictatorCard.sectorId = '';
+          const foundSector = findUnitSector(dictatorCard, dictator, game);
+          expect(foundSector).toBeNull();
+        }
+      });
+    });
+
+    describe('ACTION_COSTS edge cases', () => {
+      it('should have zero cost for split/merge (free actions)', () => {
+        expect(ACTION_COSTS.SPLIT_SQUAD).toBe(0);
+        expect(ACTION_COSTS.MERGE_SQUADS).toBe(0);
+      });
+
+      it('should have correct costs for action point consuming actions', () => {
+        expect(ACTION_COSTS.MOVE).toBe(1);
+        expect(ACTION_COSTS.EXPLORE).toBe(1);
+        expect(ACTION_COSTS.TRAIN).toBe(1);
+        expect(ACTION_COSTS.HOSPITAL).toBe(1);
+        expect(ACTION_COSTS.ARMS_DEALER).toBe(1);
+        expect(ACTION_COSTS.RE_EQUIP).toBe(1);
+        expect(ACTION_COSTS.HIRE_MERC).toBe(2);
+      });
+    });
+  });
 });
