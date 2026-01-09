@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-09)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** v1.0 Complete — v1.1 planned (file organization, Artillery Barrage)
+**Current focus:** v1.1 Polish — Artillery Barrage player choice
 
 ## Current Position
 
-Phase: 7 of 8 (File Organization)
-Plan: 2 of 2 in current phase
-Status: Phase 7 complete
-Last activity: 2026-01-09 — Plan 07-02 completed (ai-helpers.ts split)
+Phase: 8 of 8 (Artillery Barrage)
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-09 — Completed 08-01-PLAN.md (artillery state types)
 
 Progress: █████████████████████░░░ 88%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
+- Total plans completed: 21
 - Average duration: 7.8 min
-- Total execution time: 2.6 hours
+- Total execution time: 2.7 hours
 
 **By Phase:**
 
@@ -33,23 +33,26 @@ Progress: █████████████████████░░�
 | 4 | 3 | 20 min | 6.7 min |
 | 5 | 1 | 6 min | 6 min |
 | 6 | 3 | 17 min | 5.7 min |
+| 7 | 2 | - | - |
+| 8 | 1 | 9 min | 9 min |
 
 ## Accumulated Context
 
 ### Decisions
 
-All decisions logged in PROJECT.md Key Decisions table.
+- Artillery allocation follows pendingHitAllocation pattern
+- Includes sectorsRemaining queue for multi-sector processing
 
 ### Deferred Issues
 
-- Artillery Barrage player choice mechanic — requires architectural flow interrupts
+- Artillery Barrage flow integration (planned for 08-02)
 
 ### Blockers/Concerns
 
-None — milestone complete.
+None.
 
 ## Session Continuity
 
 Last session: 2026-01-09
-Stopped at: v1.0 milestone complete
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None
