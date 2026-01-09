@@ -28,13 +28,64 @@ export interface TacticsEffectResult {
 // =============================================================================
 
 /**
+ * Build list of valid targets for artillery allocation in a sector
+ */
+function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
+  id: string;
+  name: string;
+  type: 'militia' | 'merc';
+  ownerId: string;
+  currentHealth: number;
+  maxHealth: number;
+}> {
+  const targets: Array<{
+    id: string;
+    name: string;
+    type: 'militia' | 'merc';
+    ownerId: string;
+    currentHealth: number;
+    maxHealth: number;
+  }> = [];
+
+  for (const rebel of game.rebelPlayers) {
+    const playerId = `${rebel.position}`;
+
+    // Add militia as single target per player (with count as "health")
+    const militiaCount = sector.getRebelMilitia(playerId);
+    if (militiaCount > 0) {
+      targets.push({
+        id: `militia-${playerId}-${sector.sectorId}`,
+        name: `${rebel.position} Militia (${militiaCount})`,
+        type: 'militia',
+        ownerId: playerId,
+        currentHealth: militiaCount, // Each hit kills one militia
+        maxHealth: militiaCount,
+      });
+    }
+
+    // Add individual MERCs
+    const mercs = game.getMercsInSector(sector, rebel);
+    for (const merc of mercs) {
+      targets.push({
+        id: merc.mercId,
+        name: merc.mercName,
+        type: 'merc',
+        ownerId: playerId,
+        currentHealth: merc.health - merc.damage, // Available health
+        maxHealth: merc.health,
+      });
+    }
+  }
+
+  return targets;
+}
+
+/**
  * Artillery Barrage: Attack sectors adjacent to controlled sectors.
  * Roll d6 per sector, deal that many hits.
  *
- * MERC-lw9r: TODO - Rebels should ideally choose how to allocate hits to their
- * units. Current implementation auto-applies damage (militia first, then MERCs).
- * Implementing rebel choice would require flow interrupts to switch active player
- * during dictator's turn, which is a significant architectural change.
+ * Rebels choose how to allocate hits to their units via pendingArtilleryAllocation.
+ * Each sector is processed one at a time through the allocation action.
  */
 function artilleryBarrage(game: MERCGame): TacticsEffectResult {
   const dictatorSectors = game.gameMap.getAllSectors().filter(s => s.dictatorMilitia > 0);
@@ -56,44 +107,58 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
 
   // Attack up to rebelCount sectors
   const sectorsToAttack = [...adjacentRebelSectors].slice(0, game.rebelCount);
-  let totalDamage = 0;
 
+  if (sectorsToAttack.length === 0) {
+    return { success: true, message: 'Artillery Barrage: No valid targets' };
+  }
+
+  // Roll for all sectors upfront
+  const sectorRolls: Array<{ sector: Sector; hits: number }> = [];
   for (const sector of sectorsToAttack) {
     const roll = game.rollDie();
     game.message(`Artillery targets ${sector.sectorName}: rolled ${roll} hits`);
-
-    // Apply damage to militia first, then MERCs
-    let remainingHits = roll;
-
-    // Damage rebel militia
-    for (const rebel of game.rebelPlayers) {
-      if (remainingHits <= 0) break;
-      const militiaRemoved = sector.removeRebelMilitia(`${rebel.position}`, remainingHits);
-      remainingHits -= militiaRemoved;
-      if (militiaRemoved > 0) {
-        game.message(`${militiaRemoved} militia killed at ${sector.sectorName}`);
-      }
-    }
-
-    // Damage MERCs
-    for (const rebel of game.rebelPlayers) {
-      if (remainingHits <= 0) break;
-      const mercs = game.getMercsInSector(sector, rebel);
-      for (const merc of mercs) {
-        if (remainingHits <= 0) break;
-        merc.takeDamage(1);
-        remainingHits--;
-        game.message(`${merc.mercName} takes 1 artillery damage`);
-      }
-    }
-
-    totalDamage += roll;
+    sectorRolls.push({ sector, hits: roll });
   }
+
+  // Filter to sectors with actual targets and hits > 0
+  const sectorsWithTargets = sectorRolls.filter(({ sector, hits }) => {
+    if (hits === 0) return false;
+    // Check if sector has any rebel units
+    return game.rebelPlayers.some(rebel => {
+      const militia = sector.getRebelMilitia(`${rebel.position}`);
+      const mercs = game.getMercsInSector(sector, rebel);
+      return militia > 0 || mercs.length > 0;
+    });
+  });
+
+  if (sectorsWithTargets.length === 0) {
+    return { success: true, message: 'Artillery Barrage: All misses or no targets' };
+  }
+
+  // Build pending state for first sector
+  const firstSector = sectorsWithTargets[0];
+  const validTargets = buildArtilleryTargets(game, firstSector.sector);
+
+  // Queue remaining sectors
+  const remaining = sectorsWithTargets.slice(1).map(({ sector, hits }) => ({
+    sectorId: sector.sectorId,
+    sectorName: sector.sectorName,
+    hits,
+  }));
+
+  game.pendingArtilleryAllocation = {
+    sectorId: firstSector.sector.sectorId,
+    sectorName: firstSector.sector.sectorName,
+    hits: firstSector.hits,
+    allocatedHits: 0,
+    validTargets,
+    sectorsRemaining: remaining,
+  };
 
   return {
     success: true,
-    message: `Artillery barrage dealt ${totalDamage} total damage across ${sectorsToAttack.length} sectors`,
-    data: { sectorsHit: sectorsToAttack.length, totalDamage },
+    message: `Artillery Barrage: Allocate ${firstSector.hits} hits at ${firstSector.sector.sectorName}`,
+    data: { sectorsHit: sectorsWithTargets.length, pending: true },
   };
 }
 
