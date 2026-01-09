@@ -214,4 +214,207 @@ describe('State Persistence', () => {
       });
     });
   });
+
+  describe('game.settings Underlying Behavior', () => {
+    describe('Basic storage semantics', () => {
+      it('setting a key stores the value', () => {
+        game.settings['testKey'] = 'testValue';
+        expect(game.settings['testKey']).toBe('testValue');
+      });
+
+      it('getting a key retrieves the value', () => {
+        game.settings['myKey'] = 42;
+        const retrieved = game.settings['myKey'];
+        expect(retrieved).toBe(42);
+      });
+
+      it('deleting a key removes it', () => {
+        game.settings['toDelete'] = 'exists';
+        expect(game.settings['toDelete']).toBe('exists');
+
+        delete game.settings['toDelete'];
+        expect(game.settings['toDelete']).toBeUndefined();
+      });
+
+      it('multiple keys coexist independently', () => {
+        game.settings['key1'] = 'value1';
+        game.settings['key2'] = 'value2';
+        game.settings['key3'] = 'value3';
+
+        expect(game.settings['key1']).toBe('value1');
+        expect(game.settings['key2']).toBe('value2');
+        expect(game.settings['key3']).toBe('value3');
+
+        delete game.settings['key2'];
+        expect(game.settings['key1']).toBe('value1');
+        expect(game.settings['key2']).toBeUndefined();
+        expect(game.settings['key3']).toBe('value3');
+      });
+    });
+
+    describe('Edge cases', () => {
+      it('setting undefined vs deleting key', () => {
+        game.settings['key'] = 'value';
+
+        // Setting to undefined doesn't delete the key, but makes it undefined
+        game.settings['key'] = undefined;
+        expect('key' in game.settings).toBe(true);
+        expect(game.settings['key']).toBeUndefined();
+
+        // Deleting actually removes the key
+        game.settings['key2'] = 'value';
+        delete game.settings['key2'];
+        expect('key2' in game.settings).toBe(false);
+      });
+
+      it('setting null value', () => {
+        game.settings['nullKey'] = null;
+        expect(game.settings['nullKey']).toBeNull();
+
+        // Null is a valid value, different from undefined/missing
+        expect('nullKey' in game.settings).toBe(true);
+      });
+
+      it('overwriting existing value', () => {
+        game.settings['overwrite'] = 'first';
+        expect(game.settings['overwrite']).toBe('first');
+
+        game.settings['overwrite'] = 'second';
+        expect(game.settings['overwrite']).toBe('second');
+
+        game.settings['overwrite'] = 123;
+        expect(game.settings['overwrite']).toBe(123);
+      });
+
+      it('storing complex objects', () => {
+        const complex = {
+          nested: { data: [1, 2, 3] },
+          fn: () => 'test', // Functions may not serialize, but can be stored
+        };
+        game.settings['complex'] = complex;
+        expect(game.settings['complex']).toBe(complex);
+        expect(game.settings['complex'].nested.data).toEqual([1, 2, 3]);
+      });
+    });
+  });
+
+  describe('Real Caching Scenarios from Codebase', () => {
+    // These tests validate the actual patterns used in rebel-economy.ts and day-one-actions.ts
+
+    describe('Arms dealer drawn equipment caching pattern', () => {
+      it('caches equipment ID and retrieves it across function calls', () => {
+        // Simulate: chooseFrom draws equipment, stores ID
+        const equipmentId = 123; // In real code this would be equipment.id
+        const playerId = 'rebel-1';
+        const ARMS_DEALER_DRAWN_KEY = 'armsDealer_drawnEquipment';
+
+        setCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId, equipmentId);
+
+        // Simulate: execute retrieves the cached ID
+        const cachedId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
+        expect(cachedId).toBe(equipmentId);
+
+        // Simulate: cleanup after use
+        clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
+        expect(getCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId)).toBeUndefined();
+      });
+
+      it('prevents re-drawing when equipment already cached', () => {
+        const playerId = 'rebel-1';
+        const DRAWN_KEY = 'drawnEquipment';
+
+        // First access - no cached value
+        expect(getCachedValue<number>(game, DRAWN_KEY, playerId)).toBeUndefined();
+
+        // Cache the equipment
+        setCachedValue(game, DRAWN_KEY, playerId, 456);
+
+        // Second access - cached value exists, prevent re-draw
+        const cached = getCachedValue<number>(game, DRAWN_KEY, playerId);
+        expect(cached).toBe(456); // Would skip drawing in real code
+      });
+    });
+
+    describe('Selected MERC caching during hire flow', () => {
+      it('caches array of drawn MERC IDs for hire selection', () => {
+        const playerId = 'rebel-1';
+        const HIRE_DRAWN_MERCS_KEY = 'hire_drawnMercs';
+        const drawnMercIds = [101, 102, 103];
+
+        // Draw phase: cache IDs
+        setCachedValue<number[]>(game, HIRE_DRAWN_MERCS_KEY, playerId, drawnMercIds);
+
+        // Selection phase: retrieve cached IDs
+        const cached = getCachedValue<number[]>(game, HIRE_DRAWN_MERCS_KEY, playerId);
+        expect(cached).toEqual(drawnMercIds);
+
+        // After hiring: remaining MERCs go back
+        const remaining = [102, 103]; // Player hired merc 101
+        setCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId, remaining);
+
+        // Later: cleanup
+        clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
+        expect(getCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId)).toBeUndefined();
+      });
+    });
+
+    describe('Dictator global state caching', () => {
+      it('uses global cache for dictator-only state', () => {
+        const DRAWN_MERCS_KEY = 'dictator_drawnMercs';
+        const mercIds = [201, 202];
+
+        // Dictator draws MERCs - no player scoping needed
+        setGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY, mercIds);
+
+        // Retrieve for hiring
+        const cached = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY);
+        expect(cached).toEqual(mercIds);
+
+        // Cleanup
+        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
+        expect(getGlobalCachedValue(game, DRAWN_MERCS_KEY)).toBeUndefined();
+      });
+
+      it('global and player-scoped caches work for multi-player scenarios', () => {
+        // Rebel player 1 has their cache
+        setCachedValue(game, 'selection', player1Id, 'rebel1-choice');
+        // Rebel player 2 would have their cache
+        setCachedValue(game, 'selection', player2Id, 'rebel2-choice');
+        // Dictator has global cache
+        setGlobalCachedValue(game, 'dictatorSelection', 'dictator-choice');
+
+        // All coexist
+        expect(getCachedValue(game, 'selection', player1Id)).toBe('rebel1-choice');
+        expect(getCachedValue(game, 'selection', player2Id)).toBe('rebel2-choice');
+        expect(getGlobalCachedValue(game, 'dictatorSelection')).toBe('dictator-choice');
+      });
+    });
+
+    describe('Cache cleared at expected points', () => {
+      it('clearing cache after action completion', () => {
+        const playerId = 'rebel-1';
+        const CACHE_KEY = 'actionState';
+
+        // Action starts - cache state
+        setCachedValue(game, CACHE_KEY, playerId, { step: 1, data: 'in-progress' });
+        expect(getCachedValue(game, CACHE_KEY, playerId)).toBeDefined();
+
+        // Action completes - cleanup
+        clearCachedValue(game, CACHE_KEY, playerId);
+        expect(getCachedValue(game, CACHE_KEY, playerId)).toBeUndefined();
+      });
+
+      it('clearing cache on action failure', () => {
+        const playerId = 'rebel-1';
+        const DRAWN_KEY = 'drawnMercs';
+
+        // Draw MERCs for hiring
+        setCachedValue(game, DRAWN_KEY, playerId, [101, 102, 103]);
+
+        // Action fails (not enough actions) - still need to cleanup
+        clearCachedValue(game, DRAWN_KEY, playerId);
+        expect(getCachedValue(game, DRAWN_KEY, playerId)).toBeUndefined();
+      });
+    });
+  });
 });
