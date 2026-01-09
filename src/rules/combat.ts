@@ -56,59 +56,13 @@ import {
   discardAfterAttack as checkDiscardAfterAttack,
 } from './equipment-effects.js';
 
-// =============================================================================
-// Combat Types
-// =============================================================================
+// Re-export types from combat-types.ts for backwards compatibility
+export type { Combatant, CombatResult, CombatRound, CombatOutcome } from './combat-types.js';
+import type { Combatant, CombatResult, CombatRound, CombatOutcome } from './combat-types.js';
 
-export interface Combatant {
-  id: string;
-  name: string;
-  initiative: number;
-  combat: number;
-  health: number;
-  maxHealth: number;
-  armor: number;
-  targets: number;
-  isDictatorSide: boolean;
-  isMilitia: boolean;
-  isDictator: boolean;
-  isAttackDog: boolean; // MERC-l09: Attack Dogs
-  sourceElement: MercCard | DictatorCard | null;
-  ownerId?: string; // For rebel militia
-  armorPiercing: boolean; // MERC-38e: Weapon ignores armor
-  hasAttackDog: boolean; // MERC-l09: Has Attack Dog equipped
-  attackDogAssignedTo?: string; // MERC-l09: ID of MERC this dog is assigned to
-  isImmuneToAttackDogs: boolean; // MERC-l09: Shadkaam ability
-  willNotHarmDogs: boolean; // MERC-l09: Tao ability
-  hasUsedReroll?: boolean; // MERC-5l3: Basic's once-per-combat reroll
-}
-
-export interface CombatResult {
-  attacker: Combatant;
-  rolls: number[];
-  hits: number;
-  targets: Combatant[];
-  damageDealt: Map<string, number>;
-}
-
-export interface CombatRound {
-  roundNumber: number;
-  results: CombatResult[];
-  casualties: Combatant[];
-}
-
-export interface CombatOutcome {
-  rounds: CombatRound[];
-  rebelVictory: boolean;
-  dictatorVictory: boolean;
-  rebelCasualties: Combatant[];
-  dictatorCasualties: Combatant[];
-  retreated: boolean;
-  retreatSector?: Sector;
-  // MERC-n1f: Interactive combat support
-  combatPending: boolean; // True if combat paused for retreat decision
-  canRetreat: boolean; // True if retreat is available
-}
+// Re-export retreat functions from combat-retreat.ts for backwards compatibility
+export { getValidRetreatSectors, canRetreat, executeRetreat } from './combat-retreat.js';
+import { getValidRetreatSectors, canRetreat as canRetreatFromModule } from './combat-retreat.js';
 
 // =============================================================================
 // Combat Helpers
@@ -1322,92 +1276,6 @@ function applySnakeBonus(game: MERCGame, allCombatants: Combatant[]): void {
       }
     }
   }
-}
-
-// =============================================================================
-// Retreat Mechanics
-// =============================================================================
-
-/**
- * Get valid retreat sectors for a player.
- * Per rules (07-combat-system.md): Adjacent sector that is unoccupied or friendly.
- */
-export function getValidRetreatSectors(
-  game: MERCGame,
-  currentSector: Sector,
-  player: RebelPlayer
-): Sector[] {
-  const adjacentSectors = game.getAdjacentSectors(currentSector);
-
-  return adjacentSectors.filter(sector => {
-    // MERC-4bp: Check for ALL dictator forces (militia, MERCs, and dictator card)
-    const hasDictatorForces = sector.dictatorMilitia > 0 ||
-      game.getDictatorMercsInSector(sector).length > 0 ||
-      (game.dictatorPlayer.baseRevealed &&
-       game.dictatorPlayer.baseSectorId === sector.sectorId);
-
-    if (!hasDictatorForces) {
-      return true;
-    }
-
-    // MERC-kpv: Friendly = controlled by this player OR any allied rebel
-    // Per rules: retreat valid to sector "controlled by you or ally"
-    const dictatorUnits = game.getDictatorUnitsInSector(sector);
-
-    // Check if current player controls
-    const playerUnits = game.getRebelUnitsInSector(sector, player);
-    if (playerUnits > dictatorUnits) {
-      return true;
-    }
-
-    // Check if any allied rebel controls (total rebel units > dictator)
-    const totalRebelUnits = game.getTotalRebelUnitsInSector(sector);
-    return totalRebelUnits > dictatorUnits;
-  });
-}
-
-/**
- * Check if retreat is possible for a player.
- * Per rules: Only MERCs can retreat, militia cannot retreat.
- */
-export function canRetreat(
-  game: MERCGame,
-  sector: Sector,
-  player: RebelPlayer
-): boolean {
-  // Must have living MERCs in this sector to retreat (militia cannot retreat, dead MERCs cannot retreat)
-  const hasLivingMercsInSector =
-    (player.primarySquad.sectorId === sector.sectorId && player.primarySquad.livingMercCount > 0) ||
-    (player.secondarySquad.sectorId === sector.sectorId && player.secondarySquad.livingMercCount > 0);
-
-  if (!hasLivingMercsInSector) return false;
-
-  return getValidRetreatSectors(game, sector, player).length > 0;
-}
-
-/**
- * Execute retreat for a player's squad.
- * Per rules: Entire squad must retreat together. Militia cannot retreat.
- */
-export function executeRetreat(
-  game: MERCGame,
-  fromSector: Sector,
-  toSector: Sector,
-  player: RebelPlayer
-): void {
-  // Move primary squad if it's in the combat sector
-  if (player.primarySquad.sectorId === fromSector.sectorId) {
-    player.primarySquad.sectorId = toSector.sectorId;
-    game.message(`${player.name}'s primary squad retreats to ${toSector.sectorName}`);
-  }
-
-  // Move secondary squad if it's in the combat sector
-  if (player.secondarySquad.sectorId === fromSector.sectorId) {
-    player.secondarySquad.sectorId = toSector.sectorId;
-    game.message(`${player.name}'s secondary squad retreats to ${toSector.sectorName}`);
-  }
-
-  // Note: Militia do NOT retreat (per rules: "Militia cannot retreat")
 }
 
 // =============================================================================
