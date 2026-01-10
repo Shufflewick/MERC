@@ -4,6 +4,7 @@ import { UI_COLORS } from '../colors';
 import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
 import MercCard from './MercCard.vue';
+import MercIconSmall from './MercIconSmall.vue';
 
 // Helper to get attribute from node
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
@@ -66,6 +67,7 @@ const props = defineProps<{
   actionController: UseActionControllerReturn;
   isMyTurn: boolean;
   allSectors?: SectorData[]; // For visual sector card display
+  playerColor?: string; // Dictator's lobby-selected color
 }>();
 
 const emit = defineEmits<{
@@ -395,17 +397,15 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
     <!-- Header with dictator info -->
     <div class="panel-header">
       <div class="dictator-info">
-        <div
-          class="dictator-portrait"
+        <MercIconSmall
+          :image="dictatorImagePath"
+          :alt="dictator.dictatorName"
+          :player-color="playerColor"
+          :size="50"
+          is-dictator
+          clickable
           @click="showDictatorModal = true"
-          :title="dictator.dictatorName"
-        >
-          <img
-            :src="dictatorImagePath"
-            :alt="dictator.dictatorName"
-            @error="($event.target as HTMLImageElement).src = '/dictators/unknown.jpg'"
-          />
-        </div>
+        />
         <div class="dictator-details">
           <span class="dictator-name">{{ dictator.dictatorName }}</span>
           <span class="dictator-ability">{{ dictator.ability }}</span>
@@ -453,7 +453,7 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
                 class="merc-choice"
                 @click="selectMercToHire(merc)"
               >
-                <MercCard :merc="merc" player-color="dictator" />
+                <MercCard :merc="merc" :player-color="playerColor" />
               </div>
             </div>
           </div>
@@ -558,13 +558,13 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
     <!-- Dictator Details Modal -->
     <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
       <div class="dictator-modal">
-        <div class="dictator-modal-portrait">
-          <img
-            :src="dictatorImagePath"
-            :alt="dictator.dictatorName"
-            @error="($event.target as HTMLImageElement).src = '/dictators/unknown.jpg'"
-          />
-        </div>
+        <MercIconSmall
+          :image="dictatorImagePath"
+          :alt="dictator.dictatorName"
+          :player-color="playerColor"
+          :size="120"
+          is-dictator
+        />
         <div class="dictator-modal-info">
           <h2>{{ dictator.dictatorName }}</h2>
           <p class="ability-text">{{ dictator.ability }}</p>
@@ -636,28 +636,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.dictator-portrait {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 3px solid #8b0000;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  background: #333;
-}
-
-.dictator-portrait:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 8px rgba(139, 0, 0, 0.8);
-}
-
-.dictator-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .dictator-details {
@@ -1030,21 +1008,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   border: 1px solid v-bind('UI_COLORS.border');
   border-radius: 12px;
   max-width: 500px;
-}
-
-.dictator-modal-portrait {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 4px solid #8b0000;
-  flex-shrink: 0;
-}
-
-.dictator-modal-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .dictator-modal-info {

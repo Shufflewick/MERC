@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { UI_COLORS, getPlayerColor } from '../colors';
+import { UI_COLORS } from '../colors';
+import MercIcon from './MercIcon.vue';
 
 interface EquipmentChoice {
   value: string;
@@ -10,8 +10,8 @@ interface EquipmentChoice {
 const props = defineProps<{
   choices: EquipmentChoice[];
   prompt?: string;
-  mercImage?: string; // MERC portrait image path
-  mercName?: string; // MERC name for alt text
+  mercId?: string; // MERC ID for portrait
+  mercName?: string; // MERC name
   playerColor?: string; // Player color for border
 }>();
 
@@ -34,31 +34,21 @@ function getIcon(label: string): string {
 function handleClick(value: string) {
   emit('select', value);
 }
-
-const portraitBorderColor = computed(() => {
-  return props.playerColor ? getPlayerColor(props.playerColor) : UI_COLORS.accent;
-});
-
-const mercImagePath = computed(() => {
-  if (props.mercImage) return props.mercImage;
-  // No default - don't show portrait if no image
-  return null;
-});
 </script>
 
 <template>
   <div class="draw-equipment-type">
     <div class="equipment-row">
-      <!-- MERC portrait (clickable to view details) -->
-      <div
-        v-if="mercImagePath"
-        class="merc-portrait clickable"
-        :style="{ borderColor: portraitBorderColor }"
+      <!-- MERC portrait with name (clickable to view details) -->
+      <MercIcon
+        v-if="mercName"
+        :merc-id="mercId"
+        :merc-name="mercName"
+        :player-color="playerColor"
+        size="large"
+        clickable
         @click="handleMercClick"
-        title="Click to view MERC details"
-      >
-        <img :src="mercImagePath" :alt="mercName || 'MERC'" />
-      </div>
+      />
       <!-- Equipment type buttons -->
       <button
         v-for="choice in choices"
@@ -85,32 +75,6 @@ const mercImagePath = computed(() => {
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.merc-portrait {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  border: 3px solid;
-  overflow: hidden;
-  flex-shrink: 0;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
-}
-
-.merc-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.merc-portrait.clickable {
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.merc-portrait.clickable:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 20px rgba(212, 168, 75, 0.6);
 }
 
 .equipment-type-button {

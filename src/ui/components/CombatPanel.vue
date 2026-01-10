@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { Die3D } from '@boardsmith/ui';
 import { UI_COLORS } from '../colors';
+import MercIconSmall from './MercIconSmall.vue';
 
 const props = defineProps<{
   activeCombat: {
@@ -336,13 +337,14 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
               attacking: activeCombat.pendingHitAllocation?.attackerId === getCombatantDisplay(combatant).id,
             }"
           >
-            <div class="combatant-portrait">
-              <img
-                v-if="getCombatantDisplay(combatant).image"
-                :src="getCombatantDisplay(combatant).image"
-                :alt="getCombatantDisplay(combatant).name"
-              />
-              <div v-else class="militia-shield">🛡️</div>
+            <MercIconSmall
+              v-if="getCombatantDisplay(combatant).image"
+              :image="getCombatantDisplay(combatant).image"
+              :alt="getCombatantDisplay(combatant).name"
+              :size="50"
+            />
+            <div v-else class="combatant-portrait">
+              <div class="militia-shield">🛡️</div>
             </div>
             <div class="combatant-name">{{ getCombatantDisplay(combatant).name }}</div>
             <div class="health-bar">
@@ -380,13 +382,14 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
             }"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           >
-            <div class="combatant-portrait">
-              <img
-                v-if="getCombatantDisplay(combatant).image"
-                :src="getCombatantDisplay(combatant).image"
-                :alt="getCombatantDisplay(combatant).name"
-              />
-              <div v-else class="militia-shield">🛡️</div>
+            <MercIconSmall
+              v-if="getCombatantDisplay(combatant).image"
+              :image="getCombatantDisplay(combatant).image"
+              :alt="getCombatantDisplay(combatant).name"
+              :size="50"
+            />
+            <div v-else class="combatant-portrait">
+              <div class="militia-shield">🛡️</div>
             </div>
             <div class="combatant-name">{{ getCombatantDisplay(combatant).name }}</div>
             <div class="health-bar">
@@ -624,12 +627,6 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.combatant-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .militia-shield {

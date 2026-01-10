@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
 import DetailModal from './DetailModal.vue';
 import EquipmentCard from './EquipmentCard.vue';
+import MercIconSmall from './MercIconSmall.vue';
 
 // Stat breakdown item for tooltips
 interface StatBreakdownItem {
@@ -558,9 +559,13 @@ function confirmDropEquipment() {
   <div class="merc-card" :class="{ compact }">
     <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
-      <div class="portrait-wrapper" :style="{ borderColor }">
-        <img :src="imagePath" :alt="mercName" class="portrait" />
-      </div>
+      <MercIconSmall
+        :merc-id="mercId"
+        :image="imagePath"
+        :alt="mercName"
+        :player-color="playerColor"
+        :size="compact ? 40 : 56"
+      />
       <div class="name-section">
         <span class="merc-name">{{ mercName }}</span>
         <span v-if="squadName" class="squad-badge" :style="{ backgroundColor: borderColor }">{{ squadName }}</span>
@@ -821,27 +826,6 @@ function confirmDropEquipment() {
 
 .compact .merc-header {
   margin-bottom: 0;
-}
-
-.portrait-wrapper {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 3px solid;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.compact .portrait-wrapper {
-  width: 40px;
-  height: 40px;
-  border-width: 2px;
-}
-
-.portrait {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .name-section {

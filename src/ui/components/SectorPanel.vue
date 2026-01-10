@@ -8,6 +8,7 @@ import EquipmentTable from './EquipmentTable.vue';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import MilitiaCard from './MilitiaCard.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
+import MercIconSmall from './MercIconSmall.vue';
 
 // Helper to get attribute from node
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
@@ -92,6 +93,8 @@ const props = defineProps<{
     betterWeapons: boolean;  // +1 combat die per militia (hit on 3+)
     veteranMilitia: boolean; // +1 initiative for militia
   };
+  // Dictator's lobby-selected color (for base icon styling)
+  dictatorColor?: string;
 }>();
 
 // Helper to find element by ID in gameView
@@ -421,9 +424,9 @@ const hasSquadAdjacent = computed(() => {
 const isCity = computed(() => props.sector.sectorType === 'City');
 const isIndustry = computed(() => props.sector.sectorType === 'Industry');
 
-// Style for the dictator base icon using dictator's color (black)
+// Style for the dictator base icon using dictator's lobby-selected color
 const baseIconStyle = computed(() => {
-  const color = getPlayerColor('dictator');
+  const color = props.dictatorColor ? getPlayerColor(props.dictatorColor) : '#666';
   return {
     borderColor: color,
     boxShadow: `0 0 6px 2px ${color}80`, // 80 = 50% opacity in hex
@@ -1201,13 +1204,12 @@ const sectorTypeIcon = computed(() => {
               class="selectable-merc"
               @click="selectMerc(item)"
             >
-              <div class="merc-portrait large" :style="{ borderColor: getPlayerColor(playerColor) }">
-                <img
-                  :src="getMercImagePath(item)"
-                  :alt="item._choiceDisplay || getMercName(item)"
-                  @error="($event.target as HTMLImageElement).src = '/mercs/unknown.jpg'"
-                />
-              </div>
+              <MercIconSmall
+                :image="getMercImagePath(item)"
+                :alt="item._choiceDisplay || getMercName(item)"
+                :player-color="playerColor"
+                :size="60"
+              />
               <span class="merc-select-name">{{ item._choiceDisplay || getMercName(item) }}</span>
             </div>
             <!-- Special actions (skip, add to stash) as buttons -->
@@ -1313,16 +1315,16 @@ const sectorTypeIcon = computed(() => {
           <div class="squad-mercs">
             <!-- Dictator base icon -->
             <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
-            <div
+            <MercIconSmall
               v-for="merc in squadInSector.mercs"
               :key="getAttr(merc, 'mercId', '')"
-              class="merc-portrait"
-              :style="{ borderColor: getPlayerColor(playerColor) }"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              :player-color="playerColor"
+              :size="40"
+              clickable
               @click="openMercCard(merc)"
-              :title="getMercName(merc)"
-            >
-              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
-            </div>
+            />
           </div>
           <!-- Stash indicator next to MERCs -->
           <div
@@ -1342,16 +1344,16 @@ const sectorTypeIcon = computed(() => {
           <div class="squad-mercs">
             <!-- Dictator base icon -->
             <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
-            <div
+            <MercIconSmall
               v-for="merc in myMercsInSector"
               :key="merc.mercId"
-              class="merc-portrait"
-              :style="{ borderColor: getPlayerColor(playerColor) }"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              :player-color="playerColor"
+              :size="40"
+              clickable
               @click="openMercCard(merc)"
-              :title="getMercName(merc)"
-            >
-              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
-            </div>
+            />
           </div>
         </div>
 
@@ -1359,16 +1361,16 @@ const sectorTypeIcon = computed(() => {
         <div v-if="allyMercsInSector.length > 0" class="squad-section ally-section">
           <div class="squad-header-label">Allies</div>
           <div class="squad-mercs">
-            <div
+            <MercIconSmall
               v-for="merc in allyMercsInSector"
               :key="merc.mercId"
-              class="merc-portrait"
-              :style="{ borderColor: getPlayerColor(merc.playerColor) }"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              :player-color="merc.playerColor"
+              :size="40"
+              clickable
               @click="openMercCard(merc)"
-              :title="getMercName(merc)"
-            >
-              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
-            </div>
+            />
           </div>
         </div>
 
@@ -1376,15 +1378,16 @@ const sectorTypeIcon = computed(() => {
         <div v-if="enemyMercsInSector.length > 0" class="squad-section enemy-section">
           <div class="squad-header-label enemy-label">Enemies</div>
           <div class="squad-mercs">
-            <div
+            <MercIconSmall
               v-for="merc in enemyMercsInSector"
               :key="merc.mercId"
-              class="merc-portrait enemy-portrait"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              player-color="enemy"
+              :size="40"
+              clickable
               @click="openMercCard(merc)"
-              :title="getMercName(merc)"
-            >
-              <img :src="getMercImagePath(merc)" :alt="getMercName(merc)" />
-            </div>
+            />
           </div>
         </div>
 
@@ -1650,11 +1653,6 @@ const sectorTypeIcon = computed(() => {
   background: rgba(212, 168, 75, 0.2);
 }
 
-.merc-portrait.large {
-  width: 60px;
-  height: 60px;
-}
-
 .merc-select-name {
   font-size: 0.85rem;
   color: v-bind('UI_COLORS.textPrimary');
@@ -1902,10 +1900,6 @@ const sectorTypeIcon = computed(() => {
   color: #e74c3c;
 }
 
-.merc-portrait.enemy-portrait {
-  border-color: #e74c3c;
-}
-
 .squad-mercs {
   display: flex;
   gap: 8px;
@@ -1942,28 +1936,6 @@ const sectorTypeIcon = computed(() => {
 
 .stash-badge .stash-count {
   font-weight: bold;
-}
-
-.merc-portrait {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 3px solid;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  background: #333;
-}
-
-.merc-portrait:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 8px rgba(212, 168, 75, 0.8);
-}
-
-.merc-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .base-icon-portrait {

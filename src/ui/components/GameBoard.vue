@@ -11,6 +11,7 @@ import DictatorPanel from './DictatorPanel.vue';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import MercIcon from './MercIcon.vue';
+import MercIconSmall from './MercIconSmall.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -512,16 +513,18 @@ const currentPlayerColor = computed(() => {
 const playerColorMap = computed(() => {
   const map: Record<string, string> = {};
   for (const player of players.value) {
-    if (player.playerColor && !player.isDictator) {
+    if (player.playerColor) {
       map[String(player.position)] = player.playerColor;
     }
   }
   return map;
 });
 
-// Get dictator player's color key for base icon styling
-// The dictator always uses the 'dictator' color key which maps to black
-const dictatorPlayerColor = computed(() => 'dictator');
+// Get dictator player's actual color from lobby selection
+const dictatorPlayerColor = computed(() => {
+  const dictator = players.value.find(p => p.isDictator);
+  return dictator?.playerColor || '';
+});
 
 // MERC-rwdv: Check if current player is the dictator
 // Players aren't in game view tree, so check if this player has rebel squads or dictator squad
@@ -1327,6 +1330,13 @@ const selectedMercName = computed(() => {
   return getAttr(merc, 'mercName', '') || (merc as any).mercName || '';
 });
 
+// Get the mercId for the selected MERC
+const selectedMercId = computed(() => {
+  const merc = selectedMercForEquipment.value;
+  if (!merc) return '';
+  return getAttr(merc, 'mercId', '') || (merc as any).mercId || '';
+});
+
 // State for showing MERC detail modal during hiring
 const showHiringMercModal = ref(false);
 
@@ -1972,6 +1982,7 @@ const clickableSectors = computed(() => {
       :action-controller="actionController"
       :is-my-turn="isMyTurn"
       :all-sectors="sectors"
+      :player-color="dictatorPlayerColor"
       @close="showDictatorPanel = false"
     />
 
@@ -1980,7 +1991,7 @@ const clickableSectors = computed(() => {
       v-if="activeSector && !hasActiveCombat && !isHiringMercs"
       :sector="activeSector"
       :player-position="playerPosition"
-      :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+      :player-color="currentPlayerIsDictator ? dictatorPlayerColor : currentPlayerColor"
       :player-color-map="playerColorMap"
       :all-mercs-in-sector="selectedSectorMercs"
       :available-actions="availableActions"
@@ -2000,6 +2011,7 @@ const clickableSectors = computed(() => {
       :is-base="selectedSectorIsBase"
       :has-explosives-components="hasExplosivesComponents"
       :militia-bonuses="militiaBonuses"
+      :dictator-color="dictatorPlayerColor"
       @close="closeSectorPanel"
     />
 
@@ -2017,9 +2029,9 @@ const clickableSectors = computed(() => {
       <DrawEquipmentType
         v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
         :choices="equipmentTypeChoices"
-        :merc-image="selectedMercImagePath"
+        :merc-id="selectedMercId"
         :merc-name="selectedMercName"
-        :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+        :player-color="currentPlayerColor"
         @select="selectEquipmentType"
         @clickMerc="openHiringMercDetail"
       />
@@ -2028,15 +2040,15 @@ const clickableSectors = computed(() => {
       <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
         <div class="sector-row">
           <!-- MERC portrait (clickable to view details) -->
-          <div
+          <MercIconSmall
             v-if="selectedMercImagePath"
-            class="sector-merc-portrait clickable"
-            :style="{ borderColor: currentPlayerIsDictator ? getPlayerColor('dictator') : getPlayerColor(currentPlayerColor) }"
+            :image="selectedMercImagePath"
+            :alt="selectedMercName || 'MERC'"
+            :player-color="currentPlayerColor"
+            :size="80"
+            clickable
             @click="openHiringMercDetail"
-            title="Click to view MERC details"
-          >
-            <img :src="selectedMercImagePath" :alt="selectedMercName || 'MERC'" />
-          </div>
+          />
           <!-- Sector cards -->
           <div class="sector-card-choices">
             <div
@@ -2081,7 +2093,7 @@ const clickableSectors = computed(() => {
             class="merc-choice"
             @click="selectMercToHire(merc)"
           >
-            <MercCard :merc="merc" :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor" />
+            <MercCard :merc="merc" :player-color="currentPlayerColor" />
           </div>
         </div>
 
@@ -2104,7 +2116,7 @@ const clickableSectors = computed(() => {
           <MercCard
             v-if="selectedMercForEquipment"
             :merc="selectedMercForEquipment"
-            :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+            :player-color="currentPlayerColor"
           />
         </div>
       </DetailModal>
@@ -2147,7 +2159,7 @@ const clickableSectors = computed(() => {
               :key="mate.displayName"
               :merc-id="mate.mercId"
               :merc-name="mate.displayName"
-              :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+              :player-color="currentPlayerColor"
               size="large"
               clickable
               @click="selectHagnessRecipient(mate.choice)"
@@ -2192,7 +2204,7 @@ const clickableSectors = computed(() => {
           :primary-squad="currentPlayerIsDictator ? dictatorPrimarySquad : primarySquad"
           :secondary-squad="currentPlayerIsDictator ? dictatorSecondarySquad : secondarySquad"
           :base-squad="currentPlayerIsDictator ? dictatorBaseSquad : undefined"
-          :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+          :player-color="currentPlayerColor"
           :can-drop-equipment="canDropEquipment"
           :merc-abilities-available="mercAbilitiesAvailable"
           @drop-equipment="handleDropEquipment"
@@ -2420,32 +2432,6 @@ const clickableSectors = computed(() => {
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.sector-merc-portrait {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  border: 3px solid;
-  overflow: hidden;
-  flex-shrink: 0;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
-}
-
-.sector-merc-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.sector-merc-portrait.clickable {
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.sector-merc-portrait.clickable:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 20px rgba(212, 168, 75, 0.6);
 }
 
 .hiring-merc-modal {

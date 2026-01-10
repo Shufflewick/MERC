@@ -1,6 +1,6 @@
 // Player color constants for UI rendering
 export const PLAYER_COLORS: Record<string, string> = {
-  dictator: '#1a1a1a', // black
+  enemy: '#e74c3c', // red - for enemy mercs shown to player
   red: '#e63946',
   blue: '#457b9d',
   green: '#2a9d8f',
@@ -11,7 +11,6 @@ export const PLAYER_COLORS: Record<string, string> = {
 
 // Lighter versions for backgrounds/highlights
 export const PLAYER_COLORS_LIGHT: Record<string, string> = {
-  dictator: '#333333',
   red: '#f5a3ab',
   blue: '#a8c5d9',
   green: '#8fd4ca',

@@ -12,7 +12,6 @@ const props = defineProps<{
 }>();
 
 const militiaColor = computed(() => {
-  if (props.isDictator) return getPlayerColor('dictator');
   if (props.playerColor) return getPlayerColor(props.playerColor);
   return '#888';
 });

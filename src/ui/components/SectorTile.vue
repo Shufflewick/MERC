@@ -4,6 +4,7 @@ import { getPlayerColor } from '../colors';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import DetailModal from './DetailModal.vue';
 import MercCard from './MercCard.vue';
+import MercIconSmall from './MercIconSmall.vue';
 
 interface SectorData {
   sectorId: string;
@@ -197,16 +198,16 @@ function closeMercModal() {
         >
           🏠
         </div>
-        <div
+        <MercIconSmall
           v-for="(merc, index) in mercsInSector.slice(0, isDictatorBase ? 3 : 4)"
           :key="getMercKey(merc, index)"
-          class="merc-portrait clickable"
-          :style="{ borderColor: getPlayerColor(merc.playerColor) }"
+          :image="getMercImagePath(merc)"
+          :alt="merc.mercName || merc.mercId"
+          :player-color="merc.playerColor"
+          :size="42"
+          clickable
           @click="showMercDetails(merc, $event)"
-          :title="`Click to view ${merc.mercName || merc.mercId}`"
-        >
-          <img :src="getMercImagePath(merc)" :alt="merc.mercName || merc.mercId" />
-        </div>
+        />
         <div v-if="mercsInSector.length > (isDictatorBase ? 3 : 4)" class="more-mercs">
           +{{ mercsInSector.length - (isDictatorBase ? 3 : 4) }}
         </div>
@@ -236,12 +237,12 @@ function closeMercModal() {
         class="tooltip-merc clickable"
         @click="showMercDetails(merc, $event)"
       >
-        <div
-          class="tooltip-portrait"
-          :style="{ borderColor: getPlayerColor(merc.playerColor) }"
-        >
-          <img :src="getMercImagePath(merc)" :alt="merc.mercName || merc.mercId" />
-        </div>
+        <MercIconSmall
+          :image="getMercImagePath(merc)"
+          :alt="merc.mercName || merc.mercId"
+          :player-color="merc.playerColor"
+          :size="32"
+        />
         <span class="tooltip-name">{{ merc.mercName || merc.mercId }}</span>
         <span class="tooltip-hint">ℹ</span>
       </div>
@@ -391,33 +392,6 @@ function closeMercModal() {
   gap: 4px;
 }
 
-.merc-portrait {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 2px solid;
-  overflow: hidden;
-  background: #333;
-  box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.7);
-}
-
-.merc-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.merc-portrait.clickable {
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.merc-portrait.clickable:hover {
-  transform: scale(1.15);
-  box-shadow: 0 0 8px rgba(212, 168, 75, 0.8);
-  z-index: 10;
-}
-
 .more-mercs {
   width: 42px;
   height: 42px;
@@ -456,20 +430,6 @@ function closeMercModal() {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.tooltip-portrait {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid;
-  overflow: hidden;
-}
-
-.tooltip-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .tooltip-name {
