@@ -2012,6 +2012,7 @@ const clickableSectors = computed(() => {
       :has-explosives-components="hasExplosivesComponents"
       :militia-bonuses="militiaBonuses"
       :dictator-color="dictatorPlayerColor"
+      :is-dictator="currentPlayerIsDictator"
       @close="closeSectorPanel"
     />
 

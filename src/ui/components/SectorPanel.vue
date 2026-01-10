@@ -95,6 +95,8 @@ const props = defineProps<{
   };
   // Dictator's lobby-selected color (for base icon styling)
   dictatorColor?: string;
+  // Whether current player is the dictator
+  isDictator?: boolean;
 }>();
 
 // Helper to find element by ID in gameView
@@ -455,14 +457,18 @@ const rebelMilitiaEntries = computed(() => {
 // Perspective-aware: dictator sees rebels as enemies, rebels see dictator as enemy
 const myMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
+  // Dictator's mercs are tagged with 'dictator' in the data
+  if (props.isDictator) {
+    return props.allMercsInSector.filter(m => m.playerColor === 'dictator');
+  }
   return props.allMercsInSector.filter(m => m.playerColor === props.playerColor);
 });
 
 const allyMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
-  // If I'm dictator, I have no allies (dictator plays solo)
-  if (props.playerColor === 'dictator') return [];
-  // If I'm rebel, allies are other rebels (not me, not dictator)
+  // Dictator has no allies (plays solo)
+  if (props.isDictator) return [];
+  // Rebels: allies are other rebels (not me, not dictator)
   return props.allMercsInSector.filter(m =>
     m.playerColor !== props.playerColor &&
     m.playerColor !== 'dictator'
@@ -471,11 +477,11 @@ const allyMercsInSector = computed(() => {
 
 const enemyMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
-  // If I'm dictator, enemies are all non-dictator mercs
-  if (props.playerColor === 'dictator') {
+  // Dictator: enemies are all non-dictator mercs
+  if (props.isDictator) {
     return props.allMercsInSector.filter(m => m.playerColor !== 'dictator');
   }
-  // If I'm rebel, enemies are dictator mercs
+  // Rebels: enemies are dictator mercs
   return props.allMercsInSector.filter(m => m.playerColor === 'dictator');
 });
 
