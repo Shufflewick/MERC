@@ -10,6 +10,7 @@ import SectorPanel from './SectorPanel.vue';
 import DictatorPanel from './DictatorPanel.vue';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
+import MercIcon from './MercIcon.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -1177,7 +1178,7 @@ watch(() => props.availableActions, (actions) => {
 }, { immediate: true });
 
 // When equipmentType is selected, load the recipient choices from metadata
-watch(() => props.actionArgs['equipmentType'], (val, oldVal) => {
+watch(() => props.actionArgs['equipmentType'], (val) => {
   if (val !== undefined && props.availableActions.includes('hagnessDraw')) {
     // For dependsOn selections, choices are in metadata.choicesByDependentValue[equipmentType]
     const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
@@ -1432,20 +1433,43 @@ const hagnessDrawnEquipment = computed(() => {
   return data || null;
 });
 
-// Get Hagness's squad mates from fetched choices (since that's where the data is)
+// Get Hagness's squad mates from fetched choices or directly from squad data
 const hagnessSquadMates = computed(() => {
   if (!isHagnessSelectingRecipient.value) return [];
 
-  // Get choices from fetchedDeferredChoices (populated by our watcher when equipmentType is selected)
+  // Try to get choices from fetchedDeferredChoices (populated by watcher if metadata available)
   const key = 'hagnessDraw:recipient';
   const choices = fetchedDeferredChoices[key] || [];
 
-  if (choices.length === 0) return [];
+  if (choices.length > 0) {
+    // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName ← Equipment" }
+    return choices.map((choice: any) => {
+      const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' ←')[0] || 'Unknown');
+      // Try to get mercId from choice metadata if available
+      const mercId = choice.mercId || displayName.toLowerCase();
+      return { displayName, mercId, choice }; // Keep the full choice for when user clicks
+    }).sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }
 
-  // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName ← Equipment" }
-  return choices.map((choice: any) => {
-    const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' ←')[0] || 'Unknown');
-    return { displayName, choice }; // Keep the full choice for when user clicks
+  // Fallback: Get mercs directly from squad data
+  const allSquadMercs = [
+    ...(primarySquad.value?.mercs || []),
+    ...(secondarySquad.value?.mercs || []),
+  ];
+
+  if (allSquadMercs.length === 0) return [];
+
+  // Create choice-like objects from squad mercs
+  return allSquadMercs.map((merc: any) => {
+    const mercId = getAttr(merc, 'mercId', '') || '';
+    const mercName = getAttr(merc, 'mercName', '') || mercId || 'Unknown';
+    // Capitalize first letter of each word
+    const displayName = mercName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    return {
+      displayName,
+      mercId,
+      choice: { value: displayName }, // Simple choice object for selection
+    };
   }).sort((a, b) => a.displayName.localeCompare(b.displayName));
 });
 
@@ -2114,18 +2138,20 @@ const clickableSectors = computed(() => {
           <p>No equipment was drawn from the deck.</p>
         </div>
 
-        <!-- Recipient selection buttons -->
+        <!-- Recipient selection -->
         <div class="hagness-recipient-section" v-if="hagnessSquadMates.length > 0">
           <p class="recipient-label">Give to:</p>
-          <div class="recipient-button-row">
-            <button
+          <div class="recipient-icons">
+            <MercIcon
               v-for="mate in hagnessSquadMates"
               :key="mate.displayName"
-              class="recipient-button"
+              :merc-id="mate.mercId"
+              :merc-name="mate.displayName"
+              :player-color="currentPlayerIsDictator ? 'dictator' : currentPlayerColor"
+              size="large"
+              clickable
               @click="selectHagnessRecipient(mate.choice)"
-            >
-              {{ mate.displayName }}
-            </button>
+            />
           </div>
         </div>
       </div>
@@ -2620,12 +2646,6 @@ const clickableSectors = computed(() => {
   font-weight: 600;
 }
 
-.hagness-equipment-display {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
 .drawn-equipment-card {
   display: flex;
   justify-content: center;
@@ -2724,6 +2744,13 @@ const clickableSectors = computed(() => {
   text-align: right;
 }
 
+.recipient-icons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* On narrow screens, stack vertically and center */
 @media (max-width: 600px) {
   .hagness-equipment-display {
@@ -2735,6 +2762,10 @@ const clickableSectors = computed(() => {
     margin-left: 0;
     text-align: center;
     width: 100%;
+  }
+
+  .recipient-icons {
+    justify-content: center;
   }
 }
 

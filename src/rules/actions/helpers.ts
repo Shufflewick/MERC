@@ -4,7 +4,7 @@
  * Shared utilities used across all action modules.
  */
 
-import type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
+import { MERCPlayer, type MERCGame, type RebelPlayer, type DictatorPlayer } from '../game.js';
 import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard } from '../elements.js';
 
 // =============================================================================
@@ -295,12 +295,20 @@ export function findUnitSector(unit: MercCard | DictatorCard, player: unknown, g
 
 /**
  * Check if a player is a RebelPlayer (type guard).
- * Uses constructor name check to avoid circular dependency issues.
+ * Uses the isRebel() method from MERCPlayer.
  */
 export function isRebelPlayer(player: unknown): player is RebelPlayer {
   if (!player) return false;
-  // Check constructor name to avoid circular dependency with game.js
-  return (player as { constructor?: { name?: string } }).constructor?.name === 'RebelPlayer';
+  return player instanceof MERCPlayer && player.isRebel();
+}
+
+/**
+ * Check if a player is a DictatorPlayer (type guard).
+ * Uses the isDictator() method from MERCPlayer.
+ */
+export function isDictatorPlayer(player: unknown): player is DictatorPlayer {
+  if (!player) return false;
+  return player instanceof MERCPlayer && player.isDictator();
 }
 
 /**
@@ -311,8 +319,8 @@ export function asRebelPlayer(player: unknown): RebelPlayer {
   if (isRebelPlayer(player)) {
     return player;
   }
-  const playerType = (player as { constructor?: { name?: string } })?.constructor?.name || 'unknown';
-  throw new Error(`Expected RebelPlayer but got ${playerType}`);
+  const role = (player instanceof MERCPlayer) ? player.role : 'unknown';
+  throw new Error(`Expected RebelPlayer but got ${role}`);
 }
 
 /**

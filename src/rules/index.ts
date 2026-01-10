@@ -1,6 +1,6 @@
 // Game and Player classes
-export { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
-export type { MERCOptions, SetupConfiguration, MERCPlayer } from './game.js';
+export { MERCGame, MERCPlayer } from './game.js';
+export type { MERCOptions, SetupConfiguration, MERCPlayerRole, RebelPlayer, DictatorPlayer } from './game.js';
 
 // Element classes
 export {

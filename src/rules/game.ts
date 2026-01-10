@@ -148,26 +148,54 @@ interface TacticsData {
 }
 
 // =============================================================================
-// Player Classes
+// Player Class - Unified player for both rebels and dictator
 // =============================================================================
 
-export class RebelPlayer extends Player {
-  playerColor!: PlayerColor;
+export type MERCPlayerRole = 'rebel' | 'dictator';
+
+export class MERCPlayer extends Player {
+  // Role determines rebel vs dictator behavior
+  role!: MERCPlayerRole;
+
+  // Common properties (both roles)
+  primarySquadRef?: string;
+  secondarySquadRef?: string;
+
+  // Rebel-specific properties
+  playerColor?: PlayerColor;
   playerColorHex?: string;  // Hex color from lobby, if set
+  areaRef?: string;
 
-  // Squad refs - store IDs instead of direct references to avoid stale refs after deserialization
-  primarySquadRef!: string;
-  secondarySquadRef!: string;
+  // Dictator-specific properties
+  dictator?: DictatorCard;
+  tacticsDeck?: TacticsDeck;
+  tacticsHand?: TacticsHand;
+  tacticsDiscard?: DiscardPile;
+  mercSquad?: Squad;  // Legacy for backward compatibility
+  mercSquadRef?: string;
+  baseRevealed: boolean = false;
+  baseSectorId?: string;
+  stationedSectorId?: string;
+  isAI: boolean = false;
+  privacyPlayerId?: string;
 
-  // Player area ref
-  areaRef!: string;
+  // Type guards
+  isRebel(): boolean {
+    return this.role === 'rebel';
+  }
+
+  isDictator(): boolean {
+    return this.role === 'dictator';
+  }
 
   // Getters that look up elements fresh from the game tree
-  // Using name-based lookups to avoid stale object references after deserialization
   get primarySquad(): Squad {
     const game = this.game as MERCGame;
     if (!game) {
       throw new Error(`primarySquad: game not set for player ${this.position}`);
+    }
+    if (!this.primarySquadRef) {
+      throw new Error(`primarySquad: primarySquadRef not set for player ${this.position}`);
     }
     const squad = game.first(Squad, s => s.name === this.primarySquadRef);
     if (!squad) {
@@ -181,6 +209,9 @@ export class RebelPlayer extends Player {
     if (!game) {
       throw new Error(`secondarySquad: game not set for player ${this.position}`);
     }
+    if (!this.secondarySquadRef) {
+      throw new Error(`secondarySquad: secondarySquadRef not set for player ${this.position}`);
+    }
     const squad = game.first(Squad, s => s.name === this.secondarySquadRef);
     if (!squad) {
       throw new Error(`secondarySquad: could not find squad "${this.secondarySquadRef}" for player ${this.position}`);
@@ -188,10 +219,17 @@ export class RebelPlayer extends Player {
     return squad;
   }
 
+  // Rebel-only: player area
   get area(): PlayerArea {
+    if (!this.isRebel()) {
+      throw new Error(`area: only rebels have areas`);
+    }
     const game = this.game as MERCGame;
     if (!game) {
       throw new Error(`area: game not set for player ${this.position}`);
+    }
+    if (!this.areaRef) {
+      throw new Error(`area: areaRef not set for player ${this.position}`);
     }
     const area = game.first(PlayerArea, a => a.name === this.areaRef);
     if (!area) {
@@ -203,107 +241,6 @@ export class RebelPlayer extends Player {
   get team(): MercCard[] {
     // Return only living MERCs (dead MERCs can't take actions)
     const mercs: MercCard[] = [];
-    const primary = this.primarySquad;
-    const secondary = this.secondarySquad;
-    if (primary) mercs.push(...primary.getLivingMercs());
-    if (secondary) mercs.push(...secondary.getLivingMercs());
-    return mercs;
-  }
-
-  get teamSize(): number {
-    // MERC-0ue: Teresa doesn't count toward team limit
-    return this.team.filter(m => m.mercId !== 'teresa').length;
-  }
-
-  // Team limit: BASE_TEAM_LIMIT + controlled sectors (from game constants)
-  getTeamLimit(game: MERCGame): number {
-    return TeamConstants.BASE_TEAM_LIMIT + game.getControlledSectors(this).length;
-  }
-
-  canHireMerc(game: MERCGame): boolean {
-    return this.teamSize < this.getTeamLimit(game);
-  }
-
-  /**
-   * Find which squad contains a specific MERC.
-   * Returns null if the MERC is not in either squad.
-   */
-  getSquadContaining(merc: MercCard): Squad | null {
-    if (this.primarySquad.getMercs().some(m => m.id === merc.id)) {
-      return this.primarySquad;
-    }
-    if (this.secondarySquad.getMercs().some(m => m.id === merc.id)) {
-      return this.secondarySquad;
-    }
-    return null;
-  }
-
-  /**
-   * Check if a squad belongs to this player.
-   */
-  ownsSquad(squad: Squad): boolean {
-    return squad.name === this.primarySquadRef ||
-           squad.name === this.secondarySquadRef;
-  }
-}
-
-export class DictatorPlayer extends Player {
-  dictator!: DictatorCard;
-  tacticsDeck!: TacticsDeck;
-  tacticsHand!: TacticsHand;
-  tacticsDiscard!: DiscardPile;
-
-  // Squad refs - store IDs instead of direct references to avoid stale refs after deserialization
-  // Dictator has 2 squads just like rebels
-  primarySquadRef!: string;
-  secondarySquadRef!: string;
-
-  // Legacy mercSquad for backward compatibility during migration
-  mercSquad!: Squad;
-  mercSquadRef!: string;
-
-  // Base state
-  baseRevealed: boolean = false;
-  baseSectorId?: string;
-
-  // Sector where the Dictator's forces are stationed
-  stationedSectorId?: string;
-
-  // MERC-exaf: AI mode - dictator plays cards from deck top, no hand
-  // Default to false (human) - set explicitly via game options or when AI is detected
-  isAI: boolean = false;
-
-  // MERC-q4v: Privacy Player - Rebel designated to handle AI decisions
-  privacyPlayerId?: string;
-
-  // Getters that look up elements fresh from the game tree
-  get primarySquad(): Squad {
-    const game = this.game as MERCGame;
-    if (!game) {
-      throw new Error(`primarySquad: game not set for dictator`);
-    }
-    const squad = game.first(Squad, s => s.name === this.primarySquadRef);
-    if (!squad) {
-      throw new Error(`primarySquad: could not find squad "${this.primarySquadRef}" for dictator`);
-    }
-    return squad;
-  }
-
-  get secondarySquad(): Squad {
-    const game = this.game as MERCGame;
-    if (!game) {
-      throw new Error(`secondarySquad: game not set for dictator`);
-    }
-    const squad = game.first(Squad, s => s.name === this.secondarySquadRef);
-    if (!squad) {
-      throw new Error(`secondarySquad: could not find squad "${this.secondarySquadRef}" for dictator`);
-    }
-    return squad;
-  }
-
-  // hiredMercs returns living MERCs from both squads (excludes dead)
-  get hiredMercs(): MercCard[] {
-    const mercs: MercCard[] = [];
     try {
       mercs.push(...this.primarySquad.getLivingMercs());
     } catch { /* Squad not initialized yet */ }
@@ -313,7 +250,32 @@ export class DictatorPlayer extends Player {
     return mercs;
   }
 
-  // Get all MERCs including dead ones (for certain game logic)
+  get teamSize(): number {
+    if (this.isRebel()) {
+      // MERC-0ue: Teresa doesn't count toward team limit for rebels
+      return this.team.filter(m => m.mercId !== 'teresa').length;
+    }
+    return this.team.length;
+  }
+
+  // Rebel-only: team limit based on controlled sectors
+  getTeamLimit(game: MERCGame): number {
+    if (!this.isRebel()) {
+      return Infinity; // Dictator has no team limit
+    }
+    return TeamConstants.BASE_TEAM_LIMIT + game.getControlledSectors(this).length;
+  }
+
+  canHireMerc(game: MERCGame): boolean {
+    return this.teamSize < this.getTeamLimit(game);
+  }
+
+  // Dictator-only: hired mercs (alias for team)
+  get hiredMercs(): MercCard[] {
+    return this.team;
+  }
+
+  // Dictator-only: all mercs including dead ones
   get allMercs(): MercCard[] {
     const mercs: MercCard[] = [];
     try {
@@ -325,20 +287,14 @@ export class DictatorPlayer extends Player {
     return mercs;
   }
 
+  // Dictator-only: check if defeated
   get isDefeated(): boolean {
-    return this.baseRevealed && this.dictator?.isDead;
-  }
-
-  get team(): MercCard[] {
-    return this.hiredMercs;
-  }
-
-  get teamSize(): number {
-    return this.team.length;
+    if (!this.isDictator()) return false;
+    return this.baseRevealed && this.dictator?.isDead === true;
   }
 
   /**
-   * Get the squad containing a specific MERC.
+   * Find which squad contains a specific MERC.
    * Returns null if the MERC is not in either squad.
    */
   getSquadContaining(merc: MercCard): Squad | null {
@@ -364,8 +320,9 @@ export class DictatorPlayer extends Player {
   }
 }
 
-// Type alias for the player union
-export type MERCPlayer = RebelPlayer | DictatorPlayer;
+// Legacy type aliases for backward compatibility during migration
+export type RebelPlayer = MERCPlayer;
+export type DictatorPlayer = MERCPlayer;
 
 // =============================================================================
 // Helper Functions
@@ -394,6 +351,9 @@ function hexToPlayerColor(hex: string): PlayerColor {
 // =============================================================================
 
 export class MERCGame extends Game<MERCGame, MERCPlayer> {
+  // BoardSmith v0.6: Use unified MERCPlayer class for all players
+  static PlayerClass = MERCPlayer;
+
   // Static storage for playerCount during construction (workaround for super() timing)
   private static _pendingPlayerCount: number = 2;
   // MERC-pbx4: Static storage for dictator position during construction
@@ -432,12 +392,30 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   oilReservesActive?: boolean; // Oil Reserves card: controller gets free action
 
   // Game state
-  // Use 'declare' to avoid class field initialization overwriting the value set in createPlayer()
-  declare dictatorPlayer: DictatorPlayer;
+  // Dictator player reference - cached for performance
+  private _dictatorPlayer?: MERCPlayer;
 
-  // Use getter to always get fresh player references from the BoardSmith-managed players array
-  get rebelPlayers(): RebelPlayer[] {
-    return this.players.filter((p): p is RebelPlayer => p instanceof RebelPlayer);
+  get dictatorPlayer(): MERCPlayer {
+    if (!this._dictatorPlayer) {
+      // Find the player with dictator role
+      const player = this.first(MERCPlayer, p => p.isDictator());
+      if (player) {
+        this._dictatorPlayer = player;
+      }
+    }
+    if (!this._dictatorPlayer) {
+      throw new Error('Dictator player not found');
+    }
+    return this._dictatorPlayer;
+  }
+
+  set dictatorPlayer(player: MERCPlayer) {
+    this._dictatorPlayer = player;
+  }
+
+  // Get all rebel players
+  get rebelPlayers(): MERCPlayer[] {
+    return [...this.all(MERCPlayer)].filter(p => p.isRebel());
   }
 
   // MERC-a2h: Track pending coordinated attacks across multiple rebel players
@@ -667,19 +645,26 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this._ctx.classRegistry.set('GameMap', GameMap as unknown as ElementClass);
     this._ctx.classRegistry.set('PlayerArea', PlayerArea as unknown as ElementClass);
 
-    // Determine rebel count from players or options
-    this.rebelCount = options.rebelCount ?? Math.max(1, this.players.length - 1);
+    // Register MERCPlayer class for serialization
+    this._ctx.classRegistry.set('MERCPlayer', MERCPlayer as unknown as ElementClass);
 
-    // Safety check: ensure dictatorPlayer was created
-    if (!this.dictatorPlayer) {
-      const dictPos = MERCGame._pendingDictatorPosition >= 0
-        ? MERCGame._pendingDictatorPosition
-        : MERCGame._pendingPlayerCount - 1;
-      throw new Error(
-        `DictatorPlayer not created. Players: ${this.players.length}, ` +
-        `pendingCount: ${MERCGame._pendingPlayerCount}, dictatorPosition: ${dictPos}`
-      );
+    // BoardSmith v0.6: BoardSmith creates MERCPlayer instances in super() via static PlayerClass
+    // Now configure each player as rebel or dictator based on position
+    const playerCount = MERCGame._pendingPlayerCount;
+    const dictatorPosition = MERCGame._pendingDictatorPosition >= 0
+      ? MERCGame._pendingDictatorPosition + 1  // Convert 0-indexed to 1-indexed
+      : playerCount;  // Default: last player
+
+    for (const player of this.all(MERCPlayer)) {
+      if (player.position === dictatorPosition) {
+        this.configureAsDictator(player);
+      } else {
+        this.configureAsRebel(player);
+      }
     }
+
+    // Determine rebel count from players or options
+    this.rebelCount = options.rebelCount ?? Math.max(1, playerCount - 1);
 
     // MERC-exaf: Set dictator AI mode from options
     // When true, enables AI auto-selection logic and privacy player designation
@@ -732,84 +717,72 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.performSetup(dictatorId, undefined, options.debugTacticsOrder);
   }
 
-  protected override createPlayer(position: number, name: string): MERCPlayer {
-    // MERC-pbx4: Determine which position is the dictator
-    // If dictatorPlayerPosition is set, use that; otherwise default to last player
-    const totalPlayers = MERCGame._pendingPlayerCount;
-    const dictatorPosition = MERCGame._pendingDictatorPosition >= 0
-      ? MERCGame._pendingDictatorPosition
-      : totalPlayers - 1;
-    const isDictator = position === dictatorPosition;
+  /**
+   * Configure a player as the dictator.
+   */
+  private configureAsDictator(player: MERCPlayer): void {
+    player.role = 'dictator';
+    this._dictatorPlayer = player;
 
-    if (isDictator) {
-      const dictator = new DictatorPlayer(position, name);
-      dictator.game = this;
-      this.dictatorPlayer = dictator;
+    // Create two squads for dictator
+    const primaryRef = `squad-dictator-primary`;
+    const secondaryRef = `squad-dictator-secondary`;
+    this.create(Squad, primaryRef, { isPrimary: true });
+    this.create(Squad, secondaryRef, { isPrimary: false });
 
-      // Create two squads for dictator (just like rebels)
-      const primaryRef = `squad-dictator-primary`;
-      const secondaryRef = `squad-dictator-secondary`;
-      this.create(Squad, primaryRef, { isPrimary: true });
-      this.create(Squad, secondaryRef, { isPrimary: false });
+    player.primarySquadRef = primaryRef;
+    player.secondarySquadRef = secondaryRef;
 
-      dictator.primarySquadRef = primaryRef;
-      dictator.secondarySquadRef = secondaryRef;
+    // Legacy mercSquad points to primary for backward compatibility
+    player.mercSquadRef = primaryRef;
+    player.mercSquad = this.first(Squad, s => s.name === primaryRef)!;
+  }
 
-      // Legacy mercSquad points to primary for backward compatibility
-      dictator.mercSquadRef = primaryRef;
-      dictator.mercSquad = this.first(Squad, s => s.name === primaryRef)!;
+  /**
+   * Configure a player as a rebel.
+   */
+  private configureAsRebel(player: MERCPlayer): void {
+    player.role = 'rebel';
 
-      return dictator;
+    // Assign color from player config or default based on position
+    const position = player.position;
+    const playerConfig = MERCGame._pendingPlayerConfigs[position - 1];
+    if (playerConfig?.color) {
+      player.playerColorHex = playerConfig.color;
+      player.playerColor = hexToPlayerColor(playerConfig.color);
     } else {
-      const rebel = new RebelPlayer(position, name);
-      rebel.game = this;
-
-      // Assign color from player config or default based on position
-      // Note: position is 1-indexed, but arrays are 0-indexed
-      const playerConfig = MERCGame._pendingPlayerConfigs[position - 1];
-      if (playerConfig?.color) {
-        // Store hex color directly - UI will use this
-        rebel.playerColorHex = playerConfig.color;
-        // Also set legacy PlayerColor for compatibility (map hex to name)
-        rebel.playerColor = hexToPlayerColor(playerConfig.color);
-      } else {
-        const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
-        rebel.playerColor = colors[(position - 1) % colors.length];
-      }
-
-      // Create squads for rebel and store refs (not direct references)
-      const primaryRef = `squad-${position}-primary`;
-      const secondaryRef = `squad-${position}-secondary`;
-      const areaRef = `area-${position}`;
-
-      this.create(Squad, primaryRef, { isPrimary: true });
-      this.create(Squad, secondaryRef, { isPrimary: false });
-      this.create(PlayerArea, areaRef, { position, playerColor: rebel.playerColor });
-
-      rebel.primarySquadRef = primaryRef;
-      rebel.secondarySquadRef = secondaryRef;
-      rebel.areaRef = areaRef;
-
-      return rebel;
+      const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+      player.playerColor = colors[(position - 1) % colors.length];
     }
+
+    // Create squads and area for rebel
+    const primaryRef = `squad-${position}-primary`;
+    const secondaryRef = `squad-${position}-secondary`;
+    const areaRef = `area-${position}`;
+
+    this.create(Squad, primaryRef, { isPrimary: true });
+    this.create(Squad, secondaryRef, { isPrimary: false });
+    const area = this.create(PlayerArea, areaRef);
+    area.position = position;
+    area.playerColor = player.playerColor;
+
+    player.primarySquadRef = primaryRef;
+    player.secondarySquadRef = secondaryRef;
+    player.areaRef = areaRef;
   }
 
   /**
    * Check if a player is a rebel (not the dictator).
-   * Type guard that narrows the player type to RebelPlayer.
-   * Accepts unknown to work with BoardSmith framework's Player type.
    */
-  isRebelPlayer(player: unknown): player is RebelPlayer {
-    return player instanceof RebelPlayer;
+  isRebelPlayer(player: unknown): player is MERCPlayer {
+    return player instanceof MERCPlayer && player.isRebel();
   }
 
   /**
    * Check if a player is the dictator.
-   * Type guard that narrows the player type to DictatorPlayer.
-   * Accepts unknown to work with BoardSmith framework's Player type.
    */
-  isDictatorPlayer(player: unknown): player is DictatorPlayer {
-    return player instanceof DictatorPlayer;
+  isDictatorPlayer(player: unknown): player is MERCPlayer {
+    return player instanceof MERCPlayer && player.isDictator();
   }
 
   // ==========================================================================
@@ -1068,13 +1041,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       const dictatorUnits = this.getDictatorUnitsInSector(sector);
       const totalRebelUnits = this.getTotalRebelUnitsInSector(sector);
 
-      if (player instanceof DictatorPlayer) {
+      if (player.isDictator()) {
         // Dictator controls if they have equal or more units than all rebels combined
         // Per rules: "Dictator wins all ties" (02-game-constants-and-configuration.md)
         return dictatorUnits >= totalRebelUnits && dictatorUnits > 0;
       } else {
         // Rebel controls if they have more units than dictator and other rebels
-        const rebel = player as RebelPlayer;
+        const rebel = player;
         const rebelUnits = this.getRebelUnitsInSector(sector, rebel);
 
         // Must have more units than dictator (dictator wins ties)
@@ -1253,11 +1226,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    * A player can only see stash if they have units in the sector.
    */
   canSeeStash(sector: Sector, player: MERCPlayer): boolean {
-    if (player instanceof DictatorPlayer) {
+    if (player.isDictator()) {
       return this.getDictatorUnitsInSector(sector) > 0;
     } else {
-      const rebel = player as RebelPlayer;
-      return this.getRebelUnitsInSector(sector, rebel) > 0;
+      return this.getRebelUnitsInSector(sector, player) > 0;
     }
   }
 
