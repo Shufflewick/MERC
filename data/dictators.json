@@ -1,6 +1,7 @@
 [
   {
     "id": "castro",
+    "cardType": "dictator",
     "name": "Castro",
     "quantity": 1,
     "initiative": 2,
@@ -12,6 +13,7 @@
   },
   {
     "id": "kim",
+    "cardType": "dictator",
     "name": "Kim",
     "quantity": 1,
     "initiative": 2,

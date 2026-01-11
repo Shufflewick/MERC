@@ -87,6 +87,7 @@ export interface MERCOptions extends GameOptions {
 
 interface MercData {
   id: string;
+  cardType: 'merc' | 'dictator';
   name: string;
   quantity: number;
   training: number;
@@ -128,6 +129,7 @@ interface SectorData {
 
 interface DictatorData {
   id: string;
+  cardType: 'merc' | 'dictator';
   name: string;
   quantity: number;
   initiative: number;

@@ -1,6 +1,7 @@
 [
   {
     "id": "apeiron",
+    "cardType": "merc",
     "name": "Apeiron",
     "quantity": 1,
     "training": 2,
@@ -12,6 +13,7 @@
   },
   {
     "id": "badger",
+    "cardType": "merc",
     "name": "Badger",
     "quantity": 1,
     "training": 1,
@@ -23,6 +25,7 @@
   },
   {
     "id": "basic",
+    "cardType": "merc",
     "name": "Basic",
     "quantity": 1,
     "training": 1,
@@ -34,6 +37,7 @@
   },
   {
     "id": "borris",
+    "cardType": "merc",
     "name": "Borris",
     "quantity": 1,
     "training": 1,
@@ -45,6 +49,7 @@
   },
   {
     "id": "bouba",
+    "cardType": "merc",
     "name": "Bouba",
     "quantity": 1,
     "training": 0,
@@ -56,6 +61,7 @@
   },
   {
     "id": "buzzkill",
+    "cardType": "merc",
     "name": "Buzzkill",
     "quantity": 1,
     "training": 1,
@@ -67,6 +73,7 @@
   },
   {
     "id": "doc",
+    "cardType": "merc",
     "name": "Doc",
     "quantity": 1,
     "training": 2,
@@ -78,6 +85,7 @@
   },
   {
     "id": "ewok",
+    "cardType": "merc",
     "name": "Ewok",
     "quantity": 1,
     "training": 1,
@@ -90,6 +98,7 @@
   },
   {
     "id": "faustina",
+    "cardType": "merc",
     "name": "Faustina",
     "quantity": 1,
     "training": 3,
@@ -102,6 +111,7 @@
   },
   {
     "id": "feedback",
+    "cardType": "merc",
     "name": "Feedback",
     "quantity": 1,
     "training": 2,
@@ -113,6 +123,7 @@
   },
   {
     "id": "genesis",
+    "cardType": "merc",
     "name": "Genesis",
     "quantity": 1,
     "training": 2,
@@ -124,6 +135,7 @@
   },
   {
     "id": "gunther",
+    "cardType": "merc",
     "name": "Gunther",
     "quantity": 1,
     "training": 2,
@@ -135,6 +147,7 @@
   },
   {
     "id": "haarg",
+    "cardType": "merc",
     "name": "Haarg",
     "quantity": 1,
     "training": 1,
@@ -146,6 +159,7 @@
   },
   {
     "id": "juicer",
+    "cardType": "merc",
     "name": "Juicer",
     "quantity": 1,
     "training": 1,
@@ -157,6 +171,7 @@
   },
   {
     "id": "kastern",
+    "cardType": "merc",
     "name": "Kastern",
     "quantity": 1,
     "training": 3,
@@ -168,6 +183,7 @@
   },
   {
     "id": "khenn",
+    "cardType": "merc",
     "name": "Khenn",
     "quantity": 1,
     "training": 3,
@@ -179,6 +195,7 @@
   },
   {
     "id": "lucid",
+    "cardType": "merc",
     "name": "Lucid",
     "quantity": 1,
     "training": 2,
@@ -190,6 +207,7 @@
   },
   {
     "id": "max",
+    "cardType": "merc",
     "name": "Max",
     "quantity": 1,
     "training": 4,
@@ -201,6 +219,7 @@
   },
   {
     "id": "mayhem",
+    "cardType": "merc",
     "name": "Mayhem",
     "quantity": 1,
     "training": 1,
@@ -212,6 +231,7 @@
   },
   {
     "id": "meatbop",
+    "cardType": "merc",
     "name": "Meatbop",
     "quantity": 1,
     "training": 3,
@@ -223,6 +243,7 @@
   },
   {
     "id": "moose",
+    "cardType": "merc",
     "name": "Moose",
     "quantity": 1,
     "training": 1,
@@ -234,6 +255,7 @@
   },
   {
     "id": "natasha",
+    "cardType": "merc",
     "name": "Natasha",
     "quantity": 1,
     "training": 2,
@@ -246,6 +268,7 @@
   },
   {
     "id": "preaction",
+    "cardType": "merc",
     "name": "Preaction",
     "quantity": 1,
     "training": 0,
@@ -257,6 +280,7 @@
   },
   {
     "id": "ra",
+    "cardType": "merc",
     "name": "Ra",
     "quantity": 1,
     "training": 2,
@@ -268,6 +292,7 @@
   },
   {
     "id": "rizen",
+    "cardType": "merc",
     "name": "Rizen",
     "quantity": 1,
     "training": 3,
@@ -279,6 +304,7 @@
   },
   {
     "id": "rozeske",
+    "cardType": "merc",
     "name": "Rozeske",
     "quantity": 1,
     "training": 2,
@@ -290,6 +316,7 @@
   },
   {
     "id": "runde",
+    "cardType": "merc",
     "name": "Runde",
     "quantity": 1,
     "training": 3,
@@ -301,6 +328,7 @@
   },
   {
     "id": "sarge",
+    "cardType": "merc",
     "name": "Sarge",
     "quantity": 1,
     "training": 2,
@@ -312,6 +340,7 @@
   },
   {
     "id": "shadkaam",
+    "cardType": "merc",
     "name": "Shadkaam",
     "quantity": 1,
     "training": 1,
@@ -323,6 +352,7 @@
   },
   {
     "id": "shooter",
+    "cardType": "merc",
     "name": "Shooter",
     "quantity": 1,
     "training": 0,
@@ -334,6 +364,7 @@
   },
   {
     "id": "snake",
+    "cardType": "merc",
     "name": "Snake",
     "quantity": 1,
     "training": 0,
@@ -345,6 +376,7 @@
   },
   {
     "id": "sonia",
+    "cardType": "merc",
     "name": "Sonia",
     "quantity": 1,
     "training": 4,
@@ -357,6 +389,7 @@
   },
   {
     "id": "squidhead",
+    "cardType": "merc",
     "name": "Squidhead",
     "quantity": 1,
     "training": 2,
@@ -368,6 +401,7 @@
   },
   {
     "id": "squirrel",
+    "cardType": "merc",
     "name": "Squirrel",
     "quantity": 1,
     "training": 2,
@@ -379,6 +413,7 @@
   },
   {
     "id": "stumpy",
+    "cardType": "merc",
     "name": "Stumpy",
     "quantity": 1,
     "training": 0,
@@ -390,6 +425,7 @@
   },
   {
     "id": "surgeon",
+    "cardType": "merc",
     "name": "Surgeon",
     "quantity": 1,
     "training": 3,
@@ -401,6 +437,7 @@
   },
   {
     "id": "tack",
+    "cardType": "merc",
     "name": "Tack",
     "quantity": 1,
     "training": 1,
@@ -413,6 +450,7 @@
   },
   {
     "id": "tao",
+    "cardType": "merc",
     "name": "Tao",
     "quantity": 1,
     "training": 1,
@@ -424,6 +462,7 @@
   },
   {
     "id": "tavisto",
+    "cardType": "merc",
     "name": "Tavisto",
     "quantity": 1,
     "training": 3,
@@ -435,6 +474,7 @@
   },
   {
     "id": "teresa",
+    "cardType": "merc",
     "name": "Teresa",
     "quantity": 1,
     "training": 0,
@@ -447,6 +487,7 @@
   },
   {
     "id": "valkyrie",
+    "cardType": "merc",
     "name": "Valkyrie",
     "quantity": 1,
     "training": 2,
@@ -459,6 +500,7 @@
   },
   {
     "id": "vandal",
+    "cardType": "merc",
     "name": "Vandal",
     "quantity": 1,
     "training": 1,
@@ -470,6 +512,7 @@
   },
   {
     "id": "vandradi",
+    "cardType": "merc",
     "name": "Vandradi",
     "quantity": 1,
     "training": 2,
@@ -481,6 +524,7 @@
   },
   {
     "id": "vrbansk",
+    "cardType": "merc",
     "name": "Vrbansk",
     "quantity": 1,
     "training": 2,
@@ -492,6 +536,7 @@
   },
   {
     "id": "vulture",
+    "cardType": "merc",
     "name": "Vulture",
     "quantity": 1,
     "training": 1,
@@ -503,6 +548,7 @@
   },
   {
     "id": "walter",
+    "cardType": "merc",
     "name": "Walter",
     "quantity": 1,
     "training": 7,
@@ -514,6 +560,7 @@
   },
   {
     "id": "wolverine",
+    "cardType": "merc",
     "name": "Wolverine",
     "quantity": 1,
     "training": 4,
@@ -525,6 +572,7 @@
   },
   {
     "id": "adelheid",
+    "cardType": "merc",
     "name": "Adelheid",
     "quantity": 1,
     "training": 2,
@@ -537,6 +585,7 @@
   },
   {
     "id": "dutch",
+    "cardType": "merc",
     "name": "Dutch",
     "quantity": 1,
     "training": 2,
@@ -548,6 +597,7 @@
   },
   {
     "id": "golem",
+    "cardType": "merc",
     "name": "Golem",
     "quantity": 1,
     "training": 2,
@@ -559,6 +609,7 @@
   },
   {
     "id": "hagness",
+    "cardType": "merc",
     "name": "Hagness",
     "quantity": 1,
     "training": 2,
@@ -570,6 +621,7 @@
   },
   {
     "id": "moe",
+    "cardType": "merc",
     "name": "Moe",
     "quantity": 1,
     "training": 3,

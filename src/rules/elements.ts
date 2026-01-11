@@ -750,6 +750,13 @@ export class MercCard extends CombatUnit {
   mercId!: string;
   mercName!: string;
 
+  // Card type discriminator
+  cardType: 'merc' | 'dictator' = 'merc';
+
+  // Type check getters
+  get isMerc(): boolean { return this.cardType === 'merc'; }
+  get isDictator(): boolean { return this.cardType === 'dictator'; }
+
   // Provide unitId/unitName for base class compatibility
   get unitId(): string { return this.mercId; }
   get unitName(): string { return this.mercName; }
@@ -1095,6 +1102,13 @@ export class DictatorCard extends CombatUnit {
   // Identity - BoardSmith populates from JSON with these names
   dictatorId!: string;
   dictatorName!: string;
+
+  // Card type discriminator
+  cardType: 'merc' | 'dictator' = 'dictator';
+
+  // Type check getters
+  get isMerc(): boolean { return this.cardType === 'merc'; }
+  get isDictator(): boolean { return this.cardType === 'dictator'; }
 
   // Provide unitId/unitName for base class compatibility
   get unitId(): string { return this.dictatorId; }

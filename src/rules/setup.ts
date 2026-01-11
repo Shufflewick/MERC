@@ -39,6 +39,7 @@ export interface SectorData {
 
 export interface DictatorData {
   id: string;
+  cardType: 'merc' | 'dictator';
   name: string;
   quantity: number;
   initiative: number;
