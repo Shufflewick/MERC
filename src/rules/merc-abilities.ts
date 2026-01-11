@@ -172,7 +172,7 @@ export interface WorkRestriction {
  * Complete MERC ability definition
  */
 export interface MercAbility {
-  /** MERC ID matching mercs.json */
+  /** MERC ID matching combatants.json (cardType='merc') */
   id: string;
   /** Combat stat modifiers */
   combatModifiers?: CombatModifier;

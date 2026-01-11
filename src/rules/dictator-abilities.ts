@@ -2,7 +2,7 @@
  * Dictator Special Abilities
  *
  * Based on: data/rules/01-game-elements-and-components.md
- * Dictator data: data/dictators.json
+ * Dictator data: data/combatants.json (cardType='dictator')
  *
  * Each dictator has a unique special ability that triggers during setup
  * and/or once per turn.
