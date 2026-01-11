@@ -93,7 +93,7 @@ function countHits(rolls: number[]): number {
  * Get mercId from a combatant (undefined if not a MERC)
  */
 function getCombatantMercId(combatant: Combatant): string | undefined {
-  return combatant.sourceElement instanceof MercCard
+  return combatant.sourceElement?.isMerc
     ? combatant.sourceElement.mercId
     : undefined;
 }
@@ -135,7 +135,7 @@ function isKastern(combatant: Combatant): boolean {
  * MERC-cpb: Check if a combatant is Lucid
  */
 function isLucid(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'lucid';
   }
   return false;
@@ -145,7 +145,7 @@ function isLucid(combatant: Combatant): boolean {
  * MERC-5l3: Check if a combatant is Basic
  */
 function isBasic(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'basic';
   }
   return false;
@@ -157,7 +157,7 @@ function isBasic(combatant: Combatant): boolean {
  * MERC-7zax: Dictator militia hit on 3+ when Better Weapons is active
  */
 function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MERCGame): number {
-  const mercId = combatant.sourceElement instanceof MercCard
+  const mercId = combatant.sourceElement?.isMerc
     ? combatant.sourceElement.mercId
     : undefined;
 
@@ -178,7 +178,7 @@ function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MER
 function shouldUseReroll(combatant: Combatant, rolls: number[], hits: number): boolean {
   if (combatant.hasUsedReroll) return false;
 
-  const mercId = combatant.sourceElement instanceof MercCard
+  const mercId = combatant.sourceElement?.isMerc
     ? combatant.sourceElement.mercId
     : undefined;
   if (!mercId || !canRerollOnce(mercId)) return false;
@@ -197,7 +197,7 @@ function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
   // Check each ally for debuff abilities
   for (const ally of allies) {
     if (ally.health <= 0) continue;
-    if (!(ally.sourceElement instanceof MercCard)) continue;
+    if (!ally.sourceElement?.isMerc) continue;
 
     const combatDebuff = getEnemyCombatDebuff(ally.sourceElement.mercId);
     const initiativeDebuff = getEnemyInitiativeDebuff(ally.sourceElement.mercId);
@@ -221,7 +221,7 @@ function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
  * MERC-7te: Check if a combatant is Surgeon
  */
 function isSurgeon(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'surgeon';
   }
   return false;
@@ -265,7 +265,7 @@ function applySurgeonHeal(
   mostDamaged.health = Math.min(mostDamaged.health + 1, mostDamaged.maxHealth);
 
   // Also heal the source element
-  if (mostDamaged.sourceElement instanceof MercCard) {
+  if (mostDamaged.sourceElement?.isMerc) {
     mostDamaged.sourceElement.heal(1);
   }
 
@@ -277,7 +277,7 @@ function applySurgeonHeal(
  * MERC-clsx: Check if a combatant is Adelheid
  */
 function isAdelheid(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'adelheid';
   }
   return false;
@@ -287,7 +287,7 @@ function isAdelheid(combatant: Combatant): boolean {
  * MERC-b9p4: Check if a combatant is Golem
  */
 function isGolem(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'golem';
   }
   return false;
@@ -297,7 +297,7 @@ function isGolem(combatant: Combatant): boolean {
  * MERC-16f: Check if a combatant is Bouba
  */
 function isBouba(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'bouba';
   }
   return false;
@@ -308,7 +308,7 @@ function isBouba(combatant: Combatant): boolean {
  * Uses equipment registry instead of string matching
  */
 function hasHandgun(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const weapon = combatant.sourceElement.weaponSlot;
     return weapon ? checkIsHandgun(weapon.equipmentId) : false;
   }
@@ -330,7 +330,7 @@ function applyBoubaBonus(combatants: Combatant[]): void {
  * MERC-2se: Check if a combatant is Buzzkill
  */
 function isBuzzkill(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'buzzkill';
   }
   return false;
@@ -340,7 +340,7 @@ function isBuzzkill(combatant: Combatant): boolean {
  * MERC-ml7: Check if a combatant is Khenn
  */
 function isKhenn(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'khenn';
   }
   return false;
@@ -350,7 +350,7 @@ function isKhenn(combatant: Combatant): boolean {
  * MERC-s3x: Check if a combatant is Mayhem
  */
 function isMayhem(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'mayhem';
   }
   return false;
@@ -361,7 +361,7 @@ function isMayhem(combatant: Combatant): boolean {
  * Uses equipment registry instead of string matching
  */
 function hasUzi(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const weapon = combatant.sourceElement.weaponSlot;
     return weapon ? checkIsUzi(weapon.equipmentId) : false;
   }
@@ -372,7 +372,7 @@ function hasUzi(combatant: Combatant): boolean {
  * MERC-82k: Check if a combatant is Meatbop
  */
 function isMeatbop(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'meatbop';
   }
   return false;
@@ -382,7 +382,7 @@ function isMeatbop(combatant: Combatant): boolean {
  * MERC-82k: Check if Meatbop has an accessory equipped
  */
 function hasAccessory(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const merc = combatant.sourceElement;
     // Check accessory slot or bandolier slots
     return merc.accessorySlot !== undefined || merc.bandolierSlots.length > 0;
@@ -394,7 +394,7 @@ function hasAccessory(combatant: Combatant): boolean {
  * MERC-c1f: Check if a combatant is Ra
  */
 function isRa(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'ra';
   }
   return false;
@@ -404,7 +404,7 @@ function isRa(combatant: Combatant): boolean {
  * MERC-3zd: Check if a combatant is Rozeske
  */
 function isRozeske(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'rozeske';
   }
   return false;
@@ -414,7 +414,7 @@ function isRozeske(combatant: Combatant): boolean {
  * MERC-3zd: Check if combatant has armor equipped
  */
 function hasArmor(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.armorSlot !== undefined;
   }
   return false;
@@ -424,7 +424,7 @@ function hasArmor(combatant: Combatant): boolean {
  * MERC-qh3: Check if a combatant is Runde
  */
 function isRunde(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'runde';
   }
   return false;
@@ -434,7 +434,7 @@ function isRunde(combatant: Combatant): boolean {
  * MERC-5yq: Check if a combatant is Sarge
  */
 function isSarge(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'sarge';
   }
   return false;
@@ -444,7 +444,7 @@ function isSarge(combatant: Combatant): boolean {
  * MERC-581: Check if a combatant is Stumpy
  */
 function isStumpy(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'stumpy';
   }
   return false;
@@ -456,7 +456,7 @@ function isStumpy(combatant: Combatant): boolean {
  * Note: Grenades/mortars are accessories, not weapons
  */
 function hasExplosive(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const merc = combatant.sourceElement;
     // Check accessory slot
     if (merc.accessorySlot && checkIsExplosive(merc.accessorySlot.equipmentId)) {
@@ -472,7 +472,7 @@ function hasExplosive(combatant: Combatant): boolean {
  * MERC-kmv: Check if a combatant is Tack
  */
 function isTack(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'tack';
   }
   return false;
@@ -482,7 +482,7 @@ function isTack(combatant: Combatant): boolean {
  * MERC-dxi: Check if a combatant is Tavisto
  */
 function isTavisto(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'tavisto';
   }
   return false;
@@ -492,7 +492,7 @@ function isTavisto(combatant: Combatant): boolean {
  * MERC-qbci: Check if a combatant is Valkyrie
  */
 function isValkyrie(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'valkyrie';
   }
   return false;
@@ -502,7 +502,7 @@ function isValkyrie(combatant: Combatant): boolean {
  * MERC-x0jg: Check if a combatant is Vandradi
  */
 function isVandradi(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'vandradi';
   }
   return false;
@@ -512,7 +512,7 @@ function isVandradi(combatant: Combatant): boolean {
  * MERC-x0jg: Check if combatant has multi-target weapon
  */
 function hasMultiTargetWeapon(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const weapon = combatant.sourceElement.weaponSlot;
     return weapon?.targets !== undefined && weapon.targets > 0;
   }
@@ -523,7 +523,7 @@ function hasMultiTargetWeapon(combatant: Combatant): boolean {
  * MERC-btst: Check if a combatant is Vulture
  */
 function isVulture(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'vulture';
   }
   return false;
@@ -533,7 +533,7 @@ function isVulture(combatant: Combatant): boolean {
  * MERC-djs0: Check if a combatant is Walter
  */
 function isWalter(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'walter';
   }
   return false;
@@ -543,7 +543,7 @@ function isWalter(combatant: Combatant): boolean {
  * MERC-9mpr: Check if a combatant is Wolverine
  */
 function isWolverine(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'wolverine';
   }
   return false;
@@ -553,7 +553,7 @@ function isWolverine(combatant: Combatant): boolean {
  * MERC-ddq4: Check if a combatant is Dutch
  */
 function isDutch(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'dutch';
   }
   return false;
@@ -564,7 +564,7 @@ function isDutch(combatant: Combatant): boolean {
  * Uses equipment registry instead of string matching
  */
 function isDutchUsingFists(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const weapon = combatant.sourceElement.weaponSlot;
     // No weapon or sword equipped
     if (!weapon) return true;
@@ -577,7 +577,7 @@ function isDutchUsingFists(combatant: Combatant): boolean {
  * MERC-adnu: Check if a combatant is Moe
  */
 function isMoe(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'moe';
   }
   return false;
@@ -588,7 +588,7 @@ function isMoe(combatant: Combatant): boolean {
  * Uses equipment registry instead of string matching
  */
 function hasSmaw(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const weapon = combatant.sourceElement.weaponSlot;
     return weapon ? checkIsSmaw(weapon.equipmentId) : false;
   }
@@ -624,7 +624,7 @@ function applyRaBonus(combatants: Combatant[]): void {
   for (const combatant of combatants) {
     if (isRa(combatant) && combatant.health > 0) {
       // Ra gets +1 target with any weapon
-      if (combatant.sourceElement instanceof MercCard && combatant.sourceElement.weaponSlot) {
+      if (combatant.sourceElement?.isMerc && combatant.sourceElement.weaponSlot) {
         combatant.targets += 1;
       }
     }
@@ -732,7 +732,7 @@ function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
         if (tackMerc.initiative >= maxInitiative) {
           // Apply +2 initiative to all squad mates (including Tack)
           for (const combatant of combatants) {
-            if (combatant.sourceElement instanceof MercCard &&
+            if (combatant.sourceElement?.isMerc &&
                 squadMates.some(m => m.id === combatant.sourceElement.id) &&
                 combatant.health > 0) {
               combatant.initiative += 2;
@@ -770,7 +770,7 @@ function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
       if (squadMates) {
         // Apply +1 initiative to all squad mates (except Valkyrie herself)
         for (const combatant of combatants) {
-          if (combatant.sourceElement instanceof MercCard &&
+          if (combatant.sourceElement?.isMerc &&
               squadMates.some(m => m.id === combatant.sourceElement.id) &&
               combatant.sourceElement.id !== valkyrieMerc.id &&
               combatant.health > 0) {
@@ -1160,7 +1160,7 @@ function refreshCombatantStats(combatant: Combatant): void {
     return;
   }
 
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     const merc = combatant.sourceElement;
     // Refresh stats that can change with equipment
     combatant.initiative = merc.initiative;
@@ -1168,8 +1168,8 @@ function refreshCombatantStats(combatant: Combatant): void {
     combatant.targets = merc.targets;
     combatant.armor = merc.equipmentArmor;
     combatant.armorPiercing = merc.weaponSlot?.negatesArmor ?? false;
-  } else if (combatant.sourceElement instanceof DictatorCard) {
-    const dictator = combatant.sourceElement;
+  } else if (combatant.sourceElement?.isDictator) {
+    const dictator = combatant.sourceElement as DictatorCard;
     combatant.initiative = dictator.initiative;
     combatant.combat = dictator.combat;
     // Dictator targets and armor could be updated here if they get equipment
@@ -1180,7 +1180,7 @@ function refreshCombatantStats(combatant: Combatant): void {
  * MERC-cm0: Check if a combatant is Haarg
  */
 function isHaarg(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'haarg';
   }
   return false;
@@ -1208,9 +1208,9 @@ function applyHaargBonus(allCombatants: Combatant[]): void {
 
   for (const haarg of haargCombatants) {
     // Get Haarg's base stats (before any bonus)
-    const baseInitiative = haarg.sourceElement instanceof MercCard
+    const baseInitiative = haarg.sourceElement?.isMerc
       ? haarg.sourceElement.initiative : haarg.initiative;
-    const baseCombat = haarg.sourceElement instanceof MercCard
+    const baseCombat = haarg.sourceElement?.isMerc
       ? haarg.sourceElement.combat : haarg.combat;
 
     // Apply +1 if anyone has higher
@@ -1227,7 +1227,7 @@ function applyHaargBonus(allCombatants: Combatant[]): void {
  * MERC-r2k: Check if a combatant is Snake
  */
 function isSnake(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'snake';
   }
   return false;
@@ -1237,7 +1237,7 @@ function isSnake(combatant: Combatant): boolean {
  * MERC-zd5: Check if a combatant is Vandal
  */
 function isVandal(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'vandal';
   }
   return false;
@@ -1357,7 +1357,7 @@ function canTargetDictator(dictatorSide: Combatant[]): boolean {
  * MERC-dz0: Check if a combatant is Rizen
  */
 function isRizen(combatant: Combatant): boolean {
-  if (combatant.sourceElement instanceof MercCard) {
+  if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.mercId === 'rizen';
   }
   return false;
@@ -1492,7 +1492,7 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPie
     remainingDamage -= armorAbsorbed;
 
     // If armor is destroyed, mark the equipment as damaged/destroyed
-    if (target.armor <= 0 && target.sourceElement instanceof MercCard) {
+    if (target.armor <= 0 && target.sourceElement?.isMerc) {
       const merc = target.sourceElement;
       if (merc.armorSlot) {
         merc.armorSlot.isDamaged = true;
@@ -1798,11 +1798,9 @@ function executeCombatRound(
     if (aliveEnemies.length === 0) continue;
 
     // MERC-t5k: Check if this unit needs player target selection
-    // Note: instanceof check can fail in bundled code, so also check for mercId/dictatorId property
-    const hasMercSource = attacker.sourceElement instanceof MercCard ||
-                          (attacker.sourceElement && 'mercId' in attacker.sourceElement);
-    const hasDictatorSource = attacker.sourceElement instanceof DictatorCard ||
-                              (attacker.sourceElement && 'dictatorId' in attacker.sourceElement);
+    // Use property-based type checking for bundler compatibility
+    const hasMercSource = attacker.sourceElement?.isMerc ?? false;
+    const hasDictatorSource = attacker.sourceElement?.isDictator ?? false;
     const isRebelMerc = !attacker.isDictatorSide && !attacker.isMilitia && hasMercSource;
     const isDictatorControlled = attacker.isDictatorSide && !attacker.isMilitia && (hasMercSource || hasDictatorSource);
 
@@ -2063,7 +2061,7 @@ function executeCombatRound(
       damageDealt.set(target.id, damage);
 
       // Sync damage to source MercCard immediately (so UI shows correct state during combat)
-      if (target.sourceElement instanceof MercCard) {
+      if (target.sourceElement?.isMerc) {
         const merc = target.sourceElement;
         merc.damage = merc.maxHealth - target.health;
       }
@@ -2096,7 +2094,7 @@ function executeCombatRound(
           game.message(`${attacker.name} kills ${target.name}!`);
 
           // MERC-4ib: Handle MERC death immediately (so UI shows correct state during combat)
-          if (target.sourceElement instanceof MercCard) {
+          if (target.sourceElement?.isMerc) {
             const merc = target.sourceElement;
             // Check for epinephrine save BEFORE marking as dead
             let savedByEpinephrine = false;
@@ -2251,7 +2249,7 @@ function executeCombatRound(
     }
 
     // Discard accessories with discardAfterAttack (grenades, mortars)
-    if (attacker.sourceElement instanceof MercCard) {
+    if (attacker.sourceElement?.isMerc) {
       const merc = attacker.sourceElement;
       const accessoryDiscard = game.getEquipmentDiscard('Accessory');
 
@@ -2373,7 +2371,7 @@ function applyCombatResults(
   // Note: Deaths are now handled immediately during combat rounds, so this mainly
   // syncs final damage for surviving MERCs and handles any edge cases
   for (const combatant of [...rebels, ...dictatorSide]) {
-    if (combatant.sourceElement instanceof MercCard) {
+    if (combatant.sourceElement?.isMerc) {
       const merc = combatant.sourceElement;
 
       // Skip if already marked dead (handled during combat round)
@@ -2475,8 +2473,8 @@ function applyCombatResults(
           game.message(`${merc.mercName} has been killed in combat!`);
         }
       }
-    } else if (combatant.sourceElement instanceof DictatorCard) {
-      const dictator = combatant.sourceElement;
+    } else if (combatant.sourceElement?.isDictator) {
+      const dictator = combatant.sourceElement as DictatorCard;
       const damageTaken = combatant.maxHealth - combatant.health;
       dictator.damage = damageTaken;
 
