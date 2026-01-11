@@ -14,6 +14,8 @@ import {
   isInPlayerTeam,
   useAction,
   isDictatorCard,
+  isMercCard,
+  isCombatUnitCard,
   getUnitName,
   findUnitSector,
   getCachedValue,
@@ -79,7 +81,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     }
     if (typeof unitArg === 'number') {
       const el = game.getElementById(unitArg);
-      return el instanceof MercCard ? el : undefined;
+      return isMercCard(el) ? el : undefined;
     }
     return undefined;
   }
@@ -89,12 +91,12 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     const mercArg = ctx.args?.actingMerc ?? ctx.args?.mercId;
     if (typeof mercArg === 'number') {
       const el = game.getElementById(mercArg);
-      return el instanceof MercCard ? el : undefined;
+      return isMercCard(el) ? el : undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      if (mercArg instanceof MercCard) return mercArg;
+      if (isMercCard(mercArg)) return mercArg;
       const mercObj = mercArg as { id: number };
       const el = game.getElementById(mercObj.id);
-      return el instanceof MercCard ? el : undefined;
+      return isMercCard(el) ? el : undefined;
     }
     return undefined;
   }
@@ -104,12 +106,12 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
       const el = game.getElementById(sectorArg);
-      return el instanceof Sector ? el : undefined;
+      return (el && el instanceof Sector) ? el : undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
       if (sectorArg instanceof Sector) return sectorArg;
       const sectorObj = sectorArg as { id: number };
       const el = game.getElementById(sectorObj.id);
-      return el instanceof Sector ? el : undefined;
+      return (el && el instanceof Sector) ? el : undefined;
     }
     return undefined;
   }
@@ -159,7 +161,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!(element instanceof MercCard)) return false;
+        if (!isMercCard(element)) return false;
         const merc = element;
 
         // MERC must belong to player and have actions
@@ -202,7 +204,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const merc = getMerc(ctx) || (args.actingMerc instanceof MercCard ? args.actingMerc : undefined);
+      const merc = getMerc(ctx) || (isMercCard(args.actingMerc) ? args.actingMerc : undefined);
       const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!merc) {
@@ -278,14 +280,12 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
       const el = game.getElementById(mercArg);
-      if (el instanceof MercCard) return el;
-      if (el instanceof DictatorCard) return el;
+      if (isCombatUnitCard(el)) return el;
       return undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
       const mercObj = mercArg as { id: number };
       const el = game.getElementById(mercObj.id);
-      if (el instanceof MercCard) return el;
-      if (el instanceof DictatorCard) return el;
+      if (isCombatUnitCard(el)) return el;
       return undefined;
     }
     return undefined;
@@ -293,8 +293,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
   // Helper to get unit name for display
   function getUnitDisplayName(unit: MercCard | DictatorCard): string {
-    if (unit instanceof MercCard) return capitalize(unit.mercName);
-    return capitalize(unit.dictatorName);
+    return capitalize(getUnitName(unit));
   }
 
   // Helper to resolve sector from ctx.args (sectorId is numeric element ID)
@@ -302,11 +301,11 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
     const sectorArg = ctx.args?.sectorId;
     if (typeof sectorArg === 'number') {
       const el = game.getElementById(sectorArg);
-      return el instanceof Sector ? el : undefined;
+      return (el && el instanceof Sector) ? el : undefined;
     } else if (sectorArg && typeof sectorArg === 'object' && 'id' in sectorArg) {
       const sectorObj = sectorArg as { id: number };
       const el = game.getElementById(sectorObj.id);
-      return el instanceof Sector ? el : undefined;
+      return (el && el instanceof Sector) ? el : undefined;
     }
     return undefined;
   }
@@ -347,7 +346,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit instanceof MercCard && unit.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit?.isMerc && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -459,7 +458,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
     if (mercId !== undefined) {
       const el = g.getElementById(mercId);
-      return el instanceof MercCard ? el : undefined;
+      return isMercCard(el) ? el : undefined;
     }
     return undefined;
   }
@@ -543,7 +542,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         }
         if (mercId !== undefined) {
           const el = g.getElementById(mercId);
-          if (el instanceof MercCard) {
+          if (isMercCard(el)) {
             return getMercEquipment(el);
           }
         }
@@ -564,7 +563,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         mercId = mercObj.id;
       }
       const mercEl = mercId !== undefined ? g.getElementById(mercId) : undefined;
-      const actingMerc = mercEl instanceof MercCard ? mercEl : undefined;
+      const actingMerc = isMercCard(mercEl) ? mercEl : undefined;
 
       const equipArg = args.equipment;
       let equipId: number | undefined;
@@ -1204,7 +1203,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!(element instanceof MercCard)) return false;
+        if (!isMercCard(element)) return false;
         // Use unified helper - checks ownership, living status, and repair kit
         const mercsWithKit = getMercsWithRepairKit(ctx.player, game);
         return mercsWithKit.some(m => m.id === element.id);
@@ -1397,10 +1396,10 @@ function getMercsWithMortars(game: MERCGame, player: any): (MercCard | DictatorC
  */
 function isUnitOwnedForMortar(unit: MercCard | DictatorCard, player: any, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
-    return unit instanceof MercCard && isInPlayerTeam(unit, player as RebelPlayer);
+    return unit.isMerc && isInPlayerTeam(unit as MercCard, player as RebelPlayer);
   }
   if (game.isDictatorPlayer(player)) {
-    if (unit instanceof DictatorCard) {
+    if (unit.isDictator) {
       return unit.id === game.dictatorPlayer?.dictator?.id;
     }
     const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -1443,7 +1442,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
           const targets = getMortarTargets(game, sector, ctx.player);
           return targets.length > 0;
         }).map(unit => {
-          const name = unit instanceof MercCard ? unit.mercName : unit.dictatorName;
+          const name = unit.isMerc ? (unit as MercCard).mercName : (unit as DictatorCard).dictatorName;
           return capitalize(name);
         });
       },
@@ -1455,7 +1454,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         const unitName = ctx.args?.unitId as string;
         const units = getMercsWithMortars(game, ctx.player);
         const unit = units.find(u => {
-          const name = u instanceof MercCard ? u.mercName : u.dictatorName;
+          const name = u.isMerc ? (u as MercCard).mercName : (u as DictatorCard).dictatorName;
           return capitalize(name) === unitName;
         });
         if (!unit) return [];
@@ -1472,7 +1471,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       const unitName = args.unitId as string;
       const units = getMercsWithMortars(game, ctx.player);
       const unit = units.find(u => {
-        const name = u instanceof MercCard ? u.mercName : u.dictatorName;
+        const name = u.isMerc ? (u as MercCard).mercName : (u as DictatorCard).dictatorName;
         return capitalize(name) === unitName;
       });
 
@@ -1492,7 +1491,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       // Mortar deals 1 damage per target
       const mortarDamage = 1;
 
-      const unitDisplayName = unit instanceof MercCard ? unit.mercName : unit.dictatorName;
+      const unitDisplayName = unit.isMerc ? (unit as MercCard).mercName : (unit as DictatorCard).dictatorName;
       game.message(`${unitDisplayName} fires mortar at ${targetSector.sectorName}!`);
 
       let totalDamage = 0;
@@ -1639,7 +1638,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
-        if (!(element instanceof MercCard)) return false;
+        if (!isMercCard(element)) return false;
         const merc = element;
 
         if (!isInPlayerTeam(merc, ctx.player)) return false;
@@ -1660,7 +1659,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Only rebels can detonate explosives' };
       }
       const player = ctx.player;
-      const merc = args.merc instanceof MercCard ? args.merc : undefined;
+      const merc = isMercCard(args.merc) ? args.merc : undefined;
       if (!merc) {
         return { success: false, message: 'Invalid merc' };
       }
