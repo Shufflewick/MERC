@@ -10,7 +10,7 @@ import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, MercCard, Equipment } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, type Combatant } from '../combat.js';
-import { isHealingItem, getHealingEffect } from '../equipment-effects.js';
+import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer } from './helpers.js';
 
@@ -20,11 +20,10 @@ import { capitalize, isRebelPlayer } from './helpers.js';
 export function createCombatContinueAction(game: MERCGame): ActionDefinition {
   return Action.create('combatContinue')
     .prompt('Continue fighting')
-    .condition(() => {
-      // Can't continue while target selection or hit allocation is pending
-      return game.activeCombat !== null &&
-             game.activeCombat.pendingTargetSelection === undefined &&
-             game.activeCombat.pendingHitAllocation === undefined;
+    .condition({
+      'has active combat': () => game.activeCombat !== null,
+      'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
+      'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
     })
     .execute((_, ctx) => {
       if (!game.activeCombat) {
@@ -61,11 +60,10 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
 export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
   return Action.create('combatRetreat')
     .prompt('Retreat from combat')
-    .condition(() => {
-      // Can't retreat while target selection or hit allocation is pending
-      return game.activeCombat !== null &&
-             game.activeCombat.pendingTargetSelection === undefined &&
-             game.activeCombat.pendingHitAllocation === undefined;
+    .condition({
+      'has active combat': () => game.activeCombat !== null,
+      'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
+      'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
     })
     .chooseElement<Sector>('retreatSector', {
       prompt: 'Choose sector to retreat to',
@@ -110,14 +108,27 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       if (!pending) return 'Select target';
       return `${pending.attackerName}: Select target${pending.maxTargets > 1 ? ` (up to ${pending.maxTargets})` : ''}`;
     })
-    .condition((ctx) => {
-      // Only rebels can select targets (this is a rebel combat action)
-      if (!isRebelPlayer(ctx.player)) return false;
-      // Must have active combat with pending target selection and at least one valid target
-      const hasActiveCombat = game.activeCombat !== null;
-      const hasPending = game.activeCombat?.pendingTargetSelection != null;
-      const targetCount = game.activeCombat?.pendingTargetSelection?.validTargets?.length || 0;
-      return hasActiveCombat && hasPending && targetCount > 0;
+    .condition({
+      'player can select targets for this attacker': (ctx) => {
+        // Must have active combat with pending target selection
+        if (!game.activeCombat?.pendingTargetSelection) return false;
+        const pending = game.activeCombat.pendingTargetSelection;
+        if (pending.validTargets.length === 0) return false;
+
+        // Find the attacker to check which side they're on
+        const attacker = game.activeCombat.rebelCombatants?.find(c => c.id === pending.attackerId) ||
+                         game.activeCombat.dictatorCombatants?.find(c => c.id === pending.attackerId);
+        if (!attacker) return false;
+
+        // Player can only select targets for units on their side
+        if (isRebelPlayer(ctx.player)) {
+          return !attacker.isDictatorSide;  // Rebel selects for rebel units
+        }
+        if (game.isDictatorPlayer(ctx.player) && !game.dictatorPlayer?.isAI) {
+          return attacker.isDictatorSide;   // Dictator selects for dictator units
+        }
+        return false;
+      },
     })
     .chooseFrom<string>('targets', {
       prompt: () => {
@@ -225,6 +236,130 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
 }
 
 // =============================================================================
+// Attack Dog Assignment
+// =============================================================================
+
+/**
+ * MERC-l09: Player choice for Attack Dog assignment
+ * When a human-controlled MERC with Attack Dog attacks, they choose which enemy to assign it to
+ */
+export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatAssignAttackDog')
+    .prompt(() => {
+      const pending = game.activeCombat?.pendingAttackDogSelection;
+      if (!pending) return 'Assign Attack Dog';
+      return `${pending.attackerName}: Assign Attack Dog to`;
+    })
+    .condition({
+      'player can assign attack dog for this attacker': (ctx) => {
+        // Must have active combat with pending dog selection
+        if (!game.activeCombat?.pendingAttackDogSelection) return false;
+        const pending = game.activeCombat.pendingAttackDogSelection;
+        if (pending.validTargets.length === 0) return false;
+
+        // Find the attacker to check which side they're on
+        const attacker = game.activeCombat.rebelCombatants?.find(c => c.id === pending.attackerId) ||
+                         game.activeCombat.dictatorCombatants?.find(c => c.id === pending.attackerId);
+        if (!attacker) return false;
+
+        // Player can only assign dogs for units on their side
+        if (isRebelPlayer(ctx.player)) {
+          return !attacker.isDictatorSide;  // Rebel assigns for rebel units
+        }
+        if (game.isDictatorPlayer(ctx.player) && !game.dictatorPlayer?.isAI) {
+          return attacker.isDictatorSide;   // Dictator assigns for dictator units
+        }
+        return false;
+      },
+    })
+    .chooseFrom<string>('target', {
+      prompt: () => {
+        const pending = game.activeCombat?.pendingAttackDogSelection;
+        if (!pending) return 'Assign Attack Dog to';
+        return `${pending.attackerName}: Release Attack Dog on`;
+      },
+      choices: () => {
+        const pending = game.activeCombat?.pendingAttackDogSelection;
+        if (!pending) return [];
+
+        // Use string ID as value, display name for UI
+        return pending.validTargets.map((t: Combatant, index: number) => {
+          const baseName = t.name;
+          const duplicateCount = pending.validTargets.filter((x: Combatant) => x.name === baseName).length;
+          let displayName = baseName;
+          if (duplicateCount > 1) {
+            const countBefore = pending.validTargets.slice(0, index + 1).filter((x: Combatant) => x.name === baseName).length;
+            displayName = `${baseName} #${countBefore}`;
+          }
+          return {
+            value: t.id,
+            display: displayName,
+          };
+        });
+      },
+    })
+    .execute((args) => {
+      if (!game.activeCombat || !game.activeCombat.pendingAttackDogSelection) {
+        return { success: false, message: 'No Attack Dog selection pending' };
+      }
+
+      const pending = game.activeCombat.pendingAttackDogSelection;
+      const targetId = args.target as string;
+
+      if (!targetId) {
+        return { success: false, message: 'No target selected' };
+      }
+
+      // Look up target name for the message
+      const targetName = pending.validTargets.find(t => t.id === targetId)?.name;
+
+      // Initialize selectedDogTargets map if needed
+      if (!game.activeCombat.selectedDogTargets) {
+        game.activeCombat.selectedDogTargets = new Map();
+      }
+
+      // Store the selection for this attacker
+      game.activeCombat.selectedDogTargets.set(pending.attackerId, targetId);
+
+      // Clear pending and continue combat
+      game.activeCombat.pendingAttackDogSelection = undefined;
+
+      game.message(`${pending.attackerName} will release Attack Dog on ${targetName}.`);
+
+      // Continue combat to execute the dog assignment and round
+      const sector = game.getSector(game.activeCombat.sectorId);
+      if (!sector) {
+        return { success: false, message: 'Combat sector not found' };
+      }
+
+      const player = game.rebelPlayers.find(
+        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+      ) as RebelPlayer;
+
+      if (!player) {
+        return { success: false, message: 'Attacking player not found' };
+      }
+
+      const outcome = executeCombat(game, sector, player);
+
+      return {
+        success: true,
+        message: outcome.combatPending
+          ? 'Combat continues'
+          : outcome.rebelVictory
+          ? 'Victory!'
+          : 'Combat complete',
+        data: {
+          dogTarget: targetName,
+          combatPending: outcome.combatPending,
+          rebelVictory: outcome.rebelVictory,
+          dictatorVictory: outcome.dictatorVictory,
+        },
+      };
+    });
+}
+
+// =============================================================================
 // Combat Healing with Medical Kit / First Aid Kit
 // =============================================================================
 
@@ -289,12 +424,9 @@ function getDamagedMercs(combatants: Combatant[]): Combatant[] {
 export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition {
   return Action.create('combatAllocateHits')
     .prompt('Confirm hit allocation')
-    .condition((ctx) => {
-      // Must have active combat with pending hit allocation
-      if (!game.activeCombat?.pendingHitAllocation) return false;
-      // Only rebels can use this (dictator AI auto-allocates)
-      if (!isRebelPlayer(ctx.player)) return false;
-      return true;
+    .condition({
+      'has pending hit allocation': () => game.activeCombat?.pendingHitAllocation != null,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
     })
     .chooseFrom<string>('allocations', {
       prompt: 'Allocate hits to targets',
@@ -407,15 +539,13 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
 export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition {
   return Action.create('combatBasicReroll')
     .prompt("Use Basic's reroll")
-    .condition((ctx) => {
-      // Must have pending hit allocation
-      if (!game.activeCombat?.pendingHitAllocation) return false;
-      // Must be able to reroll (Basic's ability, not already used)
-      const pending = game.activeCombat.pendingHitAllocation;
-      if (!pending.canReroll || pending.hasRerolled) return false;
-      // Only rebels can use this
-      if (!isRebelPlayer(ctx.player)) return false;
-      return true;
+    .condition({
+      'has pending hit allocation': () => game.activeCombat?.pendingHitAllocation != null,
+      'can reroll and has not already': () => {
+        const pending = game.activeCombat?.pendingHitAllocation;
+        return pending?.canReroll && !pending?.hasRerolled;
+      },
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
     })
     .execute(() => {
       if (!game.activeCombat?.pendingHitAllocation) {
@@ -470,12 +600,9 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
 export function createCombatAllocateWolverineSixesAction(game: MERCGame): ActionDefinition {
   return Action.create('combatAllocateWolverineSixes')
     .prompt("Allocate Wolverine's bonus targets")
-    .condition((ctx) => {
-      // Must have pending Wolverine 6s allocation
-      if (!game.activeCombat?.pendingWolverineSixes) return false;
-      // Only rebels can use this
-      if (!isRebelPlayer(ctx.player)) return false;
-      return true;
+    .condition({
+      'has pending Wolverine sixes': () => game.activeCombat?.pendingWolverineSixes != null,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
     })
     .chooseFrom<string>('bonusTargets', {
       prompt: "Select Wolverine's bonus targets",
@@ -546,32 +673,31 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
 export function createCombatHealAction(game: MERCGame): ActionDefinition {
   return Action.create('combatHeal')
     .prompt('Use Medical Kit')
-    .condition((ctx) => {
-      // Must have active combat
-      if (!game.activeCombat) return false;
-      // Can't use while target selection or hit allocation is pending
-      if (game.activeCombat.pendingTargetSelection) return false;
-      if (game.activeCombat.pendingHitAllocation) return false;
-      // Only rebels can use this
-      if (!isRebelPlayer(ctx.player)) return false;
+    .condition({
+      'has active combat': () => game.activeCombat != null,
+      'no pending target selection': () => !game.activeCombat?.pendingTargetSelection,
+      'no pending hit allocation': () => !game.activeCombat?.pendingHitAllocation,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'has healer with item and dice to use': () => {
+        if (!game.activeCombat) return false;
+        const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
 
-      const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
+        // Must have at least one MERC with a healing item that has uses
+        const mercsWithHealing = getMercsWithHealingItems(rebelCombatants);
+        if (mercsWithHealing.length === 0) return false;
 
-      // Must have at least one MERC with a healing item that has uses
-      const mercsWithHealing = getMercsWithHealingItems(rebelCombatants);
-      if (mercsWithHealing.length === 0) return false;
+        // Must have at least one damaged MERC
+        const damagedMercs = getDamagedMercs(rebelCombatants);
+        if (damagedMercs.length === 0) return false;
 
-      // Must have at least one damaged MERC
-      const damagedMercs = getDamagedMercs(rebelCombatants);
-      if (damagedMercs.length === 0) return false;
+        // At least one healer must have combat dice remaining to discard
+        for (const { combatant } of mercsWithHealing) {
+          const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
+          if (combatant.combat - diceUsed > 0) return true;
+        }
 
-      // At least one healer must have combat dice remaining to discard
-      for (const { combatant } of mercsWithHealing) {
-        const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
-        if (combatant.combat - diceUsed > 0) return true;
-      }
-
-      return false;
+        return false;
+      },
     })
     .chooseFrom<string>('healer', {
       prompt: 'Select MERC to use healing item',
@@ -722,19 +848,15 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
 export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinition {
   return Action.create('artilleryAllocateHits')
     .prompt('Allocate artillery damage')
-    .condition((ctx) => {
-      // Must have pending artillery allocation
-      if (!game.pendingArtilleryAllocation) return false;
-
-      // Must be a rebel player
-      if (!isRebelPlayer(ctx.player)) return false;
-
-      // Player must have units in the targeted sector
-      const pending = game.pendingArtilleryAllocation;
-      const playerId = `${ctx.player.position}`;
-      const hasTargets = pending.validTargets.some(t => t.ownerId === playerId);
-
-      return hasTargets;
+    .condition({
+      'has pending artillery allocation': () => game.pendingArtilleryAllocation != null,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'player has units in targeted sector': (ctx) => {
+        const pending = game.pendingArtilleryAllocation;
+        if (!pending) return false;
+        const playerId = `${ctx.player.position}`;
+        return pending.validTargets.some(t => t.ownerId === playerId);
+      },
     })
     .chooseFrom<string>('allocations', {
       prompt: 'Choose which of your units take the artillery hits',
@@ -861,6 +983,152 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         success: true,
         message: `Allocated ${totalApplied} artillery hits`,
         data: { allocated: totalApplied },
+      };
+    });
+}
+
+/**
+ * Use epinephrine shot to save a dying MERC
+ * MERC-4.9: Any equipped Epinephrine Shot in the squad can prevent death
+ */
+export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatUseEpinephrine')
+    .prompt('Use Epinephrine Shot')
+    .condition({
+      'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
+    })
+    .chooseElement<MercCard>('saverMerc', {
+      prompt: () => {
+        const pending = game.activeCombat?.pendingEpinephrine;
+        return pending
+          ? `Choose who uses Epinephrine Shot to save ${pending.dyingMercName}`
+          : 'Choose MERC to use Epinephrine Shot';
+      },
+      elementClass: MercCard,
+      filter: (element) => {
+        const merc = element as unknown as MercCard;
+        const pending = game.activeCombat?.pendingEpinephrine;
+        if (!pending) return false;
+        return pending.availableSavers.some(s => s.mercId === merc.id);
+      },
+    })
+    .execute(({ saverMerc }) => {
+      const pending = game.activeCombat?.pendingEpinephrine;
+      if (!pending) {
+        return { success: false, message: 'No pending epinephrine choice' };
+      }
+
+      // Find the dying MERC
+      let dyingMerc: MercCard | undefined;
+      if (pending.dyingMercSide === 'dictator') {
+        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingMercId);
+      } else {
+        for (const rebel of game.rebelPlayers) {
+          const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
+          dyingMerc = allMercs.find(m => m.id === pending.dyingMercId);
+          if (dyingMerc) break;
+        }
+      }
+
+      if (!dyingMerc) {
+        game.activeCombat!.pendingEpinephrine = undefined;
+        return { success: false, message: 'Dying MERC not found' };
+      }
+
+      // Find and use the epinephrine from the saver
+      let epiShot: Equipment | undefined;
+      if (saverMerc.accessorySlot && isEpinephrine(saverMerc.accessorySlot.equipmentId)) {
+        epiShot = saverMerc.unequip('Accessory');
+      } else {
+        const epiIndex = saverMerc.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+        if (epiIndex >= 0) {
+          epiShot = saverMerc.unequipBandolierSlot(epiIndex);
+        }
+      }
+
+      if (!epiShot) {
+        game.activeCombat!.pendingEpinephrine = undefined;
+        return { success: false, message: 'Epinephrine not found on selected MERC' };
+      }
+
+      // Discard the epinephrine
+      const discard = game.getEquipmentDiscard('Accessory');
+      if (discard) epiShot.putInto(discard);
+
+      // Save the dying MERC - set health to 1
+      dyingMerc.damage = dyingMerc.maxHealth - 1;
+
+      game.message(`${saverMerc.mercName} uses Epinephrine Shot to save ${dyingMerc.mercName}!`);
+
+      // Clear pending state
+      game.activeCombat!.pendingEpinephrine = undefined;
+
+      return {
+        success: true,
+        message: `${dyingMerc.mercName} saved by Epinephrine Shot`,
+        data: { savedMerc: dyingMerc.mercName, usedBy: saverMerc.mercName },
+      };
+    });
+}
+
+/**
+ * Decline to use epinephrine - let the MERC die
+ */
+export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatDeclineEpinephrine')
+    .prompt('Let MERC die')
+    .condition({
+      'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
+    })
+    .execute(() => {
+      const pending = game.activeCombat?.pendingEpinephrine;
+      if (!pending) {
+        return { success: false, message: 'No pending epinephrine choice' };
+      }
+
+      // Find the dying MERC
+      let dyingMerc: MercCard | undefined;
+      if (pending.dyingMercSide === 'dictator') {
+        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingMercId);
+      } else {
+        for (const rebel of game.rebelPlayers) {
+          const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
+          dyingMerc = allMercs.find(m => m.id === pending.dyingMercId);
+          if (dyingMerc) break;
+        }
+      }
+
+      if (!dyingMerc) {
+        game.activeCombat!.pendingEpinephrine = undefined;
+        return { success: false, message: 'Dying MERC not found' };
+      }
+
+      // MERC dies - discard their equipment
+      for (const slotName of ['Weapon', 'Armor', 'Accessory'] as const) {
+        const equip = dyingMerc.unequip(slotName);
+        if (equip) {
+          const discardPile = game.getEquipmentDiscard(slotName);
+          if (discardPile) equip.putInto(discardPile);
+        }
+      }
+      // Discard bandolier items
+      while (dyingMerc.bandolierSlots.length > 0) {
+        const equip = dyingMerc.unequipBandolierSlot(0);
+        if (equip) {
+          const discardPile = game.getEquipmentDiscard('Accessory');
+          if (discardPile) equip.putInto(discardPile);
+        }
+      }
+
+      game.message(`${dyingMerc.mercName} has died!`);
+
+      // Clear pending state
+      game.activeCombat!.pendingEpinephrine = undefined;
+
+      return {
+        success: true,
+        message: `${dyingMerc.mercName} has died`,
+        data: { deadMerc: dyingMerc.mercName },
       };
     });
 }

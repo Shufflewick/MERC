@@ -57,15 +57,19 @@ function getHireDrawnMercs(game: MERCGame, playerId: string): MercCard[] | undef
 export function createHireMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireMerc')
     .prompt('Hire mercenaries')
-    .condition((ctx) => {
-      // Cannot hire during combat
-      if (game.activeCombat) return false;
-      // Only rebels can hire MERCs
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      const player = asRebelPlayer(ctx.player);
-      if (!player.canHireMerc(game)) return false;
-      if (!hasActionsRemaining(player, ACTION_COSTS.HIRE_MERC)) return false;
-      return game.mercDeck.count(MercCard) > 0;
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'can hire MERC': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        const player = asRebelPlayer(ctx.player);
+        return player.canHireMerc(game);
+      },
+      'has actions remaining': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        return hasActionsRemaining(asRebelPlayer(ctx.player), ACTION_COSTS.HIRE_MERC);
+      },
+      'MERC deck has cards': () => game.mercDeck.count(MercCard) > 0,
     })
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC spends the actions?',
@@ -390,25 +394,13 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
   return Action.create('explore')
     .prompt('Explore')
     .notUndoable() // Involves randomness (drawing equipment)
-    .condition((ctx, tracer) => {
-      // Cannot explore during combat
-      if (game.activeCombat) return false;
-
-      // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (tracer) tracer.check('isRebelPlayer', isRebel);
-      if (tracer) tracer.check('isDictatorPlayer', isDictator);
-      if (!isRebel && !isDictator) return false;
-
-      // Get living units for this player (MERCs + DictatorCard)
-      const livingUnits = getPlayerUnitsForExplore(ctx.player, game);
-      if (tracer) tracer.check('livingUnits.count', livingUnits.length);
-
-      // Check if any unit can explore (in unexplored sector with actions)
-      const canExplore = livingUnits.some(u => canUnitExplore(u, ctx.player, game));
-      if (tracer) tracer.check('hasExplorerCapable', canExplore);
-      return canExplore;
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'has unit that can explore': (ctx) => {
+        const livingUnits = getPlayerUnitsForExplore(ctx.player, game);
+        return livingUnits.some(u => canUnitExplore(u, ctx.player, game));
+      },
     })
     .chooseFrom<string>('actingUnit', {
       prompt: 'Which unit explores?',
@@ -575,6 +567,9 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
   return Action.create('collectEquipment')
     .prompt('Take from stash')
+    .condition({
+      'triggered via followUp from explore': (ctx) => ctx.args?.sectorId != null,
+    })
     .chooseElement<Equipment>('equipment', {
       prompt: (ctx) => {
         const unit = getUnit(ctx);
@@ -691,28 +686,15 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 
   return Action.create('takeFromStash')
     .prompt('Take equipment from stash')
-    .condition((ctx, tracer) => {
-      // Only available when a unit just explored
-      const hasExplorer = !!game.lastExplorer;
-      if (tracer) tracer.check('hasLastExplorer', hasExplorer);
-      if (!hasExplorer) return false;
-
-      // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (tracer) tracer.check('isRebelOrDictator', isRebel || isDictator);
-      if (!isRebel && !isDictator) return false;
-
-      // Check that the explorer belongs to this player
-      const explorer = findExplorerUnit(ctx);
-      if (tracer) tracer.check('explorerBelongsToPlayer', !!explorer);
-      if (!explorer) return false;
-
-      // Check stash still has items
-      const sector = game.getSector(game.lastExplorer!.sectorId);
-      const hasStash = !!(sector && sector.stash.length > 0);
-      if (tracer) tracer.check('sectorHasStash', hasStash, `${sector?.stash?.length ?? 0} items`);
-      return hasStash;
+    .condition({
+      'unit just explored': () => !!game.lastExplorer,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'explorer belongs to player': (ctx) => !!findExplorerUnit(ctx),
+      'sector has stash items': () => {
+        if (!game.lastExplorer) return false;
+        const sector = game.getSector(game.lastExplorer.sectorId);
+        return !!(sector && sector.stash.length > 0);
+      },
     })
     .chooseFrom<string>('equipment', {
       prompt: (ctx) => {
@@ -875,20 +857,13 @@ function getPlayerMercsForTrain(player: unknown, game: MERCGame): MercCard[] {
 export function createTrainAction(game: MERCGame): ActionDefinition {
   return Action.create('train')
     .prompt('Train')
-    .condition((ctx) => {
-      // Cannot train during combat
-      if (game.activeCombat) return false;
-
-      // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (!isRebel && !isDictator) return false;
-
-      // Get living units for this player (MERCs + DictatorCard)
-      const livingUnits = getPlayerUnitsForTrain(ctx.player, game);
-
-      // Must have a unit with training > 0 and actions remaining
-      return livingUnits.some(u => canUnitTrain(u, ctx.player, game));
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'has unit that can train': (ctx) => {
+        const livingUnits = getPlayerUnitsForTrain(ctx.player, game);
+        return livingUnits.some(u => canUnitTrain(u, ctx.player, game));
+      },
     })
     .chooseFrom<string>('unit', {
       prompt: 'Select unit to train militia',
@@ -1052,20 +1027,17 @@ function findMercSectorForCity(player: unknown, game: MERCGame): Sector | null {
 export function createHospitalAction(game: MERCGame): ActionDefinition {
   return Action.create('hospital')
     .prompt('Visit hospital')
-    .condition((ctx) => {
-      // Cannot visit hospital during combat
-      if (game.activeCombat) return false;
-      // Must be rebel or dictator
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (!isRebel && !isDictator) return false;
-
-      const sector = findMercSectorForCity(ctx.player, game);
-      if (!sector?.hasHospital) return false;
-
-      // Must have a damaged MERC with actions
-      const mercs = getPlayerMercsForCity(ctx.player, game);
-      return mercs.some(m => m.damage > 0 && m.actionsRemaining >= ACTION_COSTS.HOSPITAL);
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'in sector with hospital': (ctx) => {
+        const sector = findMercSectorForCity(ctx.player, game);
+        return !!sector?.hasHospital;
+      },
+      'has damaged MERC with actions': (ctx) => {
+        const mercs = getPlayerMercsForCity(ctx.player, game);
+        return mercs.some(m => m.damage > 0 && m.actionsRemaining >= ACTION_COSTS.HOSPITAL);
+      },
     })
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to heal',
@@ -1117,20 +1089,17 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
-    .condition((ctx) => {
-      // Cannot visit arms dealer during combat
-      if (game.activeCombat) return false;
-      // Must be rebel or dictator
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (!isRebel && !isDictator) return false;
-
-      const sector = findMercSectorForCity(ctx.player, game);
-      if (!sector?.hasArmsDealer) return false;
-
-      // Must have a MERC with actions remaining
-      const mercs = getPlayerMercsForCity(ctx.player, game);
-      return mercs.some(m => m.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'in sector with arms dealer': (ctx) => {
+        const sector = findMercSectorForCity(ctx.player, game);
+        return !!sector?.hasArmsDealer;
+      },
+      'has MERC with actions': (ctx) => {
+        const mercs = getPlayerMercsForCity(ctx.player, game);
+        return mercs.some(m => m.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
+      },
     })
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC visits the dealer?',
@@ -1245,13 +1214,10 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 export function createEndTurnAction(game: MERCGame): ActionDefinition {
   return Action.create('endTurn')
     .prompt('End turn')
-    .condition((ctx) => {
-      // Cannot end turn during combat - must retreat or continue
-      if (game.activeCombat) return false;
-      // Only available during main game (Day 2+)
-      if (game.currentDay < 2) return false;
-      // Must be rebel or dictator player
-      return game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player);
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'day 2 or later': () => game.currentDay >= 2,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
     })
     .chooseFrom<string>('confirm', {
       prompt: 'End your turn?',
@@ -1329,16 +1295,9 @@ export function createViewStashAction(game: MERCGame): ActionDefinition {
 
   return Action.create('viewStash')
     .prompt('View sector stash')
-    .condition((ctx, tracer) => {
-      // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (tracer) tracer.check('isRebelOrDictator', isRebel || isDictator);
-      if (!isRebel && !isDictator) return false;
-
-      const hasStash = getSectorsWithStash(ctx).length > 0;
-      if (tracer) tracer.check('hasAccessibleStash', hasStash);
-      return hasStash;
+    .condition({
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'has accessible stash': (ctx) => getSectorsWithStash(ctx).length > 0,
     })
     .chooseFrom<string>('sector', {
       prompt: 'Which sector stash to view?',

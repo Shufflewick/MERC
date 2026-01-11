@@ -72,14 +72,14 @@ function getHealingAmountForItem(equipmentId: string): number {
 export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
   return Action.create('playTactics')
     .prompt('Play a tactics card')
-    .condition((ctx) => {
-      // Only the dictator player can play tactics cards
-      if (!game.isDictatorPlayer(ctx.player)) return false;
-      // MERC-5j2: AI plays from deck, human plays from hand
-      if (game.dictatorPlayer?.isAI) {
-        return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
-      }
-      return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'has tactics cards available': () => {
+        if (game.dictatorPlayer?.isAI) {
+          return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
+        }
+        return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
+      },
     })
     .chooseElement<TacticsCard>('card', {
       prompt: 'Select a tactics card to play',
@@ -176,6 +176,9 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         const baseSector = game.gameMap.getAllSectors().find(s => s.sectorName === baseName);
         if (baseSector) {
           game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+          if (game.dictatorPlayer.dictator) {
+            game.dictatorPlayer.dictator.baseSectorId = baseSector.sectorId;
+          }
           game.message(`Dictator established base at ${baseSector.sectorName}`);
         }
       }
@@ -212,14 +215,14 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
 export function createReinforceAction(game: MERCGame): ActionDefinition {
   return Action.create('reinforce')
     .prompt('Reinforce militia')
-    .condition((ctx) => {
-      // Only the dictator player can reinforce
-      if (!game.isDictatorPlayer(ctx.player)) return false;
-      // MERC-5j2: AI plays from deck, human plays from hand
-      if (game.dictatorPlayer?.isAI) {
-        return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
-      }
-      return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'has tactics cards to discard': () => {
+        if (game.dictatorPlayer?.isAI) {
+          return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
+        }
+        return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
+      },
     })
     .chooseElement<TacticsCard>('card', {
       prompt: 'Discard a tactics card to reinforce',
@@ -341,15 +344,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
   return Action.create('castroBonusHire')
     .prompt("Castro's Ability: Hire a MERC")
-    .condition((ctx) => {
-      // Only for dictator player
-      if (!game.isDictatorPlayer(ctx.player)) return false;
-      // Only if dictator is Castro
-      const dictator = game.dictatorPlayer?.dictator;
-      if (!dictator || dictator.dictatorId !== 'castro') return false;
-      // Only if not AI (AI uses auto version)
-      if (game.dictatorPlayer?.isAI) return false;
-      return true;
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Castro': () => game.dictatorPlayer?.dictator?.dictatorId === 'castro',
+      'is human player': () => !game.dictatorPlayer?.isAI,
     })
     .chooseFrom<string>('selectedMerc', {
       prompt: 'Choose a MERC to hire',
@@ -516,15 +514,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
   return Action.create('kimBonusMilitia')
     .prompt("Kim's Ability: Place bonus militia")
-    .condition((ctx) => {
-      // Only for dictator player
-      if (!game.isDictatorPlayer(ctx.player)) return false;
-      // Only if dictator is Kim
-      const dictator = game.dictatorPlayer?.dictator;
-      if (!dictator || dictator.dictatorId !== 'kim') return false;
-      // Only if not AI (AI uses auto version)
-      if (game.dictatorPlayer?.isAI) return false;
-      return true;
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Kim': () => game.dictatorPlayer?.dictator?.dictatorId === 'kim',
+      'is human player': () => !game.dictatorPlayer?.isAI,
     })
     .chooseFrom<string>('targetSector', {
       prompt: (ctx) => {
@@ -540,11 +533,8 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         const sectors = game.gameMap.getAllSectors()
           .filter(s => s.dictatorMilitia > 0 || s.sectorType === 'Industry');
 
-        // Return just sector names as labels (cleaner UI)
-        return sectors.map(s => ({
-          label: s.sectorName,
-          value: s.sectorId,
-        }));
+        // Return sector names as strings (UI displays these directly)
+        return sectors.map(s => s.sectorName);
       },
     })
     .execute((args, ctx) => {
@@ -559,8 +549,9 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         return { success: true, message: 'No militia to place' };
       }
 
-      const targetSectorId = args.targetSector as string;
-      const targetSector = game.getSector(targetSectorId);
+      // Find sector by name (since choices are sector names)
+      const targetSectorName = args.targetSector as string;
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
       if (!targetSector) {
         return { success: false, message: 'Invalid sector' };
       }

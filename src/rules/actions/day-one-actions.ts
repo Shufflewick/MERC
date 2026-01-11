@@ -68,17 +68,18 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireFirstMerc')
     .prompt('Hire your first MERC')
     .notUndoable() // Involves randomness (drawing cards)
-    .condition((ctx) => {
-      // Only available during Day 1 setup
-      if (game.currentDay !== 1) return false;
-      // Not available during combat
-      if (game.activeCombat) return false;
-      if (!isRebelPlayer(ctx.player)) return false;
-      const player = ctx.player;
-      // Must have landed first (prevents choices from being fetched before landing)
-      if (!player.primarySquad.sectorId) return false;
-      // Use team.length (not teamSize) since Teresa doesn't count toward teamSize
-      return player.team.length === 0;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
+      'not in combat': () => !game.activeCombat,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'has landed': (ctx) => {
+        if (!isRebelPlayer(ctx.player)) return false;
+        return !!ctx.player.primarySquad.sectorId;
+      },
+      'has no MERCs yet': (ctx) => {
+        if (!isRebelPlayer(ctx.player)) return false;
+        return ctx.player.team.length === 0;
+      },
     })
     .chooseFrom<string>('merc', {
       prompt: 'Select your FIRST MERC to hire',
@@ -182,17 +183,17 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireSecondMerc')
     .prompt('Hire your second MERC')
     .notUndoable()
-    .condition((ctx) => {
-      // Only available during Day 1 setup
-      if (game.currentDay !== 1) return false;
-      // Not available during combat
-      if (game.activeCombat) return false;
-      if (!isRebelPlayer(ctx.player)) return false;
-      const player = ctx.player;
-      // Available when teamSize is 1 OR when teamSize is 0 but have 1+ MERCs (Teresa was first)
-      const playerId = `${player.position}`;
-      const remaining = getMercsFromCache(game, playerId) || [];
-      return player.team.length === 1 && remaining.length >= 2;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
+      'not in combat': () => !game.activeCombat,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'has 1 MERC and 2+ remaining to hire': (ctx) => {
+        if (!isRebelPlayer(ctx.player)) return false;
+        const player = ctx.player;
+        const playerId = `${player.position}`;
+        const remaining = getMercsFromCache(game, playerId) || [];
+        return player.team.length === 1 && remaining.length >= 2;
+      },
     })
     .chooseFrom<string>('merc', {
       prompt: 'Select your SECOND MERC to hire',
@@ -311,18 +312,18 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireThirdMerc')
     .prompt('Hire your third MERC (Teresa bonus)')
     .notUndoable()
-    .condition((ctx) => {
-      // Only available during Day 1 setup
-      if (game.currentDay !== 1) return false;
-      if (game.activeCombat) return false;
-      if (!isRebelPlayer(ctx.player)) return false;
-      const player = ctx.player;
-      const playerId = `${player.position}`;
-      const remaining = getMercsFromCache(game, playerId) || [];
-      // Check if Teresa is on the team (she doesn't count toward limit)
-      const hasTeresa = player.team.some(m => m.mercId === 'teresa');
-      // Available when: 2 MERCs hired, Teresa is on team, and cache has MERCs to hire
-      return player.team.length === 2 && hasTeresa && remaining.length > 0;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
+      'not in combat': () => !game.activeCombat,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'Teresa bonus: can hire third MERC': (ctx) => {
+        if (!isRebelPlayer(ctx.player)) return false;
+        const player = ctx.player;
+        const playerId = `${player.position}`;
+        const remaining = getMercsFromCache(game, playerId) || [];
+        const hasTeresa = player.team.some(m => m.mercId === 'teresa');
+        return player.team.length === 2 && hasTeresa && remaining.length > 0;
+      },
     })
     .chooseFrom<string>('merc', {
       prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',
@@ -448,13 +449,14 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
       return `Equip ${unequippedMerc?.mercName || 'MERC'}`;
     })
     .notUndoable() // Involves randomness (drawing equipment)
-    .condition((ctx) => {
-      // Only rebels equip starting equipment
-      if (!isRebelPlayer(ctx.player)) return false;
-      const player = ctx.player;
-      return player.team.some(merc =>
-        !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot
-      );
+    .condition({
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'has MERC without equipment': (ctx) => {
+        if (!isRebelPlayer(ctx.player)) return false;
+        return ctx.player.team.some(merc =>
+          !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot
+        );
+      },
     })
     .chooseFrom<string>('equipmentType', {
       prompt: (ctx) => {
@@ -505,17 +507,14 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
 export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
   return Action.create('placeLanding')
     .prompt('Choose your landing zone')
-    .condition((ctx) => {
-      // Cannot place landing during combat
-      if (game.activeCombat) return false;
-      // Only available during Day 1
-      if (game.currentDay !== 1) return false;
-      // Only rebels place landing zones
-      if (!isRebelPlayer(ctx.player)) return false;
-      const player = ctx.player;
-      // Cannot place if already landed (has a sector)
-      if (player.primarySquad.sectorId) return false;
-      return true;
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is Day 1': () => game.currentDay === 1,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'has not landed yet': (ctx) => {
+        if (!isRebelPlayer(ctx.player)) return false;
+        return !ctx.player.primarySquad.sectorId;
+      },
     })
     .chooseElement<Sector>('sector', {
       prompt: 'Select an edge industry to land',
@@ -563,14 +562,10 @@ export function createPlaceLandingDay1Action(game: MERCGame): ActionDefinition {
 export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
   return Action.create('selectDictator')
     .prompt('Choose your Dictator')
-    .condition(() => {
-      // Only available during Day 1 and only if dictator not yet selected
-      if (game.currentDay !== 1) return false;
-      // Skip if dictator already selected (AI or specified via options)
-      if (game.dictatorPlayer?.dictator) return false;
-      // Skip if AI player
-      if (game.dictatorPlayer?.isAI) return false;
-      return true;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
+      'dictator not yet selected': () => !game.dictatorPlayer?.dictator,
+      'is human dictator player': () => !game.dictatorPlayer?.isAI,
     })
     .chooseFrom<string>('dictatorChoice', {
       prompt: 'Select your Dictator',
@@ -611,9 +606,8 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
 export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionDefinition {
   return Action.create('dictatorPlaceInitialMilitia')
     .prompt('Place initial militia on unoccupied industries')
-    .condition(() => {
-      // Only available during Day 1 setup
-      return game.currentDay === 1;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
     })
     .execute(() => {
       placeInitialMilitia(game);
@@ -648,9 +642,8 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 
   return Action.create('dictatorHireFirstMerc')
     .prompt('Hire your first MERC')
-    .condition(() => {
-      // Only available during Day 1 setup
-      return game.currentDay === 1;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
     })
     // Auto-filled selection to pass MERC name forward (shows in action panel)
     .chooseFrom<string>('merc', {
@@ -738,17 +731,11 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
   return Action.create('chooseKimBase')
     .prompt("Kim's Ability: Choose your base location")
-    .condition(() => {
-      // Only available during Day 1 setup
-      if (game.currentDay !== 1) return false;
-      // Only for Kim
-      const dictator = game.dictatorPlayer?.dictator;
-      if (!dictator || dictator.dictatorId !== 'kim') return false;
-      // Only for human players
-      if (game.dictatorPlayer?.isAI) return false;
-      // Only if base not yet set
-      if (game.dictatorPlayer?.baseSectorId) return false;
-      return true;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
+      'is Kim': () => game.dictatorPlayer?.dictator?.dictatorId === 'kim',
+      'is human dictator player': () => !game.dictatorPlayer?.isAI,
+      'base not yet set': () => !game.dictatorPlayer?.baseSectorId,
     })
     .chooseElement<Sector>('baseLocation', {
       prompt: 'Choose where to establish your revealed base',
@@ -769,6 +756,9 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
       }
 
       game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      if (game.dictatorPlayer.dictator) {
+        game.dictatorPlayer.dictator.baseSectorId = baseSector.sectorId;
+      }
       game.message(`Kim established base at ${baseSector.sectorName}`);
 
       return { success: true, message: `Base set at ${baseSector.sectorName}` };
@@ -782,13 +772,15 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
 export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefinition {
   return Action.create('dictatorSetupAbility')
     .prompt('Apply dictator special ability')
-    .condition(() => {
-      // Skip if Kim and base not set (human Kim needs to choose first)
-      const dictator = game.dictatorPlayer?.dictator;
-      if (dictator?.dictatorId === 'kim' && !game.dictatorPlayer?.isAI && !game.dictatorPlayer?.baseSectorId) {
-        return false;
-      }
-      return game.currentDay === 1;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
+      'Kim base set if needed': () => {
+        const dictator = game.dictatorPlayer?.dictator;
+        if (dictator?.dictatorId === 'kim' && !game.dictatorPlayer?.isAI && !game.dictatorPlayer?.baseSectorId) {
+          return false;
+        }
+        return true;
+      },
     })
     .execute(() => {
       applyDictatorSetupAbility(game);
@@ -803,8 +795,8 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
 export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinition {
   return Action.create('dictatorDrawTactics')
     .prompt('Draw tactics cards')
-    .condition(() => {
-      return game.currentDay === 1;
+    .condition({
+      'is Day 1': () => game.currentDay === 1,
     })
     .execute(() => {
       drawTacticsHand(game);
@@ -830,12 +822,15 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       }
       return `Place ${total} extra militia`;
     })
-    .condition(() => {
-      const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
-      if (game.currentDay !== 1 || extra === 0) return false;
-      // Check if there are remaining militia to place
-      const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
-      return remaining === undefined || remaining > 0;
+    .condition({
+      'is Day 1 with extra militia': () => {
+        const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
+        return game.currentDay === 1 && extra > 0;
+      },
+      'has militia remaining to place': () => {
+        const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
+        return remaining === undefined || remaining > 0;
+      },
     })
     .chooseFrom<string>('targetSector', {
       prompt: () => {
@@ -935,8 +930,8 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
 export function createDictatorSkipExtraMilitiaAction(game: MERCGame): ActionDefinition {
   return Action.create('dictatorSkipExtraMilitia')
     .prompt('No extra militia to place')
-    .condition(() => {
-      return game.currentDay === 1 && game.setupConfig.dictatorStrength.extra === 0;
+    .condition({
+      'is Day 1 with no extra militia': () => game.currentDay === 1 && game.setupConfig.dictatorStrength.extra === 0,
     })
     .execute(() => {
       return { success: true, message: 'No extra militia' };
@@ -954,9 +949,8 @@ export function createDictatorSkipExtraMilitiaAction(game: MERCGame): ActionDefi
 export function createDesignatePrivacyPlayerAction(game: MERCGame): ActionDefinition {
   return Action.create('designatePrivacyPlayer')
     .prompt('Designate Privacy Player')
-    .condition(() => {
-      // Only available during setup when AI is enabled
-      return game.dictatorPlayer?.isAI && !game.dictatorPlayer.privacyPlayerId;
+    .condition({
+      'AI dictator needs privacy player': () => game.dictatorPlayer?.isAI && !game.dictatorPlayer.privacyPlayerId,
     })
     .chooseElement<RebelPlayer>('player', {
       prompt: 'Choose which player will handle AI decisions',

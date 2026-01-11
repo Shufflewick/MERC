@@ -89,17 +89,10 @@ function isAdjacentToMovableSquad(sector: Sector, player: unknown, game: MERCGam
 export function createMoveAction(game: MERCGame): ActionDefinition {
   return Action.create('move')
     .prompt('Move')
-    .condition((ctx) => {
-      // Cannot move during combat
-      if (game.activeCombat) return false;
-
-      // Must be rebel or dictator player
-      const isRebel = game.isRebelPlayer(ctx.player);
-      const isDictator = game.isDictatorPlayer(ctx.player);
-      if (!isRebel && !isDictator) return false;
-
-      // Check if any squad can move
-      return getMovableSquads(ctx.player, game).length > 0;
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'has squad that can move': (ctx) => getMovableSquads(ctx.player, game).length > 0,
     })
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to move',
@@ -227,35 +220,36 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
 export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition {
   return Action.create('coordinatedAttack')
     .prompt('Coordinated attack (both squads)')
-    .condition((ctx) => {
-      // Only rebels can use coordinated attack
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      const player = asRebelPlayer(ctx.player);
-      // Need both squads with MERCs and they must be in different but adjacent sectors
-      // that share a common adjacent target
-      if (player.primarySquad.mercCount === 0 || player.secondarySquad.mercCount === 0) return false;
-      if (!player.primarySquad.sectorId || !player.secondarySquad.sectorId) return false;
+    .condition({
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'both squads can attack common target': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        const player = asRebelPlayer(ctx.player);
+        // Need both squads with MERCs
+        if (player.primarySquad.mercCount === 0 || player.secondarySquad.mercCount === 0) return false;
+        if (!player.primarySquad.sectorId || !player.secondarySquad.sectorId) return false;
 
-      // All living MERCs in both squads must have actions
-      const primaryMercs = player.primarySquad.getLivingMercs();
-      const secondaryMercs = player.secondarySquad.getLivingMercs();
-      if (!primaryMercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
-      if (!secondaryMercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+        // All living MERCs in both squads must have actions
+        const primaryMercs = player.primarySquad.getLivingMercs();
+        const secondaryMercs = player.secondarySquad.getLivingMercs();
+        if (!primaryMercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+        if (!secondaryMercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
 
-      // Check if there's a common adjacent sector they can both reach
-      const primarySector = game.getSector(player.primarySquad.sectorId);
-      const secondarySector = game.getSector(player.secondarySquad.sectorId);
-      if (!primarySector || !secondarySector) return false;
+        // Check if there's a common adjacent sector they can both reach
+        const primarySector = game.getSector(player.primarySquad.sectorId);
+        const secondarySector = game.getSector(player.secondarySquad.sectorId);
+        if (!primarySector || !secondarySector) return false;
 
-      const primaryAdjacent = game.getAdjacentSectors(primarySector);
-      const secondaryAdjacent = game.getAdjacentSectors(secondarySector);
+        const primaryAdjacent = game.getAdjacentSectors(primarySector);
+        const secondaryAdjacent = game.getAdjacentSectors(secondarySector);
 
-      // Find common targets (sectors adjacent to both squads)
-      const commonTargets = primaryAdjacent.filter(s =>
-        secondaryAdjacent.some(s2 => s2.sectorId === s.sectorId)
-      );
+        // Find common targets (sectors adjacent to both squads)
+        const commonTargets = primaryAdjacent.filter(s =>
+          secondaryAdjacent.some(s2 => s2.sectorId === s.sectorId)
+        );
 
-      return commonTargets.length > 0;
+        return commonTargets.length > 0;
+      },
     })
     .chooseElement<Sector>('target', {
       prompt: 'Select target sector for coordinated attack',
@@ -323,22 +317,20 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
 export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefinition {
   return Action.create('declareCoordinatedAttack')
     .prompt('Declare coordinated attack (stage for multi-player)')
-    .condition((ctx) => {
-      // Only rebels can declare coordinated attacks
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      // Only available in multi-player games (need another rebel to coordinate with)
-      if (game.rebelPlayers.length <= 1) return false;
-      const player = asRebelPlayer(ctx.player);
-      // Need at least one squad with MERCs adjacent to an enemy sector
-      const hasValidSquad = [player.primarySquad, player.secondarySquad].some(squad => {
-        if (squad.mercCount === 0 || !squad.sectorId) return false;
-        const sector = game.getSector(squad.sectorId);
-        if (!sector) return false;
-        // Check if any adjacent sector has enemies
-        const adjacent = game.getAdjacentSectors(sector);
-        return adjacent.some(s => hasEnemies(game, s, player));
-      });
-      return hasValidSquad;
+    .condition({
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'is multi-player game': () => game.rebelPlayers.length > 1,
+      'has squad adjacent to enemy': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        const player = asRebelPlayer(ctx.player);
+        return [player.primarySquad, player.secondarySquad].some(squad => {
+          if (squad.mercCount === 0 || !squad.sectorId) return false;
+          const sector = game.getSector(squad.sectorId);
+          if (!sector) return false;
+          const adjacent = game.getAdjacentSectors(sector);
+          return adjacent.some(s => hasEnemies(game, s, player));
+        });
+      },
     })
     .chooseElement<Squad>('squad', {
       prompt: 'Select squad to stage for coordinated attack',
@@ -403,34 +395,32 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
 export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinition {
   return Action.create('joinCoordinatedAttack')
     .prompt('Join coordinated attack')
-    .condition((ctx) => {
-      // Only rebels can join coordinated attacks
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      // Only available in multi-player games
-      if (game.rebelPlayers.length <= 1) return false;
-      const player = asRebelPlayer(ctx.player);
-      // Must have pending coordinated attacks that this player can join
-      if (game.pendingCoordinatedAttacks.size === 0) return false;
+    .condition({
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'is multi-player game': () => game.rebelPlayers.length > 1,
+      'has pending attack to join': () => game.pendingCoordinatedAttacks.size > 0,
+      'has squad that can reach pending target': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        const player = asRebelPlayer(ctx.player);
 
-      // Check if player has a squad that can reach any pending attack target
-      for (const [targetId] of game.pendingCoordinatedAttacks) {
-        const targetSector = game.getSector(targetId);
-        if (!targetSector) continue;
+        for (const [targetId] of game.pendingCoordinatedAttacks) {
+          const targetSector = game.getSector(targetId);
+          if (!targetSector) continue;
 
-        for (const squad of [player.primarySquad, player.secondarySquad]) {
-          if (squad.livingMercCount === 0 || !squad.sectorId) continue;
-          const sector = game.getSector(squad.sectorId);
-          if (!sector) continue;
-          const adjacent = game.getAdjacentSectors(sector);
-          if (adjacent.some(s => s.sectorId === targetId)) {
-            // Check squad can move (living mercs only)
-            if (squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) {
-              return true;
+          for (const squad of [player.primarySquad, player.secondarySquad]) {
+            if (squad.livingMercCount === 0 || !squad.sectorId) continue;
+            const sector = game.getSector(squad.sectorId);
+            if (!sector) continue;
+            const adjacent = game.getAdjacentSectors(sector);
+            if (adjacent.some(s => s.sectorId === targetId)) {
+              if (squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) {
+                return true;
+              }
             }
           }
         }
-      }
-      return false;
+        return false;
+      },
     })
     .chooseFrom<string>('targetAttack', {
       prompt: 'Select coordinated attack to join',
@@ -500,13 +490,10 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
 export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefinition {
   return Action.create('executeCoordinatedAttack')
     .prompt('Execute coordinated attack')
-    .condition((ctx) => {
-      // Only rebels can execute coordinated attacks
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      // Only available in multi-player games
-      if (game.rebelPlayers.length <= 1) return false;
-      // Must have pending coordinated attacks
-      return game.pendingCoordinatedAttacks.size > 0;
+    .condition({
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'is multi-player game': () => game.rebelPlayers.length > 1,
+      'has pending coordinated attack': () => game.pendingCoordinatedAttacks.size > 0,
     })
     .chooseFrom<string>('targetAttack', {
       prompt: 'Select coordinated attack to execute',
@@ -582,91 +569,209 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
 /**
  * Split off secondary squad
  * Cost: Free action
+ * Works for both rebel and dictator players.
  */
 export function createSplitSquadAction(game: MERCGame): ActionDefinition {
   return Action.create('splitSquad')
     .prompt('Split squad')
-    .condition((ctx) => {
-      // Cannot split squad during combat
-      if (game.activeCombat) return false;
-      // Not available during Day 1 setup
-      if (game.currentDay < 2) return false;
-      // Only rebels can split squads
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      const player = asRebelPlayer(ctx.player);
-      // Must have at least 2 MERCs in primary and empty secondary
-      return player.primarySquad.mercCount > 1 && player.secondarySquad.mercCount === 0;
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'day 2 or later': () => game.currentDay >= 2,
+      'can split squad': (ctx) => {
+        if (game.isRebelPlayer(ctx.player)) {
+          const player = asRebelPlayer(ctx.player);
+          return player.primarySquad.mercCount > 1 && player.secondarySquad.mercCount === 0;
+        }
+
+        if (game.isDictatorPlayer(ctx.player)) {
+          const dictator = game.dictatorPlayer;
+          if (!dictator) return false;
+          let primaryCount = dictator.primarySquad?.mercCount ?? 0;
+          if (dictator.dictator?.inPlay &&
+              dictator.dictator.sectorId === dictator.primarySquad?.sectorId) {
+            primaryCount += 1;
+          }
+          let secondaryCount = dictator.secondarySquad?.mercCount ?? 0;
+          if (dictator.dictator?.inPlay &&
+              dictator.dictator.sectorId === dictator.secondarySquad?.sectorId) {
+            secondaryCount += 1;
+          }
+          return primaryCount > 1 && secondaryCount === 0;
+        }
+
+        return false;
+      },
     })
-    .chooseElement<MercCard>('merc', {
-      prompt: 'Select MERC to split off into secondary squad',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        // Safety check - only rebels have squads
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const merc = asMercCard(element);
-        const player = asRebelPlayer(ctx.player);
-        // Only MERCs in primary squad can be split off
-        return player.getSquadContaining(merc) === player.primarySquad;
+    .chooseFrom<string>('unitName', {
+      prompt: 'Select unit to split off into secondary squad',
+      choices: (ctx) => {
+        if (game.isRebelPlayer(ctx.player)) {
+          const player = asRebelPlayer(ctx.player);
+          return player.primarySquad.getMercs().map(m => capitalize(m.mercName));
+        }
+        if (game.isDictatorPlayer(ctx.player)) {
+          const dictator = game.dictatorPlayer;
+          if (!dictator?.primarySquad) return [];
+          const units: string[] = [];
+          // Add MERCs
+          for (const merc of dictator.primarySquad.getMercs()) {
+            units.push(capitalize(merc.mercName));
+          }
+          // Add DictatorCard if in primary squad
+          if (dictator.dictator?.inPlay &&
+              dictator.dictator.sectorId === dictator.primarySquad.sectorId) {
+            units.push(capitalize(dictator.dictator.dictatorName));
+          }
+          return units;
+        }
+        return [];
       },
     })
     .execute((args, ctx) => {
-      const player = asRebelPlayer(ctx.player);
-      const merc = asMercCard(args.merc);
+      const unitName = args.unitName as string;
 
-      // Move MERC from primary to secondary squad
-      merc.putInto(player.secondarySquad);
+      if (game.isRebelPlayer(ctx.player)) {
+        const player = asRebelPlayer(ctx.player);
+        const merc = player.primarySquad.getMercs().find(m =>
+          capitalize(m.mercName) === unitName
+        );
+        if (!merc) {
+          return { success: false, message: 'MERC not found' };
+        }
 
-      // Secondary squad starts at same location
-      player.secondarySquad.sectorId = player.primarySquad.sectorId;
-      // Ensure MERC's sectorId is synced
-      merc.sectorId = player.primarySquad.sectorId;
+        // Move MERC from primary to secondary squad
+        merc.putInto(player.secondarySquad);
 
-      // Update Haarg's ability bonuses (squad composition changed)
-      game.updateAllHaargBonuses();
-      game.updateAllSargeBonuses();
+        // Secondary squad starts at same location
+        player.secondarySquad.sectorId = player.primarySquad.sectorId;
+        // Ensure MERC's sectorId is synced
+        merc.sectorId = player.primarySquad.sectorId;
 
-      game.message(`${player.name} split off ${merc.mercName} into secondary squad`);
-      return { success: true, message: `Split ${merc.mercName} to secondary squad` };
+        // Update Haarg's ability bonuses (squad composition changed)
+        game.updateAllHaargBonuses();
+        game.updateAllSargeBonuses();
+
+        game.message(`${player.name} split off ${merc.mercName} into secondary squad`);
+        return { success: true, message: `Split ${merc.mercName} to secondary squad` };
+      }
+
+      if (game.isDictatorPlayer(ctx.player)) {
+        const dictator = game.dictatorPlayer;
+        if (!dictator?.primarySquad || !dictator.secondarySquad) {
+          return { success: false, message: 'Invalid squads' };
+        }
+
+        // Check if splitting a MERC or the DictatorCard
+        const merc = dictator.primarySquad.getMercs().find(m =>
+          capitalize(m.mercName) === unitName
+        );
+
+        if (merc) {
+          // Move MERC from primary to secondary squad
+          merc.putInto(dictator.secondarySquad);
+          dictator.secondarySquad.sectorId = dictator.primarySquad.sectorId;
+          merc.sectorId = dictator.primarySquad.sectorId;
+          game.message(`Dictator split off ${merc.mercName} into secondary squad`);
+          return { success: true, message: `Split ${merc.mercName} to secondary squad` };
+        }
+
+        // Check if it's the DictatorCard
+        if (dictator.dictator && capitalize(dictator.dictator.dictatorName) === unitName) {
+          // Move DictatorCard to secondary squad
+          dictator.dictator.putInto(dictator.secondarySquad);
+          dictator.secondarySquad.sectorId = dictator.primarySquad.sectorId;
+          game.message(`${dictator.dictator.dictatorName} split off into secondary squad`);
+          return { success: true, message: `Split ${dictator.dictator.dictatorName} to secondary squad` };
+        }
+
+        return { success: false, message: 'Unit not found' };
+      }
+
+      return { success: false, message: 'Invalid player type' };
     });
 }
 
 /**
  * Merge squads back together
  * Cost: Free action
+ * Works for both rebel and dictator players.
  */
 export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
   return Action.create('mergeSquads')
     .prompt('Merge squads')
-    .condition((ctx) => {
-      // Cannot merge squads during combat
-      if (game.activeCombat) return false;
-      // Not available during Day 1 setup
-      if (game.currentDay < 2) return false;
-      // Only rebels can merge squads
-      if (!game.isRebelPlayer(ctx.player)) return false;
-      const player = asRebelPlayer(ctx.player);
-      // Both squads must be in same sector
-      return player.secondarySquad.mercCount > 0 &&
-             player.primarySquad.sectorId === player.secondarySquad.sectorId;
+    .condition({
+      'not in combat': () => !game.activeCombat,
+      'day 2 or later': () => game.currentDay >= 2,
+      'can merge squads': (ctx) => {
+        if (game.isRebelPlayer(ctx.player)) {
+          const player = asRebelPlayer(ctx.player);
+          return player.secondarySquad.mercCount > 0 &&
+                 player.primarySquad.sectorId === player.secondarySquad.sectorId;
+        }
+
+        if (game.isDictatorPlayer(ctx.player)) {
+          const dictator = game.dictatorPlayer;
+          if (!dictator?.primarySquad || !dictator.secondarySquad) return false;
+          let secondaryCount = dictator.secondarySquad.mercCount;
+          if (dictator.dictator?.inPlay &&
+              dictator.dictator.sectorId === dictator.secondarySquad.sectorId) {
+            secondaryCount += 1;
+          }
+          return secondaryCount > 0 &&
+                 dictator.primarySquad.sectorId === dictator.secondarySquad.sectorId;
+        }
+
+        return false;
+      },
     })
     .execute((args, ctx) => {
-      const player = asRebelPlayer(ctx.player);
+      if (game.isRebelPlayer(ctx.player)) {
+        const player = asRebelPlayer(ctx.player);
 
-      // Move all MERCs from secondary to primary
-      const mercs = player.secondarySquad.getMercs();
-      for (const merc of mercs) {
-        merc.putInto(player.primarySquad);
+        // Move all MERCs from secondary to primary
+        const mercs = player.secondarySquad.getMercs();
+        for (const merc of mercs) {
+          merc.putInto(player.primarySquad);
+        }
+
+        // Clear secondary squad location
+        player.secondarySquad.sectorId = undefined;
+
+        // Update Haarg's ability bonuses (squad composition changed)
+        game.updateAllHaargBonuses();
+        game.updateAllSargeBonuses();
+
+        game.message(`${player.name} merged squads (${mercs.length} MERC(s) rejoined)`);
+        return { success: true, message: `Merged ${mercs.length} MERC(s)` };
       }
 
-      // Clear secondary squad location
-      player.secondarySquad.sectorId = undefined;
+      if (game.isDictatorPlayer(ctx.player)) {
+        const dictator = game.dictatorPlayer;
+        if (!dictator?.primarySquad || !dictator.secondarySquad) {
+          return { success: false, message: 'Invalid squads' };
+        }
 
-      // Update Haarg's ability bonuses (squad composition changed)
-      game.updateAllHaargBonuses();
-      game.updateAllSargeBonuses();
+        // Move all units from secondary to primary
+        const mercs = dictator.secondarySquad.getMercs();
+        let unitCount = 0;
+        for (const merc of mercs) {
+          merc.putInto(dictator.primarySquad);
+          unitCount++;
+        }
 
-      game.message(`${player.name} merged squads (${mercs.length} MERC(s) rejoined)`);
-      return { success: true, message: `Merged ${mercs.length} MERC(s)` };
+        // Move DictatorCard if in secondary
+        if (dictator.dictator?.sectorId === dictator.secondarySquad.sectorId) {
+          dictator.dictator.putInto(dictator.primarySquad);
+          unitCount++;
+        }
+
+        // Clear secondary squad location
+        dictator.secondarySquad.sectorId = undefined;
+
+        game.message(`Dictator merged squads (${unitCount} unit(s) rejoined)`);
+        return { success: true, message: `Merged ${unitCount} unit(s)` };
+      }
+
+      return { success: false, message: 'Invalid player type' };
     });
 }
