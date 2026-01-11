@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 11 of 13 (Migrate instanceof)
-Plan: 0 of 3 complete
-Status: Planning complete
-Last activity: 2026-01-11 — Created phase plans
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-01-11 — Completed 11-01-PLAN.md (type guards + combat.ts migration)
 
-Progress: ███░░░░░░░ 30%
+Progress: ████░░░░░░ 40%
 
 ## Milestones Completed
 
@@ -27,16 +27,16 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 
 - [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
 - [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
-- [ ] Phase 11: Migrate instanceof — 3 plans created, 107 checks to migrate
+- [ ] Phase 11: Migrate instanceof — 1/3 plans complete, 56 checks migrated in combat.ts
 - [ ] Phase 12: Merge Data Files
 - [ ] Phase 13: Remove Legacy
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27
-- Total execution time: ~3.9 hours
-- Average duration: 8.6 min/plan
+- Total plans completed: 28
+- Total execution time: ~4.2 hours
+- Average duration: 9.0 min/plan
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 - Data interfaces updated with cardType field
 - CombatUnitCard in inheritance chain between CombatUnit and MercCard/DictatorCard
 - inPlay defaults to true in CombatUnitCard, overridden to false in DictatorCard
+- Property-based type guards: isCombatUnitCard, isMercCard, isDictatorCard in helpers.ts
+- Pattern: Use optional chaining (`?.isMerc`) instead of instanceof for bundler compatibility
 
 ### Deferred Issues
 
@@ -65,5 +67,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Phase 11 plans created, ready for execution
-Resume file: .planning/phases/11-migrate-instanceof/11-01-PLAN.md
+Stopped at: Completed 11-01-PLAN.md
+Resume file: .planning/phases/11-migrate-instanceof/11-02-PLAN.md
