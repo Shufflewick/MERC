@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 11 of 13 (Migrate instanceof)
-Plan: 2 of 3 complete
-Status: In progress
-Last activity: 2026-01-11 — Completed 11-02-PLAN.md (actions/ directory migration)
+Plan: 3 of 3 complete
+Status: Phase complete
+Last activity: 2026-01-11 — Completed 11-03-PLAN.md (remaining files migration)
 
-Progress: █████░░░░░ 50%
+Progress: ██████░░░░ 60%
 
 ## Milestones Completed
 
@@ -27,16 +27,16 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 
 - [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
 - [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
-- [ ] Phase 11: Migrate instanceof — 2/3 plans complete, 88 checks migrated
+- [x] Phase 11: Migrate instanceof — 103 checks migrated to property-based guards
 - [ ] Phase 12: Merge Data Files
 - [ ] Phase 13: Remove Legacy
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 29
-- Total execution time: ~4.3 hours
-- Average duration: 8.9 min/plan
+- Total plans completed: 30
+- Total execution time: ~4.5 hours
+- Average duration: 9.0 min/plan
 
 ## Accumulated Context
 
@@ -63,9 +63,10 @@ None active.
 - Milestone v1.2 created: Merge Dictator and Merc Cards, 5 phases (Phase 9-13)
 - Phase 9 completed: cardType discriminator added
 - Phase 10 completed: CombatUnitCard class created
+- Phase 11 completed: 103 instanceof checks migrated to property-based guards
 
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Completed 11-02-PLAN.md
-Resume file: .planning/phases/11-migrate-instanceof/11-03-PLAN.md
+Stopped at: Completed Phase 11 (Migrate instanceof)
+Resume file: .planning/phases/12-merge-data-files/

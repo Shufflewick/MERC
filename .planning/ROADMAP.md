@@ -59,17 +59,17 @@ Plans:
 Plans:
 - [x] 10-01: Create CombatUnitCard class — completed 2026-01-11
 
-#### Phase 11: Migrate instanceof — IN PROGRESS
+#### Phase 11: Migrate instanceof — COMPLETE
 
-**Goal**: Replace 107 instanceof checks with property-based type guards
+**Goal**: Replace 103 instanceof checks with property-based type guards
 **Depends on**: Phase 10
 **Research**: Unlikely (mechanical refactoring)
-**Plans**: 2/3
+**Plans**: 3/3
 
 Plans:
 - [x] 11-01: Type guards and combat.ts migration — completed 2026-01-11
 - [x] 11-02: Actions directory migration — completed 2026-01-11
-- [ ] 11-03: Other files migration
+- [x] 11-03: Other files migration — completed 2026-01-11
 
 #### Phase 12: Merge Data Files
 
@@ -105,7 +105,7 @@ Plans:
 | 8. Artillery Barrage | v1.1 | 4/4 | Complete | 2026-01-09 |
 | 9. Add Discriminator | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 10. Unified Class | v1.2 | 1/1 | Complete | 2026-01-11 |
-| 11. Migrate instanceof | v1.2 | 2/3 | In progress | - |
+| 11. Migrate instanceof | v1.2 | 3/3 | Complete | 2026-01-11 |
 | 12. Merge Data Files | v1.2 | 0/? | Not started | - |
 | 13. Remove Legacy | v1.2 | 0/? | Not started | - |
 
