@@ -5,6 +5,7 @@ import {
 } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import { MercCard, Sector, Squad, Equipment } from '../src/rules/elements.js';
+import { isMercCard } from '../src/rules/actions/helpers.js';
 
 /**
  * Action Condition Tests
@@ -733,7 +734,7 @@ describe('Action Conditions', () => {
 
       // Find a MERC with training > 0
       const mercs = game.mercDeck.children.filter(
-        (c): c is MercCard => c instanceof MercCard && c.training > 0
+        (c): c is MercCard => isMercCard(c) && c.training > 0
       );
       const merc = mercs[0];
 
