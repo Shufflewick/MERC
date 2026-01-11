@@ -8,12 +8,13 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 - ✅ **v1.0 Codebase Cleanup** — Phases 1-6 (shipped 2026-01-09)
 - ✅ **v1.1 Polish** — Phases 7-8 (shipped 2026-01-09)
-- 🚧 **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (in progress)
+- ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
 
 ## Completed Milestones
 
 - ✅ [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) (Phases 1-6) — SHIPPED 2026-01-09
 - ✅ [v1.1 Polish](milestones/v1.1-ROADMAP.md) (Phases 7-8) — SHIPPED 2026-01-09
+- ✅ [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md) (Phases 9-13) — SHIPPED 2026-01-11
 
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
@@ -35,7 +36,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 </details>
 
-### 🚧 v1.2 Merge Dictator and Merc Cards (In Progress)
+### ✅ v1.2 Merge Dictator and Merc Cards — SHIPPED 2026-01-11
 
 **Milestone Goal:** Unify MercCard and DictatorCard into a single CombatUnitCard class with discriminator-based logic, eliminating duplicate class definitions and replacing 130+ instanceof checks with property-based type guards.
 
@@ -81,15 +82,15 @@ Plans:
 Plans:
 - [x] 12-01: Merge data files — completed 2026-01-11
 
-#### Phase 13: Remove Legacy
+#### Phase 13: Remove Legacy — COMPLETE
 
 **Goal**: Remove old data files and fix remaining legacy references
 **Depends on**: Phase 12
 **Research**: Unlikely (cleanup)
-**Plans**: 1
+**Plans**: 1/1
 
 Plans:
-- [ ] 13-01: Delete old data files and fix references
+- [x] 13-01: Delete old data files and fix references — completed 2026-01-11
 
 ## Progress
 
@@ -107,11 +108,11 @@ Plans:
 | 10. Unified Class | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 11. Migrate instanceof | v1.2 | 3/3 | Complete | 2026-01-11 |
 | 12. Merge Data Files | v1.2 | 1/1 | Complete | 2026-01-11 |
-| 13. Remove Legacy | v1.2 | 0/1 | Planned | - |
+| 13. Remove Legacy | v1.2 | 1/1 | Complete | 2026-01-11 |
 
 ## Status
 
-v1.0 and v1.1 complete. v1.2 in progress.
+v1.0, v1.1, and v1.2 complete.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)

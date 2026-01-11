@@ -5,23 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-09)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** Merge Dictator and Merc Cards — Unify card types for cleaner architecture
+**Current focus:** Milestone v1.2 COMPLETE — Merge Dictator and Merc Cards finished
 
 ## Current Position
 
-Phase: 12 of 13 (Merge Data Files)
+Phase: 13 of 13 (Remove Legacy)
 Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-01-11 — Completed 12-01-PLAN.md (merge data files)
+Status: Milestone complete
+Last activity: 2026-01-11 — Completed 13-01-PLAN.md (remove legacy)
 
-Progress: ███████░░░ 70%
+Progress: ██████████ 100%
 
 ## Milestones Completed
 
 - v1.0 Codebase Cleanup (Phases 1-6) — 20 plans
 - v1.1 Polish (Phases 7-8) — 6 plans
+- v1.2 Merge Dictator and Merc Cards (Phases 9-13) — 6 plans
 
-Total: 8 phases, 26 plans, 2 milestones shipped
+Total: 13 phases, 32 plans, 3 milestones shipped
 
 ## v1.2 Progress
 
@@ -29,14 +30,14 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 - [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
 - [x] Phase 11: Migrate instanceof — 103 checks migrated to property-based guards
 - [x] Phase 12: Merge Data Files — combatants.json created, unified CombatantData interface
-- [ ] Phase 13: Remove Legacy
+- [x] Phase 13: Remove Legacy — Deleted mercs.json/dictators.json, updated all references
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 31
-- Total execution time: ~4.5 hours
-- Average duration: 9.0 min/plan
+- Total plans completed: 32
+- Total execution time: ~4.6 hours
+- Average duration: 8.7 min/plan
 
 ## Accumulated Context
 
@@ -49,6 +50,7 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 - inPlay defaults to true in CombatUnitCard, overridden to false in DictatorCard
 - Property-based type guards: isCombatUnitCard, isMercCard, isDictatorCard in helpers.ts
 - Pattern: Use optional chaining (`?.isMerc`) instead of instanceof for bundler compatibility
+- Pattern: Access dictator data via combatantData.filter(d => d.cardType === 'dictator')
 
 ### Deferred Issues
 
@@ -60,13 +62,11 @@ None active.
 
 ### Roadmap Evolution
 
-- Milestone v1.2 created: Merge Dictator and Merc Cards, 5 phases (Phase 9-13)
-- Phase 9 completed: cardType discriminator added
-- Phase 10 completed: CombatUnitCard class created
-- Phase 11 completed: 103 instanceof checks migrated to property-based guards
+- Milestone v1.2 COMPLETE: Merge Dictator and Merc Cards, 5 phases (Phase 9-13)
+- All phases completed successfully
 
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Completed Phase 12 (Merge Data Files)
-Resume file: .planning/phases/13-remove-legacy/
+Stopped at: Milestone v1.2 complete
+Resume file: None - run /gsd:complete-milestone to archive
