@@ -5,6 +5,7 @@ import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
 import MercCard from './MercCard.vue';
 import MercIconSmall from './MercIconSmall.vue';
+import SectorCardChoice from './SectorCardChoice.vue';
 
 // Helper to get attribute from node
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
@@ -461,35 +462,13 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
           <!-- Sector Selection (for Castro hire placement, Kim militia, or base location) -->
           <div v-else-if="isSelectingSector" class="sector-selection">
             <div class="sector-card-choices">
-              <div
+              <SectorCardChoice
                 v-for="sector in selectableSectors"
                 :key="sector.sectorId"
-                class="sector-card-choice"
+                :sector="sector"
+                size="compact"
                 @click="selectSector(sector)"
-              >
-                <div class="sector-card-image" :style="{ backgroundImage: `url(${sector.image})` }">
-                  <div class="sector-card-overlay"></div>
-                  <div class="sector-card-name">{{ sector.sectorName }}</div>
-                </div>
-                <div class="sector-card-stats">
-                  <div class="sector-stat">
-                    <span class="stat-icon">💰</span>
-                    <span class="stat-value">{{ sector.value }}</span>
-                  </div>
-                  <div class="sector-stat" v-if="sector.weaponLoot > 0 || sector.armorLoot > 0 || sector.accessoryLoot > 0">
-                    <span class="stat-icon">📦</span>
-                    <span class="stat-value">
-                      <span v-if="sector.weaponLoot > 0" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
-                      <span v-if="sector.armorLoot > 0" title="Armor">🛡️{{ sector.armorLoot }}</span>
-                      <span v-if="sector.accessoryLoot > 0" title="Accessories">💍{{ sector.accessoryLoot }}</span>
-                    </span>
-                  </div>
-                  <div class="sector-stat" v-if="sector.dictatorMilitia > 0">
-                    <span class="stat-icon">🎖️</span>
-                    <span class="stat-value">{{ sector.dictatorMilitia }} militia</span>
-                  </div>
-                </div>
-              </div>
+              />
             </div>
           </div>
 
@@ -779,7 +758,7 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   box-shadow: 0 0 12px rgba(139, 0, 0, 0.6);
 }
 
-/* Sector Selection - Visual Cards */
+/* Sector Selection - Container */
 .sector-selection {
   display: flex;
   flex-direction: column;
@@ -791,82 +770,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
-}
-
-.sector-card-choice {
-  width: 160px;
-  background: rgba(30, 30, 30, 0.9);
-  border: 2px solid rgba(139, 0, 0, 0.4);
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.sector-card-choice:hover {
-  border-color: #8b0000;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgba(139, 0, 0, 0.4);
-}
-
-.sector-card-image {
-  position: relative;
-  height: 80px;
-  background-size: cover;
-  background-position: center;
-}
-
-.sector-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.2) 0%,
-    rgba(0, 0, 0, 0.6) 100%
-  );
-}
-
-.sector-card-name {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  right: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-}
-
-.sector-card-stats {
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: rgba(20, 20, 20, 0.8);
-}
-
-.sector-stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.stat-icon {
-  font-size: 0.8rem;
-}
-
-.stat-value {
-  display: flex;
-  gap: 4px;
-  color: #fff;
-}
-
-.stat-value span {
-  display: flex;
-  align-items: center;
-  gap: 2px;
 }
 
 /* Equipment Selection */

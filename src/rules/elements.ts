@@ -1102,6 +1102,7 @@ export class DictatorCard extends CombatUnit {
 
   // Dictator-specific state
   inPlay: boolean = false;
+  baseSectorId?: string; // Permanent base location (never changes after revealed)
 
   /**
    * Put the dictator into play (when base is revealed).

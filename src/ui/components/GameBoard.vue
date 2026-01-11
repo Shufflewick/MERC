@@ -12,6 +12,7 @@ import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import MercIcon from './MercIcon.vue';
 import MercIconSmall from './MercIconSmall.vue';
+import SectorCardChoice from './SectorCardChoice.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
@@ -463,12 +464,7 @@ const players = computed(() => {
 
   const all = [...rebelPlayers, ...dictatorPlayers, ...playerAreas];
 
-  if (all.length === 0) {
-    console.warn('[players] No player elements found in game state');
-    return [];
-  }
-
-  return all.map((p: any) => {
+  const result = all.map((p: any) => {
     // Get position from attribute, or parse from name (e.g., "area-2" -> 2)
     let position = getAttr(p, 'position', undefined);
     if (position === undefined) {
@@ -478,14 +474,8 @@ const players = computed(() => {
         position = parseInt(match[1], 10);
       }
     }
-    if (position === undefined) {
-      console.warn('[players] Could not determine position for player element:', p);
-    }
 
     const playerColor = getAttr(p, 'playerColor', '') || getAttr(p, 'color', '');
-    if (!playerColor) {
-      console.warn('[players] No playerColor for player at position', position, p);
-    }
 
     return {
       position,
@@ -493,6 +483,34 @@ const players = computed(() => {
       isDictator: normalizeClassName(p.className) === 'DictatorPlayer',
     };
   });
+
+  // Check if dictator exists in result
+  const hasDictator = result.some(p => p.isDictator);
+
+  // If no dictator found but dictator squads exist, add synthetic dictator entry
+  if (!hasDictator) {
+    const squads = findAllByClassName('Squad');
+    const hasDictatorSquad = squads.some((s: any) => {
+      const name = getAttr(s, 'name', '') || s.ref || '';
+      return name.includes('dictator');
+    });
+
+    if (hasDictatorSquad) {
+      // Dictator position is the last player (position not in playerAreas)
+      // In 2-player game: position 1 is rebel, position 2 is dictator
+      const rebelPositions = result.map(p => p.position).filter(p => p !== undefined);
+      const maxRebelPos = Math.max(...rebelPositions, 0);
+      const dictatorPosition = maxRebelPos + 1;
+
+      result.push({
+        position: dictatorPosition,
+        playerColor: 'black', // Dictator uses 'black' which maps to grey
+        isDictator: true,
+      });
+    }
+  }
+
+  return result;
 });
 
 // Current player's color
@@ -780,28 +798,55 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
   const sectorId = getAttr(squad, 'sectorId', '');
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
-  // Get MERCs from squad
+  // Get MERCs from squad (includes DictatorCard if it was putInto this squad)
   const mercs = (squad.children || [])
     .filter((c: any) => {
       if (isMercDead(c)) return false;
-      return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+      const className = normalizeClassName(c.className);
+      return getAttr(c, 'mercId', '') || className === 'MercCard' || className === 'DictatorCard';
     })
-    .map((c: any) => c);
+    .map((c: any) => {
+      // Format DictatorCard like a MERC for display
+      const className = normalizeClassName(c.className);
+      if (className === 'DictatorCard') {
+        return {
+          ...c,
+          mercId: `dictator-${getAttr(c, 'dictatorId', '')}`,
+          mercName: getAttr(c, 'dictatorName', 'The Dictator'),
+          isDictator: true,
+        };
+      }
+      return c;
+    });
 
-  // Include dictator card if in play and at this sector
-  if (dictatorCardNode) {
+  // If dictator card wasn't found in children, check if it should be shown based on sector
+  // (for cases where dictator is at same sector but not explicitly in a squad)
+  const hasDictatorInChildren = (squad.children || []).some((c: any) =>
+    normalizeClassName(c.className) === 'DictatorCard'
+  );
+
+  if (!hasDictatorInChildren && dictatorCardNode) {
     const dictatorInPlay = getAttr(dictatorCardNode, 'inPlay', false);
     const dictatorSectorId = getAttr(dictatorCardNode, 'sectorId', '');
     const dictatorDead = getAttr(dictatorCardNode, 'damage', 0) >= 10;
 
-    if (dictatorInPlay && !dictatorDead && dictatorSectorId === sectorId) {
-      // Add dictator as a "merc" for display purposes
-      mercs.unshift({
-        ...dictatorCardNode,
-        mercId: `dictator-${getAttr(dictatorCardNode, 'dictatorId', '')}`,
-        mercName: getAttr(dictatorCardNode, 'dictatorName', 'The Dictator'),
-        isDictator: true,
-      });
+    // Only add dictator to primary squad if at same sector and not in any squad
+    // (dictatorBaseSquad will handle showing the dictator separately if needed)
+    if (isPrimary && dictatorInPlay && !dictatorDead && dictatorSectorId === sectorId) {
+      // Check if dictator is in the other squad
+      const otherSquads = findAllByClassName('Squad').filter((s: any) => s !== squad);
+      const dictatorInOtherSquad = otherSquads.some((s: any) =>
+        (s.children || []).some((c: any) => normalizeClassName(c.className) === 'DictatorCard')
+      );
+
+      if (!dictatorInOtherSquad) {
+        mercs.unshift({
+          ...dictatorCardNode,
+          mercId: `dictator-${getAttr(dictatorCardNode, 'dictatorId', '')}`,
+          mercName: getAttr(dictatorCardNode, 'dictatorName', 'The Dictator'),
+          isDictator: true,
+        });
+      }
     }
   }
 
@@ -964,11 +1009,10 @@ const dictatorCard = computed(() => {
 });
 
 // Get dictator base sector if revealed (visible to all players for map icon)
-// NOTE: DictatorPlayer isn't serialized to gameView, so we infer base revealed state
-// from the DictatorCard's inPlay flag. When base is revealed, dictatorCard.inPlay=true
-// and dictatorCard.sectorId is set to the base location.
+// Get the permanent base sector location from DictatorCard.baseSectorId
+// This is separate from sectorId (which is the dictator's current location)
 const dictatorBaseSectorId = computed(() => {
-  // Find the DictatorCard - when base is revealed, it enters play at the base sector
+  // Find the DictatorCard
   let dictatorCardNode = findByClassName('DictatorCard');
   if (!dictatorCardNode) {
     dictatorCardNode = findByClassName('_DictatorCard');
@@ -978,11 +1022,11 @@ const dictatorBaseSectorId = computed(() => {
   }
 
   const inPlay = getAttr(dictatorCardNode, 'inPlay', false);
-  const sectorId = getAttr(dictatorCardNode, 'sectorId', '');
+  const baseSectorId = getAttr(dictatorCardNode, 'baseSectorId', '');
 
-  // If dictator card is in play and has a sector, base is revealed at that sector
-  if (inPlay && sectorId) {
-    return sectorId as string;
+  // If dictator card is in play and has a base sector, show base at that location
+  if (inPlay && baseSectorId) {
+    return baseSectorId as string;
   }
   return undefined;
 });
@@ -1064,6 +1108,49 @@ const militiaBonuses = computed(() => {
   };
 });
 
+// ============================================================================
+// GAME OVER DETECTION
+// ============================================================================
+
+// Check if the game is over
+const isGameOver = computed(() => {
+  // Check for dictator defeat (base revealed + dictator dead)
+  const dictatorCardNode = findByClassName('DictatorCard') || findByClassName('_DictatorCard');
+  if (!dictatorCardNode) return false;
+
+  const baseRevealed = getAttr(dictatorCardNode, 'inPlay', false);
+  const damage = getAttr(dictatorCardNode, 'damage', 0);
+  const maxHealth = getAttr(dictatorCardNode, 'maxHealth', 3);
+  const dictatorDead = damage >= maxHealth;
+
+  if (baseRevealed && dictatorDead) {
+    return true;
+  }
+
+  // TODO: Add other victory conditions as needed
+  return false;
+});
+
+// Determine the winner
+const gameWinner = computed(() => {
+  if (!isGameOver.value) return null;
+
+  // Check dictator defeat
+  const dictatorCardNode = findByClassName('DictatorCard') || findByClassName('_DictatorCard');
+  if (dictatorCardNode) {
+    const baseRevealed = getAttr(dictatorCardNode, 'inPlay', false);
+    const damage = getAttr(dictatorCardNode, 'damage', 0);
+    const maxHealth = getAttr(dictatorCardNode, 'maxHealth', 3);
+
+    if (baseRevealed && damage >= maxHealth) {
+      return 'rebels';
+    }
+  }
+
+  // TODO: Add other victory conditions
+  return 'dictator'; // Default fallback
+});
+
 // State for viewing dictator's played cards modal
 const showPlayedCardsModal = ref(false);
 
@@ -1121,11 +1208,70 @@ async function handleConfirmAllocation(allocations: string[]) {
 // Handle confirming target selection - executes combatSelectTarget action
 // Receives target IDs directly from CombatPanel (e.g., "militia-dictator-0")
 async function handleConfirmTargets(targetIds: string[]) {
-  if (!targetIds || targetIds.length === 0) return;
-  if (!props.availableActions.includes('combatSelectTarget')) return;
+  console.log('[handleConfirmTargets] called with:', targetIds);
+  console.log('[handleConfirmTargets] availableActions:', props.availableActions);
+  console.log('[handleConfirmTargets] includes combatSelectTarget:', props.availableActions.includes('combatSelectTarget'));
+
+  if (!targetIds || targetIds.length === 0) {
+    console.log('[handleConfirmTargets] no targets, returning');
+    return;
+  }
+  if (!props.availableActions.includes('combatSelectTarget')) {
+    console.log('[handleConfirmTargets] combatSelectTarget not in availableActions, returning');
+    return;
+  }
 
   const targetValue = targetIds.length === 1 ? targetIds[0] : targetIds;
-  await props.actionController.execute('combatSelectTarget', { targets: targetValue });
+  console.log('[handleConfirmTargets] executing combatSelectTarget with:', { targets: targetValue });
+  try {
+    await props.actionController.execute('combatSelectTarget', { targets: targetValue });
+    console.log('[handleConfirmTargets] execute completed successfully');
+  } catch (err) {
+    console.error('[handleConfirmTargets] execute failed:', err);
+  }
+}
+
+// Handle continue combat from CombatPanel
+async function handleContinueCombat() {
+  if (!props.availableActions.includes('combatContinue')) return;
+  await props.actionController.execute('combatContinue', {});
+}
+
+// Handle retreat from CombatPanel - opens retreat sector selection
+// MERC-retreat-fix: Use start() to enter wizard mode for sector selection
+async function handleRetreatCombat() {
+  console.log('[handleRetreatCombat] called');
+  console.log('[handleRetreatCombat] availableActions:', props.availableActions);
+  console.log('[handleRetreatCombat] includes combatRetreat:', props.availableActions.includes('combatRetreat'));
+
+  if (!props.availableActions.includes('combatRetreat')) {
+    console.log('[handleRetreatCombat] combatRetreat not in availableActions, returning');
+    return;
+  }
+  // Start the action in wizard mode - BoardSmith will apply sector filter
+  // and execute when user clicks a valid retreat sector
+  console.log('[handleRetreatCombat] starting combatRetreat action in wizard mode');
+  try {
+    await props.actionController.start('combatRetreat');
+    console.log('[handleRetreatCombat] start completed successfully');
+  } catch (err) {
+    console.error('[handleRetreatCombat] start failed:', err);
+  }
+}
+
+// Handle Attack Dog assignment from CombatPanel
+async function handleAssignAttackDog(targetId: string) {
+  console.log('[handleAssignAttackDog] called with targetId:', targetId);
+  if (!props.availableActions.includes('combatAssignAttackDog')) {
+    console.log('[handleAssignAttackDog] combatAssignAttackDog not in availableActions');
+    return;
+  }
+  try {
+    await props.actionController.execute('combatAssignAttackDog', { target: targetId });
+    console.log('[handleAssignAttackDog] execute completed successfully');
+  } catch (err) {
+    console.error('[handleAssignAttackDog] execute failed:', err);
+  }
 }
 
 // ============================================================================
@@ -1202,6 +1348,66 @@ watch(() => props.actionArgs['equipmentType'], (val) => {
 const isPlacingLanding = computed(() => {
   return props.availableActions.includes('placeLanding');
 });
+
+// Check if we're selecting a retreat sector (combatRetreat action needs retreatSector)
+const isSelectingRetreatSector = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
+  const currentSel = props.actionController.currentSelection.value;
+  return currentAction === 'combatRetreat' && currentSel?.name === 'retreatSector';
+});
+
+// Get retreat sector choices when selecting retreat destination
+const retreatSectorChoices = computed(() => {
+  if (!isSelectingRetreatSector.value) return [];
+  const currentSel = props.actionController.currentSelection.value;
+  if (!currentSel) return [];
+  const choices = props.actionController.getChoices(currentSel) || [];
+  console.log('[retreatSectorChoices] raw choices:', choices);
+  console.log('[retreatSectorChoices] sectors:', sectors.value.map(s => ({ id: s.id, sectorId: s.sectorId, name: s.sectorName })));
+
+  // Choices from getChoices() have { value, display } structure from BoardSmith
+  // Find sector by matching the numeric value and include full sector data for visual display
+  return choices.map((choice: any) => {
+    // choice.value is the numeric BoardSmith element ID (NOT choice.id!)
+    const numericId = choice.value;
+    const sectorData = sectors.value.find(s => s.id === numericId);
+    console.log('[retreatSectorChoices] matching value:', numericId, 'found:', sectorData?.sectorName);
+    return {
+      id: numericId,  // Keep numeric ID for fill() - we store value as id for our UI
+      sectorName: sectorData?.sectorName || choice.display || 'Unknown',
+      sectorType: sectorData?.sectorType || 'Wilderness',
+      // Include full sector data for SectorCardChoice display
+      image: sectorData?.image || getSectorImageFallback(sectorData?.sectorType || 'Wilderness'),
+      value: sectorData?.value || 0,
+      weaponLoot: sectorData?.weaponLoot || 0,
+      armorLoot: sectorData?.armorLoot || 0,
+      accessoryLoot: sectorData?.accessoryLoot || 0,
+      dictatorMilitia: sectorData?.dictatorMilitia || 0,
+    };
+  });
+});
+
+// Handle retreat sector selection from CombatPanel
+async function handleSelectRetreatSector(sectorId: string | number) {
+  console.log('[handleSelectRetreatSector] called with:', sectorId, 'type:', typeof sectorId);
+  const currentSel = props.actionController.currentSelection.value;
+  if (!currentSel) {
+    console.log('[handleSelectRetreatSector] no currentSel');
+    return;
+  }
+  // Find the sector element to fill - match by numeric value
+  const choices = props.actionController.getChoices(currentSel) || [];
+  console.log('[handleSelectRetreatSector] choices:', choices);
+  const selectedSector = choices.find((c: any) => c.value === sectorId);
+  console.log('[handleSelectRetreatSector] selectedSector:', selectedSector);
+  if (selectedSector) {
+    // Pass just the value (element ID), not the full choice object
+    await props.actionController.fill(currentSel.name, selectedSector.value);
+    console.log('[handleSelectRetreatSector] filled successfully with value:', selectedSector.value);
+  } else {
+    console.log('[handleSelectRetreatSector] no matching choice found');
+  }
+}
 
 // Get landing zone action metadata
 const landingZoneMetadata = computed(() => {
@@ -1862,6 +2068,24 @@ async function handleSectorClick(sectorId: string) {
 
     // Execute the action
     await props.actionController.execute('placeLanding', { [selectionName]: actionValue });
+  } else if (isSelectingRetreatSector.value) {
+    // Handle retreat sector selection
+    const selection = props.actionController.currentSelection.value;
+    if (!selection) return;
+
+    // Find the sector element ID from valid elements
+    const validElements = props.actionController.getValidElements(selection) || [];
+    const sector = sectors.value.find(s => s.sectorId === sectorId);
+
+    // Match by ref.id which is the sectorId string
+    const matchingElement = validElements.find((e: any) => {
+      const elementSectorId = e.ref?.id;
+      return sector && sector.sectorId === elementSectorId;
+    });
+
+    if (matchingElement) {
+      await props.actionController.fill(selection.name, matchingElement.id);
+    }
   } else {
     // Show the sector panel for all other clicks
     selectedSectorId.value = sectorId;
@@ -1951,6 +2175,31 @@ const clickableSectors = computed(() => {
     // Fallback to edge sectors (all edge sectors are valid landing zones)
     return landingSectors.value.map((s) => s.sectorId);
   }
+
+  // Handle retreat sector selection
+  if (isSelectingRetreatSector.value) {
+    const selection = props.actionController.currentSelection.value;
+    if (!selection) return [];
+
+    // Get valid retreat sectors from action controller
+    const validElements = props.actionController.getValidElements(selection) || [];
+
+    // Map element IDs to sector IDs
+    const validSectorIds: string[] = [];
+    for (const element of validElements) {
+      // Element has ref with id (the sector's string sectorId)
+      const elementSectorId = element.ref?.id;
+      if (elementSectorId) {
+        // Find the sector by its sectorId
+        const sector = sectors.value.find(s => s.sectorId === elementSectorId);
+        if (sector) {
+          validSectorIds.push(sector.sectorId);
+        }
+      }
+    }
+    return validSectorIds;
+  }
+
   return [];
 });
 
@@ -1958,6 +2207,21 @@ const clickableSectors = computed(() => {
 
 <template>
   <div class="game-board">
+    <!-- Game Over Overlay - shown when game ends -->
+    <div v-if="isGameOver" class="game-over-overlay">
+      <div class="game-over-content">
+        <h1 class="game-over-title">Game Over</h1>
+        <div v-if="gameWinner === 'rebels'" class="game-over-winner rebels">
+          <h2>Rebels Victory!</h2>
+          <p>The dictator has been eliminated. Freedom prevails!</p>
+        </div>
+        <div v-else class="game-over-winner dictator">
+          <h2>Dictator Victory!</h2>
+          <p>The rebellion has been crushed. Order is restored.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Combat Panel - shown when there's active combat -->
     <CombatPanel
       v-if="hasActiveCombat"
@@ -1965,11 +2229,17 @@ const clickableSectors = computed(() => {
       :is-my-turn="isMyTurn"
       :available-actions="availableActions"
       :sector-name="combatSectorName"
+      :is-selecting-retreat-sector="isSelectingRetreatSector"
+      :retreat-sector-choices="retreatSectorChoices"
       @allocate-hit="handleAllocateHit"
       @allocate-wolverine-six="handleAllocateWolverineSix"
       @reroll="handleReroll"
       @confirm-allocation="handleConfirmAllocation"
       @confirm-targets="handleConfirmTargets"
+      @continue-combat="handleContinueCombat"
+      @retreat-combat="handleRetreatCombat"
+      @select-retreat-sector="handleSelectRetreatSector"
+      @assign-attack-dog="handleAssignAttackDog"
     />
 
     <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->
@@ -2052,35 +2322,12 @@ const clickableSectors = computed(() => {
           />
           <!-- Sector cards -->
           <div class="sector-card-choices">
-            <div
+            <SectorCardChoice
               v-for="sector in sectorChoices"
               :key="sector.value"
-              class="sector-card-choice"
+              :sector="sector"
               @click="selectSector(sector)"
-            >
-            <div class="sector-card-image" :style="{ backgroundImage: `url(${sector.image})` }">
-              <div class="sector-card-overlay"></div>
-              <div class="sector-card-name">{{ sector.sectorName }}</div>
-            </div>
-            <div class="sector-card-stats">
-              <div class="sector-stat">
-                <span class="stat-icon">💰</span>
-                <span class="stat-value">{{ sector.value_points }}</span>
-              </div>
-              <div class="sector-stat" v-if="sector.weaponLoot > 0 || sector.armorLoot > 0 || sector.accessoryLoot > 0">
-                <span class="stat-icon">📦</span>
-                <span class="stat-value">
-                  <span v-if="sector.weaponLoot > 0" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
-                  <span v-if="sector.armorLoot > 0" title="Armor">🛡️{{ sector.armorLoot }}</span>
-                  <span v-if="sector.accessoryLoot > 0" title="Accessories">💍{{ sector.accessoryLoot }}</span>
-                </span>
-              </div>
-              <div class="sector-stat" v-if="sector.dictatorMilitia > 0">
-                <span class="stat-icon">🎖️</span>
-                <span class="stat-value">{{ sector.dictatorMilitia }} militia</span>
-              </div>
-            </div>
-          </div>
+            />
           </div>
         </div>
       </div>
@@ -2176,6 +2423,8 @@ const clickableSectors = computed(() => {
       <div class="map-section">
         <h2 v-if="isPlacingLanding" class="action-title">Choose Landing Zone</h2>
         <p v-if="isPlacingLanding" class="action-subtitle">Select an edge sector for your landing</p>
+        <h2 v-if="isSelectingRetreatSector" class="action-title">Retreat</h2>
+        <p v-if="isSelectingRetreatSector" class="action-subtitle">Select an adjacent sector to retreat to</p>
         <MapGrid
           :sectors="sectors"
           :mercs="allMercs"
@@ -2473,89 +2722,13 @@ const clickableSectors = computed(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* Visual Sector Card Selection */
+/* Sector Card Selection Container */
 .sector-card-choices {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   justify-content: center;
   max-width: 800px;
-}
-
-.sector-card-choice {
-  width: 180px;
-  background: v-bind('UI_COLORS.surface');
-  border: 2px solid v-bind('UI_COLORS.border');
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.sector-card-choice:hover {
-  border-color: #8b0000;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-}
-
-.sector-card-image {
-  position: relative;
-  height: 100px;
-  background-size: cover;
-  background-position: center;
-}
-
-.sector-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.2) 0%,
-    rgba(0, 0, 0, 0.6) 100%
-  );
-}
-
-.sector-card-name {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  right: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-}
-
-.sector-card-stats {
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background: v-bind('UI_COLORS.backgroundLight');
-}
-
-.sector-stat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: v-bind('UI_COLORS.textSecondary');
-}
-
-.stat-icon {
-  font-size: 0.9rem;
-}
-
-.stat-value {
-  display: flex;
-  gap: 6px;
-  color: v-bind('UI_COLORS.text');
-}
-
-.stat-value span {
-  display: flex;
-  align-items: center;
-  gap: 2px;
 }
 
 .skip-hire-section {
@@ -2980,4 +3153,73 @@ const clickableSectors = computed(() => {
   margin: 0 auto;
 }
 
+/* Game Over Overlay */
+.game-over-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 100px;
+  z-index: 9999;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.game-over-content {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d4a 100%);
+  border: 3px solid #d4a84b;
+  border-radius: 20px;
+  padding: 48px 64px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.game-over-title {
+  font-size: 3rem;
+  color: #d4a84b;
+  margin: 0 0 24px 0;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-over-winner h2 {
+  font-size: 2rem;
+  margin: 0 0 16px 0;
+}
+
+.game-over-winner p {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.game-over-winner.rebels h2 {
+  color: #4CAF50;
+}
+
+.game-over-winner.dictator h2 {
+  color: #f44336;
+}
 </style>

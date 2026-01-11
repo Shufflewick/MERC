@@ -53,11 +53,14 @@ import {
   createCombatContinueAction,
   createCombatRetreatAction,
   createCombatSelectTargetAction,
+  createCombatAssignAttackDogAction,
   createCombatHealAction,
   createCombatAllocateHitsAction,
   createCombatBasicRerollAction,
   createCombatAllocateWolverineSixesAction,
   createArtilleryAllocateHitsAction,
+  createCombatUseEpinephrineAction,
+  createCombatDeclineEpinephrineAction,
 } from './rebel-combat.js';
 
 import {
@@ -149,11 +152,16 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatContinueAction(game));
   game.registerAction(createCombatRetreatAction(game));
   game.registerAction(createCombatSelectTargetAction(game)); // MERC-t5k: Target selection
+  game.registerAction(createCombatAssignAttackDogAction(game)); // MERC-l09: Attack Dog assignment
   game.registerAction(createCombatHealAction(game)); // Medical Kit / First Aid Kit healing
   // MERC-dice: Combat hit allocation actions
   game.registerAction(createCombatAllocateHitsAction(game));
   game.registerAction(createCombatBasicRerollAction(game));
   game.registerAction(createCombatAllocateWolverineSixesAction(game));
+
+  // MERC-4.9: Epinephrine Shot player choice
+  game.registerAction(createCombatUseEpinephrineAction(game));
+  game.registerAction(createCombatDeclineEpinephrineAction(game));
 
   // MERC-lw9r: Artillery Barrage hit allocation (stub until Plan 04)
   game.registerAction(createArtilleryAllocateHitsAction(game));

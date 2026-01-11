@@ -177,12 +177,19 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     const baseSector = selectAIBaseLocation(game);
     if (baseSector) {
       game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      if (game.dictatorPlayer.dictator) {
+        game.dictatorPlayer.dictator.baseSectorId = baseSector.sectorId;
+      }
       game.message(`Dictator base established at ${baseSector.sectorName}`);
     }
   }
 
   game.dictatorPlayer.baseRevealed = true;
   game.dictatorPlayer.dictator?.enterPlay();
+  // Ensure dictator card has baseSectorId set (may have been set earlier by human player)
+  if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {
+    game.dictatorPlayer.dictator.baseSectorId = game.dictatorPlayer.baseSectorId;
+  }
 
   // Set dictator card location to base sector
   if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {

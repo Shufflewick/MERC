@@ -7,6 +7,7 @@ export const PLAYER_COLORS: Record<string, string> = {
   yellow: '#e9c46a',
   purple: '#9b5de5',
   orange: '#f77f00',
+  black: '#95a5a6', // grey - dictator color
 };
 
 // Lighter versions for backgrounds/highlights

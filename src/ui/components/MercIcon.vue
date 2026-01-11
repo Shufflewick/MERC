@@ -5,9 +5,13 @@ import { getPlayerColor } from '../colors';
 const props = defineProps<{
   mercId?: string;
   mercName: string;
+  image?: string;
   playerColor?: string;
   size?: 'small' | 'medium' | 'large';
   clickable?: boolean;
+  isDictator?: boolean;
+  isMilitia?: boolean;
+  isAttackDog?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -17,12 +21,19 @@ const emit = defineEmits<{
 const sizeClass = computed(() => props.size || 'medium');
 
 const imagePath = computed(() => {
+  // Use provided image path first (from JSON data)
+  if (props.image) {
+    return props.image;
+  }
+  // Build path from mercId
   if (props.mercId) {
-    return `/mercs/${props.mercId.toLowerCase()}.jpg`;
+    const folder = props.isDictator ? 'dictators' : 'mercs';
+    return `/${folder}/${props.mercId.toLowerCase()}.jpg`;
   }
   // Derive from name if no mercId
   return `/mercs/${props.mercName.toLowerCase()}.jpg`;
 });
+
 
 const borderColor = computed(() => {
   if (!props.playerColor) return '#666';
@@ -47,7 +58,11 @@ function handleClick() {
     @click="handleClick"
   >
     <div class="portrait" :style="{ borderColor }">
+      <!-- Militia: show emoji shield -->
+      <span v-if="isMilitia" class="militia-emoji">🛡️</span>
+      <!-- MERC/Dictator: show image -->
       <img
+        v-else
         :src="imagePath"
         :alt="mercName"
         @error="handleImageError"
@@ -91,6 +106,18 @@ function handleClick() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.militia-emoji {
+  font-size: 1.5rem;
+}
+
+.merc-icon.small .militia-emoji {
+  font-size: 1.2rem;
+}
+
+.merc-icon.large .militia-emoji {
+  font-size: 2rem;
 }
 
 /* Size variants */

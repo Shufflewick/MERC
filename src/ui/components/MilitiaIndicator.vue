@@ -9,7 +9,6 @@ const props = defineProps<{
 }>();
 
 const bgColor = computed(() => {
-  if (props.isDictator) return '#1a1a1a';
   return getPlayerColor(props.playerColor);
 });
 </script>

@@ -446,7 +446,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       validTargets: Combatant[];
       maxTargets: number;
     };
+    // MERC-l09: Attack Dog assignment choice (for human players)
+    pendingAttackDogSelection?: {
+      attackerId: string; // ID of the MERC with the dog
+      attackerName: string;
+      validTargets: Combatant[]; // Enemy MERCs the dog can be assigned to
+    };
     selectedTargets?: Map<string, string[]>; // attackerId -> targetIds
+    selectedDogTargets?: Map<string, string>; // attackerId -> targetId for Attack Dog
     // Medical Kit healing: dice discarded per combatant this round
     healingDiceUsed?: Map<string, number>; // combatantId -> dice discarded
     // MERC-dice: Combat dice UI state
@@ -481,6 +488,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         currentHealth: number;
         maxHealth: number;
       }>;
+    };
+    // Epinephrine Shot choice - pause when a MERC takes lethal damage
+    pendingEpinephrine?: {
+      dyingMercId: number;
+      dyingMercName: string;
+      dyingMercSide: 'rebel' | 'dictator';
+      availableSavers: Array<{ mercId: number; mercName: string }>;
     };
   } | null = null;
 
@@ -1320,6 +1334,19 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // 5. Day limit reached (after Day 6)
     // 6. All dictator units eliminated (militia + MERCs)
     // 7. All rebel units eliminated (MERCs + militia)
+
+    // DEBUG: Log dictator defeat status
+    const dictator = this.dictatorPlayer?.dictator;
+    if (dictator && dictator.damage > 0) {
+      console.log('[isFinished DEBUG]', {
+        isDefeated: this.dictatorPlayer?.isDefeated,
+        baseRevealed: this.dictatorPlayer?.baseRevealed,
+        dictatorIsDead: dictator?.isDead,
+        dictatorHealth: dictator?.health,
+        dictatorDamage: dictator?.damage,
+        dictatorMaxHealth: dictator?.maxHealth,
+      });
+    }
 
     if (this.dictatorPlayer?.isDefeated) {
       return true;

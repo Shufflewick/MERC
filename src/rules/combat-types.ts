@@ -32,6 +32,9 @@ export interface Combatant {
   isImmuneToAttackDogs: boolean; // MERC-l09: Shadkaam ability
   willNotHarmDogs: boolean; // MERC-l09: Tao ability
   hasUsedReroll?: boolean; // MERC-5l3: Basic's once-per-combat reroll
+  image?: string; // Portrait image path from JSON data
+  mercId?: string; // MERC ID for identification
+  playerColor?: string; // Player color for UI display
 }
 
 export interface CombatResult {

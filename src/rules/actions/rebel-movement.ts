@@ -168,6 +168,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         const dictatorCard = game.dictatorPlayer.dictator;
         if (dictatorCard.sectorId === sourceSector?.sectorId) {
           dictatorCard.sectorId = destination.sectorId;
+          useAction(dictatorCard, ACTION_COSTS.MOVE);
           game.message(`${dictatorCard.dictatorName} moves with the squad`);
         }
       }

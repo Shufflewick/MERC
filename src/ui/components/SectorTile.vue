@@ -140,8 +140,8 @@ function getMercImagePath(merc: MercInSector) {
 const showMercModal = ref(false);
 const selectedMerc = ref<MercInSector | null>(null);
 
-function showMercDetails(merc: MercInSector, event: Event) {
-  event.stopPropagation(); // Don't trigger sector click
+function showMercDetails(merc: MercInSector, event?: Event) {
+  event?.stopPropagation(); // Don't trigger sector click
   selectedMerc.value = merc;
   showMercModal.value = true;
 }
@@ -219,6 +219,7 @@ function closeMercModal() {
           v-if="sector.dictatorMilitia > 0"
           :count="sector.dictatorMilitia"
           :is-dictator="true"
+          :player-color="dictatorColor"
         />
         <MilitiaIndicator
           v-for="entry in rebelMilitiaEntries"

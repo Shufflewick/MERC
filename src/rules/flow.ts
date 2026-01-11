@@ -284,6 +284,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }
                 }),
 
+                // MERC-l09: Attack Dog assignment - when player needs to choose dog target
+                loop({
+                  name: 'combat-attack-dog-selection',
+                  while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
+                  maxIterations: 50,
+                  do: actionStep({
+                    name: 'assign-attack-dog',
+                    actions: ['combatAssignAttackDog'],
+                    skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
+                  }),
+                }),
+
                 // MERC-t5k: Combat target selection - only when targets need to be selected
                 loop({
                   name: 'combat-target-selection',
@@ -320,6 +332,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }),
                 }),
 
+                // MERC-4.9: Epinephrine Shot choice loop
+                loop({
+                  name: 'combat-epinephrine',
+                  while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
+                  maxIterations: 10,
+                  do: actionStep({
+                    name: 'use-epinephrine',
+                    actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
+                    skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
+                  }),
+                }),
+
                 // MERC-n1f: Combat continue/retreat - only when no target selection or hit allocation pending
                 loop({
                   name: 'combat-decision',
@@ -327,6 +351,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                               game.activeCombat.pendingTargetSelection == null &&
                               game.activeCombat.pendingHitAllocation == null &&
                               game.activeCombat.pendingWolverineSixes == null &&
+                              game.activeCombat.pendingEpinephrine == null &&
                               !game.isFinished(),
                   maxIterations: 50,
                   do: actionStep({
@@ -335,7 +360,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     skipIf: () => game.isFinished() || game.activeCombat === null ||
                                   game.activeCombat.pendingTargetSelection != null ||
                                   game.activeCombat.pendingHitAllocation != null ||
-                                  game.activeCombat.pendingWolverineSixes != null,
+                                  game.activeCombat.pendingWolverineSixes != null ||
+                                  game.activeCombat.pendingEpinephrine != null,
                   }),
                 }),
 
@@ -364,6 +390,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'squidheadArm', // MERC-4qd: Squidhead arm mines
                     'hagnessDraw', // MERC-jrph: Hagness draw equipment
                     'armsDealer',
+                    'repairKit', // MERC-3po: Repair Kit retrieve from discard
                     'splitSquad', // MERC-ttx: Free action available anytime
                     'mergeSquads',
                     'endTurn',
@@ -431,44 +458,234 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               }),
 
+              // Combat handling after tactics card (e.g., Fodder triggers immediate combat)
+              // Attack Dog assignment loop
+              loop({
+                name: 'tactics-combat-attack-dog-selection',
+                while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'assign-attack-dog',
+                  actions: ['combatAssignAttackDog'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
+                }),
+              }),
+
+              // Target selection loop
+              loop({
+                name: 'tactics-combat-target-selection',
+                while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'select-targets',
+                  actions: ['combatSelectTarget'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
+                }),
+              }),
+
+              // Hit allocation loop
+              loop({
+                name: 'tactics-combat-hit-allocation',
+                while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'allocate-hits',
+                  actions: ['combatAllocateHits', 'combatBasicReroll'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
+                }),
+              }),
+
+              // Wolverine 6s allocation loop
+              loop({
+                name: 'tactics-combat-wolverine-sixes',
+                while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'allocate-wolverine-sixes',
+                  actions: ['combatAllocateWolverineSixes'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
+                }),
+              }),
+
+              // MERC-4.9: Epinephrine Shot choice loop
+              loop({
+                name: 'tactics-combat-epinephrine',
+                while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
+                maxIterations: 10,
+                do: actionStep({
+                  name: 'use-epinephrine',
+                  actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
+                }),
+              }),
+
+              // Combat continue/retreat decision
+              loop({
+                name: 'tactics-combat-decision',
+                while: () => game.activeCombat !== null &&
+                            game.activeCombat.pendingTargetSelection == null &&
+                            game.activeCombat.pendingHitAllocation == null &&
+                            game.activeCombat.pendingWolverineSixes == null &&
+                            game.activeCombat.pendingEpinephrine == null &&
+                            !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'continue-or-retreat',
+                  actions: ['combatContinue', 'combatRetreat'],
+                  skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                game.activeCombat.pendingTargetSelection != null ||
+                                game.activeCombat.pendingHitAllocation != null ||
+                                game.activeCombat.pendingWolverineSixes != null ||
+                                game.activeCombat.pendingEpinephrine != null,
+                }),
+              }),
+
               // Step 2: Dictator MERC actions (if any MERCs)
               // Uses unified action names (same as rebels)
               loop({
                 name: 'dictator-merc-actions',
                 while: () => {
+                  if (game.isFinished()) return false;
+                  // MERC-combat-flow: Keep loop active while combat is active or pending
+                  // Must resolve combat before exiting loop (even if no actions remain)
+                  if (game.activeCombat !== null) return true;
+                  if (game.pendingCombat !== null) return true;
                   // Continue while any dictator MERC has actions
                   const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
                   const dictator = game.dictatorPlayer?.dictator;
                   const hasActionsLeft = dictatorMercs.some(m => m.actionsRemaining > 0) ||
                     (dictator?.inPlay && dictator.actionsRemaining > 0);
-                  return hasActionsLeft && !game.isFinished();
+                  return hasActionsLeft;
                 },
                 maxIterations: 50, // Safety limit per turn
-                do: actionStep({
-                  name: 'dictator-merc-action',
-                  actions: [
-                    'move',
-                    'explore',
-                    'train',
-                    'reEquip',
-                    'dropEquipment',
-                    'hospital',
-                    'armsDealer',
-                    'mortar',
-                    'endTurn',
-                  ],
-                  skipIf: () => game.isFinished(),
-                }),
+                do: sequence(
+                  // Check for pending combat (from move action) and initiate it
+                  execute((ctx) => {
+                    if (game.pendingCombat && !game.activeCombat) {
+                      const sector = game.getSector(game.pendingCombat.sectorId);
+                      const player = game.rebelPlayers.find(
+                        p => `${p.position}` === game.pendingCombat!.playerId
+                      );
+                      if (sector && player) {
+                        executeCombat(game, sector, player);
+                      }
+                      game.pendingCombat = null;
+                    }
+                  }),
+
+                  // Attack Dog assignment loop
+                  loop({
+                    name: 'dictator-combat-attack-dog-selection',
+                    while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
+                    maxIterations: 50,
+                    do: actionStep({
+                      name: 'assign-attack-dog',
+                      actions: ['combatAssignAttackDog'],
+                      skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
+                    }),
+                  }),
+
+                  // Combat target selection loop
+                  loop({
+                    name: 'dictator-combat-target-selection',
+                    while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
+                    maxIterations: 50,
+                    do: actionStep({
+                      name: 'select-targets',
+                      actions: ['combatSelectTarget'],
+                      skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
+                    }),
+                  }),
+
+                  // Hit allocation loop
+                  loop({
+                    name: 'dictator-combat-hit-allocation',
+                    while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
+                    maxIterations: 50,
+                    do: actionStep({
+                      name: 'allocate-hits',
+                      actions: ['combatAllocateHits', 'combatBasicReroll'],
+                      skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
+                    }),
+                  }),
+
+                  // Wolverine 6s allocation loop
+                  loop({
+                    name: 'dictator-combat-wolverine-sixes',
+                    while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
+                    maxIterations: 50,
+                    do: actionStep({
+                      name: 'allocate-wolverine-sixes',
+                      actions: ['combatAllocateWolverineSixes'],
+                      skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
+                    }),
+                  }),
+
+                  // MERC-4.9: Epinephrine Shot choice loop
+                  loop({
+                    name: 'dictator-combat-epinephrine',
+                    while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
+                    maxIterations: 10,
+                    do: actionStep({
+                      name: 'use-epinephrine',
+                      actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
+                      skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
+                    }),
+                  }),
+
+                  // Combat continue/retreat decision
+                  loop({
+                    name: 'dictator-combat-decision',
+                    while: () => game.activeCombat !== null &&
+                                game.activeCombat.pendingTargetSelection == null &&
+                                game.activeCombat.pendingHitAllocation == null &&
+                                game.activeCombat.pendingWolverineSixes == null &&
+                                game.activeCombat.pendingEpinephrine == null &&
+                                !game.isFinished(),
+                    maxIterations: 50,
+                    do: actionStep({
+                      name: 'continue-or-retreat',
+                      actions: ['combatContinue', 'combatRetreat'],
+                      skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                    game.activeCombat.pendingTargetSelection != null ||
+                                    game.activeCombat.pendingHitAllocation != null ||
+                                    game.activeCombat.pendingWolverineSixes != null ||
+                                    game.activeCombat.pendingEpinephrine != null,
+                    }),
+                  }),
+
+                  // Regular action step - only runs when not in combat
+                  actionStep({
+                    name: 'dictator-merc-action',
+                    actions: [
+                      'move',
+                      'explore',
+                      'train',
+                      'reEquip',
+                      'dropEquipment',
+                      'hospital',
+                      'armsDealer',
+                      'repairKit',
+                      'mortar',
+                      'splitSquad',
+                      'mergeSquads',
+                      'endTurn',
+                    ],
+                    skipIf: () => game.isFinished(),
+                  }),
+                ),
               }),
 
               // Log that MERC actions phase completed
               execute(() => {
+                if (game.isFinished()) return; // Game ended during combat
                 game.message('Dictator MERC actions complete');
               }),
 
               // Step 3: Apply per-turn dictator special ability
               // For AI: auto-apply ability; For human: let them choose
               execute(() => {
+                if (game.isFinished()) return;
                 if (game.dictatorPlayer?.isAI) {
                   applyDictatorTurnAbilities(game);
                 }
@@ -484,11 +701,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
 
               // Apply end-of-turn effects (Conscripts)
               execute(() => {
+                if (game.isFinished()) return;
                 applyConscriptsEffect(game);
               }),
 
               // Step 4: Refill hand to 3 cards
               execute(() => {
+                if (game.isFinished()) return;
                 drawTacticsHand(game);
               }),
             ),

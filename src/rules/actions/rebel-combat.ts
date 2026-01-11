@@ -7,9 +7,9 @@
  */
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
-import type { MERCGame, RebelPlayer } from '../game.js';
+import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, MercCard, Equipment } from '../elements.js';
-import { executeCombat, executeCombatRetreat, getValidRetreatSectors, type Combatant } from '../combat.js';
+import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer } from './helpers.js';
@@ -24,6 +24,9 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
       'has active combat': () => game.activeCombat !== null,
       'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
       'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
+      'no pending attack dog selection': () => game.activeCombat?.pendingAttackDogSelection === undefined,
+      'no pending wolverine sixes': () => game.activeCombat?.pendingWolverineSixes === undefined,
+      'no pending epinephrine': () => game.activeCombat?.pendingEpinephrine === undefined,
     })
     .execute((_, ctx) => {
       if (!game.activeCombat) {
@@ -61,30 +64,85 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
   return Action.create('combatRetreat')
     .prompt('Retreat from combat')
     .condition({
-      'has active combat': () => game.activeCombat !== null,
-      'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
-      'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
+      'has active combat': () => {
+        const result = game.activeCombat !== null;
+        console.log('[combatRetreat] has active combat:', result);
+        return result;
+      },
+      'no pending target selection': () => {
+        const result = game.activeCombat?.pendingTargetSelection === undefined;
+        console.log('[combatRetreat] no pending target selection:', result, game.activeCombat?.pendingTargetSelection);
+        return result;
+      },
+      'no pending hit allocation': () => {
+        const result = game.activeCombat?.pendingHitAllocation === undefined;
+        console.log('[combatRetreat] no pending hit allocation:', result);
+        return result;
+      },
+      'no pending attack dog selection': () => {
+        const result = game.activeCombat?.pendingAttackDogSelection === undefined;
+        console.log('[combatRetreat] no pending attack dog:', result);
+        return result;
+      },
+      'no pending wolverine sixes': () => {
+        const result = game.activeCombat?.pendingWolverineSixes === undefined;
+        console.log('[combatRetreat] no pending wolverine:', result);
+        return result;
+      },
+      'no pending epinephrine': () => {
+        const result = game.activeCombat?.pendingEpinephrine === undefined;
+        console.log('[combatRetreat] no pending epinephrine:', result);
+        return result;
+      },
+      'current player can retreat': (ctx) => {
+        console.log('[combatRetreat] checking current player can retreat, ctx.player:', ctx.player?.constructor?.name);
+        if (!game.activeCombat) {
+          console.log('[combatRetreat] no active combat');
+          return false;
+        }
+        // Must be a rebel or dictator player
+        const isRebel = game.isRebelPlayer(ctx.player);
+        const isDictator = game.isDictatorPlayer(ctx.player);
+        console.log('[combatRetreat] player type check - isRebel:', isRebel, 'isDictator:', isDictator);
+        if (!isRebel && !isDictator) {
+          console.log('[combatRetreat] player is neither rebel nor dictator');
+          return false;
+        }
+        const combatSector = game.getSector(game.activeCombat.sectorId);
+        if (!combatSector) {
+          console.log('[combatRetreat] combat sector not found');
+          return false;
+        }
+        const result = canRetreat(game, combatSector, ctx.player as RebelPlayer | DictatorPlayer);
+        console.log('[combatRetreat] canRetreat result:', result);
+        return result;
+      },
     })
     .chooseElement<Sector>('retreatSector', {
       prompt: 'Choose sector to retreat to',
       elementClass: Sector,
-      filter: (element) => {
+      filter: (element, ctx) => {
         if (!game.activeCombat) return false;
+        // Must be a rebel or dictator player
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const sector = element as unknown as Sector;
         const combatSector = game.getSector(game.activeCombat.sectorId);
         if (!combatSector) return false;
-        const player = game.rebelPlayers.find(
-          p => `${p.position}` === game.activeCombat!.attackingPlayerId
-        );
-        if (!player) return false;
+        // Use ctx.player (the current player clicking retreat) instead of attackingPlayerId
+        const player = ctx.player as RebelPlayer | DictatorPlayer;
         const validSectors = getValidRetreatSectors(game, combatSector, player);
         return validSectors.some(s => s.sectorId === sector.sectorId);
       },
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
     })
-    .execute((args) => {
+    .execute((args, ctx) => {
       const retreatSector = args.retreatSector as Sector;
-      const outcome = executeCombatRetreat(game, retreatSector);
+      if (!retreatSector) {
+        return { success: false, message: 'No retreat sector provided' };
+      }
+
+      const player = ctx.player as RebelPlayer | DictatorPlayer;
+      const outcome = executeCombatRetreat(game, retreatSector, player);
 
       return {
         success: true,
@@ -110,23 +168,44 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
     })
     .condition({
       'player can select targets for this attacker': (ctx) => {
+        console.log('[combatSelectTarget] condition check, activeCombat:', !!game.activeCombat, 'pendingTargetSelection:', !!game.activeCombat?.pendingTargetSelection);
         // Must have active combat with pending target selection
-        if (!game.activeCombat?.pendingTargetSelection) return false;
+        if (!game.activeCombat?.pendingTargetSelection) {
+          console.log('[combatSelectTarget] no pending target selection');
+          return false;
+        }
         const pending = game.activeCombat.pendingTargetSelection;
-        if (pending.validTargets.length === 0) return false;
+        if (pending.validTargets.length === 0) {
+          console.log('[combatSelectTarget] no valid targets');
+          return false;
+        }
 
         // Find the attacker to check which side they're on
         const attacker = game.activeCombat.rebelCombatants?.find(c => c.id === pending.attackerId) ||
                          game.activeCombat.dictatorCombatants?.find(c => c.id === pending.attackerId);
-        if (!attacker) return false;
+        console.log('[combatSelectTarget] attacker:', attacker?.name, 'isDictatorSide:', attacker?.isDictatorSide, 'attackerId:', pending.attackerId);
+        if (!attacker) {
+          console.log('[combatSelectTarget] attacker not found in combatants');
+          return false;
+        }
 
         // Player can only select targets for units on their side
-        if (isRebelPlayer(ctx.player)) {
-          return !attacker.isDictatorSide;  // Rebel selects for rebel units
+        const playerIsRebel = isRebelPlayer(ctx.player);
+        const playerIsDictator = game.isDictatorPlayer(ctx.player);
+        const dictatorIsAI = game.dictatorPlayer?.isAI;
+        console.log('[combatSelectTarget] player check - isRebel:', playerIsRebel, 'isDictator:', playerIsDictator, 'dictatorIsAI:', dictatorIsAI);
+
+        if (playerIsRebel) {
+          const result = !attacker.isDictatorSide;
+          console.log('[combatSelectTarget] rebel player, attacker is rebel side:', result);
+          return result;  // Rebel selects for rebel units
         }
-        if (game.isDictatorPlayer(ctx.player) && !game.dictatorPlayer?.isAI) {
-          return attacker.isDictatorSide;   // Dictator selects for dictator units
+        if (playerIsDictator && !dictatorIsAI) {
+          const result = attacker.isDictatorSide;
+          console.log('[combatSelectTarget] dictator player, attacker is dictator side:', result);
+          return result;   // Dictator selects for dictator units
         }
+        console.log('[combatSelectTarget] player cannot select targets');
         return false;
       },
     })
@@ -208,12 +287,14 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Combat sector not found' };
       }
 
+      // Find attacking player - fallback to first rebel if lookup fails
+      // (can happen when dictator initiates combat by moving into rebel sector)
       const player = game.rebelPlayers.find(
         p => `${p.position}` === game.activeCombat!.attackingPlayerId
-      ) as RebelPlayer;
+      ) ?? game.rebelPlayers[0];
 
       if (!player) {
-        return { success: false, message: 'Attacking player not found' };
+        return { success: false, message: 'No rebel players found' };
       }
 
       const outcome = executeCombat(game, sector, player);
@@ -332,12 +413,13 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
         return { success: false, message: 'Combat sector not found' };
       }
 
+      // Find attacking player - fallback to first rebel if lookup fails
       const player = game.rebelPlayers.find(
         p => `${p.position}` === game.activeCombat!.attackingPlayerId
-      ) as RebelPlayer;
+      ) ?? game.rebelPlayers[0];
 
       if (!player) {
-        return { success: false, message: 'Attacking player not found' };
+        return { success: false, message: 'No rebel players found' };
       }
 
       const outcome = executeCombat(game, sector, player);
@@ -511,12 +593,13 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Combat sector not found' };
       }
 
+      // Find attacking player - fallback to first rebel if lookup fails
       const player = game.rebelPlayers.find(
         p => `${p.position}` === game.activeCombat!.attackingPlayerId
-      ) as RebelPlayer;
+      ) ?? game.rebelPlayers[0];
 
       if (!player) {
-        return { success: false, message: 'Attacking player not found' };
+        return { success: false, message: 'No rebel players found' };
       }
 
       const outcome = executeCombat(game, sector, player);
@@ -648,9 +731,14 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
         return { success: false, message: 'Combat sector not found' };
       }
 
+      // Find attacking player - fallback to first rebel if lookup fails
       const player = game.rebelPlayers.find(
         p => `${p.position}` === game.activeCombat!.attackingPlayerId
-      ) as RebelPlayer;
+      ) ?? game.rebelPlayers[0];
+
+      if (!player) {
+        return { success: false, message: 'No rebel players found' };
+      }
 
       const outcome = executeCombat(game, sector, player);
 

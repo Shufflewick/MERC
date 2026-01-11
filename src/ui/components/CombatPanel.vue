@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue';
 import { Die3D } from '@boardsmith/ui';
 import { UI_COLORS } from '../colors';
-import MercIconSmall from './MercIconSmall.vue';
+import MercIcon from './MercIcon.vue';
+import SectorCardChoice from './SectorCardChoice.vue';
 
 const props = defineProps<{
   activeCombat: {
@@ -56,10 +57,35 @@ const props = defineProps<{
         maxHealth: number;
       }>;
     };
+    pendingAttackDogSelection?: {
+      attackerId: string;
+      attackerName: string;
+      validTargets: Array<{
+        id: string;
+        name: string;
+        isMerc: boolean;
+        health: number;
+        maxHealth: number;
+      }>;
+    };
+    // MERC-l09: Attack Dog assignments - [targetId, dog]
+    dogAssignments?: Array<[string, any]>;
   };
   isMyTurn: boolean;
   availableActions: string[];
   sectorName: string;
+  isSelectingRetreatSector?: boolean;
+  retreatSectorChoices?: Array<{
+    id: string | number;
+    sectorName: string;
+    sectorType: string;
+    image: string;
+    value: number;
+    weaponLoot: number;
+    armorLoot: number;
+    accessoryLoot: number;
+    dictatorMilitia: number;
+  }>;
 }>();
 
 const emit = defineEmits<{
@@ -68,6 +94,10 @@ const emit = defineEmits<{
   (e: 'reroll'): void;
   (e: 'confirm-allocation', allocations: string[]): void;
   (e: 'confirm-targets', targets: string[]): void;
+  (e: 'continue-combat'): void;
+  (e: 'retreat-combat'): void;
+  (e: 'select-retreat-sector', sectorId: string): void;
+  (e: 'assign-attack-dog', targetId: string): void;
 }>();
 
 // Track which dice have been allocated to which targets
@@ -114,6 +144,31 @@ const isAllocating = computed(() => {
 // Check if we're allocating Wolverine's 6s
 const isAllocatingWolverineSixes = computed(() => {
   return !!props.activeCombat.pendingWolverineSixes && props.isMyTurn;
+});
+
+// Check if we're assigning an Attack Dog
+const isAssigningAttackDog = computed(() => {
+  return !!props.activeCombat.pendingAttackDogSelection && props.isMyTurn;
+});
+
+// MERC-l09: Get dog target names - maps dogId -> targetName
+const dogTargetNames = computed(() => {
+  const nameMap = new Map<string, string>();
+  const assignments = props.activeCombat.dogAssignments || [];
+
+  // assignments is Array<[targetId, dog]>
+  // We need to find the target's name from the combatants
+  const allCombatants = [...livingRebels.value, ...livingDictator.value];
+
+  for (const [targetId, dog] of assignments) {
+    const target = allCombatants.find((c: any) => (c.id || c.sourceElement?.id) === targetId);
+    if (target && dog) {
+      const dogId = dog.id || dog.sourceElement?.id;
+      const targetName = target.name || 'Unknown';
+      nameMap.set(dogId, targetName);
+    }
+  }
+  return nameMap;
 });
 
 // Get the successful dice (hits)
@@ -245,32 +300,35 @@ function capitalize(str: string): string {
 }
 
 function getCombatantDisplay(combatant: any) {
-  const source = combatant.sourceElement || combatant;
-  const isMerc = !!source.mercId || !!source.mercName || !!combatant.mercId || !!combatant.mercName;
+  const isAttackDog = combatant.isAttackDog === true;
+  const isMerc = !combatant.isMilitia && !isAttackDog && (combatant.mercId || combatant.isDictator);
 
-  // Get name - prefer mercName from source, capitalize it
-  let name = combatant.name || source.mercName || source.name;
+  // Get name - capitalize it
+  let name = combatant.name;
   if (combatant.isMilitia) {
     name = 'Militia';
+  } else if (isAttackDog) {
+    name = 'Attack Dog';
   } else if (isMerc) {
-    name = capitalize(source.mercName || combatant.mercName || combatant.name || 'MERC');
+    name = capitalize(combatant.name || 'MERC');
   }
 
-  // Get image - try multiple paths
-  const image = source.image ||
-                source.attributes?.image ||
-                combatant.image ||
-                (isMerc ? `/mercs/${(source.mercId || combatant.mercId || '').toLowerCase()}.jpg` : null);
+  // Get image directly from combatant (populated from JSON data in combat.ts)
+  const image = combatant.image || null;
+
+  // Attack dogs have 3 health like MERCs
+  const defaultMaxHealth = isMerc ? 3 : isAttackDog ? 3 : 1;
 
   return {
-    id: combatant.id || source.id,
+    id: combatant.id,
     name,
     isMerc,
-    health: combatant.health ?? source.health ?? 1,
-    maxHealth: combatant.maxHealth ?? source.maxHealth ?? (isMerc ? 3 : 1),
-    mercId: source.mercId || combatant.mercId,
+    isAttackDog,
+    health: combatant.health ?? (isAttackDog ? 3 : 1),
+    maxHealth: combatant.maxHealth ?? defaultMaxHealth,
+    mercId: combatant.mercId,
     image,
-    isDead: (combatant.health ?? source.health ?? 1) <= 0,
+    isDead: (combatant.health ?? 1) <= 0,
   };
 }
 
@@ -333,20 +391,24 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
             class="combatant"
             :class="{
               merc: getCombatantDisplay(combatant).isMerc,
-              militia: !getCombatantDisplay(combatant).isMerc,
+              militia: !getCombatantDisplay(combatant).isMerc && !getCombatantDisplay(combatant).isAttackDog,
+              'attack-dog': getCombatantDisplay(combatant).isAttackDog,
               attacking: activeCombat.pendingHitAllocation?.attackerId === getCombatantDisplay(combatant).id,
+              targetable: isValidTarget(getCombatantDisplay(combatant).id),
+              selected: selectedDieIndex !== null && isValidTarget(getCombatantDisplay(combatant).id),
+              'target-selected': isSelectingTargets && isTargetSelected(getCombatantDisplay(combatant).id),
             }"
+            @click="selectTarget(getCombatantDisplay(combatant).id)"
           >
-            <MercIconSmall
-              v-if="getCombatantDisplay(combatant).image"
-              :image="getCombatantDisplay(combatant).image"
-              :alt="getCombatantDisplay(combatant).name"
-              :size="50"
+            <MercIcon
+              :image="combatant.image"
+              :merc-id="combatant.mercId"
+              :merc-name="getCombatantDisplay(combatant).name"
+              :player-color="combatant.playerColor"
+              :is-militia="combatant.isMilitia"
+              :is-attack-dog="combatant.isAttackDog"
+              size="small"
             />
-            <div v-else class="combatant-portrait">
-              <div class="militia-shield">🛡️</div>
-            </div>
-            <div class="combatant-name">{{ getCombatantDisplay(combatant).name }}</div>
             <div class="health-bar">
               <div
                 class="health-fill"
@@ -355,6 +417,14 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
               <span class="health-text">
                 {{ getCombatantDisplay(combatant).health }}/{{ getCombatantDisplay(combatant).maxHealth }}
               </span>
+            </div>
+            <!-- MERC-l09: Show dog's target -->
+            <div v-if="getCombatantDisplay(combatant).isAttackDog && dogTargetNames.get(getCombatantDisplay(combatant).id)" class="dog-target-info">
+              Targeting: {{ dogTargetNames.get(getCombatantDisplay(combatant).id) }}
+            </div>
+            <!-- Show allocated hits -->
+            <div v-if="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id) > 0" class="allocated-hits">
+              +{{ getAllocatedHitsForTarget(getCombatantDisplay(combatant).id) }} hit(s)
             </div>
           </div>
         </div>
@@ -375,23 +445,24 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
             class="combatant"
             :class="{
               merc: getCombatantDisplay(combatant).isMerc,
-              militia: !getCombatantDisplay(combatant).isMerc,
+              militia: !getCombatantDisplay(combatant).isMerc && !getCombatantDisplay(combatant).isAttackDog,
+              'attack-dog': getCombatantDisplay(combatant).isAttackDog,
               targetable: isValidTarget(getCombatantDisplay(combatant).id),
               selected: selectedDieIndex !== null && isValidTarget(getCombatantDisplay(combatant).id),
               'target-selected': isSelectingTargets && isTargetSelected(getCombatantDisplay(combatant).id),
             }"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           >
-            <MercIconSmall
-              v-if="getCombatantDisplay(combatant).image"
-              :image="getCombatantDisplay(combatant).image"
-              :alt="getCombatantDisplay(combatant).name"
-              :size="50"
+            <MercIcon
+              :image="combatant.image"
+              :merc-id="combatant.mercId"
+              :merc-name="getCombatantDisplay(combatant).name"
+              :player-color="combatant.playerColor"
+              :is-dictator="combatant.isDictatorSide"
+              :is-militia="combatant.isMilitia"
+              :is-attack-dog="combatant.isAttackDog"
+              size="small"
             />
-            <div v-else class="combatant-portrait">
-              <div class="militia-shield">🛡️</div>
-            </div>
-            <div class="combatant-name">{{ getCombatantDisplay(combatant).name }}</div>
             <div class="health-bar">
               <div
                 class="health-fill"
@@ -400,6 +471,10 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
               <span class="health-text">
                 {{ getCombatantDisplay(combatant).health }}/{{ getCombatantDisplay(combatant).maxHealth }}
               </span>
+            </div>
+            <!-- MERC-l09: Show dog's target -->
+            <div v-if="getCombatantDisplay(combatant).isAttackDog && dogTargetNames.get(getCombatantDisplay(combatant).id)" class="dog-target-info">
+              Targeting: {{ dogTargetNames.get(getCombatantDisplay(combatant).id) }}
             </div>
             <!-- Show allocated hits -->
             <div v-if="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id) > 0" class="allocated-hits">
@@ -477,6 +552,24 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
       </div>
     </div>
 
+    <!-- Attack Dog assignment -->
+    <div v-if="isAssigningAttackDog" class="attack-dog-area">
+      <div class="attack-dog-info">
+        <strong>{{ activeCombat.pendingAttackDogSelection?.attackerName }}</strong> - Attack Dog!
+        <span class="dog-hint">Assign the dog to an enemy MERC</span>
+      </div>
+      <div class="attack-dog-targets">
+        <button
+          v-for="target in activeCombat.pendingAttackDogSelection?.validTargets"
+          :key="target.id"
+          class="attack-dog-target-btn"
+          @click="emit('assign-attack-dog', target.id)"
+        >
+          {{ target.name }}
+        </button>
+      </div>
+    </div>
+
     <!-- Target selection area (before rolling) -->
     <div v-if="isSelectingTargets" class="target-selection-area">
       <div class="target-selection-info">
@@ -495,6 +588,43 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
       >
         Confirm {{ selectedTargets.size }} Target{{ selectedTargets.size > 1 ? 's' : '' }}
       </button>
+    </div>
+
+    <!-- Combat actions - Continue/Retreat (when not in any allocation mode and not selecting retreat sector) -->
+    <div
+      v-if="!isAllocating && !isSelectingTargets && !isAllocatingWolverineSixes && !isAssigningAttackDog && !isSelectingRetreatSector && isMyTurn"
+      class="combat-actions"
+    >
+      <button
+        v-if="availableActions.includes('combatContinue')"
+        class="combat-continue-btn"
+        @click="emit('continue-combat')"
+      >
+        Continue Fighting
+      </button>
+      <button
+        v-if="availableActions.includes('combatRetreat')"
+        class="combat-retreat-btn"
+        @click="emit('retreat-combat')"
+      >
+        Retreat
+      </button>
+    </div>
+
+    <!-- Retreat sector selection (shown after clicking Retreat button) -->
+    <div v-if="isSelectingRetreatSector && retreatSectorChoices && retreatSectorChoices.length > 0" class="retreat-sector-selection">
+      <div class="retreat-selection-header">
+        <strong>Retreat to which sector?</strong>
+      </div>
+      <div class="sector-card-choices">
+        <SectorCardChoice
+          v-for="sector in retreatSectorChoices"
+          :key="sector.id"
+          :sector="sector"
+          size="compact"
+          @click="emit('select-retreat-sector', sector.id)"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -591,12 +721,22 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
   position: relative;
 }
 
+/* Allow clicks to pass through MercIcon to parent combatant div */
+.combatant :deep(.merc-icon) {
+  pointer-events: none;
+}
+
 .combatant.merc {
   border: 2px solid rgba(100, 181, 246, 0.5);
 }
 
 .combatant.militia {
   border: 2px solid rgba(158, 158, 158, 0.3);
+}
+
+.combatant.attack-dog {
+  border: 2px solid rgba(139, 90, 43, 0.5);
+  background: rgba(139, 90, 43, 0.1);
 }
 
 .combatant.attacking {
@@ -677,6 +817,19 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
   color: #ff6b6b;
   font-weight: bold;
   margin-top: 4px;
+}
+
+/* MERC-l09: Dog target display */
+.dog-target-info {
+  font-size: 0.65rem;
+  color: #D2691E;
+  font-weight: bold;
+  margin-top: 2px;
+  background: rgba(139, 69, 19, 0.2);
+  padding: 2px 4px;
+  border-radius: 3px;
+  width: 100%;
+  text-align: center;
 }
 
 .dice-area {
@@ -864,5 +1017,118 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
   justify-content: center;
   font-size: 0.75rem;
   font-weight: bold;
+}
+
+/* Combat action buttons - Continue/Retreat */
+.combat-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.combat-continue-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.combat-continue-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.combat-retreat-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.combat-retreat-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+/* Attack Dog assignment */
+.attack-dog-area {
+  background: rgba(139, 69, 19, 0.2);
+  border: 2px solid #8B4513;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.attack-dog-info {
+  color: #D2691E;
+  margin-bottom: 12px;
+}
+
+.dog-hint {
+  margin-left: 8px;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.attack-dog-targets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.attack-dog-target-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 100px;
+}
+
+.attack-dog-target-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.4);
+}
+
+/* Retreat sector selection */
+.retreat-sector-selection {
+  background: rgba(255, 152, 0, 0.1);
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.retreat-selection-header {
+  color: #ff9800;
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.sector-card-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
 }
 </style>
