@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 
 ## Current Position
 
-Phase: 9 of 13 (Add Discriminator)
+Phase: 10 of 13 (Unified Class)
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-01-11 — Milestone v1.2 created
+Last activity: 2026-01-11 — Phase 9 complete (cardType discriminator added)
 
-Progress: ░░░░░░░░░░ 0%
+Progress: ██░░░░░░░░ 20%
 
 ## Milestones Completed
 
@@ -23,6 +23,14 @@ Progress: ░░░░░░░░░░ 0%
 
 Total: 8 phases, 26 plans, 2 milestones shipped
 
+## v1.2 Progress
+
+- [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
+- [ ] Phase 10: Unified Class
+- [ ] Phase 11: Migrate instanceof
+- [ ] Phase 12: Merge Data Files
+- [ ] Phase 13: Remove Legacy
+
 ## Performance Metrics
 
 **Velocity:**
@@ -30,24 +38,13 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 - Total execution time: ~3.8 hours
 - Average duration: 8.8 min/plan
 
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1 | 1 | 8 min | 8 min |
-| 2 | 8 | 83 min | 10 min |
-| 3 | 4 | 21 min | 5 min |
-| 4 | 3 | 20 min | 6.7 min |
-| 5 | 1 | 6 min | 6 min |
-| 6 | 3 | 17 min | 5.7 min |
-| 7 | 2 | 18 min | 9 min |
-| 8 | 4 | 34 min | 8.5 min |
-
 ## Accumulated Context
 
 ### Decisions
 
-All key decisions documented in PROJECT.md Key Decisions table.
+- cardType discriminator: `'merc' | 'dictator'` string literal union
+- isMerc/isDictator getters added to both classes
+- Data interfaces updated with cardType field
 
 ### Deferred Issues
 
@@ -55,14 +52,15 @@ None active.
 
 ### Blockers/Concerns
 
-None.
+- Pre-existing test failures (56) in index.ts changes - unrelated to this work
 
 ### Roadmap Evolution
 
 - Milestone v1.2 created: Merge Dictator and Merc Cards, 5 phases (Phase 9-13)
+- Phase 9 completed: cardType discriminator added
 
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Milestone v1.2 initialization
+Stopped at: Phase 9 complete, ready for Phase 10
 Resume file: None
