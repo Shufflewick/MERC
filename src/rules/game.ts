@@ -1335,19 +1335,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // 6. All dictator units eliminated (militia + MERCs)
     // 7. All rebel units eliminated (MERCs + militia)
 
-    // DEBUG: Log dictator defeat status
-    const dictator = this.dictatorPlayer?.dictator;
-    if (dictator && dictator.damage > 0) {
-      console.log('[isFinished DEBUG]', {
-        isDefeated: this.dictatorPlayer?.isDefeated,
-        baseRevealed: this.dictatorPlayer?.baseRevealed,
-        dictatorIsDead: dictator?.isDead,
-        dictatorHealth: dictator?.health,
-        dictatorDamage: dictator?.damage,
-        dictatorMaxHealth: dictator?.maxHealth,
-      });
-    }
-
     if (this.dictatorPlayer?.isDefeated) {
       return true;
     }

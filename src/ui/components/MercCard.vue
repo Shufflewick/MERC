@@ -481,15 +481,6 @@ const showDropConfirm = ref(false);
 
 function showEquipmentDetails(slot: any, slotType: 'Weapon' | 'Armor' | 'Accessory', bandolierIndex?: number) {
   if (slot) {
-    console.log('[MercCard] showEquipmentDetails called:', {
-      slotType,
-      bandolierIndex,
-      'slot object': slot,
-      'slot.id': slot?.id,
-      'slot.attributes?.id': slot?.attributes?.id,
-      'props.merc.id': (props.merc as any)?.id,
-      'canDropEquipment prop': props.canDropEquipment,
-    });
     selectedEquipment.value = slot;
     selectedSlotType.value = slotType;
     selectedBandolierIndex.value = bandolierIndex ?? null;
@@ -535,21 +526,11 @@ function confirmDropEquipment() {
     }
   }
 
-  console.log('[MercCard] confirmDropEquipment:', {
-    mercNumericId,
-    equipmentName,
-    equipmentId_fromSlot,
-    'children count': children.length,
-    equipmentId,
-  });
-
   if (!mercNumericId || !equipmentId) {
-    console.error('[MercCard] Cannot drop equipment: missing IDs', { mercNumericId, equipmentId });
     closeEquipmentModal();
     return;
   }
 
-  console.log('[MercCard] Emitting dropEquipment:', { mercNumericId, equipmentId });
   emit('dropEquipment', mercNumericId, equipmentId);
   closeEquipmentModal();
 }

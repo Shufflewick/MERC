@@ -64,58 +64,21 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
   return Action.create('combatRetreat')
     .prompt('Retreat from combat')
     .condition({
-      'has active combat': () => {
-        const result = game.activeCombat !== null;
-        console.log('[combatRetreat] has active combat:', result);
-        return result;
-      },
-      'no pending target selection': () => {
-        const result = game.activeCombat?.pendingTargetSelection === undefined;
-        console.log('[combatRetreat] no pending target selection:', result, game.activeCombat?.pendingTargetSelection);
-        return result;
-      },
-      'no pending hit allocation': () => {
-        const result = game.activeCombat?.pendingHitAllocation === undefined;
-        console.log('[combatRetreat] no pending hit allocation:', result);
-        return result;
-      },
-      'no pending attack dog selection': () => {
-        const result = game.activeCombat?.pendingAttackDogSelection === undefined;
-        console.log('[combatRetreat] no pending attack dog:', result);
-        return result;
-      },
-      'no pending wolverine sixes': () => {
-        const result = game.activeCombat?.pendingWolverineSixes === undefined;
-        console.log('[combatRetreat] no pending wolverine:', result);
-        return result;
-      },
-      'no pending epinephrine': () => {
-        const result = game.activeCombat?.pendingEpinephrine === undefined;
-        console.log('[combatRetreat] no pending epinephrine:', result);
-        return result;
-      },
+      'has active combat': () => game.activeCombat !== null,
+      'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
+      'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
+      'no pending attack dog selection': () => game.activeCombat?.pendingAttackDogSelection === undefined,
+      'no pending wolverine sixes': () => game.activeCombat?.pendingWolverineSixes === undefined,
+      'no pending epinephrine': () => game.activeCombat?.pendingEpinephrine === undefined,
       'current player can retreat': (ctx) => {
-        console.log('[combatRetreat] checking current player can retreat, ctx.player:', ctx.player?.constructor?.name);
-        if (!game.activeCombat) {
-          console.log('[combatRetreat] no active combat');
-          return false;
-        }
+        if (!game.activeCombat) return false;
         // Must be a rebel or dictator player
         const isRebel = game.isRebelPlayer(ctx.player);
         const isDictator = game.isDictatorPlayer(ctx.player);
-        console.log('[combatRetreat] player type check - isRebel:', isRebel, 'isDictator:', isDictator);
-        if (!isRebel && !isDictator) {
-          console.log('[combatRetreat] player is neither rebel nor dictator');
-          return false;
-        }
+        if (!isRebel && !isDictator) return false;
         const combatSector = game.getSector(game.activeCombat.sectorId);
-        if (!combatSector) {
-          console.log('[combatRetreat] combat sector not found');
-          return false;
-        }
-        const result = canRetreat(game, combatSector, ctx.player as RebelPlayer | DictatorPlayer);
-        console.log('[combatRetreat] canRetreat result:', result);
-        return result;
+        if (!combatSector) return false;
+        return canRetreat(game, combatSector, ctx.player as RebelPlayer | DictatorPlayer);
       },
     })
     .chooseElement<Sector>('retreatSector', {
@@ -168,44 +131,27 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
     })
     .condition({
       'player can select targets for this attacker': (ctx) => {
-        console.log('[combatSelectTarget] condition check, activeCombat:', !!game.activeCombat, 'pendingTargetSelection:', !!game.activeCombat?.pendingTargetSelection);
         // Must have active combat with pending target selection
-        if (!game.activeCombat?.pendingTargetSelection) {
-          console.log('[combatSelectTarget] no pending target selection');
-          return false;
-        }
+        if (!game.activeCombat?.pendingTargetSelection) return false;
         const pending = game.activeCombat.pendingTargetSelection;
-        if (pending.validTargets.length === 0) {
-          console.log('[combatSelectTarget] no valid targets');
-          return false;
-        }
+        if (pending.validTargets.length === 0) return false;
 
         // Find the attacker to check which side they're on
         const attacker = game.activeCombat.rebelCombatants?.find(c => c.id === pending.attackerId) ||
                          game.activeCombat.dictatorCombatants?.find(c => c.id === pending.attackerId);
-        console.log('[combatSelectTarget] attacker:', attacker?.name, 'isDictatorSide:', attacker?.isDictatorSide, 'attackerId:', pending.attackerId);
-        if (!attacker) {
-          console.log('[combatSelectTarget] attacker not found in combatants');
-          return false;
-        }
+        if (!attacker) return false;
 
         // Player can only select targets for units on their side
         const playerIsRebel = isRebelPlayer(ctx.player);
         const playerIsDictator = game.isDictatorPlayer(ctx.player);
         const dictatorIsAI = game.dictatorPlayer?.isAI;
-        console.log('[combatSelectTarget] player check - isRebel:', playerIsRebel, 'isDictator:', playerIsDictator, 'dictatorIsAI:', dictatorIsAI);
 
         if (playerIsRebel) {
-          const result = !attacker.isDictatorSide;
-          console.log('[combatSelectTarget] rebel player, attacker is rebel side:', result);
-          return result;  // Rebel selects for rebel units
+          return !attacker.isDictatorSide;  // Rebel selects for rebel units
         }
         if (playerIsDictator && !dictatorIsAI) {
-          const result = attacker.isDictatorSide;
-          console.log('[combatSelectTarget] dictator player, attacker is dictator side:', result);
-          return result;   // Dictator selects for dictator units
+          return attacker.isDictatorSide;   // Dictator selects for dictator units
         }
-        console.log('[combatSelectTarget] player cannot select targets');
         return false;
       },
     })

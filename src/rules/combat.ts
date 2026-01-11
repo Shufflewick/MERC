@@ -1464,7 +1464,9 @@ function selectTargets(
       ? sortedForTargeting
       : sortedForTargeting.filter(e => !e.isDictator);
 
-    return validTargets.slice(0, maxTargets);
+    // MERC-fix: AI rebels also use priority targeting (lowest health+armor first)
+    const prioritized = sortTargetsByAIPriority(validTargets);
+    return prioritized.slice(0, maxTargets);
   }
 
   // MERC-0q8: Dictator AI uses priority targeting
@@ -1803,7 +1805,17 @@ function executeCombatRound(
                               (attacker.sourceElement && 'dictatorId' in attacker.sourceElement);
     const isRebelMerc = !attacker.isDictatorSide && !attacker.isMilitia && hasMercSource;
     const isDictatorControlled = attacker.isDictatorSide && !attacker.isMilitia && (hasMercSource || hasDictatorSource);
-    const isHumanControlled = isRebelMerc || (isDictatorControlled && !game.dictatorPlayer?.isAI);
+
+    // MERC-fix: For rebel mercs, find the owning player and check if they're AI
+    let isRebelHumanControlled = false;
+    if (isRebelMerc && hasMercSource) {
+      const attackerMerc = attacker.sourceElement as MercCard;
+      const ownerPlayer = game.rebelPlayers.find(p =>
+        p.team.some(m => m.id === attackerMerc.id)
+      );
+      isRebelHumanControlled = !!(ownerPlayer && !ownerPlayer.isAI);
+    }
+    const isHumanControlled = isRebelHumanControlled || (isDictatorControlled && !game.dictatorPlayer?.isAI);
     const hasSelectedTargets = playerSelectedTargets?.has(attacker.id);
 
     // MERC-l09: Before attacking, assign Attack Dog if available (MUST come before target selection)

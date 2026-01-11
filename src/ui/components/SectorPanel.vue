@@ -497,8 +497,6 @@ const canDropEquipmentForSelectedMerc = computed(() => {
 
 // Handle drop equipment from MercCard
 async function handleDropEquipment(mercId: number, equipmentId: number) {
-  console.log('[SectorPanel] handleDropEquipment:', { mercId, equipmentId });
-
   // Close the modal first
   closeMercModal();
 
@@ -507,7 +505,6 @@ async function handleDropEquipment(mercId: number, equipmentId: number) {
     actingMerc: mercId,
     equipment: equipmentId,
   };
-  console.log('[SectorPanel] Calling actionController.execute("dropEquipment",', args, ')');
   await props.actionController.execute('dropEquipment', args);
 }
 

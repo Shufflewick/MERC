@@ -600,10 +600,13 @@ const allMercs = computed(() => {
         if (isMercDead(merc)) continue;
 
         if (mercId || merc.className === 'MercCard') {
+          // Use merc's own sectorId if set (important for dictator mercs who can be
+          // in different locations than their squad), otherwise fall back to squad's sectorId
+          const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
           mercs.push({
             ...merc,
             mercId: mercId || merc.ref,
-            sectorId,
+            sectorId: mercSectorId,
             playerColor,
           });
         }
@@ -1208,27 +1211,11 @@ async function handleConfirmAllocation(allocations: string[]) {
 // Handle confirming target selection - executes combatSelectTarget action
 // Receives target IDs directly from CombatPanel (e.g., "militia-dictator-0")
 async function handleConfirmTargets(targetIds: string[]) {
-  console.log('[handleConfirmTargets] called with:', targetIds);
-  console.log('[handleConfirmTargets] availableActions:', props.availableActions);
-  console.log('[handleConfirmTargets] includes combatSelectTarget:', props.availableActions.includes('combatSelectTarget'));
-
-  if (!targetIds || targetIds.length === 0) {
-    console.log('[handleConfirmTargets] no targets, returning');
-    return;
-  }
-  if (!props.availableActions.includes('combatSelectTarget')) {
-    console.log('[handleConfirmTargets] combatSelectTarget not in availableActions, returning');
-    return;
-  }
+  if (!targetIds || targetIds.length === 0) return;
+  if (!props.availableActions.includes('combatSelectTarget')) return;
 
   const targetValue = targetIds.length === 1 ? targetIds[0] : targetIds;
-  console.log('[handleConfirmTargets] executing combatSelectTarget with:', { targets: targetValue });
-  try {
-    await props.actionController.execute('combatSelectTarget', { targets: targetValue });
-    console.log('[handleConfirmTargets] execute completed successfully');
-  } catch (err) {
-    console.error('[handleConfirmTargets] execute failed:', err);
-  }
+  await props.actionController.execute('combatSelectTarget', { targets: targetValue });
 }
 
 // Handle continue combat from CombatPanel
@@ -1240,38 +1227,16 @@ async function handleContinueCombat() {
 // Handle retreat from CombatPanel - opens retreat sector selection
 // MERC-retreat-fix: Use start() to enter wizard mode for sector selection
 async function handleRetreatCombat() {
-  console.log('[handleRetreatCombat] called');
-  console.log('[handleRetreatCombat] availableActions:', props.availableActions);
-  console.log('[handleRetreatCombat] includes combatRetreat:', props.availableActions.includes('combatRetreat'));
-
-  if (!props.availableActions.includes('combatRetreat')) {
-    console.log('[handleRetreatCombat] combatRetreat not in availableActions, returning');
-    return;
-  }
+  if (!props.availableActions.includes('combatRetreat')) return;
   // Start the action in wizard mode - BoardSmith will apply sector filter
   // and execute when user clicks a valid retreat sector
-  console.log('[handleRetreatCombat] starting combatRetreat action in wizard mode');
-  try {
-    await props.actionController.start('combatRetreat');
-    console.log('[handleRetreatCombat] start completed successfully');
-  } catch (err) {
-    console.error('[handleRetreatCombat] start failed:', err);
-  }
+  await props.actionController.start('combatRetreat');
 }
 
 // Handle Attack Dog assignment from CombatPanel
 async function handleAssignAttackDog(targetId: string) {
-  console.log('[handleAssignAttackDog] called with targetId:', targetId);
-  if (!props.availableActions.includes('combatAssignAttackDog')) {
-    console.log('[handleAssignAttackDog] combatAssignAttackDog not in availableActions');
-    return;
-  }
-  try {
-    await props.actionController.execute('combatAssignAttackDog', { target: targetId });
-    console.log('[handleAssignAttackDog] execute completed successfully');
-  } catch (err) {
-    console.error('[handleAssignAttackDog] execute failed:', err);
-  }
+  if (!props.availableActions.includes('combatAssignAttackDog')) return;
+  await props.actionController.execute('combatAssignAttackDog', { target: targetId });
 }
 
 // ============================================================================
@@ -1362,8 +1327,6 @@ const retreatSectorChoices = computed(() => {
   const currentSel = props.actionController.currentSelection.value;
   if (!currentSel) return [];
   const choices = props.actionController.getChoices(currentSel) || [];
-  console.log('[retreatSectorChoices] raw choices:', choices);
-  console.log('[retreatSectorChoices] sectors:', sectors.value.map(s => ({ id: s.id, sectorId: s.sectorId, name: s.sectorName })));
 
   // Choices from getChoices() have { value, display } structure from BoardSmith
   // Find sector by matching the numeric value and include full sector data for visual display
@@ -1371,7 +1334,6 @@ const retreatSectorChoices = computed(() => {
     // choice.value is the numeric BoardSmith element ID (NOT choice.id!)
     const numericId = choice.value;
     const sectorData = sectors.value.find(s => s.id === numericId);
-    console.log('[retreatSectorChoices] matching value:', numericId, 'found:', sectorData?.sectorName);
     return {
       id: numericId,  // Keep numeric ID for fill() - we store value as id for our UI
       sectorName: sectorData?.sectorName || choice.display || 'Unknown',
@@ -1389,23 +1351,14 @@ const retreatSectorChoices = computed(() => {
 
 // Handle retreat sector selection from CombatPanel
 async function handleSelectRetreatSector(sectorId: string | number) {
-  console.log('[handleSelectRetreatSector] called with:', sectorId, 'type:', typeof sectorId);
   const currentSel = props.actionController.currentSelection.value;
-  if (!currentSel) {
-    console.log('[handleSelectRetreatSector] no currentSel');
-    return;
-  }
+  if (!currentSel) return;
   // Find the sector element to fill - match by numeric value
   const choices = props.actionController.getChoices(currentSel) || [];
-  console.log('[handleSelectRetreatSector] choices:', choices);
   const selectedSector = choices.find((c: any) => c.value === sectorId);
-  console.log('[handleSelectRetreatSector] selectedSector:', selectedSector);
   if (selectedSector) {
     // Pass just the value (element ID), not the full choice object
     await props.actionController.fill(currentSel.name, selectedSector.value);
-    console.log('[handleSelectRetreatSector] filled successfully with value:', selectedSector.value);
-  } else {
-    console.log('[handleSelectRetreatSector] no matching choice found');
   }
 }
 

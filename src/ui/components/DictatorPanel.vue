@@ -290,7 +290,6 @@ async function selectMercToHire(merc: any) {
   if (!sel) return;
   // Use _choiceValue if available (from our processing), otherwise fall back
   const value = merc._choiceValue ?? merc.mercId ?? merc.value;
-  console.log('[DictatorPanel] Selecting MERC with value:', value);
   await props.actionController.fill(sel.name, value);
 }
 

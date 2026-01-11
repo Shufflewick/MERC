@@ -80,13 +80,10 @@ export function canRetreat(
   sector: Sector,
   player: RebelPlayer | DictatorPlayer
 ): boolean {
-  console.log('[canRetreat] Called with sector:', sector.sectorId, 'player type:', game.isDictatorPlayer(player) ? 'dictator' : 'rebel');
-
   // Dictator retreat check
   if (game.isDictatorPlayer(player)) {
     const dictatorPlayer = game.dictatorPlayer;
     if (!dictatorPlayer) {
-      console.log('[canRetreat] No dictator player found');
       return false;
     }
 
@@ -97,27 +94,15 @@ export function canRetreat(
       dictatorPlayer.dictator &&
       !dictatorPlayer.dictator.isDead;
 
-    console.log('[canRetreat] Dictator check:', {
-      baseRevealed: dictatorPlayer.baseRevealed,
-      baseSectorId: dictatorPlayer.baseSectorId,
-      dictatorSectorId: dictatorPlayer.dictator?.sectorId,
-      combatSectorId: sector.sectorId,
-      dictatorIsDead: dictatorPlayer.dictator?.isDead,
-      dictatorCardInSector,
-    });
-
     // Check if any hired MERCs are in this sector and alive
     const mercsInSector = game.getDictatorMercsInSector(sector);
     const hasLivingMercsInSector = mercsInSector.length > 0;
-    console.log('[canRetreat] MERCs in sector:', mercsInSector.map(m => m.mercName), 'hasLiving:', hasLivingMercsInSector);
 
     if (!dictatorCardInSector && !hasLivingMercsInSector) {
-      console.log('[canRetreat] No dictator units in sector, returning false');
       return false;
     }
 
     const validSectors = getValidRetreatSectors(game, sector, player);
-    console.log('[canRetreat] Valid retreat sectors:', validSectors.map(s => s.sectorId));
     return validSectors.length > 0;
   }
 
@@ -127,22 +112,11 @@ export function canRetreat(
     (rebelPlayer.primarySquad.sectorId === sector.sectorId && rebelPlayer.primarySquad.livingMercCount > 0) ||
     (rebelPlayer.secondarySquad.sectorId === sector.sectorId && rebelPlayer.secondarySquad.livingMercCount > 0);
 
-  console.log('[canRetreat] Rebel check:', {
-    primarySectorId: rebelPlayer.primarySquad.sectorId,
-    secondarySectorId: rebelPlayer.secondarySquad.sectorId,
-    combatSectorId: sector.sectorId,
-    primaryLiving: rebelPlayer.primarySquad.livingMercCount,
-    secondaryLiving: rebelPlayer.secondarySquad.livingMercCount,
-    hasLivingMercsInSector,
-  });
-
   if (!hasLivingMercsInSector) {
-    console.log('[canRetreat] No rebel MERCs in sector, returning false');
     return false;
   }
 
   const validSectors = getValidRetreatSectors(game, sector, player);
-  console.log('[canRetreat] Valid retreat sectors:', validSectors.map(s => s.sectorId));
   return validSectors.length > 0;
 }
 
@@ -166,14 +140,14 @@ export function executeRetreat(
     // Note: baseSectorId is the PERMANENT base location, dictator.sectorId is current location
     if (dictatorPlayer.baseRevealed && dictatorPlayer.dictator?.sectorId === fromSector.sectorId) {
       dictatorPlayer.dictator.sectorId = toSector.sectorId;
-      game.message(`${dictatorPlayer.dictator?.name || 'Dictator'} retreats to ${toSector.sectorName}`);
+      game.message(`${dictatorPlayer.dictator?.dictatorName || 'Dictator'} retreats to ${toSector.sectorName}`);
     }
 
     // Move any hired MERCs in the sector
     const mercsInSector = game.getDictatorMercsInSector(fromSector);
     for (const merc of mercsInSector) {
       merc.sectorId = toSector.sectorId;
-      game.message(`${merc.name} retreats to ${toSector.sectorName}`);
+      game.message(`${merc.mercName} retreats to ${toSector.sectorName}`);
     }
 
     // Note: Dictator militia do NOT retreat (per rules: "Militia cannot retreat")
