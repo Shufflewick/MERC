@@ -571,17 +571,16 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
       prompt: 'Select your Dictator',
       defer: true, // Triggers hiring-style UI
       choices: () => {
-        // Get available dictators from game data - just return names
-        const dictators = game.dictatorData || [];
+        // Get available dictators from combatantData - filter for dictator entries
+        const dictators = game.combatantData.filter(d => d.cardType === 'dictator');
         return dictators.map(d => d.name);
       },
     })
     .execute((args) => {
       const dictatorName = args.dictatorChoice as string;
 
-      // Find the dictator by name and set up
-      // game.dictatorData is typed as DictatorData[] from game.ts
-      const dictatorData = game.dictatorData;
+      // Find the dictator by name and set up - filter combatantData for dictator entries
+      const dictatorData = game.combatantData.filter(d => d.cardType === 'dictator');
       const dictator = dictatorData.find(d => d.name === dictatorName);
       if (!dictator) {
         return { success: false, message: `Unknown dictator: ${dictatorName}` };
