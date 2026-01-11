@@ -742,13 +742,12 @@ export abstract class CombatUnit extends BaseCard {
 }
 
 // =============================================================================
-// MERC Card - The mercenary characters
+// CombatUnitCard - Unified class for MERCs and Dictators
 // =============================================================================
 
-export class MercCard extends CombatUnit {
-  // Identity - BoardSmith populates from JSON with these names
-  mercId!: string;
-  mercName!: string;
+export class CombatUnitCard extends CombatUnit {
+  // Identity - BoardSmith populates these from JSON
+  // Note: unitId/unitName are inherited from CombatUnit
 
   // Card type discriminator
   cardType: 'merc' | 'dictator' = 'merc';
@@ -757,14 +756,28 @@ export class MercCard extends CombatUnit {
   get isMerc(): boolean { return this.cardType === 'merc'; }
   get isDictator(): boolean { return this.cardType === 'dictator'; }
 
-  // Provide unitId/unitName for base class compatibility
-  get unitId(): string { return this.mercId; }
-  get unitName(): string { return this.mercName; }
+  // Dictator-specific state (mercs always in play, dictators start false)
+  inPlay: boolean = true;
+  baseSectorId?: string; // Permanent base location for dictators (never changes after revealed)
 
-  // MERC-specific equip rules override
+  // Backward-compat getters - all return the unified unitId/unitName
+  get mercId(): string { return this.unitId; }
+  get mercName(): string { return this.unitName; }
+  get dictatorId(): string { return this.unitId; }
+  get dictatorName(): string { return this.unitName; }
+
+  /**
+   * Put the dictator into play (when base is revealed).
+   * For mercs, this is a no-op (they're always in play).
+   */
+  enterPlay(): void {
+    this.inPlay = true;
+  }
+
+  // Equipment rules with ID-based checks for special mercs
   override canEquip(equipment: Equipment): boolean {
     // MERC-70a: Apeiron won't use grenades or mortars
-    if (this.mercId === 'apeiron') {
+    if (this.unitId === 'apeiron') {
       const name = equipment.equipmentName.toLowerCase();
       if (name.includes('grenade') || name.includes('mortar')) {
         return false;
@@ -778,24 +791,23 @@ export class MercCard extends CombatUnit {
     }
 
     // MERC-42g: Gunther can use all equipment slots for accessories
-    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
+    if (this.unitId === 'gunther' && equipment.equipmentType === 'Accessory') {
       return !this.accessorySlot || !this.weaponSlot || !this.armorSlot || this.getAvailableBandolierSlots() > 0;
     }
 
     // MERC-vwi: Genesis can carry a weapon in his accessory slot
-    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
+    if (this.unitId === 'genesis' && equipment.equipmentType === 'Weapon') {
       return !this.weaponSlot || !this.accessorySlot;
     }
 
     return super.canEquip(equipment);
   }
 
-  // MERC-specific equip rules override
   override equip(equipment: Equipment): Equipment | undefined {
     let replaced: Equipment | undefined;
 
     // MERC-42g: Gunther can equip accessories in any slot
-    if (this.mercId === 'gunther' && equipment.equipmentType === 'Accessory') {
+    if (this.unitId === 'gunther' && equipment.equipmentType === 'Accessory') {
       if (!this.accessorySlot) {
         this.equipToSlot(equipment, 'accessory');
       } else if (this.getAvailableBandolierSlots() > 0) {
@@ -815,7 +827,7 @@ export class MercCard extends CombatUnit {
     }
 
     // MERC-vwi: Genesis can equip weapons in accessory slot
-    if (this.mercId === 'genesis' && equipment.equipmentType === 'Weapon') {
+    if (this.unitId === 'genesis' && equipment.equipmentType === 'Weapon') {
       if (!this.weaponSlot) {
         this.equipToSlot(equipment, 'weapon');
       } else if (!this.accessorySlot) {
@@ -831,6 +843,23 @@ export class MercCard extends CombatUnit {
 
     return super.equip(equipment);
   }
+}
+
+// =============================================================================
+// MERC Card - The mercenary characters (thin wrapper for backward compatibility)
+// =============================================================================
+
+export class MercCard extends CombatUnitCard {
+  // Identity - BoardSmith populates from JSON with these names
+  mercId!: string;
+  mercName!: string;
+
+  // Card type discriminator
+  override cardType: 'merc' | 'dictator' = 'merc';
+
+  // Provide unitId/unitName for base class compatibility
+  override get unitId(): string { return this.mercId; }
+  override get unitName(): string { return this.mercName; }
 }
 
 // =============================================================================
@@ -1095,35 +1124,21 @@ export class Sector extends GridCell {
 }
 
 // =============================================================================
-// Dictator Card - Extends CombatUnit with minimal dictator-specific logic
+// Dictator Card - Thin wrapper for backward compatibility
 // =============================================================================
 
-export class DictatorCard extends CombatUnit {
+export class DictatorCard extends CombatUnitCard {
   // Identity - BoardSmith populates from JSON with these names
   dictatorId!: string;
   dictatorName!: string;
 
-  // Card type discriminator
-  cardType: 'merc' | 'dictator' = 'dictator';
-
-  // Type check getters
-  get isMerc(): boolean { return this.cardType === 'merc'; }
-  get isDictator(): boolean { return this.cardType === 'dictator'; }
+  // Card type discriminator - dictators start not in play
+  override cardType: 'merc' | 'dictator' = 'dictator';
+  override inPlay: boolean = false;
 
   // Provide unitId/unitName for base class compatibility
-  get unitId(): string { return this.dictatorId; }
-  get unitName(): string { return this.dictatorName; }
-
-  // Dictator-specific state
-  inPlay: boolean = false;
-  baseSectorId?: string; // Permanent base location (never changes after revealed)
-
-  /**
-   * Put the dictator into play (when base is revealed).
-   */
-  enterPlay(): void {
-    this.inPlay = true;
-  }
+  override get unitId(): string { return this.dictatorId; }
+  override get unitName(): string { return this.dictatorName; }
 }
 
 // =============================================================================
