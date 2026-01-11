@@ -10,15 +10,14 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ## Current State
 
-**Shipped:** v1.1 Polish (2026-01-09)
+**Shipped:** v1.2 Merge Dictator and Merc Cards (2026-01-11)
 
-- 25,687 lines of TypeScript (modular structure)
+- 31,539 lines of TypeScript (modular structure)
 - Zero `as any` casts in src/rules/
-- Standardized cache helpers for state persistence
-- 81+ new tests for error conditions and edge cases
-- combat.ts split into focused modules (2,747 lines)
-- ai-helpers.ts split into focused modules (899 lines)
-- Artillery Barrage player choice implemented
+- Unified CombatUnitCard class with MercCard/DictatorCard as thin wrappers
+- Property-based type guards instead of instanceof (bundler-compatible)
+- Single combatants.json data file (54 entries)
+- 81+ tests for error conditions and edge cases
 
 ## Requirements
 
@@ -36,6 +35,9 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Add tests for error conditions and edge cases — v1.0
 - ✓ Split large files: combat.ts (2,879→2,747 lines), ai-helpers.ts (1,327→899 lines) — v1.1
 - ✓ Artillery Barrage player choice — rebels choose hit allocation during dictator's Artillery Barrage — v1.1
+- ✓ Unified card architecture — CombatUnitCard class with MercCard/DictatorCard as thin wrappers — v1.2
+- ✓ Property-based type guards — replaced 103 instanceof checks with isMerc/isDictator for bundler compatibility — v1.2
+- ✓ Single data file — merged mercs.json and dictators.json into combatants.json with cardType discriminator — v1.2
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -90,6 +92,10 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | pendingArtilleryAllocation state pattern | Mirrors existing pendingHitAllocation | ✓ Good |
 | Roll dice upfront for Artillery | Avoid partial state during allocation | ✓ Good |
 | mercId for MERC target identification | String matching consistent with other code | ✓ Good |
+| cardType discriminator over boolean | `'merc' \| 'dictator'` string union is more extensible | ✓ Good |
+| CombatUnitCard unified class | Single implementation with thin subclass wrappers | ✓ Good |
+| Property-based type guards | Optional chaining (`?.isMerc`) for bundler compatibility | ✓ Good |
+| combatants.json single data file | One source of truth with cardType filter | ✓ Good |
 
 ---
-*Last updated: 2026-01-09 after v1.1 milestone*
+*Last updated: 2026-01-11 after v1.2 milestone*

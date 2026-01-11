@@ -36,61 +36,16 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 </details>
 
-### ✅ v1.2 Merge Dictator and Merc Cards — SHIPPED 2026-01-11
+<details>
+<summary>✅ v1.2 Merge Dictator and Merc Cards (Phases 9-13) — SHIPPED 2026-01-11</summary>
 
-**Milestone Goal:** Unify MercCard and DictatorCard into a single CombatUnitCard class with discriminator-based logic, eliminating duplicate class definitions and replacing 130+ instanceof checks with property-based type guards.
+- [x] Phase 9: Add Discriminator (1/1 plan) — completed 2026-01-11
+- [x] Phase 10: Unified Class (1/1 plan) — completed 2026-01-11
+- [x] Phase 11: Migrate instanceof (3/3 plans) — completed 2026-01-11
+- [x] Phase 12: Merge Data Files (1/1 plan) — completed 2026-01-11
+- [x] Phase 13: Remove Legacy (1/1 plan) — completed 2026-01-11
 
-#### Phase 9: Add Discriminator — COMPLETE
-
-**Goal**: Add cardType property to existing classes without breaking anything
-**Depends on**: Previous milestone complete
-**Research**: Unlikely (internal patterns)
-**Plans**: 1/1
-
-Plans:
-- [x] 09-01: Add cardType discriminator to MercCard/DictatorCard — completed 2026-01-11
-
-#### Phase 10: Unified Class — COMPLETE
-
-**Goal**: Create CombatUnitCard class and make old classes thin aliases
-**Depends on**: Phase 9
-**Research**: Unlikely (internal refactoring)
-**Plans**: 1/1
-
-Plans:
-- [x] 10-01: Create CombatUnitCard class — completed 2026-01-11
-
-#### Phase 11: Migrate instanceof — COMPLETE
-
-**Goal**: Replace 103 instanceof checks with property-based type guards
-**Depends on**: Phase 10
-**Research**: Unlikely (mechanical refactoring)
-**Plans**: 3/3
-
-Plans:
-- [x] 11-01: Type guards and combat.ts migration — completed 2026-01-11
-- [x] 11-02: Actions directory migration — completed 2026-01-11
-- [x] 11-03: Other files migration — completed 2026-01-11
-
-#### Phase 12: Merge Data Files — COMPLETE
-
-**Goal**: Combine mercs.json and dictators.json into combatants.json
-**Depends on**: Phase 11
-**Research**: Unlikely (data migration)
-**Plans**: 1/1
-
-Plans:
-- [x] 12-01: Merge data files — completed 2026-01-11
-
-#### Phase 13: Remove Legacy — COMPLETE
-
-**Goal**: Remove old data files and fix remaining legacy references
-**Depends on**: Phase 12
-**Research**: Unlikely (cleanup)
-**Plans**: 1/1
-
-Plans:
-- [x] 13-01: Delete old data files and fix references — completed 2026-01-11
+</details>
 
 ## Progress
 

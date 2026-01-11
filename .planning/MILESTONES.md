@@ -1,5 +1,33 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.2 Merge Dictator and Merc Cards (Shipped: 2026-01-11)
+
+**Delivered:** Unified card architecture with CombatUnitCard class, property-based type guards, and single combatants.json data file.
+
+**Phases completed:** 9-13 (7 plans total)
+
+**Key accomplishments:**
+
+- Added cardType discriminator to MercCard/DictatorCard (54 entries updated)
+- Created CombatUnitCard unified class with thin subclass wrappers
+- Migrated 103 instanceof checks to property-based type guards
+- Merged mercs.json and dictators.json into combatants.json
+- Deleted legacy data files and updated all references
+
+**Stats:**
+
+- 37 files created/modified
+- +2,562 / -306 lines changed
+- 31,539 lines of TypeScript
+- 5 phases, 7 plans
+- ~1 hour execution time
+
+**Git range:** `feat(09)` → `docs(13-01)`
+
+**What's next:** Ready for release or new feature development
+
+---
+
 ## v1.1 Polish (Shipped: 2026-01-09)
 
 **Delivered:** Code organization improvements and Artillery Barrage player choice mechanism.
