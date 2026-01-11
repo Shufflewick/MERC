@@ -37,17 +37,19 @@ export interface SectorData {
   image: string;
 }
 
+// DictatorData matches CombatantData from game.ts, filtered to cardType === 'dictator'
 export interface DictatorData {
   id: string;
   cardType: 'merc' | 'dictator';
   name: string;
   quantity: number;
-  initiative: number;
-  combat: number;
   training: number;
+  combat: number;
+  initiative: number;
   ability: string;
   bio: string;
   image: string;
+  sex?: string;  // Optional field from CombatantData (not used by dictators)
 }
 
 export interface TacticsData {

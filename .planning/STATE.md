@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 
 ## Current Position
 
-Phase: 11 of 13 (Migrate instanceof)
-Plan: 3 of 3 complete
+Phase: 12 of 13 (Merge Data Files)
+Plan: 1 of 1 complete
 Status: Phase complete
-Last activity: 2026-01-11 — Completed 11-03-PLAN.md (remaining files migration)
+Last activity: 2026-01-11 — Completed 12-01-PLAN.md (merge data files)
 
-Progress: ██████░░░░ 60%
+Progress: ███████░░░ 70%
 
 ## Milestones Completed
 
@@ -28,13 +28,13 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 - [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
 - [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
 - [x] Phase 11: Migrate instanceof — 103 checks migrated to property-based guards
-- [ ] Phase 12: Merge Data Files
+- [x] Phase 12: Merge Data Files — combatants.json created, unified CombatantData interface
 - [ ] Phase 13: Remove Legacy
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30
+- Total plans completed: 31
 - Total execution time: ~4.5 hours
 - Average duration: 9.0 min/plan
 
@@ -68,5 +68,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Completed Phase 11 (Migrate instanceof)
-Resume file: .planning/phases/12-merge-data-files/
+Stopped at: Completed Phase 12 (Merge Data Files)
+Resume file: .planning/phases/13-remove-legacy/

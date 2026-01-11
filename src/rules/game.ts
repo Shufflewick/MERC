@@ -44,10 +44,9 @@ import {
 import type { Combatant, CombatResult } from './combat.js';
 
 // Import game data from JSON files
-import mercsData from '../../data/mercs.json';
+import combatantsData from '../../data/combatants.json';
 import equipmentData from '../../data/equipment.json';
 import sectorsData from '../../data/sectors.json';
-import dictatorsData from '../../data/dictators.json';
 import tacticsData from '../../data/dictator-tactics.json';
 import setupData from '../../data/setup.json';
 
@@ -85,7 +84,8 @@ export interface MERCOptions extends GameOptions {
 // JSON Data Interfaces (matching data files)
 // =============================================================================
 
-interface MercData {
+// Unified interface for both mercs and dictators (from combatants.json)
+interface CombatantData {
   id: string;
   cardType: 'merc' | 'dictator';
   name: string;
@@ -96,6 +96,7 @@ interface MercData {
   ability: string;
   bio: string;
   image: string;
+  sex?: string;  // Optional, only some mercs have this
 }
 
 interface EquipmentData {
@@ -124,19 +125,6 @@ interface SectorData {
   weapons: number;
   armor: number;
   accessories: number;
-  image: string;
-}
-
-interface DictatorData {
-  id: string;
-  cardType: 'merc' | 'dictator';
-  name: string;
-  quantity: number;
-  initiative: number;
-  combat: number;
-  training: number;
-  ability: string;
-  bio: string;
   image: string;
 }
 
@@ -566,11 +554,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Static reference data loaded from JSON - stored in settings to survive HMR
   // These are loaded once during initializeGame() and don't change during gameplay
-  get mercData(): MercData[] {
-    return this.settings.mercData || [];
+  get combatantData(): CombatantData[] {
+    return this.settings.combatantData || [];
   }
-  set mercData(data: MercData[]) {
-    this.settings.mercData = data;
+  set combatantData(data: CombatantData[]) {
+    this.settings.combatantData = data;
   }
 
   get equipmentData(): EquipmentData[] {
@@ -585,13 +573,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
   set sectorData(data: SectorData[]) {
     this.settings.sectorData = data;
-  }
-
-  get dictatorData(): DictatorData[] {
-    return this.settings.dictatorData || [];
-  }
-  set dictatorData(data: DictatorData[]) {
-    this.settings.dictatorData = data;
   }
 
   get tacticsData(): TacticsData[] {
@@ -718,10 +699,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     // Load game data from JSON files
     this.loadSetupConfig(setupData as SetupData);
-    this.loadMercData(mercsData as MercData[]);
+    this.loadCombatantData(combatantsData as CombatantData[]);
     this.loadEquipmentData(equipmentData as EquipmentData[], options.expansionModes);
     this.loadSectorData(sectorsData as SectorData[]);
-    this.loadDictatorData(dictatorsData as DictatorData[]);
     this.loadTacticsData(tacticsData as TacticsData[]);
 
     // Perform initial setup (build map, select dictator, etc.)
@@ -805,9 +785,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Data Loading Methods
   // ==========================================================================
 
-  loadMercData(data: MercData[]): void {
-    this.mercData = data;
-    for (const merc of data) {
+  loadCombatantData(data: CombatantData[]): void {
+    this.combatantData = data;
+    // Create MercCard elements only for merc entries
+    const mercEntries = data.filter(d => d.cardType === 'merc');
+    for (const merc of mercEntries) {
       for (let i = 0; i < merc.quantity; i++) {
         const suffix = merc.quantity > 1 ? `-${i + 1}` : '';
         const mercCard = this.mercDeck.create(MercCard, `merc-${merc.id}${suffix}`, {
@@ -863,10 +845,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Sectors are loaded but not placed on the map yet - that happens during setup
   }
 
-  loadDictatorData(data: DictatorData[]): void {
-    this.dictatorData = data;
-  }
-
   loadTacticsData(data: TacticsData[]): void {
     this.tacticsData = data;
   }
@@ -911,8 +889,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       throw new Error('Sector data not loaded. Call loadSectorData first.');
     }
 
-    if (this.dictatorData.length === 0) {
-      throw new Error('Dictator data not loaded. Call loadDictatorData first.');
+    // Filter combatantData to get dictator entries
+    const dictatorData = this.combatantData.filter(d => d.cardType === 'dictator');
+    if (dictatorData.length === 0) {
+      throw new Error('Dictator data not found in combatants. Call loadCombatantData first.');
     }
 
     if (this.tacticsData.length === 0) {
@@ -927,7 +907,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     performSetup(this, {
       sectorData: this.sectorData as SetupSectorData[],
-      dictatorData: this.dictatorData as SetupDictatorData[],
+      dictatorData: dictatorData as SetupDictatorData[],
       tacticsData: this.tacticsData as SetupTacticsData[],
       dictatorId,
       activeTacticsCount,
@@ -953,10 +933,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    * Set up just the dictator (useful for testing or custom setup)
    */
   setupDictator(dictatorId?: string): DictatorCard {
-    if (this.dictatorData.length === 0) {
-      throw new Error('Dictator data not loaded');
+    const dictatorData = this.combatantData.filter(d => d.cardType === 'dictator');
+    if (dictatorData.length === 0) {
+      throw new Error('Dictator data not found in combatants');
     }
-    return setupDictator(this, this.dictatorData as SetupDictatorData[], dictatorId);
+    return setupDictator(this, dictatorData as SetupDictatorData[], dictatorId);
   }
 
   /**
