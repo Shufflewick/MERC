@@ -5,7 +5,7 @@
  */
 
 import { MERCPlayer, type MERCGame, type RebelPlayer, type DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard } from '../elements.js';
+import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard, CombatUnitCard } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -232,10 +232,30 @@ export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boole
 // =============================================================================
 
 /**
+ * Type guard to check if an element is a CombatUnitCard (MercCard or DictatorCard).
+ * Uses property check instead of instanceof for bundler compatibility.
+ */
+export function isCombatUnitCard(element: unknown): element is CombatUnitCard {
+  return element !== null &&
+         typeof element === 'object' &&
+         'isMerc' in element &&
+         typeof (element as CombatUnitCard).isMerc === 'boolean';
+}
+
+/**
+ * Check if a unit is a MercCard (type guard).
+ * Uses property check instead of instanceof for bundler compatibility.
+ */
+export function isMercCard(unit: unknown): unit is MercCard {
+  return isCombatUnitCard(unit) && unit.isMerc;
+}
+
+/**
  * Check if a unit is a DictatorCard (type guard).
+ * Uses property check instead of instanceof for bundler compatibility.
  */
 export function isDictatorCard(unit: unknown): unit is DictatorCard {
-  return unit instanceof DictatorCard;
+  return isCombatUnitCard(unit) && unit.isDictator;
 }
 
 /**
@@ -243,10 +263,10 @@ export function isDictatorCard(unit: unknown): unit is DictatorCard {
  * Works with any unit type that has mercName or dictatorName.
  */
 export function getUnitName(unit: MercCard | DictatorCard): string {
-  if (unit instanceof DictatorCard) {
-    return unit.dictatorName;
+  if (unit.isDictator) {
+    return (unit as DictatorCard).dictatorName;
   }
-  return unit.mercName;
+  return (unit as MercCard).mercName;
 }
 
 /**
@@ -257,7 +277,7 @@ export function getUnitName(unit: MercCard | DictatorCard): string {
 export function findUnitSector(unit: MercCard | DictatorCard, player: unknown, game: MERCGame): Sector | null {
   // Handle rebel player - search squads for the merc
   if (isRebelPlayer(player)) {
-    if (!(unit instanceof MercCard)) return null;
+    if (!unit.isMerc) return null;
     for (const squad of [player.primarySquad, player.secondarySquad]) {
       if (!squad?.sectorId) continue;
       const mercs = squad.getMercs();
@@ -271,7 +291,7 @@ export function findUnitSector(unit: MercCard | DictatorCard, player: unknown, g
   // Handle dictator player
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
     // DictatorCard has sectorId directly
-    if (unit instanceof DictatorCard) {
+    if (unit.isDictator) {
       return unit.sectorId ? game.getSector(unit.sectorId) || null : null;
     }
 
@@ -339,10 +359,10 @@ export function asRebelPlayerOrNull(player: unknown): RebelPlayer | null {
  * Throws if not a MercCard.
  */
 export function asMercCard(element: unknown): MercCard {
-  if (element instanceof MercCard) {
+  if (isMercCard(element)) {
     return element;
   }
-  const elementType = element?.constructor?.name || typeof element;
+  const elementType = (element as any)?.constructor?.name || typeof element;
   throw new Error(`Expected MercCard but got ${elementType}`);
 }
 
@@ -413,4 +433,4 @@ export function getTypedArg<T>(args: Record<string, unknown>, key: string): T | 
 // =============================================================================
 
 export type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
-export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard } from '../elements.js';
+export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard, CombatUnitCard } from '../elements.js';
