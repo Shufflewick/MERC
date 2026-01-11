@@ -24,6 +24,8 @@ import {
   asSector,
   asEquipment,
   isDictatorCard,
+  isMercCard,
+  isCombatUnitCard,
   getUnitName,
   findUnitSector,
   getCachedValue,
@@ -44,7 +46,7 @@ function getHireDrawnMercs(game: MERCGame, playerId: string): MercCard[] | undef
   const ids = getCachedValue<number[]>(game, HIRE_DRAWN_MERCS_KEY, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty
-  return ids.map(id => game.getElementById(id)).filter((e): e is MercCard => e instanceof MercCard);
+  return ids.map(id => game.getElementById(id)).filter((e): e is MercCard => isMercCard(e));
 }
 
 /**
@@ -317,12 +319,12 @@ type ExplorableUnit = MercCard | DictatorCard;
 // Helper to check if unit belongs to player (for explore action)
 function isUnitOwnedForExplore(unit: ExplorableUnit, player: unknown, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
-    if (!(unit instanceof MercCard)) return false;
-    return isInPlayerTeam(unit, asRebelPlayer(player));
+    if (!unit.isMerc) return false;
+    return isInPlayerTeam(unit as MercCard, asRebelPlayer(player));
   }
   if (game.isDictatorPlayer(player)) {
     // DictatorCard always belongs to dictator
-    if (isDictatorCard(unit)) {
+    if (unit.isDictator) {
       return unit.inPlay && !unit.isDead;
     }
     const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -556,10 +558,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     if (id === undefined) return undefined;
 
     const element = game.getElementById(id);
-    if (element instanceof MercCard) {
-      return element;
-    }
-    if (element instanceof DictatorCard) {
+    if (isCombatUnitCard(element)) {
       return element;
     }
     return undefined;
@@ -591,7 +590,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit && unit instanceof MercCard && unit.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit?.isMerc && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -709,7 +708,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = findExplorerUnit(ctx);
-        const isApeiron = unit instanceof MercCard && unit.mercId === 'apeiron';
+        const isApeiron = unit?.isMerc && (unit as MercCard).mercId === 'apeiron';
 
         const equipmentChoices = sector.stash
           .filter(e => !isApeiron || !isGrenadeOrMortar(e))
@@ -1044,7 +1043,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!(element instanceof MercCard)) return false;
+        if (!isMercCard(element)) return false;
         return isMercOwnedForCity(element, ctx.player, game) &&
           element.damage > 0 &&
           element.actionsRemaining >= ACTION_COSTS.HOSPITAL;
@@ -1106,7 +1105,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       elementClass: MercCard,
       display: (merc) => capitalize(merc.mercName),
       filter: (element, ctx) => {
-        if (!(element instanceof MercCard)) return false;
+        if (!isMercCard(element)) return false;
         return isMercOwnedForCity(element, ctx.player, game) &&
           element.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
       },
