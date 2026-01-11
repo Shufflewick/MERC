@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-09)
 
 **Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** All milestones complete — Game ready for release
+**Current focus:** Merge Dictator and Merc Cards — Unify card types for cleaner architecture
 
 ## Current Position
 
-Phase: 8 of 8 (All Complete)
-Plan: All plans complete
-Status: Shipped
-Last activity: 2026-01-09 — v1.1 Polish milestone complete
+Phase: 9 of 13 (Add Discriminator)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-11 — Milestone v1.2 created
 
-Progress: ████████████████████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Milestones Completed
 
@@ -57,8 +57,12 @@ None active.
 
 None.
 
+### Roadmap Evolution
+
+- Milestone v1.2 created: Merge Dictator and Merc Cards, 5 phases (Phase 9-13)
+
 ## Session Continuity
 
-Last session: 2026-01-09
-Stopped at: v1.1 milestone complete — All cleanup work shipped
+Last session: 2026-01-11
+Stopped at: Milestone v1.2 initialization
 Resume file: None
