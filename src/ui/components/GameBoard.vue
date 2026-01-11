@@ -1796,9 +1796,10 @@ const hirableMercs = computed(() => {
 
   // For dictator selection, convert to MercCard-compatible format
   if (isSelectingDictator.value) {
-    const dictatorDataList = props.gameView?.attributes?.settings?.dictatorData ||
-                             props.state?.state?.settings?.dictatorData ||
-                             props.gameView?.settings?.dictatorData || [];
+    const combatantData = props.gameView?.attributes?.settings?.combatantData ||
+                           props.state?.state?.settings?.combatantData ||
+                           props.gameView?.settings?.combatantData || [];
+    const dictatorDataList = combatantData.filter((d: any) => d.cardType === 'dictator');
 
     return choices
       .filter((choice: any) => {
