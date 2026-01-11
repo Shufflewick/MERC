@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 
 ## Current Position
 
-Phase: 10 of 13 (Unified Class)
-Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-01-11 — Completed 10-01-PLAN.md
+Phase: 11 of 13 (Migrate instanceof)
+Plan: 0 of 3 complete
+Status: Planning complete
+Last activity: 2026-01-11 — Created phase plans
 
 Progress: ███░░░░░░░ 30%
 
@@ -27,7 +27,7 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 
 - [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
 - [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
-- [ ] Phase 11: Migrate instanceof
+- [ ] Phase 11: Migrate instanceof — 3 plans created, 107 checks to migrate
 - [ ] Phase 12: Merge Data Files
 - [ ] Phase 13: Remove Legacy
 
@@ -65,5 +65,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Phase 10 complete, ready for Phase 11
-Resume file: None
+Stopped at: Phase 11 plans created, ready for execution
+Resume file: .planning/phases/11-migrate-instanceof/11-01-PLAN.md
