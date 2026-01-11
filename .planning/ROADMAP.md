@@ -71,25 +71,25 @@ Plans:
 - [x] 11-02: Actions directory migration — completed 2026-01-11
 - [x] 11-03: Other files migration — completed 2026-01-11
 
-#### Phase 12: Merge Data Files
+#### Phase 12: Merge Data Files — COMPLETE
 
 **Goal**: Combine mercs.json and dictators.json into combatants.json
 **Depends on**: Phase 11
 **Research**: Unlikely (data migration)
-**Plans**: TBD
+**Plans**: 1/1
 
 Plans:
-- [ ] 12-01: TBD
+- [x] 12-01: Merge data files — completed 2026-01-11
 
 #### Phase 13: Remove Legacy
 
-**Goal**: Remove MercCard/DictatorCard classes and backward-compat code
+**Goal**: Remove old data files and fix remaining legacy references
 **Depends on**: Phase 12
 **Research**: Unlikely (cleanup)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 13-01: TBD
+- [ ] 13-01: Delete old data files and fix references
 
 ## Progress
 
@@ -106,8 +106,8 @@ Plans:
 | 9. Add Discriminator | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 10. Unified Class | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 11. Migrate instanceof | v1.2 | 3/3 | Complete | 2026-01-11 |
-| 12. Merge Data Files | v1.2 | 0/? | Not started | - |
-| 13. Remove Legacy | v1.2 | 0/? | Not started | - |
+| 12. Merge Data Files | v1.2 | 1/1 | Complete | 2026-01-11 |
+| 13. Remove Legacy | v1.2 | 0/1 | Planned | - |
 
 ## Status
 
