@@ -39,25 +39,25 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 **Milestone Goal:** Unify MercCard and DictatorCard into a single CombatUnitCard class with discriminator-based logic, eliminating duplicate class definitions and replacing 130+ instanceof checks with property-based type guards.
 
-#### Phase 9: Add Discriminator
+#### Phase 9: Add Discriminator — COMPLETE
 
 **Goal**: Add cardType property to existing classes without breaking anything
 **Depends on**: Previous milestone complete
 **Research**: Unlikely (internal patterns)
-**Plans**: TBD
+**Plans**: 1/1
 
 Plans:
-- [ ] 09-01: TBD (run /gsd:plan-phase 9 to break down)
+- [x] 09-01: Add cardType discriminator to MercCard/DictatorCard — completed 2026-01-11
 
-#### Phase 10: Unified Class
+#### Phase 10: Unified Class — COMPLETE
 
 **Goal**: Create CombatUnitCard class and make old classes thin aliases
 **Depends on**: Phase 9
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 1/1
 
 Plans:
-- [ ] 10-01: TBD
+- [x] 10-01: Create CombatUnitCard class — completed 2026-01-11
 
 #### Phase 11: Migrate instanceof
 
@@ -101,8 +101,8 @@ Plans:
 | 6. Test Coverage | v1.0 | 3/3 | Complete | 2026-01-09 |
 | 7. File Organization | v1.1 | 2/2 | Complete | 2026-01-09 |
 | 8. Artillery Barrage | v1.1 | 4/4 | Complete | 2026-01-09 |
-| 9. Add Discriminator | v1.2 | 0/? | Not started | - |
-| 10. Unified Class | v1.2 | 0/? | Not started | - |
+| 9. Add Discriminator | v1.2 | 1/1 | Complete | 2026-01-11 |
+| 10. Unified Class | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 11. Migrate instanceof | v1.2 | 0/? | Not started | - |
 | 12. Merge Data Files | v1.2 | 0/? | Not started | - |
 | 13. Remove Legacy | v1.2 | 0/? | Not started | - |

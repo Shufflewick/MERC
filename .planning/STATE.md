@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 10 of 13 (Unified Class)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-11 — Phase 9 complete (cardType discriminator added)
+Plan: 1 of 1 complete
+Status: Phase complete
+Last activity: 2026-01-11 — Completed 10-01-PLAN.md
 
-Progress: ██░░░░░░░░ 20%
+Progress: ███░░░░░░░ 30%
 
 ## Milestones Completed
 
@@ -26,7 +26,7 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 ## v1.2 Progress
 
 - [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
-- [ ] Phase 10: Unified Class
+- [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
 - [ ] Phase 11: Migrate instanceof
 - [ ] Phase 12: Merge Data Files
 - [ ] Phase 13: Remove Legacy
@@ -34,9 +34,9 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26
-- Total execution time: ~3.8 hours
-- Average duration: 8.8 min/plan
+- Total plans completed: 27
+- Total execution time: ~3.9 hours
+- Average duration: 8.6 min/plan
 
 ## Accumulated Context
 
@@ -45,6 +45,8 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 - cardType discriminator: `'merc' | 'dictator'` string literal union
 - isMerc/isDictator getters added to both classes
 - Data interfaces updated with cardType field
+- CombatUnitCard in inheritance chain between CombatUnit and MercCard/DictatorCard
+- inPlay defaults to true in CombatUnitCard, overridden to false in DictatorCard
 
 ### Deferred Issues
 
@@ -58,9 +60,10 @@ None active.
 
 - Milestone v1.2 created: Merge Dictator and Merc Cards, 5 phases (Phase 9-13)
 - Phase 9 completed: cardType discriminator added
+- Phase 10 completed: CombatUnitCard class created
 
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Phase 9 complete, ready for Phase 10
+Stopped at: Phase 10 complete, ready for Phase 11
 Resume file: None
