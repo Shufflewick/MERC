@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 11 of 13 (Migrate instanceof)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: In progress
-Last activity: 2026-01-11 — Completed 11-01-PLAN.md (type guards + combat.ts migration)
+Last activity: 2026-01-11 — Completed 11-02-PLAN.md (actions/ directory migration)
 
-Progress: ████░░░░░░ 40%
+Progress: █████░░░░░ 50%
 
 ## Milestones Completed
 
@@ -27,16 +27,16 @@ Total: 8 phases, 26 plans, 2 milestones shipped
 
 - [x] Phase 9: Add Discriminator — cardType property added to MercCard/DictatorCard
 - [x] Phase 10: Unified Class — CombatUnitCard created, MercCard/DictatorCard are thin wrappers
-- [ ] Phase 11: Migrate instanceof — 1/3 plans complete, 56 checks migrated in combat.ts
+- [ ] Phase 11: Migrate instanceof — 2/3 plans complete, 88 checks migrated
 - [ ] Phase 12: Merge Data Files
 - [ ] Phase 13: Remove Legacy
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
-- Total execution time: ~4.2 hours
-- Average duration: 9.0 min/plan
+- Total plans completed: 29
+- Total execution time: ~4.3 hours
+- Average duration: 8.9 min/plan
 
 ## Accumulated Context
 
@@ -67,5 +67,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-11
-Stopped at: Completed 11-01-PLAN.md
-Resume file: .planning/phases/11-migrate-instanceof/11-02-PLAN.md
+Stopped at: Completed 11-02-PLAN.md
+Resume file: .planning/phases/11-migrate-instanceof/11-03-PLAN.md

@@ -64,11 +64,11 @@ Plans:
 **Goal**: Replace 107 instanceof checks with property-based type guards
 **Depends on**: Phase 10
 **Research**: Unlikely (mechanical refactoring)
-**Plans**: 1/3
+**Plans**: 2/3
 
 Plans:
 - [x] 11-01: Type guards and combat.ts migration — completed 2026-01-11
-- [ ] 11-02: Actions directory migration
+- [x] 11-02: Actions directory migration — completed 2026-01-11
 - [ ] 11-03: Other files migration
 
 #### Phase 12: Merge Data Files
@@ -105,7 +105,7 @@ Plans:
 | 8. Artillery Barrage | v1.1 | 4/4 | Complete | 2026-01-09 |
 | 9. Add Discriminator | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 10. Unified Class | v1.2 | 1/1 | Complete | 2026-01-11 |
-| 11. Migrate instanceof | v1.2 | 1/3 | In progress | - |
+| 11. Migrate instanceof | v1.2 | 2/3 | In progress | - |
 | 12. Merge Data Files | v1.2 | 0/? | Not started | - |
 | 13. Remove Legacy | v1.2 | 0/? | Not started | - |
 
