@@ -19,7 +19,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, asMercCard, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isMercCard } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -38,7 +38,7 @@ function getMercsFromCache(game: MERCGame, playerId: string): MercCard[] | undef
   if (ids.length === 0) return []; // Cache exists but empty (all MERCs hired)
   return ids.map(id => {
     const el = game.getElementById(id);
-    return el instanceof MercCard ? el : null;
+    return isMercCard(el) ? el : null;
   }).filter((m): m is MercCard => m !== null);
 }
 
@@ -637,7 +637,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
     const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
     if (!mercId) return null;
     const el = game.getElementById(mercId);
-    return el instanceof MercCard ? el : null;
+    return isMercCard(el) ? el : null;
   };
 
   return Action.create('dictatorHireFirstMerc')
@@ -690,7 +690,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       // Human path - use selected equipment and sector
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
       const mercEl = mercId ? game.getElementById(mercId) : null;
-      const merc = mercEl instanceof MercCard ? mercEl : null;
+      const merc = isMercCard(mercEl) ? mercEl : null;
 
       if (!merc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);

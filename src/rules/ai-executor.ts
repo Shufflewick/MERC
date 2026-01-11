@@ -9,6 +9,7 @@
 
 import type { MERCGame } from './game.js';
 import { MercCard, DictatorCard, Sector, Equipment } from './elements.js';
+import { isMercCard } from './actions/helpers.js';
 import {
   getAIMercAction,
   getSquadAction,
@@ -352,7 +353,7 @@ export function getAIMoveDestination(
   if (!sector) return null;
 
   // For MERCs, use the decision system
-  if (unit instanceof MercCard) {
+  if (unit.isMerc) {
     const decision = getAIMercAction(game, unit);
     if (decision.action === 'move' && decision.target) {
       return decision.target;
@@ -431,9 +432,9 @@ export function executeAIDictatorTurn(game: MERCGame): void {
     }
 
     // Log the action being taken
-    const unitName = nextAction.unit instanceof MercCard
+    const unitName = nextAction.unit.isMerc
       ? nextAction.unit.mercName
-      : nextAction.unit instanceof DictatorCard
+      : nextAction.unit.isDictator
         ? 'Dictator'
         : 'Unknown';
 

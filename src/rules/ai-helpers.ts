@@ -20,6 +20,7 @@ import {
   isHealingItem,
   hasRangedAttack,
 } from './equipment-effects.js';
+import { isMercCard } from './actions/helpers.js';
 
 // Re-export from ai-combat-helpers.ts for backwards compatibility
 export {
@@ -500,8 +501,8 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
 
   // Sort MERCs alphabetically (dictator card goes last)
   const sortedUnits = units.sort((a, b) => {
-    const nameA = a instanceof MercCard ? a.mercName : 'ZZZZZ'; // Dictator card at end
-    const nameB = b instanceof MercCard ? b.mercName : 'ZZZZZ';
+    const nameA = a.isMerc ? a.mercName : 'ZZZZZ'; // Dictator card at end
+    const nameB = b.isMerc ? b.mercName : 'ZZZZZ';
     return nameA.localeCompare(nameB);
   });
 
@@ -539,7 +540,7 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
       unit.equip(equipment);
       equippedCount++;
 
-      if (unit instanceof MercCard) {
+      if (unit.isMerc) {
         game.message(`${unit.mercName} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`Dictator equipped ${equipment.equipmentName}`);
@@ -822,7 +823,7 @@ export function hasMortar(unit: MercCard | { accessorySlot?: Equipment }): boole
   }
 
   // Check bandolier slots (only for MercCard)
-  if (unit instanceof MercCard) {
+  if (isMercCard(unit)) {
     return unit.bandolierSlots.some(e => hasRangedAttack(e.equipmentId));
   }
 

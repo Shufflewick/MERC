@@ -18,7 +18,7 @@ import {
   getAIHealingPriority,
 } from '../ai-helpers.js';
 import { getNextAIAction } from '../ai-executor.js';
-import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isMercCard } from './helpers.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
@@ -367,7 +367,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
         const mercs = mercIds
           .map(id => game.getElementById(id))
-          .filter((el): el is MercCard => el instanceof MercCard)
+          .filter((el): el is MercCard => isMercCard(el))
           .sort((a, b) => b.baseCombat - a.baseCombat);
 
         if (mercs.length === 0) {
@@ -411,7 +411,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       // Find the MERC by name
       const mercs = mercIds
         .map(id => game.getElementById(id))
-        .filter((el): el is MercCard => el instanceof MercCard);
+        .filter((el): el is MercCard => isMercCard(el));
       const selectedMerc = mercs.find(m => capitalize(m.mercName) === selectedMercName);
 
       if (!selectedMerc) {

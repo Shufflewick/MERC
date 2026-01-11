@@ -12,7 +12,7 @@ import { Sector, MercCard, Equipment } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
-import { capitalize, isRebelPlayer } from './helpers.js';
+import { capitalize, isRebelPlayer, isMercCard } from './helpers.js';
 
 /**
  * Continue fighting in active combat
@@ -403,7 +403,7 @@ function getMercsWithHealingItems(combatants: Combatant[]): Array<{
 
   for (const combatant of combatants) {
     if (combatant.health <= 0) continue;
-    if (!(combatant.sourceElement instanceof MercCard)) continue;
+    if (!isMercCard(combatant.sourceElement)) continue;
 
     const merc = combatant.sourceElement;
 
@@ -436,7 +436,7 @@ function getDamagedMercs(combatants: Combatant[]): Combatant[] {
   return combatants.filter(c =>
     c.health > 0 &&
     c.health < c.maxHealth &&
-    c.sourceElement instanceof MercCard
+    isMercCard(c.sourceElement)
   );
 }
 
