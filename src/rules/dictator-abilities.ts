@@ -61,6 +61,7 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   // Put dictator card into play at the base
   dictator.enterPlay();
   dictator.sectorId = baseSector.sectorId;
+  dictator.putInto(game.dictatorPlayer.primarySquad);
 
   // Calculate militia: 5 per rebel, max 20
   const militiaCount = Math.min(5 * game.rebelCount, 20);

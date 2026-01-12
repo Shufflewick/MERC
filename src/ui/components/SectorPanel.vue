@@ -1070,12 +1070,12 @@ async function handleAction(actionName: string) {
   }
 
   if (actionName === 'move') {
-    // Move action: use prefill API to auto-fill destination after squad selection
+    // Move action: destination is first selection, fill it immediately
     activeActionFromPanel.value = actionName;
-    props.actionController.start(actionName, {
-      prefill: { destination: props.sector.id }
-    });
-    // Close panel since destination will be auto-filled
+    await props.actionController.start(actionName);
+    // Fill destination immediately since it's the first selection
+    await props.actionController.fill('destination', props.sector.id);
+    // Close panel since destination is filled and squad will auto-select if only one valid
     emit('close');
     return;
   }

@@ -446,7 +446,10 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No sector found' };
       }
 
-      // Spend action (works for both MercCard and DictatorCard)
+      // Spend action with validation (works for both MercCard and DictatorCard)
+      if (actingUnit.actionsRemaining < ACTION_COSTS.EXPLORE) {
+        return { success: false, message: 'Not enough actions to explore' };
+      }
       actingUnit.actionsRemaining -= ACTION_COSTS.EXPLORE;
 
       // Draw equipment to stash
@@ -983,7 +986,28 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
 // Works for both rebel and dictator players.
 // =============================================================================
 
-// Helper to get living MERCs for any player type (for hospital/armsDealer)
+// Type for units that can use city facilities (MERCs or DictatorCard)
+type CityUnit = MercCard | DictatorCard;
+
+// Helper to get living units for any player type (for hospital/armsDealer)
+// Returns MERCs + DictatorCard if applicable
+function getPlayerUnitsForCity(player: unknown, game: MERCGame): CityUnit[] {
+  if (game.isRebelPlayer(player)) {
+    return asRebelPlayer(player).team.filter(m => !m.isDead);
+  }
+  if (game.isDictatorPlayer(player)) {
+    const units: CityUnit[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
+    // Include DictatorCard if in play
+    const dictatorCard = game.dictatorPlayer?.dictator;
+    if (dictatorCard?.inPlay && !dictatorCard.isDead) {
+      units.push(dictatorCard);
+    }
+    return units;
+  }
+  return [];
+}
+
+// Legacy helper for backward compatibility (only MERCs)
 function getPlayerMercsForCity(player: unknown, game: MERCGame): MercCard[] {
   if (game.isRebelPlayer(player)) {
     return asRebelPlayer(player).team.filter(m => !m.isDead);
@@ -1030,7 +1054,8 @@ function findMercSectorForCity(player: unknown, game: MERCGame): Sector | null {
 
 /**
  * Use hospital in a city sector
- * Cost: 1 action, fully heals MERC
+ * Cost: 1 action, fully heals unit
+ * Works for both MERCs and DictatorCard.
  */
 export function createHospitalAction(game: MERCGame): ActionDefinition {
   return Action.create('hospital')
@@ -1042,33 +1067,55 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         const sector = findMercSectorForCity(ctx.player, game);
         return !!sector?.hasHospital;
       },
-      'has damaged MERC with actions': (ctx) => {
-        const mercs = getPlayerMercsForCity(ctx.player, game);
-        return mercs.some(m => m.damage > 0 && m.actionsRemaining >= ACTION_COSTS.HOSPITAL);
+      'has damaged unit with actions': (ctx) => {
+        const units = getPlayerUnitsForCity(ctx.player, game);
+        return units.some(u => u.damage > 0 && u.actionsRemaining >= ACTION_COSTS.HOSPITAL);
       },
     })
-    .chooseElement<MercCard>('merc', {
-      prompt: 'Select MERC to heal',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        if (!isMercCard(element)) return false;
-        return isMercOwnedForCity(element, ctx.player, game) &&
-          element.damage > 0 &&
-          element.actionsRemaining >= ACTION_COSTS.HOSPITAL;
+    .chooseFrom<string>('actingUnit', {
+      prompt: 'Select unit to heal',
+      choices: (ctx) => {
+        const units = getPlayerUnitsForCity(ctx.player, game);
+        return units
+          .filter(u => u.damage > 0 && u.actionsRemaining >= ACTION_COSTS.HOSPITAL)
+          .map(u => ({
+            value: `${u.id}:${getUnitName(u)}:${isDictatorCard(u)}`,
+            label: capitalize(getUnitName(u)),
+          }));
       },
     })
-    .execute((args, ctx) => {
-      const merc = asMercCard(args.merc);
+    .execute((args) => {
+      const unitChoiceStr = args.actingUnit as string;
+
+      // Parse string format: "id:name:isDictatorCard"
+      const parts = unitChoiceStr.split(':');
+      const unitId = parseInt(parts[0], 10);
+      const isUnitDictatorCard = parts[parts.length - 1] === 'true';
+
+      // Find the actual unit
+      let actingUnit: CityUnit | null = null;
+      if (isUnitDictatorCard) {
+        actingUnit = game.dictatorPlayer?.dictator || null;
+      } else {
+        actingUnit = game.all(MercCard).find(m => m.id === unitId) || null;
+      }
+
+      if (!actingUnit) {
+        return { success: false, message: 'Unit not found' };
+      }
 
       // Spend action
-      useAction(merc, ACTION_COSTS.HOSPITAL);
+      if (actingUnit.actionsRemaining < ACTION_COSTS.HOSPITAL) {
+        return { success: false, message: 'Not enough actions' };
+      }
+      actingUnit.actionsRemaining -= ACTION_COSTS.HOSPITAL;
 
-      const healedAmount = merc.damage;
-      merc.fullHeal();
-      game.message(`${merc.mercName} was fully healed at the hospital (restored ${healedAmount} health)`);
+      const healedAmount = actingUnit.damage;
+      actingUnit.fullHeal();
+      const unitName = getUnitName(actingUnit);
+      game.message(`${unitName} was fully healed at the hospital (restored ${healedAmount} health)`);
 
-      return { success: true, message: `Healed ${merc.mercName}` };
+      return { success: true, message: `Healed ${unitName}` };
     });
 }
 
@@ -1092,6 +1139,7 @@ function getArmsDealerPlayerId(player: unknown, game: MERCGame): string {
  * Use arms dealer in a city sector
  * Cost: 1 action, draw equipment
  * MERC-dh5: Includes free re-equip option per rules
+ * Works for both MERCs and DictatorCard.
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
@@ -1104,28 +1152,30 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const sector = findMercSectorForCity(ctx.player, game);
         return !!sector?.hasArmsDealer;
       },
-      'has MERC with actions': (ctx) => {
-        const mercs = getPlayerMercsForCity(ctx.player, game);
-        return mercs.some(m => m.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
+      'has unit with actions': (ctx) => {
+        const units = getPlayerUnitsForCity(ctx.player, game);
+        return units.some(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
       },
     })
-    .chooseElement<MercCard>('actingMerc', {
-      prompt: 'Which MERC visits the dealer?',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        if (!isMercCard(element)) return false;
-        return isMercOwnedForCity(element, ctx.player, game) &&
-          element.actionsRemaining >= ACTION_COSTS.ARMS_DEALER;
+    .chooseFrom<string>('actingUnit', {
+      prompt: 'Which unit visits the dealer?',
+      choices: (ctx) => {
+        const units = getPlayerUnitsForCity(ctx.player, game);
+        return units
+          .filter(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER)
+          .map(u => ({
+            value: `${u.id}:${getUnitName(u)}:${isDictatorCard(u)}`,
+            label: capitalize(getUnitName(u)),
+          }));
       },
     })
     .chooseFrom<string>('equipmentType', {
       prompt: 'What type of equipment?',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    // MERC-dh5: Free re-equip - choose MERC to equip the purchased item
-    .chooseFrom<string>('equipMerc', {
-      prompt: 'Free Re-Equip: Which MERC should equip this item? (or skip)',
+    // MERC-dh5: Free re-equip - choose unit to equip the purchased item
+    .chooseFrom<string>('equipUnit', {
+      prompt: 'Free Re-Equip: Which unit should equip this item? (or skip)',
       choices: (ctx) => {
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
         const playerId = getArmsDealerPlayerId(ctx.player, game);
@@ -1144,32 +1194,56 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
         const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
 
-        // Get mercs for this player type
-        const playerMercs = getPlayerMercsForCity(ctx.player, game);
+        // Get all units for this player type (MERCs + DictatorCard)
+        const playerUnits = getPlayerUnitsForCity(ctx.player, game);
 
         // MERC-70a: Filter out Apeiron if equipment is a grenade/mortar
-        const eligibleMercs = playerMercs.filter(m => {
-          if (m.mercId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
+        const eligibleUnits = playerUnits.filter(u => {
+          if (isMercCard(u) && u.mercId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
             return false;
           }
           return true;
         });
 
-        const choices = eligibleMercs.map(m => ({
-          label: `${m.mercName}`,
-          value: m.mercName,
+        const choices = eligibleUnits.map(u => ({
+          label: capitalize(getUnitName(u)),
+          value: `${u.id}:${getUnitName(u)}:${isDictatorCard(u)}`,
         }));
         choices.push({ label: 'Skip (add to stash)', value: 'skip' });
         return choices;
       },
     })
     .execute((args, ctx) => {
-      const actingMerc = asMercCard(args.actingMerc);
+      const actingUnitStr = args.actingUnit as string;
       const playerId = getArmsDealerPlayerId(ctx.player, game);
       const sector = findMercSectorForCity(ctx.player, game);
 
+      // Parse acting unit string format: "id:name:isDictatorCard"
+      const actingParts = actingUnitStr.split(':');
+      const actingUnitId = parseInt(actingParts[0], 10);
+      const isActingDictatorCard = actingParts[actingParts.length - 1] === 'true';
+
+      // Find the acting unit
+      let actingUnit: CityUnit | null = null;
+      if (isActingDictatorCard) {
+        actingUnit = game.dictatorPlayer?.dictator || null;
+      } else {
+        actingUnit = game.all(MercCard).find(m => m.id === actingUnitId) || null;
+      }
+
+      if (!actingUnit) {
+        clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
+        return { success: false, message: 'Unit not found' };
+      }
+
       // Spend action
-      useAction(actingMerc, ACTION_COSTS.ARMS_DEALER);
+      if (actingUnit.actionsRemaining < ACTION_COSTS.ARMS_DEALER) {
+        clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
+        return { success: false, message: 'Not enough actions' };
+      }
+      actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
+
+      const actingUnitName = getUnitName(actingUnit);
 
       // Get equipment from cache (stored by choices function)
       const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
@@ -1178,19 +1252,30 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId); // Clean up
 
       if (equipment && sector) {
-        const equipMercName = args.equipMerc as string;
+        const equipUnitStr = args.equipUnit as string;
 
-        if (equipMercName && equipMercName !== 'skip') {
-          // Free re-equip: equip the purchased item directly
-          const playerMercs = getPlayerMercsForCity(ctx.player, game);
-          const targetMerc = playerMercs.find(m => m.mercName === equipMercName);
-          if (targetMerc) {
-            const replaced = targetMerc.equip(equipment);
+        if (equipUnitStr && equipUnitStr !== 'skip') {
+          // Parse equip target unit string
+          const equipParts = equipUnitStr.split(':');
+          const equipUnitId = parseInt(equipParts[0], 10);
+          const isEquipDictatorCard = equipParts[equipParts.length - 1] === 'true';
+
+          // Find the target unit
+          let targetUnit: CityUnit | null = null;
+          if (isEquipDictatorCard) {
+            targetUnit = game.dictatorPlayer?.dictator || null;
+          } else {
+            targetUnit = game.all(MercCard).find(m => m.id === equipUnitId) || null;
+          }
+
+          if (targetUnit) {
+            const replaced = targetUnit.equip(equipment);
+            const targetUnitName = getUnitName(targetUnit);
             if (replaced) {
               sector.addToStash(replaced);
-              game.message(`${targetMerc.mercName} equipped ${equipment.equipmentName}, ${replaced.equipmentName} added to stash`);
+              game.message(`${targetUnitName} equipped ${equipment.equipmentName}, ${replaced.equipmentName} added to stash`);
             } else {
-              game.message(`${targetMerc.mercName} equipped ${equipment.equipmentName}`);
+              game.message(`${targetUnitName} equipped ${equipment.equipmentName}`);
             }
             return { success: true, message: `Bought and equipped ${equipment.equipmentName}` };
           }
@@ -1199,9 +1284,9 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         // Add to sector stash if not equipped
         const added = sector.addToStash(equipment);
         if (added) {
-          game.message(`${actingMerc.mercName} bought ${equipment.equipmentName} (added to ${sector.sectorName} stash)`);
+          game.message(`${actingUnitName} bought ${equipment.equipmentName} (added to ${sector.sectorName} stash)`);
         } else {
-          game.message(`${actingMerc.mercName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);
+          game.message(`${actingUnitName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);
         }
         return { success: true, message: `Bought ${equipment.equipmentName}` };
       }

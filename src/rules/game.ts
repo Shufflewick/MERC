@@ -499,6 +499,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Explosives victory - set when rebels detonate explosives in palace
   explosivesVictory: boolean = false;
 
+  // Flag to track if game end has been announced (prevents duplicate messages)
+  private _gameEndAnnounced: boolean = false;
+
   // Pending artillery allocation - rebels choose how to allocate hits during dictator's turn
   pendingArtilleryAllocation: {
     sectorId: string;        // Which sector is being attacked
@@ -1404,8 +1407,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         .some(s => s.getRebelMilitia(`${rebel.position}`) > 0);
       if (hasAnyMilitia) return false;
 
-      // Check if rebel can still hire (has funds and MERCs available)
-      if (rebel.canHireMerc(this)) return false;
+      // Note: We intentionally do NOT check canHireMerc here.
+      // If rebels have no living units (MERCs or militia), they lose immediately.
+      // The ability to potentially hire doesn't save them from elimination.
     }
 
     // All rebel units eliminated
@@ -1474,30 +1478,41 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   override getWinners(): MERCPlayer[] {
     if (!this.isFinished()) return [];
 
+    // Helper to announce game end only once
+    const announce = (msg: string) => {
+      if (!this._gameEndAnnounced) {
+        this._gameEndAnnounced = true;
+        this.message(msg);
+      }
+    };
+
     // If dictator is defeated, rebels win
     if (this.dictatorPlayer?.isDefeated) {
+      announce('Dictator defeated - Rebels win!');
       return [...this.rebelPlayers];
     }
 
     // If rebels captured the base, rebels win
     if (this.isBaseCaptured()) {
+      announce('Dictator base captured - Rebels win!');
       return [...this.rebelPlayers];
     }
 
     // If rebels won via explosives detonation, rebels win
     if (this.explosivesVictory) {
+      announce('Palace destroyed - Rebels win!');
       return [...this.rebelPlayers];
     }
 
     // If all dictator units eliminated, rebels win
     if (this.allDictatorUnitsEliminated()) {
-      this.message('All dictator forces eliminated - Rebels win!');
+      announce('All dictator forces eliminated - Rebels win!');
       return [...this.rebelPlayers];
     }
 
     // If all rebel units eliminated, dictator wins
     if (this.allRebelUnitsEliminated()) {
-      this.message('All rebel forces eliminated - Dictator wins!');
+      announce('All rebel forces eliminated - Dictator wins!');
       return this.dictatorPlayer ? [this.dictatorPlayer] : [];
     }
 
@@ -1507,14 +1522,21 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     if (this.dictatorPlayer?.tacticsDeck?.count(TacticsCard) === 0 &&
         this.dictatorPlayer?.tacticsHand?.count(TacticsCard) === 0) {
       const { rebelPoints, dictatorPoints } = this.calculateVictoryPoints();
-      this.message(`Final score - Rebels: ${rebelPoints}, Dictator: ${dictatorPoints}`);
+      announce(`Final score - Rebels: ${rebelPoints}, Dictator: ${dictatorPoints}`);
 
       // Rebels must have strictly more points to win; dictator wins ties
       if (rebelPoints > dictatorPoints) {
+        announce('Rebels win on points!');
         return [...this.rebelPlayers];
       } else {
+        announce('Dictator wins on points!');
         return [this.dictatorPlayer];
       }
+    }
+
+    // Day limit reached - dictator wins
+    if (this.isDayLimitReached()) {
+      announce('Day limit reached - Dictator wins!');
     }
 
     // Otherwise dictator wins (day limit or other edge case)

@@ -14,7 +14,7 @@
 
 import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Squad } from '../elements.js';
+import { MercCard, Sector, Squad, DictatorCard } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asRebelPlayer } from './helpers.js';
 
@@ -22,21 +22,30 @@ import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asR
 // Move Action Helpers (work for both player types)
 // =============================================================================
 
+// Helper to check if Kim (DictatorCard) is in a specific squad
+// Since we can't access parent directly, search for DictatorCard in the squad
+function isKimInSquad(squad: Squad | null | undefined, dictatorCard: DictatorCard | null | undefined): boolean {
+  if (!squad || !dictatorCard) return false;
+  return squad.all(DictatorCard).some(d => d.dictatorId === dictatorCard.dictatorId);
+}
+
 // Helper to get squads that can move for any player type
 function getMovableSquads(player: unknown, game: MERCGame): Squad[] {
   const squads: Squad[] = [];
 
   if (game.isRebelPlayer(player)) {
     // Type guard narrowed player to RebelPlayer
+    // Rebels don't need DictatorCard check, so pass minimal args
     if (canSquadMove(player.primarySquad)) squads.push(player.primarySquad);
     if (canSquadMove(player.secondarySquad)) squads.push(player.secondarySquad);
   } else if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
     const dictator = game.dictatorPlayer;
+    // Pass player and game for DictatorCard action check
     try {
-      if (canSquadMove(dictator.primarySquad)) squads.push(dictator.primarySquad);
+      if (canSquadMove(dictator.primarySquad, player, game)) squads.push(dictator.primarySquad);
     } catch { /* not initialized */ }
     try {
-      if (canSquadMove(dictator.secondarySquad)) squads.push(dictator.secondarySquad);
+      if (canSquadMove(dictator.secondarySquad, player, game)) squads.push(dictator.secondarySquad);
     } catch { /* not initialized */ }
   }
 
@@ -44,10 +53,27 @@ function getMovableSquads(player: unknown, game: MERCGame): Squad[] {
 }
 
 // Helper to check if a squad can move
-function canSquadMove(squad: Squad | null | undefined): boolean {
+// For dictator: also checks if DictatorCard (if in this squad) has enough actions
+function canSquadMove(squad: Squad | null | undefined, player?: unknown, game?: MERCGame): boolean {
   if (!squad?.sectorId) return false;
   const mercs = squad.getLivingMercs();
-  return mercs.length > 0 && mercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
+
+  // For dictator: count Kim as a unit if in this squad
+  let hasKim = false;
+  if (game && player && game.isDictatorPlayer(player) && game.dictatorPlayer?.dictator?.inPlay) {
+    const dictatorCard = game.dictatorPlayer.dictator;
+    if (isKimInSquad(squad, dictatorCard) && !dictatorCard.isDead) {
+      hasKim = true;
+      // Kim must have actions to move
+      if (dictatorCard.actionsRemaining < ACTION_COSTS.MOVE) return false;
+    }
+  }
+
+  // Need at least one unit (MERCs or Kim)
+  if (mercs.length === 0 && !hasKim) return false;
+  if (!mercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+
+  return true;
 }
 
 // Helper to check if squad belongs to player
@@ -94,17 +120,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has squad that can move': (ctx) => getMovableSquads(ctx.player, game).length > 0,
     })
-    .chooseElement<Squad>('squad', {
-      prompt: 'Select squad to move',
-      elementClass: Squad,
-      display: (squad) => squad.isPrimary ? 'Primary Squad' : 'Secondary Squad',
-      filter: (element, ctx) => {
-        const squad = asSquad(element);
-        // Must be player's squad and able to move
-        if (!isSquadOwnedByPlayer(squad, ctx.player, game)) return false;
-        return canSquadMove(squad);
-      },
-    })
+    // Destination first so squad filter can auto-narrow based on clicked sector
     .chooseElement<Sector>('destination', {
       prompt: 'Select destination sector',
       elementClass: Sector,
@@ -124,6 +140,32 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         },
       }),
       boardRef: (element) => ({ id: asSector(element).id }),
+    })
+    .chooseElement<Squad>('squad', {
+      prompt: 'Select squad to move',
+      elementClass: Squad,
+      display: (squad) => squad.isPrimary ? 'Primary Squad' : 'Secondary Squad',
+      filter: dependentFilter<Squad, Sector>({
+        dependsOn: 'destination',
+        // When destination NOT selected: show all movable squads
+        whenUndefined: (element, ctx) => {
+          const squad = asSquad(element);
+          if (!isSquadOwnedByPlayer(squad, ctx.player, game)) return false;
+          return canSquadMove(squad, ctx.player, game);
+        },
+        // When destination IS selected: only show squads that can reach it
+        whenSelected: (element, selectedDestination, ctx) => {
+          const squad = asSquad(element);
+          if (!isSquadOwnedByPlayer(squad, ctx.player, game)) return false;
+          if (!canSquadMove(squad, ctx.player, game)) return false;
+          // Check if squad is adjacent to destination
+          if (!squad.sectorId) return false;
+          const squadSector = game.getSector(squad.sectorId);
+          if (!squadSector) return false;
+          const adjacent = game.getAdjacentSectors(squadSector);
+          return adjacent.some(s => s.sectorId === selectedDestination.sectorId);
+        },
+      }),
     })
     .execute((args, ctx) => {
       const squad = asSquad(args.squad);
@@ -163,10 +205,11 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         merc.sectorId = destination.sectorId;
       }
 
-      // MERC-dict-move: If dictator player is moving and DictatorCard is in the same sector as this squad, move it too
+      // MERC-dict-move: If dictator player is moving and DictatorCard is in the moving squad, move it too
       if (!isRebel && game.dictatorPlayer?.dictator?.inPlay) {
         const dictatorCard = game.dictatorPlayer.dictator;
-        if (dictatorCard.sectorId === sourceSector?.sectorId) {
+        // Check squad membership by searching for DictatorCard in squad
+        if (isKimInSquad(squad, dictatorCard) && !dictatorCard.isDead) {
           dictatorCard.sectorId = destination.sectorId;
           useAction(dictatorCard, ACTION_COSTS.MOVE);
           game.message(`${dictatorCard.dictatorName} moves with the squad`);
@@ -589,14 +632,14 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
           const dictator = game.dictatorPlayer;
           if (!dictator) return false;
           let primaryCount = dictator.primarySquad?.mercCount ?? 0;
-          if (dictator.dictator?.inPlay &&
-              dictator.dictator.sectorId === dictator.primarySquad?.sectorId) {
-            primaryCount += 1;
-          }
           let secondaryCount = dictator.secondarySquad?.mercCount ?? 0;
-          if (dictator.dictator?.inPlay &&
-              dictator.dictator.sectorId === dictator.secondarySquad?.sectorId) {
-            secondaryCount += 1;
+          // Count Kim in the squad she belongs to
+          if (dictator.dictator?.inPlay) {
+            if (isKimInSquad(dictator.primarySquad, dictator.dictator)) {
+              primaryCount += 1;
+            } else if (isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
+              secondaryCount += 1;
+            }
           }
           return primaryCount > 1 && secondaryCount === 0;
         }
@@ -620,8 +663,7 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
             units.push(capitalize(merc.mercName));
           }
           // Add DictatorCard if in primary squad
-          if (dictator.dictator?.inPlay &&
-              dictator.dictator.sectorId === dictator.primarySquad.sectorId) {
+          if (dictator.dictator?.inPlay && isKimInSquad(dictator.primarySquad, dictator.dictator)) {
             units.push(capitalize(dictator.dictator.dictatorName));
           }
           return units;
@@ -682,6 +724,7 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
           // Move DictatorCard to secondary squad
           dictator.dictator.putInto(dictator.secondarySquad);
           dictator.secondarySquad.sectorId = dictator.primarySquad.sectorId;
+          dictator.dictator.sectorId = dictator.primarySquad.sectorId;
           game.message(`${dictator.dictator.dictatorName} split off into secondary squad`);
           return { success: true, message: `Split ${dictator.dictator.dictatorName} to secondary squad` };
         }
@@ -715,8 +758,8 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
           const dictator = game.dictatorPlayer;
           if (!dictator?.primarySquad || !dictator.secondarySquad) return false;
           let secondaryCount = dictator.secondarySquad.mercCount;
-          if (dictator.dictator?.inPlay &&
-              dictator.dictator.sectorId === dictator.secondarySquad.sectorId) {
+          // Count Kim if in secondary squad
+          if (dictator.dictator?.inPlay && isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
             secondaryCount += 1;
           }
           return secondaryCount > 0 &&
@@ -761,9 +804,9 @@ export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
           unitCount++;
         }
 
-        // Move DictatorCard if in secondary
-        if (dictator.dictator?.sectorId === dictator.secondarySquad.sectorId) {
-          dictator.dictator.putInto(dictator.primarySquad);
+        // Move DictatorCard if in secondary squad
+        if (isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
+          dictator.dictator!.putInto(dictator.primarySquad);
           unitCount++;
         }
 

@@ -699,6 +699,88 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
+              // Combat handling after Kim's militia placement ability
+              // Attack Dog assignment loop
+              loop({
+                name: 'kim-militia-combat-attack-dog-selection',
+                while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'assign-attack-dog',
+                  actions: ['combatAssignAttackDog'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
+                }),
+              }),
+
+              // Target selection loop
+              loop({
+                name: 'kim-militia-combat-target-selection',
+                while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'select-targets',
+                  actions: ['combatSelectTarget'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
+                }),
+              }),
+
+              // Hit allocation loop
+              loop({
+                name: 'kim-militia-combat-hit-allocation',
+                while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'allocate-hits',
+                  actions: ['combatAllocateHits', 'combatBasicReroll'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
+                }),
+              }),
+
+              // Wolverine 6s allocation loop
+              loop({
+                name: 'kim-militia-combat-wolverine-sixes',
+                while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'allocate-wolverine-sixes',
+                  actions: ['combatAllocateWolverineSixes'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
+                }),
+              }),
+
+              // Epinephrine Shot choice loop
+              loop({
+                name: 'kim-militia-combat-epinephrine',
+                while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
+                maxIterations: 10,
+                do: actionStep({
+                  name: 'use-epinephrine',
+                  actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
+                }),
+              }),
+
+              // Combat continue/retreat decision
+              loop({
+                name: 'kim-militia-combat-decision',
+                while: () => game.activeCombat !== null &&
+                            game.activeCombat.pendingTargetSelection == null &&
+                            game.activeCombat.pendingHitAllocation == null &&
+                            game.activeCombat.pendingWolverineSixes == null &&
+                            game.activeCombat.pendingEpinephrine == null &&
+                            !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'continue-or-retreat',
+                  actions: ['combatContinue', 'combatRetreat'],
+                  skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                game.activeCombat.pendingTargetSelection != null ||
+                                game.activeCombat.pendingHitAllocation != null ||
+                                game.activeCombat.pendingWolverineSixes != null ||
+                                game.activeCombat.pendingEpinephrine != null,
+                }),
+              }),
+
               // Apply end-of-turn effects (Conscripts)
               execute(() => {
                 if (game.isFinished()) return;

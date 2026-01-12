@@ -58,46 +58,63 @@ function getPlayerUnitsWithActions(player: unknown, game: MERCGame): EquippableU
   return [];
 }
 
+// Helper to check if unit can re-equip (in a sector with stash and has actions)
+function canUnitReEquip(unit: EquippableUnit, player: unknown, game: MERCGame): boolean {
+  if (unit.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
+  if (isDictatorCard(unit) && (!unit.inPlay || unit.isDead)) return false;
+  const sector = findUnitSector(unit, player, game);
+  return sector !== null && sector.stash.length > 0;
+}
+
 // Helper to check if any unit can re-equip (in a sector with stash and has actions)
 function canAnyUnitReEquip(player: unknown, game: MERCGame): boolean {
   const units = getPlayerUnitsWithActions(player, game);
   for (const unit of units) {
-    const sector = findUnitSector(unit, player, game);
-    if (sector && sector.stash.length > 0) return true;
+    if (canUnitReEquip(unit, player, game)) return true;
   }
   return false;
 }
 
 export function createReEquipAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve unit from ctx.args
+  // Helper to resolve unit from ctx.args (parses composite string "id:name:isDictatorCard")
   function getUnit(ctx: { args?: Record<string, unknown> }): EquippableUnit | undefined {
-    const unitArg = ctx.args?.actingUnit ?? ctx.args?.mercId;
-    if (unitArg && typeof unitArg === 'object' && 'isDictatorCard' in unitArg) {
-      const unitObj = unitArg as { isDictatorCard?: boolean; id?: number };
-      if (unitObj.isDictatorCard) {
+    const unitArg = ctx.args?.actingUnit;
+
+    // Handle string format: "id:name:isDictatorCard"
+    if (typeof unitArg === 'string') {
+      const parts = unitArg.split(':');
+      if (parts.length < 3) return undefined;
+
+      const idStr = parts[0];
+      const isDictatorStr = parts[parts.length - 1]; // Last part is always isDictatorCard
+      const unitId = parseInt(idStr, 10);
+      const isUnitDictatorCard = isDictatorStr === 'true';
+
+      if (isUnitDictatorCard) {
         return game.dictatorPlayer?.dictator;
       }
-      return game.all(MercCard).find(m => m.id === unitObj.id);
+      return game.all(MercCard).find(m => m.id === unitId);
     }
-    if (typeof unitArg === 'number') {
-      const el = game.getElementById(unitArg);
-      return isMercCard(el) ? el : undefined;
-    }
-    return undefined;
-  }
 
-  // Helper to resolve merc from ctx.args (uses actingMerc selection)
-  function getMerc(ctx: { args?: Record<string, unknown> }): MercCard | undefined {
-    const mercArg = ctx.args?.actingMerc ?? ctx.args?.mercId;
-    if (typeof mercArg === 'number') {
-      const el = game.getElementById(mercArg);
-      return isMercCard(el) ? el : undefined;
-    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      if (isMercCard(mercArg)) return mercArg;
-      const mercObj = mercArg as { id: number };
-      const el = game.getElementById(mercObj.id);
-      return isMercCard(el) ? el : undefined;
+    // Handle object format (in case BoardSmith passes the choice object)
+    if (unitArg && typeof unitArg === 'object' && 'value' in unitArg) {
+      const valueStr = (unitArg as { value: string }).value;
+      if (typeof valueStr === 'string') {
+        const parts = valueStr.split(':');
+        if (parts.length < 3) return undefined;
+
+        const idStr = parts[0];
+        const isDictatorStr = parts[parts.length - 1];
+        const unitId = parseInt(idStr, 10);
+        const isUnitDictatorCard = isDictatorStr === 'true';
+
+        if (isUnitDictatorCard) {
+          return game.dictatorPlayer?.dictator;
+        }
+        return game.all(MercCard).find(m => m.id === unitId);
+      }
     }
+
     return undefined;
   }
 
@@ -116,80 +133,47 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  // Legacy helper for backward compatibility
-  function findMercSector(merc: MercCard, player: unknown): Sector | null {
-    return findUnitSector(merc, player, game);
-  }
-
-  // Legacy helper for backward compatibility
-  function getPlayerMercsWithActions(player: unknown): MercCard[] {
-    if (game.isRebelPlayer(player)) {
-      return player.team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
-    }
-    if (game.isDictatorPlayer(player)) {
-      return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
-    }
-    return [];
-  }
-
-  // Legacy helper for backward compatibility
-  function isMercOwnedByPlayer(merc: MercCard, player: unknown): boolean {
-    if (game.isRebelPlayer(player)) {
-      return isInPlayerTeam(merc, player);
-    }
-    if (game.isDictatorPlayer(player)) {
-      const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
-      return dictatorMercs.some(m => m.id === merc.id);
-    }
-    return false;
-  }
-
-  // Legacy helper - now uses unit-based check
-  function canAnyMercReEquip(player: unknown): boolean {
-    return canAnyUnitReEquip(player, game);
-  }
-
   return Action.create('reEquip')
     .prompt('Equip')
     .condition({
       'not in combat': () => !game.activeCombat,
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
-      'has unit that can re-equip': (ctx) => canAnyMercReEquip(ctx.player),
+      'has unit that can re-equip': (ctx) => canAnyUnitReEquip(ctx.player, game),
     })
-    .chooseElement<MercCard>('actingMerc', {
-      prompt: 'Select MERC to equip',
-      elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
-      filter: (element, ctx) => {
-        if (!isMercCard(element)) return false;
-        const merc = element;
-
-        // MERC must belong to player and have actions
-        if (!isMercOwnedByPlayer(merc, ctx.player)) return false;
-        if (merc.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
-
-        // MERC must be in a sector with equipment stash
-        const sector = findMercSector(merc, ctx.player);
-        return sector !== null && sector.stash.length > 0;
+    .chooseFrom<string>('actingUnit', {
+      prompt: 'Which unit equips?',
+      choices: (ctx) => {
+        const units = getPlayerUnitsWithActions(ctx.player, game);
+        return units
+          .filter(u => canUnitReEquip(u, ctx.player, game))
+          .map(u => {
+            // Use string format: "id:name:isDictatorCard" (like explore/train actions)
+            const isDictator = isDictatorCard(u);
+            return {
+              value: `${u.id}:${getUnitName(u)}:${isDictator}`,
+              label: capitalize(getUnitName(u)),
+            };
+          });
       },
     })
     .chooseElement<Equipment>('equipment', {
+      dependsOn: 'actingUnit', // Equipment selection depends on unit selection
       prompt: (ctx) => {
-        const merc = getMerc(ctx);
-        const sector = getSector(ctx) || (merc ? findMercSector(merc, ctx.player) : null);
+        const unit = getUnit(ctx);
+        const sector = unit ? findUnitSector(unit, ctx.player, game) : null;
         const remaining = sector?.stashCount || 0;
-        return merc
-          ? `What should ${capitalize(merc.mercName)} equip? (${remaining} item${remaining !== 1 ? 's' : ''} in stash)`
+        return unit
+          ? `What should ${capitalize(getUnitName(unit))} equip? (${remaining} item${remaining !== 1 ? 's' : ''} in stash)`
           : 'Select equipment';
       },
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
       optional: 'Done equipping',
       elementClass: Equipment,
       filter: (element, ctx) => {
-        const merc = getMerc(ctx);
-        if (!merc) return false;
+        const unit = getUnit(ctx);
+        if (!unit) return false;
 
-        const sector = getSector(ctx) || findMercSector(merc, ctx.player);
+        const sector = findUnitSector(unit, ctx.player, game);
         if (!sector) return false;
 
         // Check if this equipment is in the sector's stash
@@ -197,27 +181,29 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (!inStash) return false;
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
-        if (merc.mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit.isMerc && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
       },
     })
     .execute((args, ctx) => {
-      const merc = getMerc(ctx) || (isMercCard(args.actingMerc) ? args.actingMerc : undefined);
+      const unit = getUnit(ctx);
       const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
-      if (!merc) {
-        return { success: false, message: 'Invalid merc' };
+      if (!unit) {
+        return { success: false, message: 'Invalid unit' };
       }
 
-      const sector = getSector(ctx) || findMercSector(merc, ctx.player);
+      const sector = findUnitSector(unit, ctx.player, game);
       if (!sector) {
         return { success: false, message: 'Invalid sector' };
       }
 
+      const unitName = getUnitName(unit);
+
       // Spend action upfront when first starting re-equip
-      useAction(merc, ACTION_COSTS.RE_EQUIP);
+      unit.actionsRemaining -= ACTION_COSTS.RE_EQUIP;
 
       // User chose "Done equipping" without picking anything
       if (!equipment) {
@@ -229,13 +215,13 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const replaced = merc.equip(equipment);
+      const replaced = unit.equip(equipment);
 
       if (replaced) {
         sector.addToStash(replaced);
-        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+        game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
       } else {
-        game.message(`${capitalize(merc.mercName)} equipped ${equipment.equipmentName}`);
+        game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       }
 
       // If there are more items in stash, chain another reEquip selection (no action cost - already spent)
@@ -246,13 +232,13 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'reEquipContinue',
             args: {
-              mercId: merc.id,
+              mercId: unit.id,
               sectorId: sector.id,
               // Pass the replaced item's ID to prevent ping-pong loop
               lastReplacedId: replaced?.id,
             },
             display: {
-              mercId: capitalize(merc.mercName),
+              mercId: capitalize(unitName),
               sectorId: sector.sectorName,
               lastReplacedId: replaced?.equipmentName ?? '',
             },

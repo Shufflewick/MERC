@@ -196,6 +196,11 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     game.dictatorPlayer.dictator.sectorId = game.dictatorPlayer.baseSectorId;
   }
 
+  // Put dictator into primary squad for proper squad membership tracking
+  if (game.dictatorPlayer.dictator && game.dictatorPlayer.primarySquad) {
+    game.dictatorPlayer.dictator.putInto(game.dictatorPlayer.primarySquad);
+  }
+
   game.message('The Dictator reveals their base!');
 
   return { success: true, message: 'Base revealed' };
