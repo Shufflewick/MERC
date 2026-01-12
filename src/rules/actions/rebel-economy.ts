@@ -795,7 +795,13 @@ function canUnitTrain(unit: TrainableUnit, player: unknown, game: MERCGame): boo
     return sector.getTotalRebelMilitia() < SectorConstants.MAX_MILITIA_PER_SIDE;
   }
   if (game.isDictatorPlayer(player)) {
-    return sector.dictatorMilitia < SectorConstants.MAX_MILITIA_PER_SIDE;
+    // Kim's base allows 20 militia instead of 10
+    const isKimBase = game.dictatorPlayer?.dictator?.dictatorId === 'kim' &&
+                      sector.sectorId === game.dictatorPlayer?.baseSectorId;
+    const maxMilitia = isKimBase
+      ? SectorConstants.KIM_BASE_MAX_MILITIA
+      : SectorConstants.MAX_MILITIA_PER_SIDE;
+    return sector.dictatorMilitia < maxMilitia;
   }
   return false;
 }
@@ -938,7 +944,10 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
           };
         }
       } else if (game.isDictatorPlayer(ctx.player)) {
-        trained = sector.addDictatorMilitia(actingUnit.training);
+        // Kim's base allows 20 militia instead of 10
+        const isKimBase = game.dictatorPlayer?.dictator?.dictatorId === 'kim' &&
+                          sector.sectorId === game.dictatorPlayer?.baseSectorId;
+        trained = sector.addDictatorMilitia(actingUnit.training, isKimBase);
         game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
 
         // Check if any rebel has units at this sector and trigger combat

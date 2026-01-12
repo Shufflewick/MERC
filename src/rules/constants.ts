@@ -63,6 +63,9 @@ export const MercConstants = {
 export const SectorConstants = {
   /** Maximum militia per faction per sector */
   MAX_MILITIA_PER_SIDE: 10,
+
+  /** Kim's base allows 20 militia instead of 10 (dictator ability) */
+  KIM_BASE_MAX_MILITIA: 20,
 } as const;
 
 // =============================================================================
