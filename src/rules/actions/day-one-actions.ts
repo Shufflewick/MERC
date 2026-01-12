@@ -112,7 +112,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         const cached = getMercsFromCache(game, playerId);
         const available = cached ?? ensureMercsDrawn(game, playerId);
         if (available.length === 0) return undefined;
-        const pick = available[Math.floor(Math.random() * available.length)];
+        const pick = available[Math.floor(game.random() * available.length)];
         return capitalize(pick.mercName);
       },
     })
@@ -122,7 +122,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       // AI: Pick random equipment type
       aiSelect: () => {
         const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(Math.random() * types.length)];
+        return types[Math.floor(game.random() * types.length)];
       },
     })
     .execute((args, ctx) => {
@@ -223,7 +223,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         const available = getMercsFromCache(game, playerId) || [];
         const compatible = available.filter(m => canHireMercWithTeam(m.mercId, player.team));
         if (compatible.length === 0) return undefined;
-        const pick = compatible[Math.floor(Math.random() * compatible.length)];
+        const pick = compatible[Math.floor(game.random() * compatible.length)];
         return capitalize(pick.mercName);
       },
     })
@@ -233,7 +233,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       // AI: Pick random equipment type
       aiSelect: () => {
         const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(Math.random() * types.length)];
+        return types[Math.floor(game.random() * types.length)];
       },
     })
     .execute((args, ctx) => {
@@ -348,7 +348,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         const available = getMercsFromCache(game, playerId) || [];
         const compatible = available.filter(m => canHireMercWithTeam(m.mercId, player.team));
         if (compatible.length === 0) return 'Skip (no third hire)';
-        const pick = compatible[Math.floor(Math.random() * compatible.length)];
+        const pick = compatible[Math.floor(game.random() * compatible.length)];
         return capitalize(pick.mercName);
       },
     })
@@ -367,7 +367,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         const mercChoice = ctx.args?.merc as string;
         if (mercChoice === 'Skip (no third hire)') return 'N/A';
         const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(Math.random() * types.length)];
+        return types[Math.floor(game.random() * types.length)];
       },
     })
     .execute((args, ctx) => {
@@ -470,7 +470,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
       // AI: Pick random equipment type
       aiSelect: () => {
         const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(Math.random() * types.length)];
+        return types[Math.floor(game.random() * types.length)];
       },
     })
     .execute((args, ctx) => {
@@ -529,7 +529,7 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
         const validSectors = game.gameMap.getAllSectors()
           .filter(s => isValidLandingSector(game, s));
         if (validSectors.length === 0) return undefined;
-        return validSectors[Math.floor(Math.random() * validSectors.length)];
+        return validSectors[Math.floor(game.random() * validSectors.length)];
       },
     })
     .execute((args, ctx) => {

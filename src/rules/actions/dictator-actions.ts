@@ -7,7 +7,7 @@
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { MercCard, DictatorCard, Sector, Equipment, TacticsCard } from '../elements.js';
-import { executeCombat } from '../combat.js';
+import { executeCombat, hasEnemies } from '../combat.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
 import {
   hasMortar,
@@ -298,7 +298,8 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
 
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          const outcome = executeCombat(game, sector, rebel);
+          // Dictator initiated combat, so only dictator side gets target selection
+          const outcome = executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
           return {
             success: true,
             message: `Reinforced with ${placed} militia and engaged in combat`,
@@ -558,6 +559,28 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
 
       const placed = targetSector.addDictatorMilitia(rebelSectorCount, true);
       game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
+
+      // Check if any rebel has units at this sector and trigger combat
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+          rebel.secondarySquad.sectorId === targetSector.sectorId;
+        const hasMilitia = targetSector.getRebelMilitia(`${rebel.position}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+          // Dictator initiated combat, so only dictator side gets target selection
+          const outcome = executeCombat(game, targetSector, rebel, { attackingPlayerIsRebel: false });
+          return {
+            success: true,
+            message: `Placed ${placed} militia and engaged in combat`,
+            data: {
+              combatTriggered: true,
+              rebelVictory: outcome.rebelVictory,
+              dictatorVictory: outcome.dictatorVictory,
+            },
+          };
+        }
+      }
 
       return { success: true, message: `Placed ${placed} militia` };
     });

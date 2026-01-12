@@ -238,8 +238,8 @@ export function selectAIBaseLocation(game: MERCGame): Sector | null {
     return highestValueIndustries[0];
   }
 
-  // Random selection among ties
-  const randomIndex = Math.floor(Math.random() * highestValueIndustries.length);
+  // Random selection among ties using seeded random
+  const randomIndex = Math.floor(game.random() * highestValueIndustries.length);
   return highestValueIndustries[randomIndex];
 }
 
@@ -417,12 +417,12 @@ export function getAIFreeEquipmentType(): 'Weapon' | 'Armor' | 'Accessory' {
  * MERC-632: Per rules 4.3.1, if choice of more than 1, pick randomly from top of deck.
  * Returns the index of the selected MERC.
  */
-export function selectAIMercForHiring(availableMercs: MercCard[]): number {
+export function selectAIMercForHiring(availableMercs: MercCard[], random: () => number): number {
   if (availableMercs.length === 0) return -1;
   if (availableMercs.length === 1) return 0;
 
-  // MERC-632: Random selection
-  return Math.floor(Math.random() * availableMercs.length);
+  // MERC-632: Random selection using seeded random
+  return Math.floor(random() * availableMercs.length);
 }
 
 /**
@@ -432,7 +432,8 @@ export function selectAIMercForHiring(availableMercs: MercCard[]): number {
  */
 export function selectAIMercsForHiring(
   availableMercs: MercCard[],
-  countToSelect: number
+  countToSelect: number,
+  random: () => number
 ): number[] {
   if (availableMercs.length === 0 || countToSelect <= 0) return [];
 
@@ -440,8 +441,8 @@ export function selectAIMercsForHiring(
   const available = availableMercs.map((_, i) => i);
 
   for (let i = 0; i < Math.min(countToSelect, availableMercs.length); i++) {
-    // MERC-632: Random selection
-    const randomIdx = Math.floor(Math.random() * available.length);
+    // MERC-632: Random selection using seeded random
+    const randomIdx = Math.floor(random() * available.length);
     indices.push(available[randomIdx]);
     available.splice(randomIdx, 1);
   }
@@ -719,14 +720,16 @@ export function getUnitsWithAttackDogs(mercs: MercCard[]): MercCard[] {
 /**
  * Select target for Attack Dog assignment using AI target rules.
  * MERC-dol: Per rules 4.11, uses "Choosing Targets in Combat" (4.6).
+ * @param random - Seeded random function from game.random
  */
 export function selectAttackDogTarget(
-  targets: CombatTarget[]
+  targets: CombatTarget[],
+  random: () => number
 ): CombatTarget | null {
   if (targets.length === 0) return null;
 
   // Use standard AI target priority (4.6)
-  const sorted = sortTargetsByAIPriority(targets);
+  const sorted = sortTargetsByAIPriority(targets, random);
   return sorted[0];
 }
 
@@ -892,8 +895,8 @@ export function selectMortarTarget(game: MERCGame, fromSector: Sector): Sector |
     const strengthB = calculateRebelStrength(game, b);
     if (strengthA !== strengthB) return strengthA - strengthB;
 
-    // Random tie-breaker
-    return Math.random() - 0.5;
+    // Random tie-breaker using seeded random
+    return game.random() - 0.5;
   });
 
   return sortedTargets[0];

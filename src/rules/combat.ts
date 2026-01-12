@@ -69,17 +69,17 @@ import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetr
 // =============================================================================
 
 /**
- * Roll a single d6
+ * Roll a single d6 using game's seeded random
  */
-function rollDie(): number {
-  return Math.floor(Math.random() * CombatConstants.DICE_SIDES) + 1;
+function rollDie(game: MERCGame): number {
+  return Math.floor(game.random() * CombatConstants.DICE_SIDES) + 1;
 }
 
 /**
- * Roll multiple dice
+ * Roll multiple dice using game's seeded random
  */
-function rollDice(count: number): number[] {
-  return Array.from({ length: count }, () => rollDie());
+function rollDice(count: number, game: MERCGame): number[] {
+  return Array.from({ length: count }, () => rollDie(game));
 }
 
 /**
@@ -638,7 +638,7 @@ function applyRaBonus(combatants: Combatant[]): void {
 function applyKhennInitiative(combatants: Combatant[], game: MERCGame): void {
   for (const combatant of combatants) {
     if (isKhenn(combatant) && combatant.health > 0) {
-      const roll = Math.floor(Math.random() * 6) + 1;
+      const roll = Math.floor(game.random() * 6) + 1;
       combatant.initiative = roll;
       game.message(`Khenn rolls ${roll} for initiative`);
     }
@@ -927,13 +927,13 @@ function executeGolemPreCombat(
     if (aliveEnemies.length === 0) continue;
 
     // Select target (use AI targeting)
-    const target = sortTargetsByAIPriority(aliveEnemies)[0];
+    const target = sortTargetsByAIPriority(aliveEnemies, game.random)[0];
 
     game.message(`${golem.name} strikes before combat begins!`);
     game.message(`${golem.name} targets: ${target.name}`);
 
     // Roll dice for pre-combat attack
-    const rolls = rollDice(golem.combat);
+    const rolls = rollDice(golem.combat, game);
     const hits = countHitsForCombatant(rolls, golem, game);
     game.message(`${golem.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
@@ -1398,6 +1398,7 @@ function selectTargetsWithPlayerChoice(
   attacker: Combatant,
   enemies: Combatant[],
   maxTargets: number,
+  game: MERCGame,
   selectedTargetIds?: string[]
 ): Combatant[] {
   // If player has selected targets, use those (for both rebels and human dictator)
@@ -1409,7 +1410,7 @@ function selectTargetsWithPlayerChoice(
   }
 
   // Fall back to automatic selection
-  return selectTargets(attacker, enemies, maxTargets);
+  return selectTargets(attacker, enemies, maxTargets, game);
 }
 
 /**
@@ -1423,7 +1424,8 @@ function selectTargetsWithPlayerChoice(
 function selectTargets(
   attacker: Combatant,
   enemies: Combatant[],
-  maxTargets: number
+  maxTargets: number,
+  game: MERCGame
 ): Combatant[] {
   const aliveEnemies = enemies.filter(e => e.health > 0);
 
@@ -1465,13 +1467,13 @@ function selectTargets(
       : sortedForTargeting.filter(e => !e.isDictator);
 
     // MERC-fix: AI rebels also use priority targeting (lowest health+armor first)
-    const prioritized = sortTargetsByAIPriority(validTargets);
+    const prioritized = sortTargetsByAIPriority(validTargets, game.random);
     return prioritized.slice(0, maxTargets);
   }
 
   // MERC-0q8: Dictator AI uses priority targeting
   // "Targeted last" MERCs already sorted to end
-  const prioritized = sortTargetsByAIPriority(sortedForTargeting);
+  const prioritized = sortTargetsByAIPriority(sortedForTargeting, game.random);
   return prioritized.slice(0, maxTargets);
 }
 
@@ -1551,7 +1553,7 @@ function assignAttackDog(
 
   // MERC-tbq: Per rules 4.11, use "Choosing Targets in Combat" (4.6) for Attack Dog assignment
   // Priority: lowest health+armor, most targets, highest initiative, random
-  const sortedTargets = sortTargetsByAIPriority(validTargets);
+  const sortedTargets = sortTargetsByAIPriority(validTargets, game.random);
   const target = sortedTargets[0];
 
   // Create the dog combatant
@@ -1622,6 +1624,7 @@ function selectTargetsWithDogs(
   enemies: Combatant[],
   maxTargets: number,
   dogState: AttackDogState,
+  game: MERCGame,
   selectedTargetIds?: string[]
 ): Combatant[] {
   // Check if this attacker has a dog assigned to them
@@ -1636,7 +1639,7 @@ function selectTargetsWithDogs(
   }
 
   // MERC-t5k: Use player selections if available for rebel MERCs
-  return selectTargetsWithPlayerChoice(attacker, enemies, maxTargets, selectedTargetIds);
+  return selectTargetsWithPlayerChoice(attacker, enemies, maxTargets, game, selectedTargetIds);
 }
 
 /**
@@ -1682,6 +1685,7 @@ function executeCombatRound(
     playerSelectedTargets?: Map<string, string[]>;
     playerSelectedDogTargets?: Map<string, string>; // attackerId -> target combatant ID for dog
     interactive?: boolean; // Whether to pause for player target selection
+    attackingPlayerIsRebel?: boolean; // True if rebel initiated combat, false if dictator
   }
 ): CombatRoundResult {
   const {
@@ -1691,6 +1695,7 @@ function executeCombatRound(
     playerSelectedTargets,
     playerSelectedDogTargets,
     interactive = true,
+    attackingPlayerIsRebel = true, // Default to rebel (most common case)
   } = options || {};
   // MERC-l09: Initialize dog state if not provided
   const activeDogState: AttackDogState = dogState || {
@@ -1802,7 +1807,8 @@ function executeCombatRound(
     const hasMercSource = attacker.sourceElement?.isMerc ?? false;
     const hasDictatorSource = attacker.sourceElement?.isDictator ?? false;
     const isRebelMerc = !attacker.isDictatorSide && !attacker.isMilitia && hasMercSource;
-    const isDictatorControlled = attacker.isDictatorSide && !attacker.isMilitia && (hasMercSource || hasDictatorSource);
+    const isDictatorMercOrDictator = attacker.isDictatorSide && !attacker.isMilitia && (hasMercSource || hasDictatorSource);
+    const isDictatorMilitia = attacker.isDictatorSide && attacker.isMilitia;
 
     // MERC-fix: For rebel mercs, find the owning player and check if they're AI
     let isRebelHumanControlled = false;
@@ -1813,7 +1819,14 @@ function executeCombatRound(
       );
       isRebelHumanControlled = !!(ownerPlayer && !ownerPlayer.isAI);
     }
-    const isHumanControlled = isRebelHumanControlled || (isDictatorControlled && !game.dictatorPlayer?.isAI);
+    // Dictator-controlled includes MERCs, dictator card, AND militia when human player
+    const isDictatorHumanControlled = (isDictatorMercOrDictator || isDictatorMilitia) && !game.dictatorPlayer?.isAI;
+
+    // Only pause for target selection if:
+    // 1. Unit is human controlled AND
+    // 2. Unit belongs to the attacking side (defending units auto-target to avoid cross-turn issues)
+    const isOnAttackingSide = attackingPlayerIsRebel ? !attacker.isDictatorSide : attacker.isDictatorSide;
+    const isHumanControlled = (isRebelHumanControlled || isDictatorHumanControlled) && isOnAttackingSide;
     const hasSelectedTargets = playerSelectedTargets?.has(attacker.id);
 
     // MERC-l09: Before attacking, assign Attack Dog if available (MUST come before target selection)
@@ -1900,7 +1913,7 @@ function executeCombatRound(
     // MERC-l09: Select targets considering dog assignments
     // MERC-t5k: Use player selections if available
     const attackerSelectedTargets = playerSelectedTargets?.get(attacker.id);
-    const targets = selectTargetsWithDogs(attacker, enemies, attacker.targets, activeDogState, attackerSelectedTargets);
+    const targets = selectTargetsWithDogs(attacker, enemies, attacker.targets, activeDogState, game, attackerSelectedTargets);
 
     // MERC-l09: Handle Tao ability - can't attack when dog assigned
     if (targets.length === 0) {
@@ -1929,7 +1942,7 @@ function executeCombatRound(
     // MERC-7zax: Dictator militia hit on 3+ when Better Weapons is active
     // Medical Kit healing: dice are reduced by healing dice used
     const effectiveDice = getEffectiveCombatDice(attacker, game);
-    let rolls = rollDice(effectiveDice);
+    let rolls = rollDice(effectiveDice, game);
     let hits = countHitsForCombatant(rolls, attacker, game);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
@@ -1937,7 +1950,7 @@ function executeCombatRound(
     if (shouldUseReroll(attacker, rolls, hits)) {
       game.message(`${attacker.name} uses reroll ability!`);
       attacker.hasUsedReroll = true;
-      rolls = rollDice(effectiveDice);
+      rolls = rollDice(effectiveDice, game);
       hits = countHitsForCombatant(rolls, attacker, game);
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
     }
@@ -2300,7 +2313,7 @@ function executeCombatRound(
     game.message(`${vandal.name} fires second shot!`);
 
     // Select targets for second shot (can target same or different enemies)
-    const targets = selectTargetsWithDogs(vandal, enemies, vandal.targets, activeDogState);
+    const targets = selectTargetsWithDogs(vandal, enemies, vandal.targets, activeDogState, game);
     if (targets.length === 0) continue;
 
     const targetNames = targets.map(t => t.name).join(', ');
@@ -2310,7 +2323,7 @@ function executeCombatRound(
     // MERC-cpb: Lucid hits on 3+ instead of 4+
     // Note: Healing dice reduction also applies to second shot
     const vandalEffectiveDice = getEffectiveCombatDice(vandal, game);
-    const rolls = rollDice(vandalEffectiveDice);
+    const rolls = rollDice(vandalEffectiveDice, game);
     const hits = countHitsForCombatant(rolls, vandal, game);
     game.message(`${vandal.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
@@ -2521,9 +2534,9 @@ export function executeCombat(
   game: MERCGame,
   sector: Sector,
   attackingPlayer: RebelPlayer,
-  options: { maxRounds?: number; interactive?: boolean } = {}
+  options: { maxRounds?: number; interactive?: boolean; attackingPlayerIsRebel?: boolean } = {}
 ): CombatOutcome {
-  const { maxRounds = 10, interactive = true } = options;
+  const { maxRounds = 10, interactive = true, attackingPlayerIsRebel: optionAttackingPlayerIsRebel = true } = options;
 
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
@@ -2534,6 +2547,8 @@ export function executeCombat(
   let allRebelCasualties: Combatant[];
   let allDictatorCasualties: Combatant[];
   let startRound: number;
+  // Track who initiated combat (for target selection - only attacking side chooses)
+  let attackingPlayerIsRebel: boolean;
 
   // MERC-l09: Track Attack Dog state across rounds
   let dogState: AttackDogState;
@@ -2558,6 +2573,8 @@ export function executeCombat(
       assignments: new Map(game.activeCombat.dogAssignments || []),
       dogs: (game.activeCombat.dogs || []) as Combatant[],
     };
+    // Restore who initiated combat (default to rebel if not saved, for backwards compat)
+    attackingPlayerIsRebel = game.activeCombat.attackingPlayerIsRebel ?? true;
 
     game.message(`--- Combat continues at ${sector.sectorName} ---`);
   } else {
@@ -2570,6 +2587,8 @@ export function executeCombat(
     allRebelCasualties = [];
     allDictatorCasualties = [];
     startRound = 1;
+    // Use the value from options (defaults to true = rebel initiated)
+    attackingPlayerIsRebel = optionAttackingPlayerIsRebel;
 
     // MERC-l09: Initialize dog state
     dogState = {
@@ -2642,6 +2661,7 @@ export function executeCombat(
       playerSelectedTargets,
       playerSelectedDogTargets,
       interactive,
+      attackingPlayerIsRebel,
     });
 
     // MERC-t5k: Check if round paused for target selection
@@ -2652,6 +2672,7 @@ export function executeCombat(
       game.activeCombat = {
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
         dictatorCombatants: dictator,
@@ -2705,6 +2726,7 @@ export function executeCombat(
         ...game.activeCombat!,
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
         dictatorCombatants: dictator,
@@ -2744,6 +2766,7 @@ export function executeCombat(
       game.activeCombat = {
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
         dictatorCombatants: dictator,
@@ -2831,6 +2854,7 @@ export function executeCombat(
       game.activeCombat = {
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
         dictatorCombatants: dictator,

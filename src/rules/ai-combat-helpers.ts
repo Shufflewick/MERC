@@ -62,9 +62,9 @@ export function chooseWeakestRebelSector(game: MERCGame, sectors: Sector[]): Sec
   // Get all sectors with minimum strength (for tie-breaking)
   const weakest = sectorsWithStrength.filter(s => s.strength === minStrength);
 
-  // If tied, roll dice (random)
+  // If tied, roll dice using seeded random
   if (weakest.length > 1) {
-    const randomIndex = Math.floor(Math.random() * weakest.length);
+    const randomIndex = Math.floor(game.random() * weakest.length);
     return weakest[randomIndex].sector;
   }
 
@@ -110,8 +110,9 @@ export interface CombatTarget {
  * 2. If tied, highest number of targets
  * 3. If tied, highest initiative
  * 4. If still tied, random
+ * @param random - Seeded random function from game.random
  */
-export function sortTargetsByAIPriority<T extends CombatTarget>(targets: T[]): T[] {
+export function sortTargetsByAIPriority<T extends CombatTarget>(targets: T[], random: () => number): T[] {
   return [...targets].sort((a, b) => {
     // 4.6.1 - Lowest health + armor (survivability)
     const survA = a.health + a.armor;
@@ -124,8 +125,8 @@ export function sortTargetsByAIPriority<T extends CombatTarget>(targets: T[]): T
     // 4.6.3 - Highest initiative
     if (a.initiative !== b.initiative) return b.initiative - a.initiative;
 
-    // 4.6.4 - Random tie-breaker
-    return Math.random() - 0.5;
+    // 4.6.4 - Random tie-breaker using seeded random
+    return random() - 0.5;
   });
 }
 

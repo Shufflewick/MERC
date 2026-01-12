@@ -109,21 +109,25 @@ const selectedTargets = ref<Set<string>>(new Set());
 // Get living rebels (not in casualties)
 const livingRebels = computed(() => {
   const casualtyIds = new Set(
-    props.activeCombat.rebelCasualties.map((c: any) => c.id || c.sourceElement?.id)
+    (props.activeCombat.rebelCasualties || [])
+      .filter((c: any) => c != null)
+      .map((c: any) => c.id || c.sourceElement?.id)
   );
-  return props.activeCombat.rebelCombatants.filter(
-    (c: any) => !casualtyIds.has(c.id || c.sourceElement?.id)
-  );
+  return (props.activeCombat.rebelCombatants || [])
+    .filter((c: any) => c != null)
+    .filter((c: any) => !casualtyIds.has(c.id || c.sourceElement?.id));
 });
 
 // Get living dictator forces
 const livingDictator = computed(() => {
   const casualtyIds = new Set(
-    props.activeCombat.dictatorCasualties.map((c: any) => c.id || c.sourceElement?.id)
+    (props.activeCombat.dictatorCasualties || [])
+      .filter((c: any) => c != null)
+      .map((c: any) => c.id || c.sourceElement?.id)
   );
-  return props.activeCombat.dictatorCombatants.filter(
-    (c: any) => !casualtyIds.has(c.id || c.sourceElement?.id)
-  );
+  return (props.activeCombat.dictatorCombatants || [])
+    .filter((c: any) => c != null)
+    .filter((c: any) => !casualtyIds.has(c.id || c.sourceElement?.id));
 });
 
 // Check if we're in target selection mode

@@ -241,38 +241,69 @@ function registerDebugData(game: MERCGame): void {
   // Squad locations and MERCs
   game.registerDebug('Squad Locations', () => {
     const result: Array<{
-      player: number;
+      player: number | 'dictator';
       squad: 'primary' | 'secondary';
-      sectorId: string;
+      sectorId: string | undefined;
       mercs: Array<{ name: string; actions: number }>;
     }> = [];
-    for (const player of game.players) {
-      if (game.isRebelPlayer(player)) {
-        const rebel = player as RebelPlayer;
-        if (rebel.primarySquad) {
-          result.push({
-            player: rebel.position,
-            squad: 'primary',
-            sectorId: rebel.primarySquad.sectorId,
-            mercs: rebel.primarySquad.getLivingMercs().map(m => ({
-              name: m.mercName,
-              actions: m.actionsRemaining,
-            })),
-          });
-        }
-        if (rebel.secondarySquad) {
-          result.push({
-            player: rebel.position,
-            squad: 'secondary',
-            sectorId: rebel.secondarySquad.sectorId,
-            mercs: rebel.secondarySquad.getLivingMercs().map(m => ({
-              name: m.mercName,
-              actions: m.actionsRemaining,
-            })),
-          });
-        }
+
+    // Rebel squads
+    for (const rebel of game.rebelPlayers) {
+      if (rebel.primarySquad) {
+        result.push({
+          player: rebel.position,
+          squad: 'primary',
+          sectorId: rebel.primarySquad.sectorId,
+          mercs: rebel.primarySquad.getLivingMercs().map(m => ({
+            name: m.mercName,
+            actions: m.actionsRemaining,
+          })),
+        });
+      }
+      if (rebel.secondarySquad) {
+        result.push({
+          player: rebel.position,
+          squad: 'secondary',
+          sectorId: rebel.secondarySquad.sectorId,
+          mercs: rebel.secondarySquad.getLivingMercs().map(m => ({
+            name: m.mercName,
+            actions: m.actionsRemaining,
+          })),
+        });
       }
     }
+
+    // Dictator squads
+    const dictator = game.dictatorPlayer;
+    if (dictator) {
+      try {
+        if (dictator.primarySquad) {
+          result.push({
+            player: 'dictator',
+            squad: 'primary',
+            sectorId: dictator.primarySquad.sectorId,
+            mercs: dictator.primarySquad.getLivingMercs().map(m => ({
+              name: m.mercName,
+              actions: m.actionsRemaining,
+            })),
+          });
+        }
+      } catch { /* not initialized */ }
+      try {
+        if (dictator.secondarySquad) {
+          result.push({
+            player: 'dictator',
+            squad: 'secondary',
+            sectorId: dictator.secondarySquad.sectorId,
+            mercs: dictator.secondarySquad.getLivingMercs().map(m => ({
+              name: m.mercName,
+              actions: m.actionsRemaining,
+            })),
+          });
+        }
+      } catch { /* not initialized */ }
+    }
+
     return result;
   });
 

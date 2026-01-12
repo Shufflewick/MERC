@@ -211,7 +211,8 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
 
     if (hasSquad || hasMilitia) {
       game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-      const outcome = executeCombat(game, targetSector, rebel);
+      // Dictator initiated combat, so only dictator side gets target selection
+      const outcome = executeCombat(game, targetSector, rebel, { attackingPlayerIsRebel: false });
       return {
         success: true,
         message: `Placed ${placed} militia and engaged in combat`,

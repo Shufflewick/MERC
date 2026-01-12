@@ -231,9 +231,9 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
           } else if (!merc.accessorySlot) {
             equipType = 'Accessory';
           } else {
-            // All slots filled, draw random
+            // All slots filled, draw random using seeded random
             const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
-            equipType = types[Math.floor(Math.random() * types.length)];
+            equipType = types[Math.floor(game.random() * types.length)];
           }
 
           let freeEquipment = game.drawEquipment(equipType);
@@ -465,7 +465,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       // Industry bonus
       if (sector.isIndustry) {
         const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
-        const randomType = types[Math.floor(Math.random() * types.length)];
+        const randomType = types[Math.floor(game.random() * types.length)];
         const bonusEquipment = game.drawEquipment(randomType);
         if (bonusEquipment) sector.addToStash(bonusEquipment);
       }

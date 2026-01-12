@@ -195,7 +195,8 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
 
           if (hasSquad || hasMilitia) {
             game.message(`Rebels detected at ${destination.sectorName} - combat begins!`);
-            const outcome = executeCombat(game, destination, rebel);
+            // Dictator initiated combat, so only dictator side gets target selection
+            const outcome = executeCombat(game, destination, rebel, { attackingPlayerIsRebel: false });
             return {
               success: true,
               message: `Moved to ${destination.sectorName} and engaged in combat`,

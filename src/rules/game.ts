@@ -418,6 +418,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   activeCombat: {
     sectorId: string;
     attackingPlayerId: string;
+    attackingPlayerIsRebel?: boolean; // True if rebel initiated combat, false if dictator
     round: number;
     rebelCombatants: Combatant[];
     dictatorCombatants: Combatant[];
@@ -740,7 +741,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   private configureAsRebel(player: MERCPlayer): void {
     player.role = 'rebel';
 
-    // Assign color from player config or default based on position
+    // Assign color and AI flag from player config
     const position = player.position;
     const playerConfig = MERCGame._pendingPlayerConfigs[position - 1];
     if (playerConfig?.color) {
@@ -749,6 +750,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     } else {
       const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
       player.playerColor = colors[(position - 1) % colors.length];
+    }
+
+    // Set AI flag from player config (for bot players)
+    if (playerConfig?.isAI !== undefined) {
+      player.isAI = playerConfig.isAI;
     }
 
     // Create squads and area for rebel
@@ -1535,10 +1541,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Roll a single d6
+   * Roll a single d6 using seeded random
    */
   rollDie(): number {
-    return Math.floor(Math.random() * CombatConstants.DICE_SIDES) + 1;
+    return Math.floor(this.random() * CombatConstants.DICE_SIDES) + 1;
   }
 
   /**

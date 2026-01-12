@@ -103,11 +103,12 @@ export function isIndustryPosition(row: number, col: number, rows?: number, cols
 
 /**
  * Shuffle an array in place using Fisher-Yates algorithm
+ * @param random - Seeded random function from game.random()
  */
-function shuffleArray<T>(array: T[]): T[] {
+function shuffleArray<T>(array: T[], random: () => number): T[] {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
@@ -115,9 +116,10 @@ function shuffleArray<T>(array: T[]): T[] {
 
 /**
  * Select random items from an array
+ * @param random - Seeded random function from game.random()
  */
-function selectRandom<T>(array: T[], count: number): T[] {
-  const shuffled = shuffleArray(array);
+function selectRandom<T>(array: T[], count: number, random: () => number): T[] {
+  const shuffled = shuffleArray(array, random);
   return shuffled.slice(0, count);
 }
 
@@ -150,9 +152,9 @@ export function buildMap(game: MERCGame, sectorData: SectorData[]): void {
   const wilderness = sectorData.filter(s => s.type === 'Wilderness');
 
   // Select the required number of each type
-  const selectedIndustries = selectRandom(industries, config.sectorTypes.industries);
-  const selectedCities = selectRandom(cities, config.sectorTypes.cities);
-  const selectedWilderness = selectRandom(wilderness, config.sectorTypes.wilderness);
+  const selectedIndustries = selectRandom(industries, config.sectorTypes.industries, game.random);
+  const selectedCities = selectRandom(cities, config.sectorTypes.cities, game.random);
+  const selectedWilderness = selectRandom(wilderness, config.sectorTypes.wilderness, game.random);
 
   // Categorize positions
   const cornerPositions: Array<{row: number; col: number}> = [];
@@ -181,13 +183,13 @@ export function buildMap(game: MERCGame, sectorData: SectorData[]): void {
   }
 
   // Shuffle non-corner industry positions for variety
-  const shuffledIndustryPositions = shuffleArray(industryPositions);
+  const shuffledIndustryPositions = shuffleArray(industryPositions, game.random);
 
   // All industry positions: corners first, then remaining checkerboard positions
   const allIndustryPositions = [...cornerPositions, ...shuffledIndustryPositions];
 
   // Shuffle non-industry positions for variety
-  const shuffledNonIndustryPositions = shuffleArray(nonIndustryPositions);
+  const shuffledNonIndustryPositions = shuffleArray(nonIndustryPositions, game.random);
 
   // Track which sectors we've used
   let industryIndex = 0;
@@ -282,8 +284,8 @@ export function setupDictator(
     }
     selectedDictator = found;
   } else {
-    // Random selection
-    const randomIndex = Math.floor(Math.random() * dictatorData.length);
+    // Random selection using seeded random
+    const randomIndex = Math.floor(game.random() * dictatorData.length);
     selectedDictator = dictatorData[randomIndex];
   }
 
@@ -373,7 +375,7 @@ export function setupTacticsDeck(
     game.message(`[DEBUG] Tactics deck stacked with: ${effectiveDebugOrder.join(', ')}`);
   } else {
     // Normal mode: select random tactics for active deck
-    selectedTactics = selectRandom(allTacticsCards, activeTacticsCount);
+    selectedTactics = selectRandom(allTacticsCards, activeTacticsCount, game.random);
   }
 
   // Create the selected tactics cards in the deck

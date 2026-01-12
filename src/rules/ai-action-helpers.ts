@@ -253,8 +253,8 @@ export function findClosestRebelSector(game: MERCGame, fromSector: Sector): Sect
     const strengthB = calculateRebelStrength(game, b);
     if (strengthA !== strengthB) return strengthA - strengthB;
 
-    // Final tie-breaker: random
-    return Math.random() - 0.5;
+    // Final tie-breaker: random using seeded random
+    return game.random() - 0.5;
   });
 
   return sorted[0];

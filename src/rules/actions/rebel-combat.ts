@@ -583,11 +583,11 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
 
       const pending = game.activeCombat.pendingHitAllocation;
 
-      // Roll new dice
+      // Roll new dice using seeded random
       const diceCount = pending.diceRolls.length;
       const newRolls: number[] = [];
       for (let i = 0; i < diceCount; i++) {
-        newRolls.push(Math.floor(Math.random() * 6) + 1);
+        newRolls.push(Math.floor(game.random() * 6) + 1);
       }
 
       // Count new hits

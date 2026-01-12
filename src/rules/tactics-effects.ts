@@ -251,8 +251,8 @@ function fodder(game: MERCGame): TacticsEffectResult {
 
       if (placed > 0) {
         combatsTriggered.push(targetSector.sectorName);
-        // Trigger combat
-        executeCombat(game, targetSector, rebel);
+        // Trigger combat - dictator initiated
+        executeCombat(game, targetSector, rebel, { attackingPlayerIsRebel: false });
       }
     }
   }
@@ -290,7 +290,8 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
           combatsTriggered.push(sector.sectorName);
-          executeCombat(game, sector, rebel);
+          // Dictator initiated combat
+          executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
           break; // Only trigger combat once per sector
         }
       }
@@ -437,7 +438,8 @@ export function applyConscriptsEffect(game: MERCGame): void {
 
           if (hasSquad || hasMilitia) {
             game.message(`Conscripts triggered combat at ${sector.sectorName}!`);
-            executeCombat(game, sector, rebel);
+            // Dictator initiated combat
+            executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
             break; // Only trigger combat once per sector
           }
         }
