@@ -80,8 +80,11 @@ export interface EquipmentSlotData {
 
 export abstract class CombatUnit extends BaseCard {
   // Identity - generic names, subclasses provide aliases
-  unitId!: string;
-  unitName!: string;
+  // Using 'declare' instead of '!' because MercCard overrides these with getters
+  // that delegate to mercId/mercName. Using '!' would create instance properties
+  // that shadow those getters.
+  declare unitId: string;
+  declare unitName: string;
   bio!: string;
   ability!: string;
   image!: string;
