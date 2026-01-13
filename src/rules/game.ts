@@ -277,10 +277,12 @@ export class MERCPlayer extends Player {
     return mercs;
   }
 
-  // Dictator-only: check if defeated
+  // Dictator-only: check if defeated (dead OR base captured)
   get isDefeated(): boolean {
     if (!this.isDictator()) return false;
-    return this.baseRevealed && this.dictator?.isDead === true;
+    // Dictator is defeated if dead OR base is captured
+    return (this.baseRevealed && this.dictator?.isDead === true) ||
+           (this.game as MERCGame).isBaseCaptured();
   }
 
   /**
@@ -1319,20 +1321,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   override isFinished(): boolean {
     // Game ends when:
-    // 1. Dictator is defeated (base revealed and dictator killed)
-    // 2. Rebels capture the Dictator's base (base revealed and rebels control sector)
-    // 3. Dictator tactics deck and hand are empty
-    // 4. All rebels are eliminated
+    // 1. Dictator is defeated (dictator killed OR base captured by rebels)
+    // 2. Dictator tactics deck and hand are empty
+    // 3. All dictator units eliminated (militia + MERCs)
+    // 4. All rebel units eliminated (MERCs + militia)
     // 5. Day limit reached (after Day 6)
-    // 6. All dictator units eliminated (militia + MERCs)
-    // 7. All rebel units eliminated (MERCs + militia)
+    // 6. Explosives victory (rebels detonate in palace)
 
+    // isDefeated now covers both dictator death AND base capture
     if (this.dictatorPlayer?.isDefeated) {
-      return true;
-    }
-
-    // Check if rebels captured the base
-    if (this.isBaseCaptured()) {
       return true;
     }
 
