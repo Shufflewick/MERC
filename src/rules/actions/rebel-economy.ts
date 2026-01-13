@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, Squad, isGrenadeOrMortar, DictatorCard } from '../elements.js';
+import { MercCard, Sector, Equipment, Squad, DictatorCard } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { executeCombat } from '../combat.js';
@@ -31,6 +31,7 @@ import {
   getCachedValue,
   setCachedValue,
   clearCachedValue,
+  equipNewHire,
 } from './helpers.js';
 
 
@@ -236,56 +237,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             equipType = types[Math.floor(game.random() * types.length)];
           }
 
-          let freeEquipment = game.drawEquipment(equipType);
-
-          // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
-          if (merc.mercId === 'apeiron' && freeEquipment && isGrenadeOrMortar(freeEquipment)) {
-            const discard = game.getEquipmentDiscard(equipType);
-            if (discard) {
-              freeEquipment.putInto(discard);
-              game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
-            }
-            freeEquipment = game.drawEquipment(equipType);
-            // Keep redrawing up to 3 times if still getting grenades
-            for (let attempts = 0; attempts < 3 && freeEquipment && isGrenadeOrMortar(freeEquipment); attempts++) {
-              if (discard) {
-                freeEquipment.putInto(discard);
-                game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
-              }
-              freeEquipment = game.drawEquipment(equipType);
-            }
-            // If still a grenade after multiple attempts, skip equipping
-            if (freeEquipment && isGrenadeOrMortar(freeEquipment)) {
-              const disc = game.getEquipmentDiscard(equipType);
-              if (disc) freeEquipment.putInto(disc);
-              freeEquipment = undefined;
-              game.message(`${merc.mercName} could not find acceptable equipment`);
-            }
-          }
-
-          if (freeEquipment) {
-            const replaced = merc.equip(freeEquipment);
-            if (replaced) {
-              // Put replaced equipment in sector stash
-              const sector = targetSquad?.sectorId ? game.getSector(targetSquad.sectorId) : null;
-              if (sector) {
-                sector.addToStash(replaced);
-              } else {
-                const discard = game.getEquipmentDiscard(replaced.equipmentType);
-                if (discard) replaced.putInto(discard);
-              }
-            }
-            game.message(`${merc.mercName} equipped free ${freeEquipment.equipmentName}`);
-          }
-
-          // MERC-9mxd: Vrbansk gets a free accessory when hired
-          if (merc.mercId === 'vrbansk' && !merc.accessorySlot) {
-            const freeAccessory = game.drawEquipment('Accessory');
-            if (freeAccessory) {
-              merc.equip(freeAccessory);
-              game.message(`${merc.mercName} receives bonus accessory: ${freeAccessory.equipmentName}`);
-            }
-          }
+          // Uses shared helper for Apeiron/Vrbansk ability handling
+          equipNewHire(game, merc, equipType);
 
           hired.push(merc.mercName);
           currentSize++;
