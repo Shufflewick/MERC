@@ -5,7 +5,7 @@
  */
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
-import type { MERCGame, RebelPlayer } from '../game.js';
+import type { MERCGame, RebelPlayer, MERCPlayer } from '../game.js';
 import { MercCard, Sector, Equipment, isGrenadeOrMortar, DictatorCard } from '../elements.js';
 import {
   ACTION_COSTS,
@@ -615,11 +615,11 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
   return Action.create('docHeal')
     .prompt('Doc: Heal squad (free)')
     .condition({
-      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'not in combat': () => !game.activeCombat,
       'has living Doc with damaged squad members': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const player = ctx.player as RebelPlayer;
+        // Works for both rebel and dictator players
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
         const doc = player.team.find(m => m.mercId === 'doc' && !m.isDead);
         if (!doc) return false;
         const docSquad = player.getSquadContaining(doc);
@@ -629,7 +629,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = ctx.player as MERCPlayer;
       const doc = player.team.find(m => m.mercId === 'doc' && !m.isDead)!;
 
       // Find Doc's squad using helper method
@@ -669,10 +669,10 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
   return Action.create('feedbackDiscard')
     .prompt('Feedback: Take from discard')
     .condition({
-      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'has living Feedback with actions': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const player = ctx.player as RebelPlayer;
+        // Works for both rebel and dictator players
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
         const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead);
         return feedback != null && feedback.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
       },
@@ -696,7 +696,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = ctx.player as MERCPlayer;
       const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead)!;
       const selectedEquipment = args.equipment as Equipment;
 
@@ -739,15 +739,13 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
   return Action.create('squidheadDisarm')
     .prompt('Squidhead: Disarm mine')
     .condition({
-      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'has living Squidhead in sector with land mine': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const player = ctx.player as RebelPlayer;
+        // Works for both rebel and dictator players
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
         const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
         if (!squidhead) return false;
-        const squad = [player.primarySquad, player.secondarySquad].find(s =>
-          s.getMercs().some(m => m.id === squidhead.id)
-        );
+        const squad = player.getSquadContaining(squidhead);
         if (!squad?.sectorId) return false;
         const sector = game.getSector(squad.sectorId);
         if (!sector) return false;
@@ -756,13 +754,11 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = ctx.player as MERCPlayer;
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead)!;
 
       // Get Squidhead's sector
-      const squad = [player.primarySquad, player.secondarySquad].find(s =>
-        s.getMercs().some(m => m.id === squidhead.id)
-      )!;
+      const squad = player.getSquadContaining(squidhead)!;
       const sector = game.getSector(squad.sectorId!)!;
 
       // Find and remove the land mine
@@ -804,10 +800,10 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
   return Action.create('squidheadArm')
     .prompt('Squidhead: Arm mine')
     .condition({
-      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'Squidhead has land mine equipped': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const player = ctx.player as RebelPlayer;
+        // Works for both rebel and dictator players
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
         const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
         if (!squidhead) return false;
         const hasLandMineInSlots = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot].some(
@@ -818,13 +814,11 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = ctx.player as MERCPlayer;
       const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead)!;
 
       // Get Squidhead's sector
-      const squad = [player.primarySquad, player.secondarySquad].find(s =>
-        s.getMercs().some(m => m.id === squidhead.id)
-      );
+      const squad = player.getSquadContaining(squidhead);
       if (!squad?.sectorId) {
         return { success: false, message: 'Squidhead must be on the board' };
       }
@@ -908,10 +902,10 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
   return Action.create('hagnessDraw')
     .prompt('Hagness: Draw equipment for squad')
     .condition({
-      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'has living Hagness with actions': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const player = ctx.player as RebelPlayer;
+        // Works for both rebel and dictator players
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
         const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
         return hagness != null && hagness.actionsRemaining >= 1;
       },
@@ -922,7 +916,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('recipient', {
       prompt: (ctx) => {
-        const player = ctx.player as RebelPlayer;
+        const player = ctx.player as MERCPlayer;
         const playerId = `${player.position}`;
         const equipmentType = ctx.args?.equipmentType as string | undefined;
 
@@ -939,10 +933,11 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       dependsOn: 'equipmentType', // Wait for equipmentType to be selected before showing choices
       // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
       choices: (ctx) => {
-        if (!game.isRebelPlayer(ctx.player)) {
+        // Works for both rebel and dictator players
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) {
           return ['(select equipment type first)'];
         }
-        const player = ctx.player as RebelPlayer;
+        const player = ctx.player as MERCPlayer;
         const playerId = `${player.position}`;
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory' | undefined;
 
@@ -1041,7 +1036,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const player = ctx.player as RebelPlayer;
+      const player = ctx.player as MERCPlayer;
       const playerId = `${player.position}`;
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const cacheKey = getHagnessCacheKey(playerId, equipmentType);
