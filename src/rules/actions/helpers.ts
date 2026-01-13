@@ -5,7 +5,7 @@
  */
 
 import { MERCPlayer, type MERCGame, type RebelPlayer, type DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard, CombatUnitCard } from '../elements.js';
+import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard, CombatUnitCard, isGrenadeOrMortar } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -426,6 +426,69 @@ export function getTypedArg<T>(args: Record<string, unknown>, key: string): T | 
     return undefined;
   }
   return value as T;
+}
+
+// =============================================================================
+// Hiring Helpers
+// =============================================================================
+
+/**
+ * MERC-70a: Apeiron won't use grenades/mortars - discard and redraw
+ * MERC-9mxd: Vrbansk gets a free accessory when hired
+ *
+ * This helper encapsulates the special ability handling for hiring MERCs.
+ * Used by both rebel and dictator hire paths to ensure consistent behavior.
+ */
+export function equipNewHire(
+  game: MERCGame,
+  merc: MercCard,
+  equipType: 'Weapon' | 'Armor' | 'Accessory'
+): void {
+  let freeEquipment = game.drawEquipment(equipType);
+
+  // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
+  if (merc.mercId === 'apeiron' && freeEquipment && isGrenadeOrMortar(freeEquipment)) {
+    const discard = game.getEquipmentDiscard(equipType);
+    if (discard) {
+      freeEquipment.putInto(discard);
+      game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
+    }
+    freeEquipment = game.drawEquipment(equipType);
+    // Keep redrawing up to 3 times if still getting grenades
+    for (let attempts = 0; attempts < 3 && freeEquipment && isGrenadeOrMortar(freeEquipment); attempts++) {
+      if (discard) {
+        freeEquipment.putInto(discard);
+        game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
+      }
+      freeEquipment = game.drawEquipment(equipType);
+    }
+    // If still a grenade after multiple attempts, skip equipping
+    if (freeEquipment && isGrenadeOrMortar(freeEquipment)) {
+      const disc = game.getEquipmentDiscard(equipType);
+      if (disc) freeEquipment.putInto(disc);
+      freeEquipment = undefined;
+      game.message(`${merc.mercName} could not find acceptable equipment`);
+    }
+  }
+
+  if (freeEquipment) {
+    const replaced = merc.equip(freeEquipment);
+    if (replaced) {
+      // Put replaced equipment in discard pile
+      const discard = game.getEquipmentDiscard(replaced.equipmentType);
+      if (discard) replaced.putInto(discard);
+    }
+    game.message(`${merc.mercName} equipped free ${freeEquipment.equipmentName}`);
+  }
+
+  // MERC-9mxd: Vrbansk gets a free accessory when hired
+  if (merc.mercId === 'vrbansk' && !merc.accessorySlot) {
+    const freeAccessory = game.drawEquipment('Accessory');
+    if (freeAccessory) {
+      merc.equip(freeAccessory);
+      game.message(`${merc.mercName} receives bonus accessory: ${freeAccessory.equipmentName}`);
+    }
+  }
 }
 
 // =============================================================================
