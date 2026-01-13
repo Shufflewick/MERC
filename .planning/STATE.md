@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-01-11)
 
 Phase: 16 of 19 (v1.3)
 Plan: 1 of 1 in current phase
-Status: Planned
-Last activity: 2026-01-13 — Created 16-01-PLAN.md
+Status: Phase complete
+Last activity: 2026-01-13 — Completed 16-01-PLAN.md
 
-Progress: ███░░░░░░░ 33%
+Progress: ████░░░░░░ 50%
 
 ## Current Milestone: v1.3 Combatant Unification
 
@@ -22,7 +22,7 @@ Progress: ███░░░░░░░ 33%
 |-------|------|--------|
 | 14 | Image Path Fixes | Complete |
 | 15 | Rename to Combatant | Complete |
-| 16 | Abilities for Controller | Planned |
+| 16 | Abilities for Controller | Complete |
 | 17 | Hiring Unification | Pending |
 | 18 | Data Consistency | Pending |
 | 19 | Victory/Defeat Fixes | Pending |
@@ -59,5 +59,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Planned Phase 16 (Abilities for Controller)
-Resume file: Run /gsd:execute-plan .planning/phases/16-abilities-for-controller/16-01-PLAN.md
+Stopped at: Completed Phase 16 (Abilities for Controller)
+Resume file: Run /gsd:plan-phase 17

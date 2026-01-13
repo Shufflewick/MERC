@@ -74,7 +74,7 @@ Unify dictator and merc combatant handling, fixing bugs and standardizing code p
 |-------|------|-------------|--------|
 | 14 | Image Path Fixes | Fix hardcoded `.jpg` in MercIconSmall, MercCard, DictatorPanel, SectorPanel | Complete |
 | 15 | Rename to Combatant | MercIcon → CombatantIcon, MercIconSmall → CombatantIconSmall, remove isDictator from equipment UI | Complete |
-| 16 | Abilities for Controller | Make docHeal, feedbackDiscard, squidheadDisarm/Arm, hagnessDraw available to whoever controls the merc | Pending |
+| 16 | Abilities for Controller | Make docHeal, feedbackDiscard, squidheadDisarm/Arm, hagnessDraw available to whoever controls the merc | Complete |
 | 17 | Hiring Unification | Apply Apeiron/Vrbansk to dictator hires, Castro human equipment, extract shared function | Pending |
 | 18 | Data Consistency | Add sex field to dictators (male), verify team limit is 1 + controlled sectors | Pending |
 | 19 | Victory/Defeat Fixes | Fix dictator defeat (dead OR rebels control base), rebel defeat (no units after day 1) | Pending |
