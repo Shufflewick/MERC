@@ -8,7 +8,7 @@
  */
 
 import type { MERCGame, RebelPlayer } from './game.js';
-import { MercCard, Equipment, Sector, TacticsCard } from './elements.js';
+import { MercCard, Equipment, Sector, TacticsCard, isGrenadeOrMortar } from './elements.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 import { selectNewMercLocation } from './ai-helpers.js';

@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-11)
 
 **Core value:** Combatant Unification - unify dictator and merc handling to eliminate bugs and inconsistencies
-**Current focus:** Phase 16 - Abilities for Controller
+**Current focus:** Phase 17 - Hiring Unification
 
 ## Current Position
 
-Phase: 16 of 19 (v1.3)
+Phase: 17 of 19 (v1.3)
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-13 — Completed 16-01-PLAN.md
+Last activity: 2026-01-13 — Completed 17-01-PLAN.md
 
-Progress: ████░░░░░░ 50%
+Progress: █████░░░░░ 67%
 
 ## Current Milestone: v1.3 Combatant Unification
 
@@ -23,7 +23,7 @@ Progress: ████░░░░░░ 50%
 | 14 | Image Path Fixes | Complete |
 | 15 | Rename to Combatant | Complete |
 | 16 | Abilities for Controller | Complete |
-| 17 | Hiring Unification | Pending |
+| 17 | Hiring Unification | Complete |
 | 18 | Data Consistency | Pending |
 | 19 | Victory/Defeat Fixes | Pending |
 
@@ -38,8 +38,8 @@ Total: 15 phases, 35 plans, 3 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35
-- Total execution time: ~5.6 hours
+- Total plans completed: 36
+- Total execution time: ~5.7 hours
 - Average duration: 10 min/plan
 
 ## Accumulated Context
@@ -59,5 +59,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed Phase 16 (Abilities for Controller)
-Resume file: Run /gsd:plan-phase 17
+Stopped at: Completed Phase 17 (Hiring Unification)
+Resume file: Run /gsd:plan-phase 18
