@@ -9,13 +9,14 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.0 Codebase Cleanup** — Phases 1-6 (shipped 2026-01-09)
 - ✅ **v1.1 Polish** — Phases 7-8 (shipped 2026-01-09)
 - ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
-- 🔄 **v1.3 Combatant Unification** — Phases 14-19 (in progress)
+- ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
 
 ## Completed Milestones
 
 - ✅ [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) (Phases 1-6) — SHIPPED 2026-01-09
 - ✅ [v1.1 Polish](milestones/v1.1-ROADMAP.md) (Phases 7-8) — SHIPPED 2026-01-09
 - ✅ [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md) (Phases 9-13) — SHIPPED 2026-01-11
+- ✅ [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) (Phases 14-19) — SHIPPED 2026-01-13
 
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
@@ -77,12 +78,14 @@ Unify dictator and merc combatant handling, fixing bugs and standardizing code p
 | 16 | Abilities for Controller | Make docHeal, feedbackDiscard, squidheadDisarm/Arm, hagnessDraw available to whoever controls the merc | Complete |
 | 17 | Hiring Unification | Apply Apeiron/Vrbansk to dictator hires, Castro human equipment, extract shared function | Complete |
 | 18 | Data Consistency | Add sex field to dictators (male), verify team limit is 1 + controlled sectors | Complete |
-| 19 | Victory/Defeat Fixes | Fix dictator defeat (dead OR rebels control base), rebel defeat (no units after day 1) | Pending |
+| 19 | Victory/Defeat Fixes | Fix dictator defeat (dead OR rebels control base), rebel defeat (no units after day 1) | Complete |
 
 ## Status
 
-v1.0, v1.1, and v1.2 complete. v1.3 in progress.
+v1.0, v1.1, v1.2, and v1.3 complete.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)
 - [v1.1 Polish](milestones/v1.1-ROADMAP.md)
+- [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md)
+- [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md)
