@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { UI_COLORS } from '../colors';
-import MercIcon from './MercIcon.vue';
+import CombatantIcon from './CombatantIcon.vue';
 
 interface EquipmentChoice {
   value: string;
@@ -41,7 +41,7 @@ function handleClick(value: string) {
   <div class="draw-equipment-type">
     <div class="equipment-row">
       <!-- MERC/Dictator portrait with name (clickable to view details) -->
-      <MercIcon
+      <CombatantIcon
         v-if="mercName"
         :merc-id="mercId"
         :merc-name="mercName"

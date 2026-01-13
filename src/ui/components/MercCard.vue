@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
 import DetailModal from './DetailModal.vue';
 import EquipmentCard from './EquipmentCard.vue';
-import MercIconSmall from './MercIconSmall.vue';
+import CombatantIconSmall from './CombatantIconSmall.vue';
 
 // Stat breakdown item for tooltips
 interface StatBreakdownItem {
@@ -540,7 +540,7 @@ function confirmDropEquipment() {
   <div class="merc-card" :class="{ compact }">
     <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
-      <MercIconSmall
+      <CombatantIconSmall
         :merc-id="mercId"
         :image="imagePath"
         :alt="mercName"

@@ -10,8 +10,8 @@ import SectorPanel from './SectorPanel.vue';
 import DictatorPanel from './DictatorPanel.vue';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
-import MercIcon from './MercIcon.vue';
-import MercIconSmall from './MercIconSmall.vue';
+import CombatantIcon from './CombatantIcon.vue';
+import CombatantIconSmall from './CombatantIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
@@ -2265,7 +2265,7 @@ const clickableSectors = computed(() => {
       <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
         <div class="sector-row">
           <!-- MERC portrait (clickable to view details) -->
-          <MercIconSmall
+          <CombatantIconSmall
             v-if="selectedMercImagePath"
             :image="selectedMercImagePath"
             :alt="selectedMercName || 'MERC'"
@@ -2356,7 +2356,7 @@ const clickableSectors = computed(() => {
         <div class="hagness-recipient-section" v-if="hagnessSquadMates.length > 0">
           <p class="recipient-label">Give to:</p>
           <div class="recipient-icons">
-            <MercIcon
+            <CombatantIcon
               v-for="mate in hagnessSquadMates"
               :key="mate.displayName"
               :merc-id="mate.mercId"

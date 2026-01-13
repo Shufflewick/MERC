@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { Die3D } from '@boardsmith/ui';
 import { UI_COLORS } from '../colors';
-import MercIcon from './MercIcon.vue';
+import CombatantIcon from './CombatantIcon.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 
 const props = defineProps<{
@@ -404,7 +404,7 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
             }"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           >
-            <MercIcon
+            <CombatantIcon
               :image="combatant.image"
               :merc-id="combatant.mercId"
               :merc-name="getCombatantDisplay(combatant).name"
@@ -457,7 +457,7 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
             }"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           >
-            <MercIcon
+            <CombatantIcon
               :image="combatant.image"
               :merc-id="combatant.mercId"
               :merc-name="getCombatantDisplay(combatant).name"
@@ -725,8 +725,8 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
   position: relative;
 }
 
-/* Allow clicks to pass through MercIcon to parent combatant div */
-.combatant :deep(.merc-icon) {
+/* Allow clicks to pass through CombatantIcon to parent combatant div */
+.combatant :deep(.combatant-icon) {
   pointer-events: none;
 }
 

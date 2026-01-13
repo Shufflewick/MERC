@@ -5,7 +5,7 @@ import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import MercCard from './MercCard.vue';
-import MercIconSmall from './MercIconSmall.vue';
+import CombatantIconSmall from './CombatantIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 
 // Helper to get attribute from node
@@ -399,7 +399,8 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
     <!-- Header with dictator info -->
     <div class="panel-header">
       <div class="dictator-info">
-        <MercIconSmall
+        <CombatantIconSmall
+          :merc-id="dictator.dictatorId"
           :image="dictatorImagePath"
           :alt="dictator.dictatorName"
           :player-color="playerColor"
@@ -532,7 +533,8 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
     <!-- Dictator Details Modal -->
     <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
       <div class="dictator-modal">
-        <MercIconSmall
+        <CombatantIconSmall
+          :merc-id="dictator.dictatorId"
           :image="dictatorImagePath"
           :alt="dictator.dictatorName"
           :player-color="playerColor"

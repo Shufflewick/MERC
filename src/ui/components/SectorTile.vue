@@ -4,7 +4,7 @@ import { getPlayerColor } from '../colors';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import DetailModal from './DetailModal.vue';
 import MercCard from './MercCard.vue';
-import MercIconSmall from './MercIconSmall.vue';
+import CombatantIconSmall from './CombatantIconSmall.vue';
 
 interface SectorData {
   sectorId: string;
@@ -198,9 +198,10 @@ function closeMercModal() {
         >
           🏠
         </div>
-        <MercIconSmall
+        <CombatantIconSmall
           v-for="(merc, index) in mercsInSector.slice(0, isDictatorBase ? 3 : 4)"
           :key="getMercKey(merc, index)"
+          :merc-id="merc.mercId"
           :image="getMercImagePath(merc)"
           :alt="merc.mercName || merc.mercId"
           :player-color="merc.playerColor"
@@ -238,7 +239,8 @@ function closeMercModal() {
         class="tooltip-merc clickable"
         @click="showMercDetails(merc, $event)"
       >
-        <MercIconSmall
+        <CombatantIconSmall
+          :merc-id="merc.mercId"
           :image="getMercImagePath(merc)"
           :alt="merc.mercName || merc.mercId"
           :player-color="merc.playerColor"

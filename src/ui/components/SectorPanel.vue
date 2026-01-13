@@ -8,7 +8,7 @@ import EquipmentTable from './EquipmentTable.vue';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import MilitiaCard from './MilitiaCard.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
-import MercIconSmall from './MercIconSmall.vue';
+import CombatantIconSmall from './CombatantIconSmall.vue';
 
 // Helper to get attribute from node
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
@@ -1211,7 +1211,7 @@ const sectorTypeIcon = computed(() => {
               class="selectable-merc"
               @click="selectMerc(item)"
             >
-              <MercIconSmall
+              <CombatantIconSmall
                 :image="getMercImagePath(item)"
                 :alt="item._choiceDisplay || getMercName(item)"
                 :player-color="playerColor"
@@ -1322,7 +1322,7 @@ const sectorTypeIcon = computed(() => {
           <div class="squad-mercs">
             <!-- Dictator base icon -->
             <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
-            <MercIconSmall
+            <CombatantIconSmall
               v-for="merc in squadInSector.mercs"
               :key="getAttr(merc, 'mercId', '')"
               :image="getMercImagePath(merc)"
@@ -1351,7 +1351,7 @@ const sectorTypeIcon = computed(() => {
           <div class="squad-mercs">
             <!-- Dictator base icon -->
             <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
-            <MercIconSmall
+            <CombatantIconSmall
               v-for="merc in myMercsInSector"
               :key="merc.mercId"
               :image="getMercImagePath(merc)"
@@ -1368,7 +1368,7 @@ const sectorTypeIcon = computed(() => {
         <div v-if="allyMercsInSector.length > 0" class="squad-section ally-section">
           <div class="squad-header-label">Allies</div>
           <div class="squad-mercs">
-            <MercIconSmall
+            <CombatantIconSmall
               v-for="merc in allyMercsInSector"
               :key="merc.mercId"
               :image="getMercImagePath(merc)"
@@ -1385,7 +1385,7 @@ const sectorTypeIcon = computed(() => {
         <div v-if="enemyMercsInSector.length > 0" class="squad-section enemy-section">
           <div class="squad-header-label enemy-label">Enemies</div>
           <div class="squad-mercs">
-            <MercIconSmall
+            <CombatantIconSmall
               v-for="merc in enemyMercsInSector"
               :key="merc.mercId"
               :image="getMercImagePath(merc)"
