@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-01-11)
 ## Current Position
 
 Phase: 14 of 19 (v1.3)
-Plan: Not started
-Status: Ready to plan Phase 14
-Last activity: 2026-01-13 — v1.3 milestone created
+Plan: 1 of 1 in current phase
+Status: Phase complete
+Last activity: 2026-01-13 — Completed 14-01-PLAN.md
 
-Progress: ██░░░░░░░░ 0%
+Progress: ██░░░░░░░░ 17%
 
 ## Current Milestone: v1.3 Combatant Unification
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 14 | Image Path Fixes | Pending |
+| 14 | Image Path Fixes | Complete |
 | 15 | Rename to Combatant | Pending |
 | 16 | Abilities for Controller | Pending |
 | 17 | Hiring Unification | Pending |
@@ -33,12 +33,12 @@ Progress: ██░░░░░░░░ 0%
 - v1.1 Polish (Phases 7-8) — 6 plans
 - v1.2 Merge Dictator and Merc Cards (Phases 9-13) — 7 plans
 
-Total: 13 phases, 33 plans, 3 milestones shipped
+Total: 14 phases, 34 plans, 3 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 33
+- Total plans completed: 34
 - Total execution time: ~5.5 hours
 - Average duration: 10 min/plan
 
@@ -59,5 +59,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: v1.3 milestone created
-Resume file: Run /gsd:plan-phase 14 to start Phase 14
+Stopped at: Completed Phase 14 (Image Path Fixes)
+Resume file: Run /gsd:plan-phase 15 to start Phase 15

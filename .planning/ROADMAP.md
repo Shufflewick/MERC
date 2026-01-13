@@ -72,7 +72,7 @@ Unify dictator and merc combatant handling, fixing bugs and standardizing code p
 
 | Phase | Name | Description | Status |
 |-------|------|-------------|--------|
-| 14 | Image Path Fixes | Fix hardcoded `.jpg` in MercIconSmall, MercCard, DictatorPanel, SectorPanel | Pending |
+| 14 | Image Path Fixes | Fix hardcoded `.jpg` in MercIconSmall, MercCard, DictatorPanel, SectorPanel | Complete |
 | 15 | Rename to Combatant | MercIcon → CombatantIcon, MercIconSmall → CombatantIconSmall, remove isDictator from equipment UI | Pending |
 | 16 | Abilities for Controller | Make docHeal, feedbackDiscard, squidheadDisarm/Arm, hagnessDraw available to whoever controls the merc | Pending |
 | 17 | Hiring Unification | Apply Apeiron/Vrbansk to dictator hires, Castro human equipment, extract shared function | Pending |
