@@ -256,25 +256,29 @@ function getMercImagePath(merc: any): string {
   const image = getAttr(merc, 'image', '');
   if (image) return image;
 
-  // Check for mercId in various locations
-  let mercId = getAttr(merc, 'mercId', '');
-  if (!mercId && merc?.attributes?.mercId) {
-    mercId = merc.attributes.mercId;
+  // Check for dictator first
+  let isDictator = false;
+  let id = getAttr(merc, 'dictatorId', '');
+  if (!id && merc?.attributes?.dictatorId) {
+    id = merc.attributes.dictatorId;
   }
-
-  // Also check for dictatorId
-  if (!mercId) {
-    mercId = getAttr(merc, 'dictatorId', '');
-    if (!mercId && merc?.attributes?.dictatorId) {
-      mercId = merc.attributes.dictatorId;
+  if (id) {
+    isDictator = true;
+  } else {
+    // Check for mercId
+    id = getAttr(merc, 'mercId', '');
+    if (!id && merc?.attributes?.mercId) {
+      id = merc.attributes.mercId;
     }
   }
 
-  if (mercId) {
-    return `/mercs/${mercId}.jpg`;
+  if (id) {
+    const folder = isDictator ? 'dictators' : 'mercs';
+    const ext = isDictator ? 'png' : 'jpg';
+    return `/${folder}/${id}.${ext}`;
   }
 
-  // Fallback - try to derive from name
+  // Fallback - try to derive from name (assume merc if unknown)
   const name = getMercName(merc);
   if (name && name !== 'Unknown') {
     return `/mercs/${name.toLowerCase()}.jpg`;
