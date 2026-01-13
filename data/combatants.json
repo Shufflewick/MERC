@@ -641,7 +641,8 @@
     "initiative": 2,
     "ability": "Once per turn, draw 3 random MERCs and hire 1.",
     "bio": "President, Cuba, 1959-2008",
-    "image": "/dictators/castro.png"
+    "image": "/dictators/castro.png",
+    "sex": "M"
   },
   {
     "id": "kim",
@@ -653,6 +654,7 @@
     "initiative": 2,
     "ability": "Your base starts revealed with 5 militia per Rebel (max 20). Once per turn, count the number of Rebel controlled sectors, and place that many militia on any sector.",
     "bio": "Supreme Leader, North Korea, 1948-1994",
-    "image": "/dictators/kim.png"
+    "image": "/dictators/kim.png",
+    "sex": "M"
   }
 ]
