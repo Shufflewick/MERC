@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-11)
 
 **Core value:** Combatant Unification - unify dictator and merc handling to eliminate bugs and inconsistencies
-**Current focus:** Phase 14 - Fix image path bugs
+**Current focus:** Phase 15 - Rename to Combatant
 
 ## Current Position
 
-Phase: 14 of 19 (v1.3)
+Phase: 15 of 19 (v1.3)
 Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-13 — Completed 14-01-PLAN.md
+Last activity: 2026-01-13 — Completed 15-01-PLAN.md
 
-Progress: ██░░░░░░░░ 17%
+Progress: ███░░░░░░░ 33%
 
 ## Current Milestone: v1.3 Combatant Unification
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 14 | Image Path Fixes | Complete |
-| 15 | Rename to Combatant | Pending |
+| 15 | Rename to Combatant | Complete |
 | 16 | Abilities for Controller | Pending |
 | 17 | Hiring Unification | Pending |
 | 18 | Data Consistency | Pending |
@@ -33,13 +33,13 @@ Progress: ██░░░░░░░░ 17%
 - v1.1 Polish (Phases 7-8) — 6 plans
 - v1.2 Merge Dictator and Merc Cards (Phases 9-13) — 7 plans
 
-Total: 14 phases, 34 plans, 3 milestones shipped
+Total: 15 phases, 35 plans, 3 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 34
-- Total execution time: ~5.5 hours
+- Total plans completed: 35
+- Total execution time: ~5.6 hours
 - Average duration: 10 min/plan
 
 ## Accumulated Context
@@ -59,5 +59,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed Phase 14 (Image Path Fixes)
-Resume file: Run /gsd:plan-phase 15 to start Phase 15
+Stopped at: Completed Phase 15 (Rename to Combatant)
+Resume file: Run /gsd:plan-phase 16 to start Phase 16
