@@ -8,10 +8,11 @@
  */
 
 import type { MERCGame, RebelPlayer } from './game.js';
-import { MercCard, Equipment, Sector, TacticsCard, isGrenadeOrMortar } from './elements.js';
+import { MercCard, Equipment, Sector, TacticsCard } from './elements.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 import { selectNewMercLocation } from './ai-helpers.js';
+import { equipNewHire } from './actions/helpers.js';
 
 // =============================================================================
 // Rebel Phase - Day 1
@@ -260,15 +261,12 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
     }
 
     // All hired MERCs get 1 free equipment - prioritize weapon
+    // Uses shared helper for Apeiron/Vrbansk ability handling
     let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
     if (merc.weaponSlot) {
       equipType = merc.armorSlot ? 'Accessory' : 'Armor';
     }
-    const freeEquipment = game.drawEquipment(equipType);
-    if (freeEquipment) {
-      merc.equip(freeEquipment);
-      game.message(`${merc.mercName} equipped free ${freeEquipment.equipmentName}`);
-    }
+    equipNewHire(game, merc, equipType);
   }
 
   return merc;

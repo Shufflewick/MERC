@@ -17,6 +17,7 @@ import {
   getRebelControlledSectors,
 } from './ai-helpers.js';
 import { executeCombat } from './combat.js';
+import { equipNewHire } from './actions/helpers.js';
 
 // =============================================================================
 // Dictator Ability Types
@@ -138,15 +139,12 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   }
 
   // All hired MERCs get 1 free equipment - prioritize weapon
+  // Uses shared helper for Apeiron/Vrbansk ability handling
   let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
   if (bestMerc.weaponSlot) {
     equipType = bestMerc.armorSlot ? 'Accessory' : 'Armor';
   }
-  const freeEquipment = game.drawEquipment(equipType);
-  if (freeEquipment) {
-    bestMerc.equip(freeEquipment);
-    game.message(`${bestMerc.mercName} equipped free ${freeEquipment.equipmentName}`);
-  }
+  equipNewHire(game, bestMerc, equipType);
 
   // Discard the others
   for (const merc of drawnMercs) {

@@ -18,7 +18,7 @@ import {
   getAIHealingPriority,
 } from '../ai-helpers.js';
 import { getNextAIAction } from '../ai-executor.js';
-import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isMercCard } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isMercCard, equipNewHire } from './helpers.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
@@ -481,13 +481,9 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       targetSquad.sectorId = targetSector.sectorId;
       game.message(`Castro deployed ${selectedMerc.mercName} to ${targetSector.sectorName}`);
 
-      // Give equipment of chosen type
+      // Give equipment of chosen type - uses shared helper for Apeiron/Vrbansk ability handling
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-      const freeEquipment = game.drawEquipment(equipType);
-      if (freeEquipment) {
-        selectedMerc.equip(freeEquipment);
-        game.message(`${selectedMerc.mercName} equipped ${freeEquipment.equipmentName}`);
-      }
+      equipNewHire(game, selectedMerc, equipType);
 
       // Discard the other MERCs
       for (const merc of mercs) {
