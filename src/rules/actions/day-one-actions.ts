@@ -747,6 +747,11 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
       display: (sector) => sector.sectorName,
       boardRef: (element) => ({ id: asSector(element).id }),
     })
+    // Human Kim chooses starting equipment (just like MERCs when hired)
+    .chooseFrom<string>('dictatorEquipment', {
+      prompt: 'Choose starting equipment for Kim',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
     .execute((args) => {
       const baseSector = asSector(args.baseLocation);
 
@@ -759,6 +764,17 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
         game.dictatorPlayer.dictator.baseSectorId = baseSector.sectorId;
       }
       game.message(`Kim established base at ${baseSector.sectorName}`);
+
+      // Equip Kim with chosen equipment (same as MERCs get when hired)
+      const dictator = game.dictatorPlayer?.dictator;
+      if (dictator && args.dictatorEquipment) {
+        const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
+        const equipment = game.drawEquipment(equipType);
+        if (equipment) {
+          dictator.equip(equipment);
+          game.message(`${dictator.dictatorName} equipped ${equipment.equipmentName}`);
+        }
+      }
 
       return { success: true, message: `Base set at ${baseSector.sectorName}` };
     });

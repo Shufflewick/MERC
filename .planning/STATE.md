@@ -4,17 +4,28 @@
 
 See: .planning/PROJECT.md (updated 2026-01-11)
 
-**Core value:** Ship Confidence - tests and debug cleanup so the game can release with confidence
-**Current focus:** All milestones complete. Ready for release or new features.
+**Core value:** Combatant Unification - unify dictator and merc handling to eliminate bugs and inconsistencies
+**Current focus:** Phase 14 - Fix image path bugs
 
 ## Current Position
 
-Phase: 13 of 13 complete
-Plan: All complete
-Status: All milestones shipped
-Last activity: 2026-01-11 — v1.2 milestone complete
+Phase: 14 of 19 (v1.3)
+Plan: Not started
+Status: Ready to plan Phase 14
+Last activity: 2026-01-13 — v1.3 milestone created
 
-Progress: ██████████ 100%
+Progress: ██░░░░░░░░ 0%
+
+## Current Milestone: v1.3 Combatant Unification
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 14 | Image Path Fixes | Pending |
+| 15 | Rename to Combatant | Pending |
+| 16 | Abilities for Controller | Pending |
+| 17 | Hiring Unification | Pending |
+| 18 | Data Consistency | Pending |
+| 19 | Victory/Defeat Fixes | Pending |
 
 ## Milestones Completed
 
@@ -47,6 +58,6 @@ None active.
 
 ## Session Continuity
 
-Last session: 2026-01-11
-Stopped at: v1.2 milestone complete and archived
-Resume file: None - run /gsd:new-milestone or /gsd:discuss-milestone for next work
+Last session: 2026-01-13
+Stopped at: v1.3 milestone created
+Resume file: Run /gsd:plan-phase 14 to start Phase 14

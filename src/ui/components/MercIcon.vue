@@ -28,7 +28,8 @@ const imagePath = computed(() => {
   // Build path from mercId
   if (props.mercId) {
     const folder = props.isDictator ? 'dictators' : 'mercs';
-    return `/${folder}/${props.mercId.toLowerCase()}.jpg`;
+    const ext = props.isDictator ? 'png' : 'jpg';
+    return `/${folder}/${props.mercId.toLowerCase()}.${ext}`;
   }
   // Derive from name if no mercId
   return `/mercs/${props.mercName.toLowerCase()}.jpg`;

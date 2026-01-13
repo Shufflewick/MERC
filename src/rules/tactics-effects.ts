@@ -201,6 +201,21 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     game.dictatorPlayer.dictator.putInto(game.dictatorPlayer.primarySquad);
   }
 
+  // Dictators get 1 free equipment when entering play, just like MERCs
+  // Only auto-equip for AI - human players choose via the playTactics action's dictatorEquipment step
+  const dictator = game.dictatorPlayer.dictator;
+  if (game.dictatorPlayer?.isAI && dictator) {
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (dictator.weaponSlot) {
+      equipType = dictator.armorSlot ? 'Accessory' : 'Armor';
+    }
+    const freeEquipment = game.drawEquipment(equipType);
+    if (freeEquipment) {
+      dictator.equip(freeEquipment);
+      game.message(`${dictator.dictatorName} equipped ${freeEquipment.equipmentName}`);
+    }
+  }
+
   game.message('The Dictator reveals their base!');
 
   return { success: true, message: 'Base revealed' };

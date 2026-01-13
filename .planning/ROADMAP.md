@@ -9,6 +9,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.0 Codebase Cleanup** — Phases 1-6 (shipped 2026-01-09)
 - ✅ **v1.1 Polish** — Phases 7-8 (shipped 2026-01-09)
 - ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
+- 🔄 **v1.3 Combatant Unification** — Phases 14-19 (in progress)
 
 ## Completed Milestones
 
@@ -65,9 +66,22 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 12. Merge Data Files | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 13. Remove Legacy | v1.2 | 1/1 | Complete | 2026-01-11 |
 
+## Current Milestone: v1.3 Combatant Unification
+
+Unify dictator and merc combatant handling, fixing bugs and standardizing code patterns.
+
+| Phase | Name | Description | Status |
+|-------|------|-------------|--------|
+| 14 | Image Path Fixes | Fix hardcoded `.jpg` in MercIconSmall, MercCard, DictatorPanel, SectorPanel | Pending |
+| 15 | Rename to Combatant | MercIcon → CombatantIcon, MercIconSmall → CombatantIconSmall, remove isDictator from equipment UI | Pending |
+| 16 | Abilities for Controller | Make docHeal, feedbackDiscard, squidheadDisarm/Arm, hagnessDraw available to whoever controls the merc | Pending |
+| 17 | Hiring Unification | Apply Apeiron/Vrbansk to dictator hires, Castro human equipment, extract shared function | Pending |
+| 18 | Data Consistency | Add sex field to dictators (male), verify team limit is 1 + controlled sectors | Pending |
+| 19 | Victory/Defeat Fixes | Fix dictator defeat (dead OR rebels control base), rebel defeat (no units after day 1) | Pending |
+
 ## Status
 
-v1.0, v1.1, and v1.2 complete.
+v1.0, v1.1, and v1.2 complete. v1.3 in progress.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)

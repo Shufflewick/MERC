@@ -63,6 +63,20 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   dictator.sectorId = baseSector.sectorId;
   dictator.putInto(game.dictatorPlayer.primarySquad);
 
+  // Dictators get 1 free equipment when entering play, just like MERCs
+  // Only auto-equip for AI - human players choose via the chooseKimBase action
+  if (game.dictatorPlayer?.isAI) {
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (dictator.weaponSlot) {
+      equipType = dictator.armorSlot ? 'Accessory' : 'Armor';
+    }
+    const freeEquipment = game.drawEquipment(equipType);
+    if (freeEquipment) {
+      dictator.equip(freeEquipment);
+      game.message(`${dictator.dictatorName} equipped ${freeEquipment.equipmentName}`);
+    }
+  }
+
   // Calculate militia: 5 per rebel, max 20
   const militiaCount = Math.min(5 * game.rebelCount, 20);
 

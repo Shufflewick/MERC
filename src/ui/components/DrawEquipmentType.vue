@@ -13,6 +13,7 @@ const props = defineProps<{
   mercId?: string; // MERC ID for portrait
   mercName?: string; // MERC name
   playerColor?: string; // Player color for border
+  isDictator?: boolean; // Whether this is a dictator (affects image path)
 }>();
 
 const emit = defineEmits<{
@@ -39,12 +40,13 @@ function handleClick(value: string) {
 <template>
   <div class="draw-equipment-type">
     <div class="equipment-row">
-      <!-- MERC portrait with name (clickable to view details) -->
+      <!-- MERC/Dictator portrait with name (clickable to view details) -->
       <MercIcon
         v-if="mercName"
         :merc-id="mercId"
         :merc-name="mercName"
         :player-color="playerColor"
+        :is-dictator="isDictator"
         size="large"
         clickable
         @click="handleMercClick"

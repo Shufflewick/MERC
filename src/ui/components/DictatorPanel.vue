@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
 import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
+import DrawEquipmentType from './DrawEquipmentType.vue';
 import MercCard from './MercCard.vue';
 import MercIconSmall from './MercIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
@@ -167,7 +168,8 @@ const isSelectingEquipmentType = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   const sel = props.actionController.currentSelection.value;
   if (!sel) return false;
-  return currentAction === 'playTactics' && sel.name === 'dictatorEquipment';
+  // Equipment selection happens in both playTactics (base reveal via tactics) and chooseKimBase (Day 1 setup)
+  return (currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'dictatorEquipment';
 });
 
 // Get equipment type choices
@@ -277,11 +279,11 @@ const selectableSectors = computed(() => {
   });
 });
 
-// Handle equipment type selection
-async function selectEquipmentType(choice: any) {
+// Handle equipment type selection (receives value string from DrawEquipmentType)
+async function selectEquipmentType(value: string) {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return;
-  await props.actionController.fill(sel.name, choice.value);
+  await props.actionController.fill(sel.name, value);
 }
 
 // Handle MERC selection for Castro hire
@@ -472,21 +474,15 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
           </div>
 
           <!-- Equipment Type Selection (for dictator entering play) -->
-          <div v-else-if="isSelectingEquipmentType" class="equipment-selection">
-            <div class="equipment-choices">
-              <button
-                v-for="choice in equipmentTypeChoices"
-                :key="choice.value"
-                class="equipment-choice"
-                @click="selectEquipmentType(choice)"
-              >
-                <span class="equipment-icon">
-                  {{ choice.value === 'Weapon' ? '⚔️' : choice.value === 'Armor' ? '🛡️' : '💍' }}
-                </span>
-                {{ choice.label }}
-              </button>
-            </div>
-          </div>
+          <DrawEquipmentType
+            v-else-if="isSelectingEquipmentType"
+            :choices="equipmentTypeChoices"
+            :merc-id="dictator?.dictatorId"
+            :merc-name="dictator?.dictatorName"
+            player-color="dictator"
+            is-dictator
+            @select="selectEquipmentType"
+          />
         </div>
       </template>
 
@@ -769,47 +765,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
-}
-
-/* Equipment Selection */
-.equipment-selection {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.equipment-choices {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.equipment-choice {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 24px;
-  background: rgba(139, 0, 0, 0.2);
-  border: 2px solid rgba(139, 0, 0, 0.4);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 100px;
-}
-
-.equipment-choice:hover {
-  background: rgba(139, 0, 0, 0.4);
-  border-color: #8b0000;
-  transform: scale(1.05);
-}
-
-.equipment-icon {
-  font-size: 2rem;
 }
 
 /* Normal View */
