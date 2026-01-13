@@ -99,7 +99,7 @@ function closeTacticsModal() {
 // Get dictator portrait path
 const dictatorImagePath = computed(() => {
   if (props.dictator.image) return props.dictator.image;
-  return `/dictators/${props.dictator.dictatorId}.jpg`;
+  return `/dictators/${props.dictator.dictatorId}.png`;
 });
 
 // Actions available for dictator - only dictator-specific actions

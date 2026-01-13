@@ -28,14 +28,15 @@ const imagePath = computed(() => {
   // Build path from mercId
   if (props.mercId) {
     const folder = props.isDictator ? 'dictators' : 'mercs';
-    return `/${folder}/${props.mercId.toLowerCase()}.jpg`;
+    const ext = props.isDictator ? 'png' : 'jpg';
+    return `/${folder}/${props.mercId.toLowerCase()}.${ext}`;
   }
   // Fallback
-  return props.isDictator ? '/dictators/unknown.jpg' : '/mercs/unknown.jpg';
+  return props.isDictator ? '/dictators/unknown.png' : '/mercs/unknown.jpg';
 });
 
 const fallbackPath = computed(() => {
-  return props.isDictator ? '/dictators/unknown.jpg' : '/mercs/unknown.jpg';
+  return props.isDictator ? '/dictators/unknown.png' : '/mercs/unknown.jpg';
 });
 
 const borderColor = computed(() => {
