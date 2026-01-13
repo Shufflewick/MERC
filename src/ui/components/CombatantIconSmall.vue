@@ -13,12 +13,15 @@ const props = withDefaults(defineProps<{
 }>(), {
   size: 40,
   clickable: false,
-  isDictator: false,
 });
 
 const emit = defineEmits<{
   click: [];
 }>();
+
+// Auto-detect dictator from mercId prefix
+const autoDetectDictator = computed(() => props.mercId?.startsWith('dictator-') ?? false);
+const isDictatorCombatant = computed(() => props.isDictator ?? autoDetectDictator.value);
 
 const imagePath = computed(() => {
   // Direct image path takes precedence
@@ -27,16 +30,16 @@ const imagePath = computed(() => {
   }
   // Build path from mercId
   if (props.mercId) {
-    const folder = props.isDictator ? 'dictators' : 'mercs';
-    const ext = props.isDictator ? 'png' : 'jpg';
+    const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
+    const ext = isDictatorCombatant.value ? 'png' : 'jpg';
     return `/${folder}/${props.mercId.toLowerCase()}.${ext}`;
   }
   // Fallback
-  return props.isDictator ? '/dictators/unknown.png' : '/mercs/unknown.jpg';
+  return isDictatorCombatant.value ? '/dictators/unknown.png' : '/mercs/unknown.jpg';
 });
 
 const fallbackPath = computed(() => {
-  return props.isDictator ? '/dictators/unknown.png' : '/mercs/unknown.jpg';
+  return isDictatorCombatant.value ? '/dictators/unknown.png' : '/mercs/unknown.jpg';
 });
 
 const borderColor = computed(() => {
@@ -62,7 +65,7 @@ function handleClick() {
 
 <template>
   <div
-    class="merc-icon-small"
+    class="combatant-icon-small"
     :class="{ clickable }"
     :style="sizeStyle"
     @click="handleClick"
@@ -77,14 +80,14 @@ function handleClick() {
 </template>
 
 <style scoped>
-.merc-icon-small {
+.combatant-icon-small {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.merc-icon-small img {
+.combatant-icon-small img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -94,16 +97,16 @@ function handleClick() {
   box-sizing: border-box;
 }
 
-.merc-icon-small.clickable {
+.combatant-icon-small.clickable {
   cursor: pointer;
 }
 
-.merc-icon-small.clickable:hover img {
+.combatant-icon-small.clickable:hover img {
   transform: scale(1.05);
   box-shadow: 0 0 8px rgba(212, 168, 75, 0.5);
 }
 
-.merc-icon-small img {
+.combatant-icon-small img {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 </style>

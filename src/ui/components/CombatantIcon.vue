@@ -20,6 +20,10 @@ const emit = defineEmits<{
 
 const sizeClass = computed(() => props.size || 'medium');
 
+// Auto-detect dictator from mercId prefix
+const autoDetectDictator = computed(() => props.mercId?.startsWith('dictator-') ?? false);
+const isDictatorCombatant = computed(() => props.isDictator ?? autoDetectDictator.value);
+
 const imagePath = computed(() => {
   // Use provided image path first (from JSON data)
   if (props.image) {
@@ -27,8 +31,8 @@ const imagePath = computed(() => {
   }
   // Build path from mercId
   if (props.mercId) {
-    const folder = props.isDictator ? 'dictators' : 'mercs';
-    const ext = props.isDictator ? 'png' : 'jpg';
+    const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
+    const ext = isDictatorCombatant.value ? 'png' : 'jpg';
     return `/${folder}/${props.mercId.toLowerCase()}.${ext}`;
   }
   // Derive from name if no mercId
@@ -54,14 +58,14 @@ function handleClick() {
 
 <template>
   <div
-    class="merc-icon"
+    class="combatant-icon"
     :class="[sizeClass, { clickable }]"
     @click="handleClick"
   >
     <div class="portrait" :style="{ borderColor }">
       <!-- Militia: show emoji shield -->
       <span v-if="isMilitia" class="militia-emoji">🛡️</span>
-      <!-- MERC/Dictator: show image -->
+      <!-- Combatant (merc or dictator): show image -->
       <img
         v-else
         :src="imagePath"
@@ -74,7 +78,7 @@ function handleClick() {
 </template>
 
 <style scoped>
-.merc-icon {
+.combatant-icon {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -84,11 +88,11 @@ function handleClick() {
   transition: background 0.2s, transform 0.2s;
 }
 
-.merc-icon.clickable {
+.combatant-icon.clickable {
   cursor: pointer;
 }
 
-.merc-icon.clickable:hover {
+.combatant-icon.clickable:hover {
   background: rgba(212, 168, 75, 0.2);
   transform: scale(1.05);
 }
@@ -113,39 +117,39 @@ function handleClick() {
   font-size: 1.5rem;
 }
 
-.merc-icon.small .militia-emoji {
+.combatant-icon.small .militia-emoji {
   font-size: 1.2rem;
 }
 
-.merc-icon.large .militia-emoji {
+.combatant-icon.large .militia-emoji {
   font-size: 2rem;
 }
 
 /* Size variants */
-.merc-icon.small .portrait {
+.combatant-icon.small .portrait {
   width: 40px;
   height: 40px;
 }
 
-.merc-icon.medium .portrait {
+.combatant-icon.medium .portrait {
   width: 60px;
   height: 60px;
 }
 
-.merc-icon.large .portrait {
+.combatant-icon.large .portrait {
   width: 80px;
   height: 80px;
 }
 
-.merc-icon.small .name {
+.combatant-icon.small .name {
   font-size: 0.75rem;
 }
 
-.merc-icon.medium .name {
+.combatant-icon.medium .name {
   font-size: 0.85rem;
 }
 
-.merc-icon.large .name {
+.combatant-icon.large .name {
   font-size: 1rem;
 }
 
