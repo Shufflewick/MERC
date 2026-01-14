@@ -15,7 +15,7 @@ import {
   useAction,
   isDictatorCard,
   isMercCard,
-  isCombatUnitCard,
+  isCombatantModel,
   getUnitName,
   findUnitSector,
   getCachedValue,
@@ -266,12 +266,12 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
       const el = game.getElementById(mercArg);
-      if (isCombatUnitCard(el)) return el;
+      if (isCombatantModel(el)) return el;
       return undefined;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
       const mercObj = mercArg as { id: number };
       const el = game.getElementById(mercObj.id);
-      if (isCombatUnitCard(el)) return el;
+      if (isCombatantModel(el)) return el;
       return undefined;
     }
     return undefined;

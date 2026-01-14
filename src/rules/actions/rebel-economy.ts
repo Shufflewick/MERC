@@ -25,7 +25,7 @@ import {
   asEquipment,
   isDictatorCard,
   isMercCard,
-  isCombatUnitCard,
+  isCombatantModel,
   getUnitName,
   findUnitSector,
   getCachedValue,
@@ -208,17 +208,15 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       let currentSize = player.teamSize;
       const hired: string[] = [];
 
-      // MERC-l1q: Determine which squad to place new MERCs in
-      // Per rules: "If squads exist: new MERC must join an existing squad"
-      // Use primary squad if it has MERCs, otherwise secondary if it exists
-      let targetSquad = player.primarySquad;
-      if (player.primarySquad.mercCount === 0 && player.secondarySquad.mercCount > 0) {
-        targetSquad = player.secondarySquad;
-      }
+      // Auto-join: new MERCs join the squad of the acting merc (the one who spent actions to hire)
+      // This ensures new hires join the squad at the hiring sector
+      let targetSquad = player.getSquadContaining(actingMerc) || player.primarySquad;
 
       for (const merc of drawnMercs) {
         if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
           merc.putInto(targetSquad);
+          // Sync merc's sectorId with the squad they joined
+          merc.sectorId = targetSquad.sectorId;
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
 
@@ -514,7 +512,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     if (id === undefined) return undefined;
 
     const element = game.getElementById(id);
-    if (isCombatUnitCard(element)) {
+    if (isCombatantModel(element)) {
       return element;
     }
     return undefined;
