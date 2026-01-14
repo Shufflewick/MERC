@@ -74,7 +74,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 18. Data Consistency | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 19. Victory/Defeat Fixes | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 20. Model Renaming | v1.4 | 3/3 | Complete | 2026-01-14 |
-| 21. Vue Component Renaming | v1.4 | 0/? | Not started | - |
+| 21. Vue Component Renaming | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 22. Reference Updates | v1.4 | 0/? | Not started | - |
 | 23. Documentation | v1.4 | 0/? | Not started | - |
 
@@ -111,10 +111,10 @@ Plans:
 **Goal**: Rename `MercCard.vue` → `CombatantCard.vue`, update all imports and usages
 **Depends on**: Phase 20
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 1
 
 Plans:
-- [ ] 21-01: TBD
+- [x] 21-01: Rename MercCard.vue to CombatantCard.vue — completed 2026-01-14
 
 #### Phase 22: Reference Updates
 
