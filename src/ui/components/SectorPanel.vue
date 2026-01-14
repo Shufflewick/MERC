@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
-import MercCard from './MercCard.vue';
+import CombatantCard from './CombatantCard.vue';
 import EquipmentTable from './EquipmentTable.vue';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import MilitiaCard from './MilitiaCard.vue';
@@ -1279,7 +1279,7 @@ const sectorTypeIcon = computed(() => {
             <!-- MERC Card Preview (Right) -->
             <div class="merc-preview-section" v-if="actingMercForEquipment">
               <div class="merc-preview-header">Equipping:</div>
-              <MercCard
+              <CombatantCard
                 :merc="mercWithPendingEquipment"
                 :player-color="playerColor"
                 :show-equipment="true"
@@ -1456,7 +1456,7 @@ const sectorTypeIcon = computed(() => {
 
     <!-- MERC Details Modal -->
     <DetailModal :show="showMercModal" @close="closeMercModal">
-      <MercCard
+      <CombatantCard
         v-if="selectedMerc"
         :merc="selectedMerc"
         :player-color="selectedMercPlayerColor"

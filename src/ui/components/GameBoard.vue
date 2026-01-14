@@ -3,7 +3,7 @@ import { computed, ref, watch, inject, reactive } from 'vue';
 import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
-import MercCard from './MercCard.vue';
+import CombatantCard from './CombatantCard.vue';
 import EquipmentCard from './EquipmentCard.vue';
 import CombatPanel from './CombatPanel.vue';
 import SectorPanel from './SectorPanel.vue';
@@ -796,22 +796,31 @@ const secondarySquad = computed(() => {
   };
 });
 
-// Helper to build a dictator squad with optional dictator card inclusion
+// Helper to build a dictator squad with DictatorCard included when present
 function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: any | null) {
   const sectorId = getAttr(squad, 'sectorId', '');
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
-  // Get MERCs from squad (includes DictatorCard if it was putInto this squad)
-  const mercs = (squad.children || [])
+  // Get all combatants from squad (MERCs and DictatorCard)
+  const combatants = (squad.children || [])
     .filter((c: any) => {
-      if (isMercDead(c)) return false;
-      const className = normalizeClassName(c.className);
-      return getAttr(c, 'mercId', '') || className === 'MercCard' || className === 'DictatorCard';
-    })
-    .map((c: any) => {
-      // Format DictatorCard like a MERC for display
       const className = normalizeClassName(c.className);
       if (className === 'DictatorCard') {
+        // Include dictator if alive and in play
+        const isDead = getAttr(c, 'damage', 0) >= 10;
+        const inPlay = getAttr(c, 'inPlay', false);
+        return inPlay && !isDead;
+      }
+      if (className === 'MercCard') {
+        return !isMercDead(c);
+      }
+      // Also check by mercId for serialized cards
+      return getAttr(c, 'mercId', '');
+    })
+    .map((c: any) => {
+      const className = normalizeClassName(c.className);
+      if (className === 'DictatorCard') {
+        // Map dictator to merc-like format for SquadPanel
         return {
           ...c,
           mercId: `dictator-${getAttr(c, 'dictatorId', '')}`,
@@ -822,15 +831,12 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
       return c;
     });
 
-  // Dictator combatant is ALWAYS shown in dictatorBaseSquad, never injected into primary/secondary
-  // This prevents the dictator from appearing in two squads simultaneously
-
   return {
     squadId: squad.ref || `dictator-squad-${isPrimary ? 'primary' : 'secondary'}`,
     isPrimary,
     sectorId,
     sectorName: sector?.sectorName,
-    mercs,
+    mercs: combatants,
   };
 }
 
@@ -872,38 +878,64 @@ const dictatorSecondarySquad = computed(() => {
   return buildDictatorSquad(squad, false, dictatorCardNode);
 });
 
-// MERC-base: Get dictator's base "squad" - shows dictator when at base (third squad)
-// This is separate from primary/secondary squads - dictator can stay home
+// MERC-base: Get dictator's base squad (third squad) - shows all combatants stationed at base
+// This is a TRUE squad in the game model, not just a UI display helper
 const dictatorBaseSquad = computed(() => {
   if (!currentPlayerIsDictator.value) return undefined;
 
-  // Find dictator card
-  let dictatorCardNode = findByClassName('DictatorCard');
-  if (!dictatorCardNode) dictatorCardNode = findByClassName('_DictatorCard');
-  if (!dictatorCardNode) return undefined;
+  // Find the actual base squad from the game state
+  const squads = findAllByClassName('Squad');
+  const baseSquad = squads.find((s: any) => {
+    const name = getAttr(s, 'name', '') || s.ref || '';
+    return name === 'squad-dictator-base' || name.includes('dictator-base');
+  });
 
-  const inPlay = getAttr(dictatorCardNode, 'inPlay', false);
-  const dictatorSectorId = getAttr(dictatorCardNode, 'sectorId', '');
-  const dictatorDead = getAttr(dictatorCardNode, 'damage', 0) >= 10;
+  if (!baseSquad) return undefined;
 
-  if (!inPlay || dictatorDead || !dictatorSectorId) return undefined;
+  const sectorId = getAttr(baseSquad, 'sectorId', '');
+  if (!sectorId) return undefined; // Base squad not yet positioned
 
-  // Dictator is ALWAYS shown in base squad when in play (regardless of sector)
-  // This is the canonical location for displaying the dictator combatant
-  const sector = sectors.value.find((s) => s.sectorId === dictatorSectorId);
+  const sector = sectors.value.find((s) => s.sectorId === sectorId);
+
+  // Get all combatants in the base squad (MERCs and DictatorCard)
+  const combatants = (baseSquad.children || [])
+    .filter((c: any) => {
+      const className = normalizeClassName(c.className);
+      if (className === 'DictatorCard') {
+        // Include dictator if alive and in play
+        const isDead = getAttr(c, 'damage', 0) >= 10;
+        const inPlay = getAttr(c, 'inPlay', false);
+        return inPlay && !isDead;
+      }
+      if (className === 'MercCard') {
+        // Include MERCs if not dead
+        return !isMercDead(c);
+      }
+      return false;
+    })
+    .map((c: any) => {
+      const className = normalizeClassName(c.className);
+      if (className === 'DictatorCard') {
+        return {
+          ...c,
+          mercId: `dictator-${getAttr(c, 'dictatorId', '')}`,
+          mercName: getAttr(c, 'dictatorName', 'The Dictator'),
+          isDictator: true,
+        };
+      }
+      return c;
+    });
+
+  // Only show base squad if it has combatants
+  if (combatants.length === 0) return undefined;
 
   return {
-    squadId: 'dictator-base-squad',
+    squadId: 'squad-dictator-base',
     isPrimary: false,
     isBase: true, // Flag to indicate this is the base squad
-    sectorId: dictatorSectorId,
+    sectorId,
     sectorName: sector?.sectorName || 'Base',
-    mercs: [{
-      ...dictatorCardNode,
-      mercId: `dictator-${getAttr(dictatorCardNode, 'dictatorId', '')}`,
-      mercName: getAttr(dictatorCardNode, 'dictatorName', 'The Dictator'),
-      isDictator: true,
-    }],
+    mercs: combatants,
   };
 });
 
@@ -2258,7 +2290,7 @@ const clickableSectors = computed(() => {
             class="merc-choice"
             @click="selectMercToHire(merc)"
           >
-            <MercCard :merc="merc" :player-color="currentPlayerColor" />
+            <CombatantCard :merc="merc" :player-color="currentPlayerColor" />
           </div>
         </div>
 
@@ -2278,7 +2310,7 @@ const clickableSectors = computed(() => {
       <!-- MERC Detail Modal for hiring phase -->
       <DetailModal :show="showHiringMercModal" @close="closeHiringMercModal">
         <div class="hiring-merc-modal">
-          <MercCard
+          <CombatantCard
             v-if="selectedMercForEquipment"
             :merc="selectedMercForEquipment"
             :player-color="currentPlayerColor"

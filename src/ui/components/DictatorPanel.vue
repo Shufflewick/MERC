@@ -4,7 +4,7 @@ import { UI_COLORS } from '../colors';
 import type { UseActionControllerReturn } from '@boardsmith/ui';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
-import MercCard from './MercCard.vue';
+import CombatantCard from './CombatantCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 
@@ -456,7 +456,7 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
                 class="merc-choice"
                 @click="selectMercToHire(merc)"
               >
-                <MercCard :merc="merc" :player-color="playerColor" />
+                <CombatantCard :merc="merc" :player-color="playerColor" />
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import MercCard from './MercCard.vue';
+import CombatantCard from './CombatantCard.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 interface MercData {
@@ -88,7 +88,7 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
         </span>
       </div>
       <div class="mercs-list" v-if="hasPrimaryMercs">
-        <MercCard
+        <CombatantCard
           v-for="(merc, index) in primarySquad.mercs"
           :key="getMercKey(merc, index)"
           :merc="merc"
@@ -115,7 +115,7 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
         </span>
       </div>
       <div class="mercs-list" v-if="hasSecondaryMercs">
-        <MercCard
+        <CombatantCard
           v-for="(merc, index) in secondarySquad.mercs"
           :key="getMercKey(merc, 100 + index)"
           :merc="merc"
@@ -142,7 +142,7 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
         </span>
       </div>
       <div class="mercs-list" v-if="hasBaseMercs">
-        <MercCard
+        <CombatantCard
           v-for="(merc, index) in baseSquad.mercs"
           :key="getMercKey(merc, 200 + index)"
           :merc="merc"

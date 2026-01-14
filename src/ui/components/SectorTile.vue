@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { getPlayerColor } from '../colors';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import DetailModal from './DetailModal.vue';
-import MercCard from './MercCard.vue';
+import CombatantCard from './CombatantCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 
 interface SectorData {
@@ -253,7 +253,7 @@ function closeMercModal() {
 
     <!-- MERC Details Modal -->
     <DetailModal :show="showMercModal" @close="closeMercModal">
-      <MercCard
+      <CombatantCard
         v-if="selectedMerc"
         :merc="selectedMerc"
         :player-color="selectedMerc.playerColor"
