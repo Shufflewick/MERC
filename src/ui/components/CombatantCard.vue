@@ -537,7 +537,7 @@ function confirmDropEquipment() {
 </script>
 
 <template>
-  <div class="merc-card" :class="{ compact }">
+  <div class="combatant-card" :class="{ compact }">
     <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
       <CombatantIconSmall
@@ -781,7 +781,7 @@ function confirmDropEquipment() {
 </template>
 
 <style scoped>
-.merc-card {
+.combatant-card {
   background: v-bind('UI_COLORS.cardBg');
   border-radius: 12px;
   padding: 12px;
@@ -791,7 +791,7 @@ function confirmDropEquipment() {
   font-family: inherit;
 }
 
-.merc-card.compact {
+.combatant-card.compact {
   min-width: 160px;
   max-width: 200px;
   padding: 8px;
