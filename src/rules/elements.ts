@@ -75,16 +75,21 @@ export interface EquipmentSlotData {
 }
 
 // =============================================================================
-// CombatUnit - Abstract base class for MERCs and Dictators
+// CombatantBase - Abstract base class for MERCs and Dictators
 // =============================================================================
 
-export abstract class CombatUnit extends BaseCard {
-  // Identity - generic names, subclasses provide aliases
+export abstract class CombatantBase extends BaseCard {
+  // Identity - canonical names for all combatants
   // Using 'declare' instead of '!' because MercCard overrides these with getters
   // that delegate to mercId/mercName. Using '!' would create instance properties
   // that shadow those getters.
-  declare unitId: string;
-  declare unitName: string;
+  declare combatantId: string;
+  declare combatantName: string;
+
+  // Backward-compat getters for API stability
+  get unitId(): string { return this.combatantId; }
+  get unitName(): string { return this.combatantName; }
+
   bio!: string;
   ability!: string;
   image!: string;
@@ -252,7 +257,7 @@ export abstract class CombatUnit extends BaseCard {
 
     const ability = getMercAbility(this.unitId);
     const extraHealth = ability?.passive?.extraHealth || 0;
-    this.effectiveMaxHealth = CombatUnit.BASE_HEALTH + extraHealth;
+    this.effectiveMaxHealth = CombatantBase.BASE_HEALTH + extraHealth;
 
     // Training
     let t = this.baseTraining;
@@ -296,7 +301,7 @@ export abstract class CombatUnit extends BaseCard {
   /**
    * Update Haarg's ability bonuses based on squad mates.
    */
-  updateHaargBonus(squadMates: CombatUnit[]): void {
+  updateHaargBonus(squadMates: CombatantBase[]): void {
     if (this.unitId !== 'haarg') return;
 
     this.haargTrainingBonus = 0;
@@ -316,7 +321,7 @@ export abstract class CombatUnit extends BaseCard {
   /**
    * Update Sarge's ability bonuses based on squad mates.
    */
-  updateSargeBonus(squadMates: CombatUnit[]): void {
+  updateSargeBonus(squadMates: CombatantBase[]): void {
     if (this.unitId !== 'sarge') return;
 
     this.sargeTrainingBonus = 0;
@@ -344,7 +349,7 @@ export abstract class CombatUnit extends BaseCard {
   /**
    * Update Tack's squad initiative bonus for this unit.
    */
-  updateTackSquadBonus(squadMates: CombatUnit[]): void {
+  updateTackSquadBonus(squadMates: CombatantBase[]): void {
     this.tackSquadInitiativeBonus = 0;
 
     const tack = squadMates.find(m => m.unitId === 'tack' && !m.isDead);
@@ -366,7 +371,7 @@ export abstract class CombatUnit extends BaseCard {
   /**
    * Update Valkyrie's squad initiative bonus for this unit.
    */
-  updateValkyrieSquadBonus(squadMates: CombatUnit[]): void {
+  updateValkyrieSquadBonus(squadMates: CombatantBase[]): void {
     this.valkyrieSquadInitiativeBonus = 0;
     if (this.unitId === 'valkyrie') return;
 
@@ -412,7 +417,7 @@ export abstract class CombatUnit extends BaseCard {
   /**
    * Update Snake's solo bonuses for this unit.
    */
-  updateSnakeBonus(squadMates: CombatUnit[]): void {
+  updateSnakeBonus(squadMates: CombatantBase[]): void {
     this.snakeSoloCombatBonus = 0;
     this.snakeSoloInitiativeBonus = 0;
     this.snakeSoloTrainingBonus = 0;
@@ -430,7 +435,7 @@ export abstract class CombatUnit extends BaseCard {
   /**
    * Update Tavisto's woman-in-squad bonuses for this unit.
    */
-  updateTavistoBonus(squadMates: CombatUnit[]): void {
+  updateTavistoBonus(squadMates: CombatantBase[]): void {
     this.tavistoWomanCombatBonus = 0;
     this.tavistoWomanInitiativeBonus = 0;
     this.tavistoWomanTrainingBonus = 0;
@@ -534,7 +539,7 @@ export abstract class CombatUnit extends BaseCard {
   get maxHealth(): number {
     const ability = getMercAbility(this.unitId);
     const extraHealth = ability?.passive?.extraHealth || 0;
-    return CombatUnit.BASE_HEALTH + extraHealth;
+    return CombatantBase.BASE_HEALTH + extraHealth;
   }
 
   get health(): number {
@@ -543,7 +548,7 @@ export abstract class CombatUnit extends BaseCard {
   }
 
   get targets(): number {
-    let value = CombatUnit.BASE_TARGETS;
+    let value = CombatantBase.BASE_TARGETS;
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'targets');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'targets');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'targets');
@@ -556,7 +561,7 @@ export abstract class CombatUnit extends BaseCard {
   }
 
   get equipmentArmor(): number {
-    let value = CombatUnit.BASE_ARMOR;
+    let value = CombatantBase.BASE_ARMOR;
     value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'armorBonus');
     value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'armorBonus');
     value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'armorBonus');
@@ -593,9 +598,9 @@ export abstract class CombatUnit extends BaseCard {
   resetActions(): void {
     // Ewok gets +1 action (3 total instead of 2)
     if (this.unitId === 'ewok') {
-      this.actionsRemaining = CombatUnit.BASE_ACTIONS + 1;
+      this.actionsRemaining = CombatantBase.BASE_ACTIONS + 1;
     } else {
-      this.actionsRemaining = CombatUnit.BASE_ACTIONS;
+      this.actionsRemaining = CombatantBase.BASE_ACTIONS;
     }
 
     // Faustina gets +1 action for training only
@@ -748,9 +753,9 @@ export abstract class CombatUnit extends BaseCard {
 // CombatUnitCard - Unified class for MERCs and Dictators
 // =============================================================================
 
-export class CombatUnitCard extends CombatUnit {
+export class CombatUnitCard extends CombatantBase {
   // Identity - BoardSmith populates these from JSON
-  // Note: unitId/unitName are inherited from CombatUnit
+  // Note: combatantId/combatantName are inherited from CombatantBase
 
   // Card type discriminator
   cardType: 'merc' | 'dictator' = 'merc';
@@ -1193,6 +1198,7 @@ export class Militia extends BasePiece {
 
 export class Squad extends Space {
   isPrimary: boolean = true; // Primary (large pawn) or Secondary (small pawn)
+  isBase: boolean = false; // True for dictator's base squad (third squad)
   sectorId?: string; // Which sector this squad is in
 
   getMercs(): MercCard[] {
