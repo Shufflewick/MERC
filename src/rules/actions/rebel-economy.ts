@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, Squad, DictatorCard } from '../elements.js';
+import { MercCard, Sector, Equipment, Squad, DictatorCard, CombatantModel } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { executeCombat } from '../combat.js';
@@ -355,37 +355,18 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         return livingUnits.some(u => canUnitExplore(u, ctx.player, game));
       },
     })
-    .chooseFrom<string>('actingUnit', {
+    .chooseElement<CombatantModel>('actingUnit', {
       prompt: 'Which unit explores?',
-      choices: (ctx) => {
+      elementClass: CombatantModel,
+      display: (unit) => capitalize(getUnitName(unit)),
+      filter: (element, ctx) => {
         const units = getPlayerUnitsForExplore(ctx.player, game);
-        return units
-          .filter(u => canUnitExplore(u, ctx.player, game))
-          .map(u => {
-            // Use string format: "id:name:isDictatorCard"
-            const isDictator = isDictatorCard(u);
-            return {
-              value: `${u.id}:${getUnitName(u)}:${isDictator}`,
-              label: capitalize(getUnitName(u)),
-            };
-          });
+        return units.some(u => u.id === element.id) && canUnitExplore(element as CombatantModel, ctx.player, game);
       },
     })
     .execute((args, ctx) => {
-      const unitChoiceStr = args.actingUnit as string;
-
-      // Parse string format: "id:name:isDictatorCard"
-      const [idStr, name, isDictatorStr] = unitChoiceStr.split(':');
-      const unitId = parseInt(idStr, 10);
-      const isDictatorCard = isDictatorStr === 'true';
-
-      // Find the actual unit
-      let actingUnit: ExplorableUnit | null = null;
-      if (isDictatorCard) {
-        actingUnit = game.dictatorPlayer?.dictator || null;
-      } else {
-        actingUnit = game.all(MercCard).find(m => m.id === unitId) || null;
-      }
+      // Get the unit directly from chooseElement
+      const actingUnit = args.actingUnit as CombatantModel;
 
       if (!actingUnit) {
         return { success: false, message: 'Unit not found' };

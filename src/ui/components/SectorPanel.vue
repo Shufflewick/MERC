@@ -969,11 +969,22 @@ const selectableItems = computed(() => {
         // Also check squad data as fallback
         const squadMerc = findSquadMerc(elementId);
 
+        // Check if this is a dictator (has dictatorId)
+        const dictatorId = attrs.dictatorId || squadMerc?.attributes?.dictatorId;
+        const isDictator = !!dictatorId;
+
+        // For combatantId, prefer dictatorId for dictators, mercId for mercs
+        const combatantId = isDictator
+          ? dictatorId
+          : (attrs.mercId || squadMerc?.attributes?.mercId || (ve.display || '').toLowerCase());
+
         return {
           ...attrs,
           ...(squadMerc || {}),
-          mercId: attrs.mercId || squadMerc?.attributes?.mercId || (ve.display || '').toLowerCase(),
-          mercName: attrs.mercName || squadMerc?.attributes?.mercName || ve.display,
+          mercId: combatantId,
+          mercName: attrs.mercName || attrs.dictatorName || squadMerc?.attributes?.mercName || squadMerc?.attributes?.dictatorName || ve.display,
+          dictatorId: dictatorId,
+          isDictator: isDictator,
           image: attrs.image || squadMerc?.attributes?.image,
           _choiceValue: elementId,
           _choiceDisplay: ve.display,
@@ -1213,6 +1224,8 @@ const sectorTypeIcon = computed(() => {
             >
               <CombatantIconSmall
                 :image="getMercImagePath(item)"
+                :merc-id="item.mercId"
+                :is-dictator="item.isDictator"
                 :alt="item._choiceDisplay || getMercName(item)"
                 :player-color="playerColor"
                 :size="60"

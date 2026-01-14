@@ -46,7 +46,9 @@ const borderColor = computed(() => {
 });
 
 function handleImageError(event: Event) {
-  (event.target as HTMLImageElement).src = '/mercs/unknown.jpg';
+  const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
+  const ext = isDictatorCombatant.value ? 'png' : 'jpg';
+  (event.target as HTMLImageElement).src = `/${folder}/unknown.${ext}`;
 }
 
 function handleClick() {
