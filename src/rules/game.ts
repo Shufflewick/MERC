@@ -143,6 +143,10 @@ interface TacticsData {
 
 export type MERCPlayerRole = 'rebel' | 'dictator';
 
+/**
+ * Unified player class for rebels and dictator. Check role with isRebel()/isDictator().
+ * Rebels have playerColor and area; dictator has dictator card, tactics deck, and base state.
+ */
 export class MERCPlayer extends Player {
   // Role determines rebel vs dictator behavior
   role!: MERCPlayerRole;
@@ -163,6 +167,7 @@ export class MERCPlayer extends Player {
   tacticsDiscard?: DiscardPile;
   mercSquad?: Squad;  // Legacy for backward compatibility
   mercSquadRef?: string;
+  baseSquadRef?: string; // Dictator's base squad (third squad)
   baseRevealed: boolean = false;
   baseSectorId?: string;
   stationedSectorId?: string;
@@ -209,6 +214,25 @@ export class MERCPlayer extends Player {
     return squad;
   }
 
+  // Dictator-only: base squad (third squad at base sector)
+  get baseSquad(): Squad {
+    if (!this.isDictator()) {
+      throw new Error(`baseSquad: only dictator has base squad`);
+    }
+    const game = this.game as MERCGame;
+    if (!game) {
+      throw new Error(`baseSquad: game not set for player ${this.position}`);
+    }
+    if (!this.baseSquadRef) {
+      throw new Error(`baseSquad: baseSquadRef not set for player ${this.position}`);
+    }
+    const squad = game.first(Squad, s => s.name === this.baseSquadRef);
+    if (!squad) {
+      throw new Error(`baseSquad: could not find squad "${this.baseSquadRef}" for player ${this.position}`);
+    }
+    return squad;
+  }
+
   // Rebel-only: player area
   get area(): PlayerArea {
     if (!this.isRebel()) {
@@ -237,6 +261,12 @@ export class MERCPlayer extends Player {
     try {
       mercs.push(...this.secondarySquad.getLivingMercs());
     } catch { /* Squad not initialized yet */ }
+    // Dictator also has base squad
+    if (this.isDictator() && this.baseSquadRef) {
+      try {
+        mercs.push(...this.baseSquad.getLivingMercs());
+      } catch { /* Squad not initialized yet */ }
+    }
     return mercs;
   }
 
@@ -308,7 +338,8 @@ export class MERCPlayer extends Player {
    */
   ownsSquad(squad: Squad): boolean {
     return squad.name === this.primarySquadRef ||
-           squad.name === this.secondarySquadRef;
+           squad.name === this.secondarySquadRef ||
+           squad.name === this.baseSquadRef;
   }
 }
 
@@ -342,6 +373,10 @@ function hexToPlayerColor(hex: string): PlayerColor {
 // Main Game Class
 // =============================================================================
 
+/**
+ * Root game container for MERC. Manages map, decks, players, and combat state.
+ * Access dictatorPlayer and rebelPlayers for player references.
+ */
 export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // BoardSmith v0.6: Use unified MERCPlayer class for all players
   static PlayerClass = MERCPlayer;
@@ -726,14 +761,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     player.role = 'dictator';
     this._dictatorPlayer = player;
 
-    // Create two squads for dictator
+    // Create three squads for dictator: primary, secondary, and base
     const primaryRef = `squad-dictator-primary`;
     const secondaryRef = `squad-dictator-secondary`;
+    const baseRef = `squad-dictator-base`;
     this.create(Squad, primaryRef, { isPrimary: true });
     this.create(Squad, secondaryRef, { isPrimary: false });
+    this.create(Squad, baseRef, { isPrimary: false, isBase: true });
 
     player.primarySquadRef = primaryRef;
     player.secondarySquadRef = secondaryRef;
+    player.baseSquadRef = baseRef;
 
     // Legacy mercSquad points to primary for backward compatibility
     player.mercSquadRef = primaryRef;

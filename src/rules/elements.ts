@@ -78,6 +78,11 @@ export interface EquipmentSlotData {
 // CombatantBase - Abstract base class for MERCs and Dictators
 // =============================================================================
 
+/**
+ * Abstract base for all combat units (MERCs and Dictators).
+ * Provides identity (combatantId/combatantName), base stats, equipment slots,
+ * and computed effective stats with ability bonuses.
+ */
 export abstract class CombatantBase extends BaseCard {
   // Identity - canonical names for all combatants
   // Abstract getters allow subclasses to provide values via their own properties
@@ -752,6 +757,10 @@ export abstract class CombatantBase extends BaseCard {
 // CombatantModel - Unified model class for MERCs and Dictators
 // =============================================================================
 
+/**
+ * Extended combatant with card type discrimination and special equipment rules.
+ * Use isMerc/isDictator for type checks. Subclassed by MercCard and DictatorCard.
+ */
 export abstract class CombatantModel extends CombatantBase {
   // Identity - subclasses must provide combatantId/combatantName via getters
   // (MercCard returns mercId/mercName, DictatorCard returns dictatorId/dictatorName)
@@ -858,6 +867,10 @@ export { CombatantModel as CombatUnitCard };
 // MERC Card - The mercenary characters (thin wrapper for backward compatibility)
 // =============================================================================
 
+/**
+ * Mercenary unit card. Identity via mercId/mercName from JSON data.
+ * Maps to combatantId/combatantName for unified API.
+ */
 export class MercCard extends CombatantModel {
   // Identity - BoardSmith populates from JSON with these names
   mercId!: string;
@@ -1137,6 +1150,10 @@ export class Sector extends GridCell {
 // Dictator Card - Thin wrapper for backward compatibility
 // =============================================================================
 
+/**
+ * Dictator unit card. Identity via dictatorId/dictatorName from JSON data.
+ * Starts not in play (inPlay=false), enters play when base is revealed.
+ */
 export class DictatorCard extends CombatantModel {
   // Identity - BoardSmith populates from JSON with these names
   dictatorId!: string;
