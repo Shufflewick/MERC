@@ -767,11 +767,10 @@ export abstract class CombatantModel extends CombatantBase {
   inPlay: boolean = true;
   baseSectorId?: string; // Permanent base location for dictators (never changes after revealed)
 
-  // Backward-compat getters - all return the canonical combatantId/combatantName
-  get mercId(): string { return this.combatantId; }
-  get mercName(): string { return this.combatantName; }
-  get dictatorId(): string { return this.combatantId; }
-  get dictatorName(): string { return this.combatantName; }
+  // Note: mercId/mercName/dictatorId/dictatorName are provided by subclasses
+  // MercCard has mercId/mercName as properties (from JSON)
+  // DictatorCard has dictatorId/dictatorName as properties (from JSON)
+  // These map to combatantId/combatantName via getters in each subclass
 
   /**
    * Put the dictator into play (when base is revealed).
