@@ -1248,9 +1248,6 @@ const gameWinner = computed(() => {
 // State for viewing dictator's played cards modal
 const showPlayedCardsModal = ref(false);
 
-// State for dictator panel visibility
-const showDictatorPanel = ref(true);
-
 // ============================================================================
 // COMBAT PANEL - Show dice and hit allocation during combat
 // ============================================================================
@@ -2290,7 +2287,7 @@ const clickableSectors = computed(() => {
     <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->
     <!-- Hidden during Castro hire since hiring phase UI takes over -->
     <DictatorPanel
-      v-if="currentPlayerIsDictator && dictatorCard && showDictatorPanel && !hasActiveCombat && !isHiringMercs"
+      v-if="currentPlayerIsDictator && dictatorCard && !hasActiveCombat && !isHiringMercs"
       :dictator="dictatorCard"
       :tactics-hand="tacticsHand"
       :available-actions="availableActions"
@@ -2298,7 +2295,6 @@ const clickableSectors = computed(() => {
       :is-my-turn="isMyTurn"
       :all-sectors="sectors"
       :player-color="dictatorPlayerColor"
-      @close="showDictatorPanel = false"
     />
 
     <!-- Sector Panel - shown when a sector is selected OR when an action has sector context -->
@@ -2483,15 +2479,6 @@ const clickableSectors = computed(() => {
           @drop-equipment="handleDropEquipment"
         />
       </div>
-
-      <!-- Dictator Panel Toggle - shows when panel is closed -->
-      <button
-        v-if="currentPlayerIsDictator && dictatorCard && !showDictatorPanel && !hasActiveCombat"
-        class="dictator-panel-toggle"
-        @click="showDictatorPanel = true"
-      >
-        🎴 Show Tactics
-      </button>
 
       <!-- Squad Panel -->
       <div class="squad-section" v-if="primarySquad || secondarySquad || dictatorPrimarySquad || dictatorSecondarySquad || dictatorBaseSquad">
@@ -3054,24 +3041,6 @@ const clickableSectors = computed(() => {
 .squad-section {
   flex-shrink: 0;
   width: 100%;
-}
-
-.dictator-panel-toggle {
-  padding: 8px 16px;
-  background: rgba(139, 0, 0, 0.3);
-  border: 1px solid rgba(139, 0, 0, 0.6);
-  border-radius: 8px;
-  color: #ff6b6b;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: all 0.2s;
-  align-self: flex-start;
-}
-
-.dictator-panel-toggle:hover {
-  background: rgba(139, 0, 0, 0.5);
-  border-color: #8b0000;
 }
 
 /* Played Cards Button - bottom right corner */

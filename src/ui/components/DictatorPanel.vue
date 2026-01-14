@@ -72,9 +72,6 @@ const props = defineProps<{
   playerColor?: string; // Dictator's lobby-selected color
 }>();
 
-const emit = defineEmits<{
-  (e: 'close'): void;
-}>();
 
 // Track which action we started from this panel
 const activeActionFromPanel = ref<string | null>(null);
@@ -392,11 +389,18 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
     activeActionFromPanel.value = null;
   }
 });
+
+// Determine if panel-content has anything to show
+const hasContentToShow = computed(() => {
+  return (isInActionFlow.value && currentSelection.value) ||
+         dictatorActions.value.length > 0 ||
+         !props.isMyTurn;
+});
 </script>
 
 <template>
   <div class="dictator-panel">
-    <!-- Header with dictator info -->
+    <!-- Header with dictator info and tactics hand -->
     <div class="panel-header">
       <div class="dictator-info">
         <CombatantIconSmall
@@ -414,11 +418,22 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
           <span class="dictator-ability">{{ dictator.ability }}</span>
         </div>
       </div>
-      <button class="close-btn" @click="emit('close')">×</button>
+      <!-- Tactics Hand in header -->
+      <div v-if="tacticsHand.length > 0" class="header-tactics">
+        <div
+          v-for="card in tacticsHand"
+          :key="card.tacticsId"
+          class="header-tactics-card"
+          @click="openTacticsCard(card)"
+          :title="card.tacticsName"
+        >
+          {{ card.tacticsName }}
+        </div>
+      </div>
     </div>
 
-    <!-- Main content area -->
-    <div class="panel-content">
+    <!-- Main content area (hidden when empty) -->
+    <div v-if="hasContentToShow" class="panel-content">
       <!-- Action Flow: Show selection UI when in action -->
       <template v-if="isInActionFlow && currentSelection">
         <div class="action-flow">
@@ -487,29 +502,8 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
         </div>
       </template>
 
-      <!-- Normal View: Tactics Hand and Actions -->
+      <!-- Normal View: Actions -->
       <template v-else>
-        <!-- Tactics Cards in Hand -->
-        <div v-if="tacticsHand.length > 0" class="tactics-section">
-          <div class="section-label">Tactics Hand</div>
-          <div class="tactics-cards">
-            <div
-              v-for="card in tacticsHand"
-              :key="card.tacticsId"
-              class="tactics-card"
-              @click="openTacticsCard(card)"
-              :title="card.tacticsName"
-            >
-              <span class="tactics-card-name">{{ card.tacticsName }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- No cards message -->
-        <div v-else class="no-cards">
-          <span>No tactics cards in hand</span>
-        </div>
-
         <!-- Actions -->
         <div class="actions-area" v-if="dictatorActions.length > 0">
           <button
@@ -601,8 +595,9 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px;
   padding: 12px 16px;
   background: rgba(139, 0, 0, 0.3);
   border-bottom: 1px solid v-bind('UI_COLORS.border');
@@ -612,6 +607,33 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Header Tactics */
+.header-tactics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.header-tactics-card {
+  padding: 6px 10px;
+  background: rgba(139, 0, 0, 0.4);
+  border: 1px solid rgba(139, 0, 0, 0.6);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #ff6b6b;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.header-tactics-card:hover {
+  background: rgba(139, 0, 0, 0.6);
+  border-color: #8b0000;
+  transform: translateY(-1px);
 }
 
 .dictator-details {
@@ -629,20 +651,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 .dictator-ability {
   font-size: 0.8rem;
   color: v-bind('UI_COLORS.textSecondary');
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: v-bind('UI_COLORS.textSecondary');
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-}
-
-.close-btn:hover {
-  color: v-bind('UI_COLORS.textPrimary');
 }
 
 .panel-content {
@@ -770,53 +778,6 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 }
 
 /* Normal View */
-.tactics-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.section-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: v-bind('UI_COLORS.textSecondary');
-}
-
-.tactics-cards {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tactics-card {
-  padding: 8px 12px;
-  background: rgba(139, 0, 0, 0.2);
-  border: 1px solid rgba(139, 0, 0, 0.4);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tactics-card:hover {
-  background: rgba(139, 0, 0, 0.4);
-  border-color: #8b0000;
-  transform: translateY(-2px);
-}
-
-.tactics-card-name {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #ff6b6b;
-}
-
-.no-cards {
-  color: v-bind('UI_COLORS.textSecondary');
-  font-style: italic;
-  padding: 8px 0;
-}
-
 .actions-area {
   display: flex;
   gap: 8px;
