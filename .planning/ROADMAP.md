@@ -73,7 +73,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 17. Hiring Unification | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 18. Data Consistency | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 19. Victory/Defeat Fixes | v1.3 | 1/1 | Complete | 2026-01-13 |
-| 20. Model Renaming | v1.4 | 2/3 | In progress | - |
+| 20. Model Renaming | v1.4 | 3/3 | Complete | 2026-01-14 |
 | 21. Vue Component Renaming | v1.4 | 0/? | Not started | - |
 | 22. Reference Updates | v1.4 | 0/? | Not started | - |
 | 23. Documentation | v1.4 | 0/? | Not started | - |
@@ -104,7 +104,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 Plans:
 - [x] 20-01: Core model renaming (CombatUnit → CombatantBase, CombatUnitCard → CombatantModel)
 - [x] 20-02: Update imports/exports in rules layer
-- [ ] 20-03: Update AI helpers, remaining files, and tests
+- [x] 20-03: Update AI helpers, remaining files, and tests — completed 2026-01-14
 
 #### Phase 21: Vue Component Renaming
 
