@@ -1,5 +1,61 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.4 Combatant Naming Unification (Shipped: 2026-01-14)
+
+**Delivered:** Unified naming conventions with combatantId/combatantName as canonical identity, CombatantCard.vue component, and CLAUDE.md architecture documentation.
+
+**Phases completed:** 20-23 (6 plans total)
+
+**Key accomplishments:**
+
+- Renamed CombatUnit → CombatantBase and CombatUnitCard → CombatantModel
+- Established combatantId/combatantName as canonical identity properties via abstract getters
+- Updated type guards (isCombatUnitCard → isCombatantModel) with backward-compat aliases
+- Renamed Vue component MercCard.vue → CombatantCard.vue
+- Created CLAUDE.md architecture guide with class hierarchy and conventions
+- Added JSDoc documentation to key model classes
+
+**Stats:**
+
+- 28 files created/modified
+- +1,788 / -124 lines changed
+- 32,090 lines of TypeScript/Vue
+- 4 phases, 6 plans, 24 commits
+- Same day execution
+
+**Git range:** `feat(20-01)` → `docs(23-01)`
+
+**What's next:** Game ready for release with clean architecture
+
+---
+
+## v1.3 Combatant Unification (Shipped: 2026-01-13)
+
+**Delivered:** Unified dictator and merc combatant handling with shared abilities, hiring logic, and victory/defeat conditions.
+
+**Phases completed:** 14-19 (6 plans total)
+
+**Key accomplishments:**
+
+- Fixed dictator image paths (.png extension detection)
+- Renamed MercIcon → CombatantIcon components with auto-detection
+- Enabled MERC special abilities for dictator controller (Doc, Feedback, Squidhead, Hagness)
+- Unified hire path logic with shared equipNewHire helper
+- Added sex field to dictator data entries
+- Fixed isDefeated to include base capture condition
+
+**Stats:**
+
+- 24 files created/modified
+- 6 phases, 6 plans
+- Same day execution
+
+**Git range:** `feat(14-01)` → `docs(19-01)`
+
+**What's next:** Naming unification (v1.4)
+
+---
+
 ## v1.2 Merge Dictator and Merc Cards (Shipped: 2026-01-11)
 
 **Delivered:** Unified card architecture with CombatUnitCard class, property-based type guards, and single combatants.json data file.

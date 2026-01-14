@@ -20,6 +20,8 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) (Phases 14-19) — SHIPPED 2026-01-13
 - ✅ [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) (Phases 20-23) — SHIPPED 2026-01-14
 
+All cleanup milestones complete. Game ready for release or new feature development.
+
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
 
@@ -103,10 +105,11 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 ## Status
 
-v1.0, v1.1, v1.2, v1.3, and v1.4 complete.
+All cleanup milestones complete (v1.0 - v1.4).
 
 See milestone archives for completed work:
-- [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)
-- [v1.1 Polish](milestones/v1.1-ROADMAP.md)
-- [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md)
-- [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md)
+- [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) — Type safety and ship confidence
+- [v1.1 Polish](milestones/v1.1-ROADMAP.md) — File organization and Artillery Barrage
+- [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md) — Unified card architecture
+- [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) — Shared abilities and hiring
+- [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) — Canonical naming and documentation

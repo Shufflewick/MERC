@@ -10,13 +10,16 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ## Current State
 
-**Shipped:** v1.2 Merge Dictator and Merc Cards (2026-01-11)
+**Shipped:** v1.4 Combatant Naming Unification (2026-01-14)
 
-- 31,539 lines of TypeScript (modular structure)
+- 32,090 lines of TypeScript/Vue (modular structure)
 - Zero `as any` casts in src/rules/
-- Unified CombatUnitCard class with MercCard/DictatorCard as thin wrappers
-- Property-based type guards instead of instanceof (bundler-compatible)
+- Unified class hierarchy: CombatantBase → CombatantModel → MercCard/DictatorCard
+- Canonical identity: combatantId/combatantName properties
+- Property-based type guards (isCombatantModel) with backward-compat aliases
 - Single combatants.json data file (54 entries)
+- CombatantCard.vue component for rendering any combatant
+- CLAUDE.md architecture guide for AI navigation
 - 81+ tests for error conditions and edge cases
 
 ## Requirements
@@ -38,6 +41,16 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Unified card architecture — CombatUnitCard class with MercCard/DictatorCard as thin wrappers — v1.2
 - ✓ Property-based type guards — replaced 103 instanceof checks with isMerc/isDictator for bundler compatibility — v1.2
 - ✓ Single data file — merged mercs.json and dictators.json into combatants.json with cardType discriminator — v1.2
+- ✓ Dictator image paths — fixed .png extension detection for dictator combatants — v1.3
+- ✓ Unified icon components — CombatantIcon/CombatantIconSmall with auto-detect dictator — v1.3
+- ✓ MERC abilities for any controller — Doc, Feedback, Squidhead, Hagness work when dictator controls merc — v1.3
+- ✓ Unified hiring logic — equipNewHire helper applies Apeiron/Vrbansk to all hire paths — v1.3
+- ✓ Victory/defeat conditions — isDefeated includes base capture, rebel elimination guards Day 1 — v1.3
+- ✓ Canonical identity properties — combatantId/combatantName via abstract getters in CombatantBase — v1.4
+- ✓ Model class renaming — CombatUnit → CombatantBase, CombatUnitCard → CombatantModel — v1.4
+- ✓ Type guard renaming — isCombatUnitCard → isCombatantModel with backward-compat alias — v1.4
+- ✓ Vue component renaming — MercCard.vue → CombatantCard.vue — v1.4
+- ✓ Architecture documentation — CLAUDE.md guide with class hierarchy and conventions — v1.4
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -62,8 +75,10 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - Brownfield project with working game implementation
 - TypeScript 5.7.0 with strict mode enabled
 - Built on @boardsmith/* monorepo packages (engine, session, ui, runtime)
-- 25,687 lines of TypeScript code
+- 32,090 lines of TypeScript/Vue code
 - Comprehensive test coverage for combat, abilities, equipment, conditions, state persistence, and error handling
+- Clean class hierarchy: CombatantBase → CombatantModel → MercCard/DictatorCard
+- Architecture documented in CLAUDE.md
 
 **Codebase Map:**
 - `.planning/codebase/CONCERNS.md` - Full list of identified issues
@@ -96,6 +111,14 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | CombatUnitCard unified class | Single implementation with thin subclass wrappers | ✓ Good |
 | Property-based type guards | Optional chaining (`?.isMerc`) for bundler compatibility | ✓ Good |
 | combatants.json single data file | One source of truth with cardType filter | ✓ Good |
+| Check dictatorId before mercId | Reliable combatant type detection in Vue components | ✓ Good |
+| OR check for ability actions | isRebelPlayer OR isDictatorPlayer enables any controller | ✓ Good |
+| Shared equipNewHire helper | Single function for all 4 hire paths | ✓ Good |
+| isDefeated includes base capture | Dictator loses when dead OR base captured | ✓ Good |
+| Abstract getters for identity | combatantId/combatantName via abstract getters allows subclass implementations | ✓ Good |
+| CombatantModel abstract class | Cannot be instantiated directly, only MercCard/DictatorCard | ✓ Good |
+| Backward-compat export aliases | CombatUnit, CombatUnitCard, isCombatUnitCard for gradual migration | ✓ Good |
+| className strings preserved | MercCard/DictatorCard classRegistry keys must match TypeScript class names | ✓ Good |
 
 ---
-*Last updated: 2026-01-11 after v1.2 milestone*
+*Last updated: 2026-01-14 after v1.4 milestone*
