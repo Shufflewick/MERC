@@ -45,8 +45,7 @@ import {
   createDeclareCoordinatedAttackAction,
   createJoinCoordinatedAttackAction,
   createExecuteCoordinatedAttackAction,
-  createSplitSquadAction,
-  createMergeSquadsAction,
+  createAssignToSquadAction,
 } from './rebel-movement.js';
 
 import {
@@ -143,8 +142,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createDetonateExplosivesAction(game)); // Explosives win condition
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
-  game.registerAction(createSplitSquadAction(game));
-  game.registerAction(createMergeSquadsAction(game));
+  game.registerAction(createAssignToSquadAction(game));
   game.registerAction(createEndTurnAction(game));
   game.registerAction(createViewStashAction(game));
 

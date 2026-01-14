@@ -8,15 +8,14 @@
  * - declareCoordinatedAttack: Stage a squad for multi-player attack (rebel only)
  * - joinCoordinatedAttack: Join an existing coordinated attack (rebel only)
  * - executeCoordinatedAttack: Execute the staged attack (rebel only)
- * - splitSquad: Split a MERC into secondary squad (rebel only)
- * - mergeSquads: Merge secondary squad back into primary (rebel only)
+ * - assignToSquad: Assign a combatant to a different squad (replaces splitSquad/mergeSquads)
  */
 
 import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { MercCard, Sector, Squad, DictatorCard } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';
-import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asRebelPlayer } from './helpers.js';
+import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asRebelPlayer, isDictatorCard } from './helpers.js';
 
 // =============================================================================
 // Move Action Helpers (work for both player types)
@@ -611,92 +610,286 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
     });
 }
 
+// =============================================================================
+// Assign to Squad Action
+// =============================================================================
+
+type TargetSquadType = 'primary' | 'secondary' | 'base';
+
+interface SquadChoice {
+  label: string;
+  value: TargetSquadType;
+}
+
 /**
- * Split off secondary squad
+ * Get count of combatants in a squad (including DictatorCard for dictator player)
+ */
+function getSquadCombatantCount(squad: Squad | null | undefined, dictatorCard?: DictatorCard | null): number {
+  if (!squad) return 0;
+  let count = squad.mercCount;
+  if (dictatorCard && isKimInSquad(squad, dictatorCard)) {
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * Get all combatants that can be reassigned to a different squad.
+ * A combatant can be reassigned if there's a valid target squad for them.
+ */
+function getAssignableCombatants(player: unknown, game: MERCGame): (MercCard | DictatorCard)[] {
+  const combatants: (MercCard | DictatorCard)[] = [];
+
+  if (game.isRebelPlayer(player)) {
+    const rebel = asRebelPlayer(player);
+    for (const merc of rebel.team) {
+      if (merc.isDead) continue;
+      if (getValidTargetSquads(merc, player, game).length > 0) {
+        combatants.push(merc);
+      }
+    }
+  } else if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    const dictator = game.dictatorPlayer;
+    // Add hired MERCs
+    for (const merc of dictator.hiredMercs) {
+      if (merc.isDead) continue;
+      if (getValidTargetSquads(merc, player, game).length > 0) {
+        combatants.push(merc);
+      }
+    }
+    // Add DictatorCard if in play
+    if (dictator.dictator?.inPlay && !dictator.dictator.isDead) {
+      if (getValidTargetSquads(dictator.dictator, player, game).length > 0) {
+        combatants.push(dictator.dictator);
+      }
+    }
+  }
+
+  return combatants;
+}
+
+/**
+ * Get valid target squads for a combatant.
+ * Rules:
+ * - Same-sector transfers: free movement between squads in same sector
+ * - Creating new squad: can split off to form new squad in same sector
+ * - Base squad (dictator only): true third squad at base sector
+ */
+function getValidTargetSquads(
+  combatant: MercCard | DictatorCard,
+  player: unknown,
+  game: MERCGame
+): SquadChoice[] {
+  const choices: SquadChoice[] = [];
+
+  if (game.isRebelPlayer(player)) {
+    const rebel = asRebelPlayer(player);
+    const primary = rebel.primarySquad;
+    const secondary = rebel.secondarySquad;
+    const currentSquad = rebel.getSquadContaining(combatant as MercCard);
+
+    if (!currentSquad) return choices;
+
+    const primaryHasSector = !!primary.sectorId;
+    const secondaryHasSector = !!secondary.sectorId;
+    const sameSector = primaryHasSector && secondaryHasSector && primary.sectorId === secondary.sectorId;
+    const currentSquadCount = getSquadCombatantCount(currentSquad);
+
+    // Same-sector transfers: free movement
+    if (sameSector) {
+      if (currentSquad.isPrimary) {
+        choices.push({ label: 'Secondary Squad', value: 'secondary' });
+      } else {
+        choices.push({ label: 'Primary Squad', value: 'primary' });
+      }
+    }
+    // Creating new squad (must have >1 in source squad)
+    else if (currentSquadCount > 1) {
+      if (currentSquad.isPrimary && !secondaryHasSector) {
+        choices.push({ label: 'Create Secondary Squad', value: 'secondary' });
+      }
+      if (!currentSquad.isPrimary && !primaryHasSector) {
+        choices.push({ label: 'Create Primary Squad', value: 'primary' });
+      }
+    }
+  } else if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
+    const dictator = game.dictatorPlayer;
+    const primary = dictator.primarySquad;
+    const secondary = dictator.secondarySquad;
+    let base: Squad | null = null;
+    try {
+      base = dictator.baseSquad;
+    } catch { /* base squad not initialized yet */ }
+
+    // Find current squad for this combatant (check all 3 squads)
+    let currentSquad: Squad | null = null;
+    if (isDictatorCard(combatant)) {
+      if (isKimInSquad(primary, combatant)) currentSquad = primary;
+      else if (isKimInSquad(secondary, combatant)) currentSquad = secondary;
+      else if (base && isKimInSquad(base, combatant)) currentSquad = base;
+    } else {
+      // Check all squads for MercCard
+      if (primary.all(MercCard).some(m => m.mercId === (combatant as MercCard).mercId)) {
+        currentSquad = primary;
+      } else if (secondary.all(MercCard).some(m => m.mercId === (combatant as MercCard).mercId)) {
+        currentSquad = secondary;
+      } else if (base?.all(MercCard).some(m => m.mercId === (combatant as MercCard).mercId)) {
+        currentSquad = base;
+      }
+    }
+
+    if (!currentSquad) return choices;
+
+    const primaryHasSector = !!primary?.sectorId;
+    const secondaryHasSector = !!secondary?.sectorId;
+    const baseHasSector = !!base?.sectorId;
+    const currentSquadCount = getSquadCombatantCount(currentSquad, dictator.dictator);
+
+    // Determine which squads are at the same sector as current squad
+    const currentSector = currentSquad.sectorId;
+    const primarySameSector = primaryHasSector && primary.sectorId === currentSector;
+    const secondarySameSector = secondaryHasSector && secondary.sectorId === currentSector;
+    const baseSameSector = baseHasSector && base?.sectorId === currentSector;
+
+    // Same-sector transfers: free movement to any squad at same sector
+    if (!currentSquad.isBase && !currentSquad.isPrimary && primarySameSector) {
+      choices.push({ label: 'Primary Squad', value: 'primary' });
+    }
+    if (!currentSquad.isBase && currentSquad.isPrimary && secondarySameSector) {
+      choices.push({ label: 'Secondary Squad', value: 'secondary' });
+    }
+    if (!currentSquad.isBase && baseSameSector) {
+      choices.push({ label: 'Base Squad', value: 'base' });
+    }
+
+    // From base squad: can transfer to primary/secondary if at same sector
+    // OR can create new squad to deploy from base
+    if (currentSquad.isBase) {
+      if (primarySameSector) {
+        choices.push({ label: 'Primary Squad', value: 'primary' });
+      } else if (!primaryHasSector) {
+        // Can deploy from base to create primary squad at base sector
+        choices.push({ label: 'Create Primary Squad', value: 'primary' });
+      }
+      if (secondarySameSector) {
+        choices.push({ label: 'Secondary Squad', value: 'secondary' });
+      } else if (!secondaryHasSector) {
+        // Can deploy from base to create secondary squad at base sector
+        choices.push({ label: 'Create Secondary Squad', value: 'secondary' });
+      }
+    }
+
+    // Creating new squad from primary/secondary
+    // Solo combatants CAN move to create a new squad (leaving original empty)
+    if (!currentSquad.isBase) {
+      if (!secondaryHasSector) {
+        choices.push({ label: 'Create Secondary Squad', value: 'secondary' });
+      }
+      if (!primaryHasSector) {
+        choices.push({ label: 'Create Primary Squad', value: 'primary' });
+      }
+    }
+  }
+
+  return choices;
+}
+
+/**
+ * Get display name for a combatant
+ */
+function getCombatantName(combatant: MercCard | DictatorCard): string {
+  if (isDictatorCard(combatant)) {
+    return capitalize(combatant.dictatorName);
+  }
+  return capitalize(combatant.mercName);
+}
+
+/**
+ * Assign to Squad Action
  * Cost: Free action
+ * Allows reassigning combatants between squads.
  * Works for both rebel and dictator players.
  */
-export function createSplitSquadAction(game: MERCGame): ActionDefinition {
-  return Action.create('splitSquad')
-    .prompt('Split squad')
+export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
+  return Action.create('assignToSquad')
+    .prompt('Assign to squad')
     .condition({
       'not in combat': () => !game.activeCombat,
       'day 2 or later': () => game.currentDay >= 2,
-      'can split squad': (ctx) => {
-        if (game.isRebelPlayer(ctx.player)) {
-          const player = asRebelPlayer(ctx.player);
-          return player.primarySquad.mercCount > 1 && player.secondarySquad.mercCount === 0;
-        }
-
-        if (game.isDictatorPlayer(ctx.player)) {
-          const dictator = game.dictatorPlayer;
-          if (!dictator) return false;
-          let primaryCount = dictator.primarySquad?.mercCount ?? 0;
-          let secondaryCount = dictator.secondarySquad?.mercCount ?? 0;
-          // Count Kim in the squad she belongs to
-          if (dictator.dictator?.inPlay) {
-            if (isKimInSquad(dictator.primarySquad, dictator.dictator)) {
-              primaryCount += 1;
-            } else if (isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
-              secondaryCount += 1;
-            }
-          }
-          return primaryCount > 1 && secondaryCount === 0;
-        }
-
-        return false;
+      'has assignable combatants': (ctx) => getAssignableCombatants(ctx.player, game).length > 0,
+    })
+    .chooseFrom<string>('combatantName', {
+      prompt: 'Select combatant to reassign',
+      choices: (ctx) => {
+        const combatants = getAssignableCombatants(ctx.player, game);
+        return combatants.map(c => getCombatantName(c));
       },
     })
-    .chooseFrom<string>('unitName', {
-      prompt: 'Select unit to split off into secondary squad',
+    .chooseFrom<string>('targetSquad', {
+      prompt: 'Select target squad',
+      dependsOn: 'combatantName',
       choices: (ctx) => {
-        if (game.isRebelPlayer(ctx.player)) {
-          const player = asRebelPlayer(ctx.player);
-          return player.primarySquad.getMercs().map(m => capitalize(m.mercName));
-        }
-        if (game.isDictatorPlayer(ctx.player)) {
-          const dictator = game.dictatorPlayer;
-          if (!dictator?.primarySquad) return [];
-          const units: string[] = [];
-          // Add MERCs
-          for (const merc of dictator.primarySquad.getMercs()) {
-            units.push(capitalize(merc.mercName));
-          }
-          // Add DictatorCard if in primary squad
-          if (dictator.dictator?.inPlay && isKimInSquad(dictator.primarySquad, dictator.dictator)) {
-            units.push(capitalize(dictator.dictator.dictatorName));
-          }
-          return units;
-        }
-        return [];
+        const combatantName = ctx.args?.combatantName as string;
+        if (!combatantName) return [];
+
+        // Find the combatant
+        const combatants = getAssignableCombatants(ctx.player, game);
+        const combatant = combatants.find(c => getCombatantName(c) === combatantName);
+        if (!combatant) return [];
+
+        return getValidTargetSquads(combatant, ctx.player, game).map(sq => sq.label);
       },
     })
     .execute((args, ctx) => {
-      const unitName = args.unitName as string;
+      const combatantName = args.combatantName as string;
+      const targetSquadLabel = args.targetSquad as string;
+
+      // Parse target squad type from label
+      let targetType: TargetSquadType;
+      if (targetSquadLabel.includes('Primary')) {
+        targetType = 'primary';
+      } else if (targetSquadLabel.includes('Secondary')) {
+        targetType = 'secondary';
+      } else if (targetSquadLabel.includes('Base')) {
+        targetType = 'base';
+      } else {
+        return { success: false, message: 'Invalid target squad' };
+      }
 
       if (game.isRebelPlayer(ctx.player)) {
         const player = asRebelPlayer(ctx.player);
-        const merc = player.primarySquad.getMercs().find(m =>
-          capitalize(m.mercName) === unitName
-        );
+        const merc = player.team.find(m => getCombatantName(m) === combatantName);
         if (!merc) {
           return { success: false, message: 'MERC not found' };
         }
 
-        // Move MERC from primary to secondary squad
-        merc.putInto(player.secondarySquad);
+        const sourceSquad = player.getSquadContaining(merc);
+        if (!sourceSquad) {
+          return { success: false, message: 'MERC not in any squad' };
+        }
 
-        // Secondary squad starts at same location
-        player.secondarySquad.sectorId = player.primarySquad.sectorId;
-        // Ensure MERC's sectorId is synced
-        merc.sectorId = player.primarySquad.sectorId;
+        const destSquad = targetType === 'primary' ? player.primarySquad : player.secondarySquad;
 
-        // Update Haarg's ability bonuses (squad composition changed)
+        // If creating new squad, set its location
+        if (!destSquad.sectorId) {
+          destSquad.sectorId = sourceSquad.sectorId;
+        }
+
+        // Move the combatant
+        merc.putInto(destSquad);
+        merc.sectorId = destSquad.sectorId;
+
+        // If source squad is now empty, clear its location
+        if (sourceSquad.mercCount === 0) {
+          sourceSquad.sectorId = undefined;
+        }
+
+        // Update ability bonuses
         game.updateAllHaargBonuses();
         game.updateAllSargeBonuses();
 
-        game.message(`${player.name} split off ${merc.mercName} into secondary squad`);
-        return { success: true, message: `Split ${merc.mercName} to secondary squad` };
+        game.message(`${player.name} assigned ${merc.mercName} to ${targetType} squad`);
+        return { success: true, message: `Assigned ${merc.mercName} to ${targetType} squad` };
       }
 
       if (game.isDictatorPlayer(ctx.player)) {
@@ -705,116 +898,81 @@ export function createSplitSquadAction(game: MERCGame): ActionDefinition {
           return { success: false, message: 'Invalid squads' };
         }
 
-        // Check if splitting a MERC or the DictatorCard
-        const merc = dictator.primarySquad.getMercs().find(m =>
-          capitalize(m.mercName) === unitName
-        );
+        // Get base squad if available
+        let baseSquad: Squad | null = null;
+        try {
+          baseSquad = dictator.baseSquad;
+        } catch { /* base squad not initialized yet */ }
 
-        if (merc) {
-          // Move MERC from primary to secondary squad
-          merc.putInto(dictator.secondarySquad);
-          dictator.secondarySquad.sectorId = dictator.primarySquad.sectorId;
-          merc.sectorId = dictator.primarySquad.sectorId;
-          game.message(`Dictator split off ${merc.mercName} into secondary squad`);
-          return { success: true, message: `Split ${merc.mercName} to secondary squad` };
-        }
+        // Find the combatant (could be MercCard or DictatorCard)
+        let combatant: MercCard | DictatorCard | undefined;
+        let sourceSquad: Squad | null = null;
 
-        // Check if it's the DictatorCard
-        if (dictator.dictator && capitalize(dictator.dictator.dictatorName) === unitName) {
-          // Move DictatorCard to secondary squad
-          dictator.dictator.putInto(dictator.secondarySquad);
-          dictator.secondarySquad.sectorId = dictator.primarySquad.sectorId;
-          dictator.dictator.sectorId = dictator.primarySquad.sectorId;
-          game.message(`${dictator.dictator.dictatorName} split off into secondary squad`);
-          return { success: true, message: `Split ${dictator.dictator.dictatorName} to secondary squad` };
-        }
-
-        return { success: false, message: 'Unit not found' };
-      }
-
-      return { success: false, message: 'Invalid player type' };
-    });
-}
-
-/**
- * Merge squads back together
- * Cost: Free action
- * Works for both rebel and dictator players.
- */
-export function createMergeSquadsAction(game: MERCGame): ActionDefinition {
-  return Action.create('mergeSquads')
-    .prompt('Merge squads')
-    .condition({
-      'not in combat': () => !game.activeCombat,
-      'day 2 or later': () => game.currentDay >= 2,
-      'can merge squads': (ctx) => {
-        if (game.isRebelPlayer(ctx.player)) {
-          const player = asRebelPlayer(ctx.player);
-          return player.secondarySquad.mercCount > 0 &&
-                 player.primarySquad.sectorId === player.secondarySquad.sectorId;
-        }
-
-        if (game.isDictatorPlayer(ctx.player)) {
-          const dictator = game.dictatorPlayer;
-          if (!dictator?.primarySquad || !dictator.secondarySquad) return false;
-          let secondaryCount = dictator.secondarySquad.mercCount;
-          // Count Kim if in secondary squad
-          if (dictator.dictator?.inPlay && isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
-            secondaryCount += 1;
+        // Check if it's the dictator (check all 3 squads)
+        if (dictator.dictator && getCombatantName(dictator.dictator) === combatantName) {
+          combatant = dictator.dictator;
+          if (isKimInSquad(dictator.primarySquad, dictator.dictator)) {
+            sourceSquad = dictator.primarySquad;
+          } else if (isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
+            sourceSquad = dictator.secondarySquad;
+          } else if (baseSquad && isKimInSquad(baseSquad, dictator.dictator)) {
+            sourceSquad = baseSquad;
           }
-          return secondaryCount > 0 &&
-                 dictator.primarySquad.sectorId === dictator.secondarySquad.sectorId;
+        } else {
+          // Check hired mercs in all squads
+          combatant = dictator.hiredMercs.find(m => getCombatantName(m) === combatantName);
+          if (combatant) {
+            // Check primary, secondary, and base squads
+            const merc = combatant as MercCard;
+            if (dictator.primarySquad.all(MercCard).some(m => m.mercId === merc.mercId)) {
+              sourceSquad = dictator.primarySquad;
+            } else if (dictator.secondarySquad.all(MercCard).some(m => m.mercId === merc.mercId)) {
+              sourceSquad = dictator.secondarySquad;
+            } else if (baseSquad?.all(MercCard).some(m => m.mercId === merc.mercId)) {
+              sourceSquad = baseSquad;
+            }
+          }
         }
 
-        return false;
-      },
-    })
-    .execute((args, ctx) => {
-      if (game.isRebelPlayer(ctx.player)) {
-        const player = asRebelPlayer(ctx.player);
-
-        // Move all MERCs from secondary to primary
-        const mercs = player.secondarySquad.getMercs();
-        for (const merc of mercs) {
-          merc.putInto(player.primarySquad);
+        if (!combatant || !sourceSquad) {
+          return { success: false, message: 'Combatant not found' };
         }
 
-        // Clear secondary squad location
-        player.secondarySquad.sectorId = undefined;
+        // Determine destination squad (now handles 'base' as a real squad)
+        let destSquad: Squad;
+        if (targetType === 'primary') {
+          destSquad = dictator.primarySquad;
+        } else if (targetType === 'secondary') {
+          destSquad = dictator.secondarySquad;
+        } else if (targetType === 'base' && baseSquad) {
+          destSquad = baseSquad;
+        } else {
+          return { success: false, message: 'Invalid target squad' };
+        }
 
-        // Update Haarg's ability bonuses (squad composition changed)
+        // If creating new squad, set its location
+        if (!destSquad.sectorId) {
+          destSquad.sectorId = sourceSquad.sectorId;
+        }
+
+        // Move the combatant
+        combatant.putInto(destSquad);
+        if ('sectorId' in combatant) {
+          combatant.sectorId = destSquad.sectorId;
+        }
+
+        // If source squad is now empty, clear its location (except base squad which is permanent)
+        const sourceCount = getSquadCombatantCount(sourceSquad, dictator.dictator);
+        if (sourceCount === 0 && !sourceSquad.isBase) {
+          sourceSquad.sectorId = undefined;
+        }
+
+        // Update ability bonuses
         game.updateAllHaargBonuses();
         game.updateAllSargeBonuses();
 
-        game.message(`${player.name} merged squads (${mercs.length} MERC(s) rejoined)`);
-        return { success: true, message: `Merged ${mercs.length} MERC(s)` };
-      }
-
-      if (game.isDictatorPlayer(ctx.player)) {
-        const dictator = game.dictatorPlayer;
-        if (!dictator?.primarySquad || !dictator.secondarySquad) {
-          return { success: false, message: 'Invalid squads' };
-        }
-
-        // Move all units from secondary to primary
-        const mercs = dictator.secondarySquad.getMercs();
-        let unitCount = 0;
-        for (const merc of mercs) {
-          merc.putInto(dictator.primarySquad);
-          unitCount++;
-        }
-
-        // Move DictatorCard if in secondary squad
-        if (isKimInSquad(dictator.secondarySquad, dictator.dictator)) {
-          dictator.dictator!.putInto(dictator.primarySquad);
-          unitCount++;
-        }
-
-        // Clear secondary squad location
-        dictator.secondarySquad.sectorId = undefined;
-
-        game.message(`Dictator merged squads (${unitCount} unit(s) rejoined)`);
-        return { success: true, message: `Merged ${unitCount} unit(s)` };
+        game.message(`Dictator assigned ${getCombatantName(combatant)} to ${targetType} squad`);
+        return { success: true, message: `Assigned ${getCombatantName(combatant)} to ${targetType} squad` };
       }
 
       return { success: false, message: 'Invalid player type' };

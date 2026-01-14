@@ -371,7 +371,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Per rules (05-main-game-loop.md): Combat triggers via movement, not as separate action
                   // MERC-wrq: Added coordinatedAttack for same-player multi-squad attacks
                   // MERC-a2h: Added multi-player coordinated attack actions
-                  // MERC-ttx: splitSquad is free action, available anytime
+                  // assignToSquad is free action, available anytime
                   actions: [
                     'move',
                     'coordinatedAttack', // MERC-wrq: Same player, both squads
@@ -391,8 +391,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'hagnessDraw', // MERC-jrph: Hagness draw equipment
                     'armsDealer',
                     'repairKit', // MERC-3po: Repair Kit retrieve from discard
-                    'splitSquad', // MERC-ttx: Free action available anytime
-                    'mergeSquads',
+                    'assignToSquad', // Free action available anytime
                     'endTurn',
                   ],
                   skipIf: () => game.isFinished() || game.activeCombat !== null,
@@ -672,8 +671,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'armsDealer',
                       'repairKit',
                       'mortar',
-                      'splitSquad',
-                      'mergeSquads',
+                      'assignToSquad',
                       'endTurn',
                     ],
                     skipIf: () => game.isFinished(),

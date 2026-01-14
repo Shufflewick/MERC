@@ -150,6 +150,10 @@ export function executeRetreat(
       game.message(`${merc.mercName} retreats to ${toSector.sectorName}`);
     }
 
+    // Update squad sectorIds to match (keeps squad and merc locations in sync)
+    dictatorPlayer.primarySquad.sectorId = toSector.sectorId;
+    dictatorPlayer.secondarySquad.sectorId = toSector.sectorId;
+
     // Note: Dictator militia do NOT retreat (per rules: "Militia cannot retreat")
     return;
   }

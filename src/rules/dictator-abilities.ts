@@ -59,10 +59,11 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   // Reveal base
   game.dictatorPlayer.baseRevealed = true;
 
-  // Put dictator card into play at the base
+  // Put dictator card into play at the base (in the base squad)
   dictator.enterPlay();
   dictator.sectorId = baseSector.sectorId;
-  dictator.putInto(game.dictatorPlayer.primarySquad);
+  game.dictatorPlayer.baseSquad.sectorId = baseSector.sectorId;
+  dictator.putInto(game.dictatorPlayer.baseSquad);
 
   // Dictators get 1 free equipment when entering play, just like MERCs
   // Only auto-equip for AI - human players choose via the chooseKimBase action

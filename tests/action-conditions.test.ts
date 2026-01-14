@@ -199,12 +199,12 @@ describe('Action Conditions', () => {
     });
   });
 
-  describe('splitSquad action conditions', () => {
+  describe('assignToSquad action conditions', () => {
     it('should return false during active combat', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'split-combat-test',
+        seed: 'assign-combat-test',
       });
 
       const game = testGame.game;
@@ -231,23 +231,24 @@ describe('Action Conditions', () => {
         round: 1,
       };
 
-      const conditionResult = checkActionCondition(game, 'splitSquad', rebel);
+      const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
       expect(conditionResult).toBe(false);
     });
 
-    it('should return false when squad has fewer than 2 members', () => {
+    it('should return false when squad has only 1 member and no other squad exists', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'split-too-small-test',
+        seed: 'assign-too-small-test',
       });
 
       const game = testGame.game;
       const rebel = game.rebelPlayers[0];
 
-      // Set up squad with only 1 MERC
+      // Set up squad with only 1 MERC, secondary has no sector (doesn't exist)
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
+      rebel.secondarySquad.sectorId = undefined;
 
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
@@ -257,21 +258,21 @@ describe('Action Conditions', () => {
 
       game.currentDay = 2;
 
-      const conditionResult = checkActionCondition(game, 'splitSquad', rebel);
+      const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
       expect(conditionResult).toBe(false);
     });
 
-    it('should return false when secondary squad already has members', () => {
+    it('should return true when squads are in same sector (same-sector transfer)', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'split-secondary-full-test',
+        seed: 'assign-same-sector-test',
       });
 
       const game = testGame.game;
       const rebel = game.rebelPlayers[0];
 
-      // Set up primary squad with 2 MERCs
+      // Set up both squads in same sector with MERCs
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
       rebel.secondarySquad.sectorId = sector.sectorId;
@@ -279,22 +280,25 @@ describe('Action Conditions', () => {
       const mercs = game.mercDeck.children.slice(0, 3) as MercCard[];
       if (mercs.length >= 3) {
         mercs[0].putInto(rebel.primarySquad);
+        mercs[0].sectorId = sector.sectorId;
         mercs[1].putInto(rebel.primarySquad);
-        // Put one in secondary - should block split
+        mercs[1].sectorId = sector.sectorId;
         mercs[2].putInto(rebel.secondarySquad);
+        mercs[2].sectorId = sector.sectorId;
       }
 
       game.currentDay = 2;
 
-      const conditionResult = checkActionCondition(game, 'splitSquad', rebel);
-      expect(conditionResult).toBe(false);
+      // Same-sector transfers should be allowed
+      const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
+      expect(conditionResult).toBe(true);
     });
 
     it('should return false on Day 1', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'split-day1-test',
+        seed: 'assign-day1-test',
       });
 
       const game = testGame.game;
@@ -310,26 +314,27 @@ describe('Action Conditions', () => {
         mercs[1].putInto(rebel.primarySquad);
       }
 
-      // Day 1 - split not available
+      // Day 1 - assign not available
       game.currentDay = 1;
 
-      const conditionResult = checkActionCondition(game, 'splitSquad', rebel);
+      const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
       expect(conditionResult).toBe(false);
     });
 
-    it('should return true when squad has 2+ members and secondary is empty', () => {
+    it('should return true when squad has 2+ members and can create secondary', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'split-valid-test',
+        seed: 'assign-create-squad-test',
       });
 
       const game = testGame.game;
       const rebel = game.rebelPlayers[0];
 
-      // Set up primary squad with 2 MERCs, secondary empty
+      // Set up primary squad with 2 MERCs, secondary has no sector
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
+      rebel.secondarySquad.sectorId = undefined;
 
       const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
       if (mercs.length >= 2) {
@@ -341,58 +346,21 @@ describe('Action Conditions', () => {
 
       game.currentDay = 2;
 
-      const conditionResult = checkActionCondition(game, 'splitSquad', rebel);
+      const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
       expect(conditionResult).toBe(true);
     });
-  });
 
-  describe('mergeSquads action conditions', () => {
-    it('should return false during active combat', () => {
+    it('should return false when squads are in different sectors with only 1 member each', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'merge-combat-test',
+        seed: 'assign-diff-sector-test',
       });
 
       const game = testGame.game;
       const rebel = game.rebelPlayers[0];
 
-      // Set up both squads in the same sector with MERCs
-      const sector = game.gameMap.getAllSectors()[0];
-      rebel.primarySquad.sectorId = sector.sectorId;
-      rebel.secondarySquad.sectorId = sector.sectorId;
-
-      const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
-      if (mercs.length >= 2) {
-        mercs[0].putInto(rebel.primarySquad);
-        mercs[1].putInto(rebel.secondarySquad);
-      }
-
-      game.currentDay = 2;
-
-      // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
-
-      const conditionResult = checkActionCondition(game, 'mergeSquads', rebel);
-      expect(conditionResult).toBe(false);
-    });
-
-    it('should return false when squads are not in the same sector', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'merge-diff-sector-test',
-      });
-
-      const game = testGame.game;
-      const rebel = game.rebelPlayers[0];
-
-      // Set up squads in different sectors
+      // Set up squads in different sectors with 1 MERC each
       const sectors = game.gameMap.getAllSectors();
       if (sectors.length >= 2) {
         rebel.primarySquad.sectorId = sectors[0].sectorId;
@@ -408,93 +376,10 @@ describe('Action Conditions', () => {
 
         game.currentDay = 2;
 
-        const conditionResult = checkActionCondition(game, 'mergeSquads', rebel);
+        // Can't transfer between different sectors, can't create new squad (only 1 member)
+        const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
         expect(conditionResult).toBe(false);
       }
-    });
-
-    it('should return false when secondary squad is empty', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'merge-empty-secondary-test',
-      });
-
-      const game = testGame.game;
-      const rebel = game.rebelPlayers[0];
-
-      // Set up primary with MERC, secondary empty
-      const sector = game.gameMap.getAllSectors()[0];
-      rebel.primarySquad.sectorId = sector.sectorId;
-      rebel.secondarySquad.sectorId = sector.sectorId;
-
-      const merc = game.mercDeck.first(MercCard);
-      if (merc) {
-        merc.putInto(rebel.primarySquad);
-      }
-      // Secondary has no MERCs
-
-      game.currentDay = 2;
-
-      const conditionResult = checkActionCondition(game, 'mergeSquads', rebel);
-      expect(conditionResult).toBe(false);
-    });
-
-    it('should return false on Day 1', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'merge-day1-test',
-      });
-
-      const game = testGame.game;
-      const rebel = game.rebelPlayers[0];
-
-      // Set up both squads in same sector with MERCs
-      const sector = game.gameMap.getAllSectors()[0];
-      rebel.primarySquad.sectorId = sector.sectorId;
-      rebel.secondarySquad.sectorId = sector.sectorId;
-
-      const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
-      if (mercs.length >= 2) {
-        mercs[0].putInto(rebel.primarySquad);
-        mercs[1].putInto(rebel.secondarySquad);
-      }
-
-      // Day 1 - merge not available
-      game.currentDay = 1;
-
-      const conditionResult = checkActionCondition(game, 'mergeSquads', rebel);
-      expect(conditionResult).toBe(false);
-    });
-
-    it('should return true when squads are colocated and secondary has members', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'merge-valid-test',
-      });
-
-      const game = testGame.game;
-      const rebel = game.rebelPlayers[0];
-
-      // Set up both squads in same sector with MERCs
-      const sector = game.gameMap.getAllSectors()[0];
-      rebel.primarySquad.sectorId = sector.sectorId;
-      rebel.secondarySquad.sectorId = sector.sectorId;
-
-      const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
-      if (mercs.length >= 2) {
-        mercs[0].putInto(rebel.primarySquad);
-        mercs[0].sectorId = sector.sectorId;
-        mercs[1].putInto(rebel.secondarySquad);
-        mercs[1].sectorId = sector.sectorId;
-      }
-
-      game.currentDay = 2;
-
-      const conditionResult = checkActionCondition(game, 'mergeSquads', rebel);
-      expect(conditionResult).toBe(true);
     });
   });
 
