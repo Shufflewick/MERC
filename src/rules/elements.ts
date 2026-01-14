@@ -80,11 +80,10 @@ export interface EquipmentSlotData {
 
 export abstract class CombatantBase extends BaseCard {
   // Identity - canonical names for all combatants
-  // Using 'declare' instead of '!' because MercCard overrides these with getters
-  // that delegate to mercId/mercName. Using '!' would create instance properties
-  // that shadow those getters.
-  declare combatantId: string;
-  declare combatantName: string;
+  // Abstract getters allow subclasses to provide values via their own properties
+  // (MercCard uses mercId, DictatorCard uses dictatorId, etc.)
+  abstract get combatantId(): string;
+  abstract get combatantName(): string;
 
   // Backward-compat getters for API stability
   get unitId(): string { return this.combatantId; }
@@ -753,9 +752,9 @@ export abstract class CombatantBase extends BaseCard {
 // CombatantModel - Unified model class for MERCs and Dictators
 // =============================================================================
 
-export class CombatantModel extends CombatantBase {
-  // Identity - BoardSmith populates these from JSON
-  // Note: combatantId/combatantName are inherited from CombatantBase
+export abstract class CombatantModel extends CombatantBase {
+  // Identity - subclasses must provide combatantId/combatantName via getters
+  // (MercCard returns mercId/mercName, DictatorCard returns dictatorId/dictatorName)
 
   // Card type discriminator
   cardType: 'merc' | 'dictator' = 'merc';
@@ -868,9 +867,10 @@ export class MercCard extends CombatantModel {
   // Card type discriminator
   override cardType: 'merc' | 'dictator' = 'merc';
 
-  // Provide unitId/unitName for base class compatibility
-  override get unitId(): string { return this.mercId; }
-  override get unitName(): string { return this.mercName; }
+  // Provide combatantId/combatantName via getters
+  // (unitId/unitName backward-compat handled by CombatantBase)
+  override get combatantId(): string { return this.mercId; }
+  override get combatantName(): string { return this.mercName; }
 }
 
 // =============================================================================
@@ -1147,9 +1147,10 @@ export class DictatorCard extends CombatantModel {
   override cardType: 'merc' | 'dictator' = 'dictator';
   override inPlay: boolean = false;
 
-  // Provide unitId/unitName for base class compatibility
-  override get unitId(): string { return this.dictatorId; }
-  override get unitName(): string { return this.dictatorName; }
+  // Provide combatantId/combatantName via getters
+  // (unitId/unitName backward-compat handled by CombatantBase)
+  override get combatantId(): string { return this.dictatorId; }
+  override get combatantName(): string { return this.dictatorName; }
 }
 
 // =============================================================================
