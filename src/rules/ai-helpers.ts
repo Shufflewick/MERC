@@ -11,7 +11,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { Sector, MercCard, Equipment, CombatUnitCard } from './elements.js';
+import { Sector, MercCard, Equipment, CombatantModel } from './elements.js';
 import {
   isLandMine,
   isRepairKit,
@@ -492,8 +492,8 @@ export function selectNewMercLocation(game: MERCGame): Sector | null {
  * Returns the number of items equipped.
  */
 export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
-  // Get all dictator units in this sector (MercCards + DictatorCard share CombatUnitCard base)
-  const units: CombatUnitCard[] = game.dictatorPlayer.hiredMercs.filter(m => m.sectorId === sector.sectorId);
+  // Get all dictator units in this sector (MercCards + DictatorCard share CombatantModel base)
+  const units: CombatantModel[] = game.dictatorPlayer.hiredMercs.filter(m => m.sectorId === sector.sectorId);
   if (game.dictatorPlayer.dictator?.inPlay && game.dictatorPlayer.dictator.sectorId === sector.sectorId) {
     units.push(game.dictatorPlayer.dictator);
   }
