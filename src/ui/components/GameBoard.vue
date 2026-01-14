@@ -822,36 +822,8 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
       return c;
     });
 
-  // If dictator card wasn't found in children, check if it should be shown based on sector
-  // (for cases where dictator is at same sector but not explicitly in a squad)
-  const hasDictatorInChildren = (squad.children || []).some((c: any) =>
-    normalizeClassName(c.className) === 'DictatorCard'
-  );
-
-  if (!hasDictatorInChildren && dictatorCardNode) {
-    const dictatorInPlay = getAttr(dictatorCardNode, 'inPlay', false);
-    const dictatorSectorId = getAttr(dictatorCardNode, 'sectorId', '');
-    const dictatorDead = getAttr(dictatorCardNode, 'damage', 0) >= 10;
-
-    // Only add dictator to primary squad if at same sector and not in any squad
-    // (dictatorBaseSquad will handle showing the dictator separately if needed)
-    if (isPrimary && dictatorInPlay && !dictatorDead && dictatorSectorId === sectorId) {
-      // Check if dictator is in the other squad
-      const otherSquads = findAllByClassName('Squad').filter((s: any) => s !== squad);
-      const dictatorInOtherSquad = otherSquads.some((s: any) =>
-        (s.children || []).some((c: any) => normalizeClassName(c.className) === 'DictatorCard')
-      );
-
-      if (!dictatorInOtherSquad) {
-        mercs.unshift({
-          ...dictatorCardNode,
-          mercId: `dictator-${getAttr(dictatorCardNode, 'dictatorId', '')}`,
-          mercName: getAttr(dictatorCardNode, 'dictatorName', 'The Dictator'),
-          isDictator: true,
-        });
-      }
-    }
-  }
+  // Dictator combatant is ALWAYS shown in dictatorBaseSquad, never injected into primary/secondary
+  // This prevents the dictator from appearing in two squads simultaneously
 
   return {
     squadId: squad.ref || `dictator-squad-${isPrimary ? 'primary' : 'secondary'}`,
@@ -916,17 +888,8 @@ const dictatorBaseSquad = computed(() => {
 
   if (!inPlay || dictatorDead || !dictatorSectorId) return undefined;
 
-  // Check if dictator is at a different sector than primary/secondary squads
-  const primarySectorId = dictatorPrimarySquad.value?.sectorId;
-  const secondarySectorId = dictatorSecondarySquad.value?.sectorId;
-
-  // If dictator is with primary or secondary squad, don't show base squad
-  // (they'll appear in that squad instead)
-  if (dictatorSectorId === primarySectorId || dictatorSectorId === secondarySectorId) {
-    return undefined;
-  }
-
-  // Dictator is at a third location (the base) - show as separate squad
+  // Dictator is ALWAYS shown in base squad when in play (regardless of sector)
+  // This is the canonical location for displaying the dictator combatant
   const sector = sectors.value.find((s) => s.sectorId === dictatorSectorId);
 
   return {
