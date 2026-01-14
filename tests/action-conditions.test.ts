@@ -30,7 +30,9 @@ function isActionAvailable(testGame: ReturnType<typeof createTestGame>, actionNa
 }
 
 /**
- * Helper to check action condition directly using the action's condition method
+ * Helper to check action condition directly using the action's condition method.
+ * BoardSmith conditions are stored as an object of {label: predicate} pairs,
+ * where all predicates must return true for the action to be available.
  */
 function checkActionCondition(game: MERCGame, actionName: string, player: any): boolean {
   const action = game.getAction(actionName);
@@ -39,15 +41,31 @@ function checkActionCondition(game: MERCGame, actionName: string, player: any): 
   // Create a minimal context for condition evaluation
   const ctx = { player, game, args: {} };
 
-  // Access the internal condition function
-  // The action stores its condition in its definition
   try {
-    // BoardSmith actions have a condition property that's a function
     const actionDef = action as any;
-    if (typeof actionDef.condition === 'function') {
-      return actionDef.condition(ctx);
+    const condition = actionDef.condition;
+
+    // If there's no condition, action is always available (based on condition alone)
+    if (!condition) return true;
+
+    // Condition is an object with label -> predicate pairs
+    // All predicates must return true for the action to be available
+    if (typeof condition === 'object' && condition !== null) {
+      for (const [_label, predicate] of Object.entries(condition)) {
+        if (typeof predicate === 'function') {
+          if (!(predicate as any)(ctx)) {
+            return false;
+          }
+        }
+      }
+      return true;
     }
-    // If there's no condition, action is always available
+
+    // Fallback for legacy function-based conditions
+    if (typeof condition === 'function') {
+      return condition(ctx);
+    }
+
     return true;
   } catch (e) {
     return false;

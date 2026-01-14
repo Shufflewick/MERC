@@ -200,7 +200,7 @@ describe('MERC Ability Integration Tests', () => {
     });
 
     describe('Faustina - +1 training action', () => {
-      it('Faustina should have 3 actions when reset', () => {
+      it('Faustina should have 2 regular actions + 1 training action when reset', () => {
         const faustina = game.mercDeck.all(MercCard).find(m => m.mercId === 'faustina');
         if (!faustina) {
           console.log('Faustina not in deck, skipping test');
@@ -208,7 +208,9 @@ describe('MERC Ability Integration Tests', () => {
         }
 
         faustina.resetActions();
-        expect(faustina.actionsRemaining).toBe(3);
+        // Faustina has 2 regular actions + 1 training-only action (3 total effective)
+        expect(faustina.actionsRemaining).toBe(2);
+        expect(faustina.trainingActionsRemaining).toBe(1);
       });
     });
 

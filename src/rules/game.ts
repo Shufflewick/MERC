@@ -445,6 +445,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return [...this.all(MERCPlayer)].filter(p => p.isRebel());
   }
 
+  // Get all players in the game
+  get players(): MERCPlayer[] {
+    return [...this.all(MERCPlayer)];
+  }
+
   // MERC-a2h: Track pending coordinated attacks across multiple rebel players
   // Key: target sectorId, Value: array of { playerId, squadType }
   // Using persistentMap to survive HMR

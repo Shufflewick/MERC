@@ -477,19 +477,28 @@ describe('Combat Ability Integration', () => {
         seed: 'dictator-combat',
       });
       game = testGame.game;
+      // Manually set up the dictator card since createTestGame doesn't pass dictatorId
+      game.setupDictator('castro');
     });
 
     it('should have dictator card with combat stats', () => {
       const dictator = game.dictatorPlayer.dictator;
 
-      expect(dictator.initiative).toBeDefined();
-      expect(dictator.combat).toBeDefined();
-      expect(dictator.training).toBeDefined();
+      // Dictator card should be defined after manual setup
+      expect(dictator).toBeDefined();
+      if (dictator) {
+        expect(dictator.initiative).toBeDefined();
+        expect(dictator.combat).toBeDefined();
+        expect(dictator.training).toBeDefined();
+      }
     });
 
     it('should not start dictator in play', () => {
       const dictator = game.dictatorPlayer.dictator;
-      expect(dictator.inPlay).toBe(false);
+      expect(dictator).toBeDefined();
+      if (dictator) {
+        expect(dictator.inPlay).toBe(false);
+      }
     });
   });
 });

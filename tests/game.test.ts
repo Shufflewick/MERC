@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
-import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
+import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 
 describe('MERCGame', () => {
   describe('Game Setup', () => {
@@ -95,13 +95,15 @@ describe('MERCGame', () => {
     it('should correctly identify rebel players', () => {
       const rebels = game.rebelPlayers;
       expect(rebels.length).toBe(1);
-      expect(rebels[0]).toBeInstanceOf(RebelPlayer);
+      expect(rebels[0]).toBeInstanceOf(MERCPlayer);
+      expect(rebels[0].isRebel()).toBe(true);
       expect(game.isRebelPlayer(rebels[0])).toBe(true);
     });
 
     it('should correctly identify dictator player', () => {
       const dictator = game.dictatorPlayer;
-      expect(dictator).toBeInstanceOf(DictatorPlayer);
+      expect(dictator).toBeInstanceOf(MERCPlayer);
+      expect(dictator.isDictator()).toBe(true);
       expect(game.isDictatorPlayer(dictator)).toBe(true);
     });
 

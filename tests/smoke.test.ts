@@ -9,7 +9,7 @@ import {
   logAvailableActions,
   diffSnapshots,
 } from '@boardsmith/testing';
-import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
+import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 import { MercCard, Sector, Equipment } from '../src/rules/elements.js';
 
 /**
@@ -155,11 +155,11 @@ describe('MERC Smoke Tests', () => {
 
       const game = testGame.game;
 
+      // Dictator Day 2+ actions
       expect(game.getAction('playTactics')).toBeDefined();
       expect(game.getAction('reinforce')).toBeDefined();
-      expect(game.getAction('dictatorMove')).toBeDefined();
-      expect(game.getAction('dictatorExplore')).toBeDefined();
-      expect(game.getAction('moveMilitia')).toBeDefined();
+      // Note: dictatorMove, dictatorExplore, moveMilitia are AI-internal only
+      // and are not registered as general actions
     });
   });
 
@@ -198,9 +198,13 @@ describe('MERC Smoke Tests', () => {
     });
 
     it('should initialize dictator with dictator card', () => {
+      // Manually set up the dictator card since createTestGame doesn't pass dictatorId
+      game.setupDictator('castro');
       const dictator = game.dictatorPlayer;
       expect(dictator.dictator).toBeDefined();
-      expect(dictator.dictator.dictatorId).toBeDefined();
+      if (dictator.dictator) {
+        expect(dictator.dictator.dictatorId).toBeDefined();
+      }
     });
 
     it('should initialize tactics deck', () => {
@@ -212,7 +216,7 @@ describe('MERC Smoke Tests', () => {
 
   describe('Rebel Player State', () => {
     let game: MERCGame;
-    let rebel: RebelPlayer;
+    let rebel: MERCPlayer;
 
     beforeEach(() => {
       const testGame = createTestGame(MERCGame, {
@@ -253,7 +257,7 @@ describe('MERC Smoke Tests', () => {
 
   describe('Dictator Player State', () => {
     let game: MERCGame;
-    let dictator: DictatorPlayer;
+    let dictator: MERCPlayer;
 
     beforeEach(() => {
       const testGame = createTestGame(MERCGame, {
@@ -262,6 +266,8 @@ describe('MERC Smoke Tests', () => {
         seed: 'dictator-state-test',
       });
       game = testGame.game;
+      // Manually set up the dictator card since createTestGame doesn't pass dictatorId
+      game.setupDictator('castro');
       dictator = game.dictatorPlayer;
     });
 

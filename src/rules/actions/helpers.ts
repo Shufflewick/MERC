@@ -342,8 +342,20 @@ export function asRebelPlayer(player: unknown): RebelPlayer {
   if (isRebelPlayer(player)) {
     return player;
   }
-  const role = (player instanceof MERCPlayer) ? player.role : 'unknown';
-  throw new Error(`Expected RebelPlayer but got ${role}`);
+  // Format the error message to include the actual type for better debugging
+  let actualType = 'unknown';
+  if (player instanceof MERCPlayer) {
+    actualType = player.role === 'dictator' ? 'DictatorPlayer' : `${player.role}`;
+  } else if (typeof player === 'object' && player !== null) {
+    actualType = player.constructor?.name || 'Object';
+  } else if (player === null) {
+    actualType = 'null';
+  } else if (player === undefined) {
+    actualType = 'undefined';
+  } else {
+    actualType = typeof player;
+  }
+  throw new Error(`Expected RebelPlayer but got ${actualType}`);
 }
 
 /**
