@@ -5,7 +5,7 @@
  */
 
 import { MERCPlayer, type MERCGame, type RebelPlayer, type DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard, CombatUnitCard, isGrenadeOrMortar } from '../elements.js';
+import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -232,22 +232,25 @@ export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boole
 // =============================================================================
 
 /**
- * Type guard to check if an element is a CombatUnitCard (MercCard or DictatorCard).
+ * Type guard to check if an element is a CombatantModel (MercCard or DictatorCard).
  * Uses property check instead of instanceof for bundler compatibility.
  */
-export function isCombatUnitCard(element: unknown): element is CombatUnitCard {
+export function isCombatantModel(element: unknown): element is CombatantModel {
   return element !== null &&
          typeof element === 'object' &&
          'isMerc' in element &&
-         typeof (element as CombatUnitCard).isMerc === 'boolean';
+         typeof (element as CombatantModel).isMerc === 'boolean';
 }
+
+// Backward-compat alias
+export const isCombatUnitCard = isCombatantModel;
 
 /**
  * Check if a unit is a MercCard (type guard).
  * Uses property check instead of instanceof for bundler compatibility.
  */
 export function isMercCard(unit: unknown): unit is MercCard {
-  return isCombatUnitCard(unit) && unit.isMerc;
+  return isCombatantModel(unit) && unit.isMerc;
 }
 
 /**
@@ -255,7 +258,7 @@ export function isMercCard(unit: unknown): unit is MercCard {
  * Uses property check instead of instanceof for bundler compatibility.
  */
 export function isDictatorCard(unit: unknown): unit is DictatorCard {
-  return isCombatUnitCard(unit) && unit.isDictator;
+  return isCombatantModel(unit) && unit.isDictator;
 }
 
 /**
@@ -496,4 +499,4 @@ export function equipNewHire(
 // =============================================================================
 
 export type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
-export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard, CombatUnitCard } from '../elements.js';
+export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard, CombatantModel, CombatantModel as CombatUnitCard } from '../elements.js';
