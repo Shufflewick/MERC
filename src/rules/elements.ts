@@ -750,10 +750,10 @@ export abstract class CombatantBase extends BaseCard {
 }
 
 // =============================================================================
-// CombatUnitCard - Unified class for MERCs and Dictators
+// CombatantModel - Unified model class for MERCs and Dictators
 // =============================================================================
 
-export class CombatUnitCard extends CombatantBase {
+export class CombatantModel extends CombatantBase {
   // Identity - BoardSmith populates these from JSON
   // Note: combatantId/combatantName are inherited from CombatantBase
 
@@ -768,11 +768,11 @@ export class CombatUnitCard extends CombatantBase {
   inPlay: boolean = true;
   baseSectorId?: string; // Permanent base location for dictators (never changes after revealed)
 
-  // Backward-compat getters - all return the unified unitId/unitName
-  get mercId(): string { return this.unitId; }
-  get mercName(): string { return this.unitName; }
-  get dictatorId(): string { return this.unitId; }
-  get dictatorName(): string { return this.unitName; }
+  // Backward-compat getters - all return the canonical combatantId/combatantName
+  get mercId(): string { return this.combatantId; }
+  get mercName(): string { return this.combatantName; }
+  get dictatorId(): string { return this.combatantId; }
+  get dictatorName(): string { return this.combatantName; }
 
   /**
    * Put the dictator into play (when base is revealed).
@@ -853,11 +853,14 @@ export class CombatUnitCard extends CombatantBase {
   }
 }
 
+// Backward-compat alias - CombatUnitCard is now CombatantModel
+export { CombatantModel as CombatUnitCard };
+
 // =============================================================================
 // MERC Card - The mercenary characters (thin wrapper for backward compatibility)
 // =============================================================================
 
-export class MercCard extends CombatUnitCard {
+export class MercCard extends CombatantModel {
   // Identity - BoardSmith populates from JSON with these names
   mercId!: string;
   mercName!: string;
@@ -1135,7 +1138,7 @@ export class Sector extends GridCell {
 // Dictator Card - Thin wrapper for backward compatibility
 // =============================================================================
 
-export class DictatorCard extends CombatUnitCard {
+export class DictatorCard extends CombatantModel {
   // Identity - BoardSmith populates from JSON with these names
   dictatorId!: string;
   dictatorName!: string;
