@@ -10,7 +10,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.1 Polish** — Phases 7-8 (shipped 2026-01-09)
 - ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
 - ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
-- 🚧 **v1.4 Combatant Naming Unification** — Phases 20-23 (in progress)
+- ✅ **v1.4 Combatant Naming Unification** — Phases 20-23 (shipped 2026-01-14)
 
 ## Completed Milestones
 
@@ -18,6 +18,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ [v1.1 Polish](milestones/v1.1-ROADMAP.md) (Phases 7-8) — SHIPPED 2026-01-09
 - ✅ [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md) (Phases 9-13) — SHIPPED 2026-01-11
 - ✅ [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) (Phases 14-19) — SHIPPED 2026-01-13
+- ✅ [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) (Phases 20-23) — SHIPPED 2026-01-14
 
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
@@ -76,7 +77,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 20. Model Renaming | v1.4 | 3/3 | Complete | 2026-01-14 |
 | 21. Vue Component Renaming | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 22. Reference Updates | v1.4 | 1/1 | Complete | 2026-01-14 |
-| 23. Documentation | v1.4 | 0/? | Not started | - |
+| 23. Documentation | v1.4 | 1/1 | Complete | 2026-01-14 |
 
 <details>
 <summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
@@ -90,55 +91,19 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 </details>
 
-### 🚧 v1.4 Combatant Naming Unification (In Progress)
+<details>
+<summary>✅ v1.4 Combatant Naming Unification (Phases 20-23) — SHIPPED 2026-01-14</summary>
 
-**Milestone Goal:** Eliminate naming confusion between model classes and Vue components, unify combatant identity properties
+- [x] Phase 20: Model Renaming (3/3 plans) — completed 2026-01-14
+- [x] Phase 21: Vue Component Renaming (1/1 plan) — completed 2026-01-14
+- [x] Phase 22: Reference Updates (1/1 plan) — completed 2026-01-14
+- [x] Phase 23: Documentation (1/1 plan) — completed 2026-01-14
 
-#### Phase 20: Model Renaming
-
-**Goal**: Rename `CombatUnitCard` → `CombatantModel`, unify `combatantId`/`combatantName` properties, maintain backward-compat with `MercCard`/`DictatorCard` subclasses
-**Depends on**: Previous milestone complete
-**Research**: Unlikely (internal refactoring)
-**Plans**: 3
-
-Plans:
-- [x] 20-01: Core model renaming (CombatUnit → CombatantBase, CombatUnitCard → CombatantModel)
-- [x] 20-02: Update imports/exports in rules layer
-- [x] 20-03: Update AI helpers, remaining files, and tests — completed 2026-01-14
-
-#### Phase 21: Vue Component Renaming
-
-**Goal**: Rename `MercCard.vue` → `CombatantCard.vue`, update all imports and usages
-**Depends on**: Phase 20
-**Research**: Unlikely (internal refactoring)
-**Plans**: 1
-
-Plans:
-- [x] 21-01: Rename MercCard.vue to CombatantCard.vue — completed 2026-01-14
-
-#### Phase 22: Reference Updates ✅
-
-**Goal**: Update JSON data files, type guards, and any remaining references
-**Depends on**: Phase 21
-**Research**: Unlikely (internal refactoring)
-**Plans**: 1
-
-Plans:
-- [x] 22-01: Verify reference updates complete (no code changes needed) — completed 2026-01-14
-
-#### Phase 23: Documentation
-
-**Goal**: Add CLAUDE.md architecture section and JSDoc comments to key classes
-**Depends on**: Phase 22
-**Research**: Unlikely (documentation)
-**Plans**: TBD
-
-Plans:
-- [ ] 23-01: TBD
+</details>
 
 ## Status
 
-v1.0, v1.1, v1.2, and v1.3 complete. v1.4 in progress.
+v1.0, v1.1, v1.2, v1.3, and v1.4 complete.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)
