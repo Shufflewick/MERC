@@ -73,7 +73,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 17. Hiring Unification | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 18. Data Consistency | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 19. Victory/Defeat Fixes | v1.3 | 1/1 | Complete | 2026-01-13 |
-| 20. Model Renaming | v1.4 | 0/? | Not started | - |
+| 20. Model Renaming | v1.4 | 0/3 | Not started | - |
 | 21. Vue Component Renaming | v1.4 | 0/? | Not started | - |
 | 22. Reference Updates | v1.4 | 0/? | Not started | - |
 | 23. Documentation | v1.4 | 0/? | Not started | - |
@@ -96,13 +96,15 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 #### Phase 20: Model Renaming
 
-**Goal**: Rename `CombatUnitCard` → `CombatantModel`, unify `combatantId`/`combatantName` properties, eliminate or minimize `MercCard`/`DictatorCard` subclasses
+**Goal**: Rename `CombatUnitCard` → `CombatantModel`, unify `combatantId`/`combatantName` properties, maintain backward-compat with `MercCard`/`DictatorCard` subclasses
 **Depends on**: Previous milestone complete
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
-- [ ] 20-01: TBD (run /gsd:plan-phase 20 to break down)
+- [ ] 20-01: Core model renaming (CombatUnit → CombatantBase, CombatUnitCard → CombatantModel)
+- [ ] 20-02: Update imports/exports in rules layer
+- [ ] 20-03: Update AI helpers, remaining files, and tests
 
 #### Phase 21: Vue Component Renaming
 
