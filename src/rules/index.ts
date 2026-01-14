@@ -18,6 +18,10 @@ export {
   // Units
   Militia,
 
+  // Base classes
+  CombatantBase,
+  CombatantModel,
+
   // Collections
   MercDeck,
   EquipmentDeck,
@@ -35,6 +39,9 @@ export {
   type EquipmentBonuses,
 } from './elements.js';
 
+// Backward-compat aliases for renamed classes
+export { CombatantBase as CombatUnit, CombatantModel as CombatUnitCard } from './elements.js';
+
 // Actions
 export {
   createHireMercAction,
@@ -51,8 +58,7 @@ export {
   createReEquipAction,
   createHospitalAction,
   createArmsDealerAction,
-  createSplitSquadAction,
-  createMergeSquadsAction,
+  createAssignToSquadAction,
   createEndTurnAction,
   // Fire MERC is now only part of hire action (MERC-yi7)
   createPlayTacticsAction,
