@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** Planning next milestone
+**Current focus:** v1.4 Combatant Naming Unification
 
 ## Current Position
 
-Phase: All milestones complete
-Plan: N/A
-Status: Ready for next milestone
-Last activity: 2026-01-13 — v1.3 Combatant Unification shipped
+Phase: 20 of 23 (Model Renaming)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-14 — Milestone v1.4 created
 
-Progress: All 4 milestones shipped ✅
+Progress: ░░░░░░░░░░ 0%
 
 ## Milestones Completed
 
@@ -46,8 +46,12 @@ None active.
 
 - Pre-existing test failures (56) in index.ts changes - unrelated to cleanup work
 
+### Roadmap Evolution
+
+- Milestone v1.4 created: Combatant naming unification, 4 phases (Phase 20-23)
+
 ## Session Continuity
 
-Last session: 2026-01-13
-Stopped at: v1.3 milestone archived
-Resume file: Run /gsd:discuss-milestone for next milestone
+Last session: 2026-01-14
+Stopped at: Milestone v1.4 initialization
+Resume file: None

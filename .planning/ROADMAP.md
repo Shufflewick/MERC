@@ -10,6 +10,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.1 Polish** — Phases 7-8 (shipped 2026-01-09)
 - ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
 - ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
+- 🚧 **v1.4 Combatant Naming Unification** — Phases 20-23 (in progress)
 
 ## Completed Milestones
 
@@ -72,6 +73,10 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 17. Hiring Unification | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 18. Data Consistency | v1.3 | 1/1 | Complete | 2026-01-13 |
 | 19. Victory/Defeat Fixes | v1.3 | 1/1 | Complete | 2026-01-13 |
+| 20. Model Renaming | v1.4 | 0/? | Not started | - |
+| 21. Vue Component Renaming | v1.4 | 0/? | Not started | - |
+| 22. Reference Updates | v1.4 | 0/? | Not started | - |
+| 23. Documentation | v1.4 | 0/? | Not started | - |
 
 <details>
 <summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
@@ -85,9 +90,53 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 </details>
 
+### 🚧 v1.4 Combatant Naming Unification (In Progress)
+
+**Milestone Goal:** Eliminate naming confusion between model classes and Vue components, unify combatant identity properties
+
+#### Phase 20: Model Renaming
+
+**Goal**: Rename `CombatUnitCard` → `CombatantModel`, unify `combatantId`/`combatantName` properties, eliminate or minimize `MercCard`/`DictatorCard` subclasses
+**Depends on**: Previous milestone complete
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 20-01: TBD (run /gsd:plan-phase 20 to break down)
+
+#### Phase 21: Vue Component Renaming
+
+**Goal**: Rename `MercCard.vue` → `CombatantCard.vue`, update all imports and usages
+**Depends on**: Phase 20
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 21-01: TBD
+
+#### Phase 22: Reference Updates
+
+**Goal**: Update JSON data files, type guards, and any remaining references
+**Depends on**: Phase 21
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 22-01: TBD
+
+#### Phase 23: Documentation
+
+**Goal**: Add CLAUDE.md architecture section and JSDoc comments to key classes
+**Depends on**: Phase 22
+**Research**: Unlikely (documentation)
+**Plans**: TBD
+
+Plans:
+- [ ] 23-01: TBD
+
 ## Status
 
-v1.0, v1.1, v1.2, and v1.3 complete. All 4 milestones shipped.
+v1.0, v1.1, v1.2, and v1.3 complete. v1.4 in progress.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)
