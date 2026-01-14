@@ -66,23 +66,28 @@ A systematic cleanup moving from type safety foundations through code quality im
 | 11. Migrate instanceof | v1.2 | 3/3 | Complete | 2026-01-11 |
 | 12. Merge Data Files | v1.2 | 1/1 | Complete | 2026-01-11 |
 | 13. Remove Legacy | v1.2 | 1/1 | Complete | 2026-01-11 |
+| 14. Image Path Fixes | v1.3 | 1/1 | Complete | 2026-01-13 |
+| 15. Rename to Combatant | v1.3 | 1/1 | Complete | 2026-01-13 |
+| 16. Abilities for Controller | v1.3 | 1/1 | Complete | 2026-01-13 |
+| 17. Hiring Unification | v1.3 | 1/1 | Complete | 2026-01-13 |
+| 18. Data Consistency | v1.3 | 1/1 | Complete | 2026-01-13 |
+| 19. Victory/Defeat Fixes | v1.3 | 1/1 | Complete | 2026-01-13 |
 
-## Current Milestone: v1.3 Combatant Unification
+<details>
+<summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
 
-Unify dictator and merc combatant handling, fixing bugs and standardizing code patterns.
+- [x] Phase 14: Image Path Fixes (1/1 plan) — completed 2026-01-13
+- [x] Phase 15: Rename to Combatant (1/1 plan) — completed 2026-01-13
+- [x] Phase 16: Abilities for Controller (1/1 plan) — completed 2026-01-13
+- [x] Phase 17: Hiring Unification (1/1 plan) — completed 2026-01-13
+- [x] Phase 18: Data Consistency (1/1 plan) — completed 2026-01-13
+- [x] Phase 19: Victory/Defeat Fixes (1/1 plan) — completed 2026-01-13
 
-| Phase | Name | Description | Status |
-|-------|------|-------------|--------|
-| 14 | Image Path Fixes | Fix hardcoded `.jpg` in MercIconSmall, MercCard, DictatorPanel, SectorPanel | Complete |
-| 15 | Rename to Combatant | MercIcon → CombatantIcon, MercIconSmall → CombatantIconSmall, remove isDictator from equipment UI | Complete |
-| 16 | Abilities for Controller | Make docHeal, feedbackDiscard, squidheadDisarm/Arm, hagnessDraw available to whoever controls the merc | Complete |
-| 17 | Hiring Unification | Apply Apeiron/Vrbansk to dictator hires, Castro human equipment, extract shared function | Complete |
-| 18 | Data Consistency | Add sex field to dictators (male), verify team limit is 1 + controlled sectors | Complete |
-| 19 | Victory/Defeat Fixes | Fix dictator defeat (dead OR rebels control base), rebel defeat (no units after day 1) | Complete |
+</details>
 
 ## Status
 
-v1.0, v1.1, v1.2, and v1.3 complete.
+v1.0, v1.1, v1.2, and v1.3 complete. All 4 milestones shipped.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md)
