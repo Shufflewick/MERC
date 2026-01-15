@@ -365,8 +365,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
           setGlobalCachedValue(game, DRAWN_MERCS_KEY, drawnMercs.map(m => m.id));
         }
 
-        const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
-        const mercs = mercIds
+        const combatantElementIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
+        const mercs = combatantElementIds
           .map(id => game.getElementById(id))
           .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc)
           .sort((a, b) => b.baseCombat - a.baseCombat);
@@ -401,7 +401,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
+      const combatantElementIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
       const selectedMercName = args.selectedMerc as string;
 
       if (!selectedMercName || selectedMercName === 'No MERCs available') {
@@ -410,7 +410,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       // Find the MERC by name
-      const mercs = mercIds
+      const mercs = combatantElementIds
         .map(id => game.getElementById(id))
         .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc);
       const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);

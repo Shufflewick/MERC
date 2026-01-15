@@ -55,9 +55,9 @@ export const MERC_INCOMPATIBILITIES: Record<string, string[]> = {
  * Checks both directions: the new MERC's incompatibilities AND
  * whether any team member has an incompatibility with the new MERC.
  */
-export function canHireMercWithTeam(mercId: string, team: CombatantModel[]): boolean {
+export function canHireMercWithTeam(combatantId: string, team: CombatantModel[]): boolean {
   // Check if new MERC is incompatible with anyone on team
-  const newMercIncompat = MERC_INCOMPATIBILITIES[mercId] || [];
+  const newMercIncompat = MERC_INCOMPATIBILITIES[combatantId] || [];
   if (team.some(m => newMercIncompat.includes(m.combatantId))) {
     return false;
   }
@@ -65,7 +65,7 @@ export function canHireMercWithTeam(mercId: string, team: CombatantModel[]): boo
   // Check if anyone on team is incompatible with the new MERC
   for (const member of team) {
     const memberIncompat = MERC_INCOMPATIBILITIES[member.combatantId] || [];
-    if (memberIncompat.includes(mercId)) {
+    if (memberIncompat.includes(combatantId)) {
       return false;
     }
   }

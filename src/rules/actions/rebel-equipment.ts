@@ -432,17 +432,17 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
   function getMercFromCtx(ctx: { game: unknown; args?: Record<string, unknown> }): CombatantModel | undefined {
     const g = ctx.game as MERCGame;
     const mercArg = ctx.args?.actingMerc;
-    let mercId: number | undefined;
+    let combatantElementId: number | undefined;
 
     if (typeof mercArg === 'number') {
-      mercId = mercArg;
+      combatantElementId = mercArg;
     } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
       const mercObj = mercArg as { id: number };
-      mercId = mercObj.id;
+      combatantElementId = mercObj.id;
     }
 
-    if (mercId !== undefined) {
-      const el = g.getElementById(mercId);
+    if (combatantElementId !== undefined) {
+      const el = g.getElementById(combatantElementId);
       return isCombatantModel(el) && el.isMerc ? el : undefined;
     }
     return undefined;
@@ -518,15 +518,15 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         }
 
         // Merc is selected - look up by ID to get proper element with getters
-        let mercId: number | undefined;
+        let combatantElementId: number | undefined;
         if (typeof mercArg === 'number') {
-          mercId = mercArg;
+          combatantElementId = mercArg;
         } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
           const mercObj = mercArg as { id: number };
-          mercId = mercObj.id;
+          combatantElementId = mercObj.id;
         }
-        if (mercId !== undefined) {
-          const el = g.getElementById(mercId);
+        if (combatantElementId !== undefined) {
+          const el = g.getElementById(combatantElementId);
           if (isCombatantModel(el) && el.isMerc) {
             return getMercEquipment(el);
           }
@@ -540,14 +540,14 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
       // Always resolve by ID to get full element with all properties
       const mercArg = args.actingMerc;
-      let mercId: number | undefined;
+      let combatantElementId: number | undefined;
       if (typeof mercArg === 'number') {
-        mercId = mercArg;
+        combatantElementId = mercArg;
       } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
         const mercObj = mercArg as { id: number };
-        mercId = mercObj.id;
+        combatantElementId = mercObj.id;
       }
-      const mercEl = mercId !== undefined ? g.getElementById(mercId) : undefined;
+      const mercEl = combatantElementId !== undefined ? g.getElementById(combatantElementId) : undefined;
       const actingMerc = isCombatantModel(mercEl) && mercEl.isMerc ? mercEl : undefined;
 
       const equipArg = args.equipment;
