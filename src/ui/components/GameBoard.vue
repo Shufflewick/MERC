@@ -629,7 +629,7 @@ const allMercs = computed(() => {
           mercs.push({
             ...merc,
             combatantId,
-            mercId: combatantId, // backward compat
+            mercId: combatantId,
             sectorId: mercSectorId,
             playerColor,
             image: getAttr(merc, 'image', ''),
@@ -663,7 +663,7 @@ const allMercs = computed(() => {
           mercs.push({
             ...child,
             combatantId,
-            mercId: combatantId, // backward compat
+            mercId: combatantId,
             sectorId: squadSectorId,
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
@@ -684,8 +684,8 @@ const allMercs = computed(() => {
             ...child,
             combatantId: dictatorIdWithPrefix,
             combatantName: getAttr(child, 'combatantName', 'The Dictator'),
-            mercId: dictatorIdWithPrefix, // backward compat
-            mercName: getAttr(child, 'combatantName', 'The Dictator'), // backward compat
+            mercId: dictatorIdWithPrefix,
+            mercName: getAttr(child, 'combatantName', 'The Dictator'),
             sectorId: squadSectorId,
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
@@ -975,7 +975,7 @@ const dictatorBaseSquad = computed(() => {
   };
 });
 
-// Legacy alias for compatibility
+// Alias for simpler access
 const dictatorSquad = dictatorPrimarySquad;
 
 // MERC-rwdv: Get dictator card data (for DictatorPanel)
@@ -1024,7 +1024,6 @@ const dictatorCard = computed(() => {
     id: dictatorCardNode.ref,
     combatantId,
     combatantName,
-    // backward compat aliases
     dictatorId: combatantId,
     dictatorName: combatantName,
     ability: attrs.ability || getAttr(dictatorCardNode, 'ability', ''),
@@ -1753,7 +1752,7 @@ const hagnessSquadMates = computed(() => {
     return {
       displayName,
       combatantId,
-      mercId: combatantId, // backward compat
+      mercId: combatantId,
       choice: { value: displayName }, // Simple choice object for selection
     };
   }).sort((a, b) => a.displayName.localeCompare(b.displayName));

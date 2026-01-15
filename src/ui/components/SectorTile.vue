@@ -21,7 +21,6 @@ interface SectorData {
 interface MercInSector {
   combatantId: string;
   combatantName?: string;
-  // Backward compat aliases (deprecated)
   mercId?: string;
   mercName?: string;
   image?: string;

@@ -426,7 +426,7 @@ const baseIconStyle = computed(() => {
   };
 });
 
-// Calculate total rebel militia for this player (legacy - kept for reference)
+// Calculate total rebel militia for this player
 const playerMilitia = computed(() => {
   return props.sector.rebelMilitia[String(props.playerPosition)] || 0;
 });

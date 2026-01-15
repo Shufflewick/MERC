@@ -6,8 +6,8 @@ import { UI_COLORS, getPlayerColor } from '../colors';
 interface MercData {
   combatantId?: string;
   combatantName?: string;
-  mercId?: string; // backward compat
-  mercName?: string; // backward compat
+  mercId?: string;
+  mercName?: string;
   image?: string;
   baseTraining?: number;
   baseCombat?: number;

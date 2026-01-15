@@ -330,7 +330,7 @@ function getCombatantDisplay(combatant: any) {
     isAttackDog,
     health: combatant.health ?? (isAttackDog ? 3 : 1),
     maxHealth: combatant.maxHealth ?? defaultMaxHealth,
-    mercId: combatant.combatantId || combatant.mercId, // backward compat
+    mercId: combatant.combatantId || combatant.mercId,
     image,
     isDead: (combatant.health ?? 1) <= 0,
   };
