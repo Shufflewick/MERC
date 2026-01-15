@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** Cleanup complete - codebase ready for future development
+**Current focus:** Eradicate legacy ID naming patterns (mercId/dictatorId → combatantId)
 
 ## Current Position
 
-Phase: 27 of 27 (Documentation)
-Plan: 1 of 1 in current phase
-Status: Phase complete, milestone complete
-Last activity: 2026-01-15 — Completed 27-01-PLAN.md
+Phase: 28 of 30 (Remove Legacy Comments)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-15 — Milestone v1.6 created
 
-Progress: ██████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Milestones Completed
 
@@ -51,9 +51,10 @@ None active. (Previous 56 test failures now passing)
 ### Roadmap Evolution
 
 - Milestone v1.5 completed: Final Combatant Unification, 4 phases (Phase 24-27)
+- Milestone v1.6 created: Final ID Cleanup, 3 phases (Phase 28-30)
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: All milestones complete - v1.5 shipped
+Stopped at: Milestone v1.6 initialization
 Resume file: None

@@ -12,6 +12,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
 - ✅ **v1.4 Combatant Naming Unification** — Phases 20-23 (shipped 2026-01-14)
 - ✅ **v1.5 Final Combatant Unification** — Phases 24-27 (shipped 2026-01-15)
+- 🚧 **v1.6 Final ID Cleanup** — Phases 28-30 (in progress)
 
 ## Completed Milestones
 
@@ -143,6 +144,9 @@ Plans:
 | 25. Remove ID Aliases | v1.5 | 4/4 | Complete | 2026-01-15 |
 | 26. Update References | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 27. Documentation | v1.5 | 1/1 | Complete | 2026-01-15 |
+| 28. Remove Legacy Comments | v1.6 | 0/? | Not started | - |
+| 29. Rules Layer ID Cleanup | v1.6 | 0/? | Not started | - |
+| 30. UI Layer ID Cleanup | v1.6 | 0/? | Not started | - |
 
 <details>
 <summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
@@ -166,9 +170,43 @@ Plans:
 
 </details>
 
+### 🚧 v1.6 Final ID Cleanup (In Progress)
+
+**Milestone Goal:** Eradicate all legacy mercId/dictatorId/mercName/dictatorName patterns from the codebase, leaving only combatantId/combatantName
+
+#### Phase 28: Remove Legacy Comments
+
+**Goal**: Clean up backward-compat and legacy comments from recent refactors
+**Depends on**: Previous milestone complete
+**Research**: Unlikely (internal cleanup)
+**Plans**: TBD
+
+Plans:
+- [ ] 28-01: TBD (run /gsd:plan-phase 28 to break down)
+
+#### Phase 29: Rules Layer ID Cleanup
+
+**Goal**: Replace mercId/dictatorId with combatantId in src/rules/ (~172 occurrences, 10 files)
+**Depends on**: Phase 28
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 29-01: TBD
+
+#### Phase 30: UI Layer ID Cleanup
+
+**Goal**: Replace mercName/dictatorName with combatantName in src/ui/ (~135 occurrences, 8 files) + tests (~13 occurrences, 5 files)
+**Depends on**: Phase 29
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 30-01: TBD
+
 ## Status
 
-All milestones complete. v1.5 Final Combatant Unification shipped 2026-01-15.
+v1.6 Final ID Cleanup in progress (Phases 28-30).
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) — Type safety and ship confidence
