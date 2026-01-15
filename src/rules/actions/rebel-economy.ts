@@ -573,7 +573,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
   // Helper to find the unit that explored
   function findExplorerUnit(ctx: { player: unknown }): CombatantModel | null {
     if (!game.lastExplorer) return null;
-    const unitId = game.lastExplorer.mercId;
+    const unitId = game.lastExplorer.combatantId;
 
     if (game.isRebelPlayer(ctx.player)) {
       const player = asRebelPlayer(ctx.player);
@@ -667,12 +667,12 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         sector.addToStash(replaced);
         game.message(`${unitName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
         // Allow taking more since there's still stash (reset explorer)
-        game.lastExplorer = { mercId: String(targetUnit.id), sectorId: sector.sectorId };
+        game.lastExplorer = { combatantId: String(targetUnit.id), sectorId: sector.sectorId };
       } else {
         game.message(`${unitName} equipped ${equipment.equipmentName}`);
         // Allow taking more if stash still has items
         if (sector.stash.length > 0) {
-          game.lastExplorer = { mercId: String(targetUnit.id), sectorId: sector.sectorId };
+          game.lastExplorer = { combatantId: String(targetUnit.id), sectorId: sector.sectorId };
         }
       }
 

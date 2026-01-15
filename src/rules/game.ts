@@ -491,7 +491,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     pendingHitAllocation?: {
       attackerId: string;
       attackerName: string;
-      attackerMercId: string; // For ability checks (Basic, Wolverine)
+      attackerCombatantId: string; // For ability checks (Basic, Wolverine)
       diceRolls: number[]; // The actual dice values
       hits: number; // Number of successful hits (4+, or 3+ for Lucid)
       hitThreshold: number; // What counts as a hit (4 normally, 3 for Lucid)
@@ -522,10 +522,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     };
     // Epinephrine Shot choice - pause when a MERC takes lethal damage
     pendingEpinephrine?: {
-      dyingMercId: number;
-      dyingMercName: string;
-      dyingMercSide: 'rebel' | 'dictator';
-      availableSavers: Array<{ mercId: number; mercName: string }>;
+      dyingCombatantId: number;
+      dyingCombatantName: string;
+      dyingCombatantSide: 'rebel' | 'dictator';
+      availableSavers: Array<{ combatantId: number; combatantName: string }>;
     };
   } | null = null;
 
@@ -570,7 +570,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Track last explorer for "Take from stash" action
   // Only the MERC who just explored can take from stash (until they do or action changes)
-  lastExplorer: { mercId: string; sectorId: string } | null = null;
+  lastExplorer: { combatantId: string; sectorId: string } | null = null;
 
   // Pending loot cache for explore action
   // Caches equipment IDs during selection phase to avoid multiple draws
