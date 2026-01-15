@@ -482,7 +482,7 @@ export function performSetup(game: MERCGame, options: SetupOptions): void {
   game.message('=== Setup Complete ===');
   game.message('Map: All sectors unexplored');
   if (game.dictatorPlayer?.dictator) {
-    game.message(`Dictator: ${game.dictatorPlayer.dictator.dictatorName} selected`);
+    game.message(`Dictator: ${game.dictatorPlayer.dictator.combatantName} selected`);
   } else {
     game.message('Dictator: Will be selected on Day 1');
   }
@@ -551,7 +551,7 @@ export function getSetupSummary(game: MERCGame): string {
   lines.push(`  Wilderness: ${wilderness.length}`);
 
   if (game.dictatorPlayer?.dictator) {
-    lines.push(`Dictator: ${game.dictatorPlayer.dictator.dictatorName}`);
+    lines.push(`Dictator: ${game.dictatorPlayer.dictator.combatantName}`);
   }
 
   if (game.dictatorPlayer?.tacticsDeck) {

@@ -41,7 +41,7 @@ export interface DictatorAbilityResult {
  */
 export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   const dictator = game.dictatorPlayer.dictator;
-  if (!dictator || dictator.dictatorId !== 'kim') {
+  if (!dictator || dictator.combatantId !== 'kim') {
     return { success: false, message: 'Not Kim' };
   }
 
@@ -74,7 +74,7 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
     const freeEquipment = game.drawEquipment(equipType);
     if (freeEquipment) {
       dictator.equip(freeEquipment);
-      game.message(`${dictator.dictatorName} equipped ${freeEquipment.equipmentName}`);
+      game.message(`${dictator.combatantName} equipped ${freeEquipment.equipmentName}`);
     }
   }
 
@@ -103,7 +103,7 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
  */
 export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   const dictator = game.dictatorPlayer.dictator;
-  if (!dictator || dictator.dictatorId !== 'castro') {
+  if (!dictator || dictator.combatantId !== 'castro') {
     return { success: false, message: 'Not Castro' };
   }
 
@@ -152,12 +152,12 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
     }
   }
 
-  game.message(`Castro hired ${bestMerc.mercName} (chose from ${drawnMercs.length} MERCs)`);
+  game.message(`Castro hired ${bestMerc.combatantName} (chose from ${drawnMercs.length} MERCs)`);
 
   return {
     success: true,
-    message: `Hired ${bestMerc.mercName}`,
-    data: { hiredMerc: bestMerc.mercName },
+    message: `Hired ${bestMerc.combatantName}`,
+    data: { hiredMerc: bestMerc.combatantName },
   };
 }
 
@@ -168,7 +168,7 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
  */
 export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
   const dictator = game.dictatorPlayer.dictator;
-  if (!dictator || dictator.dictatorId !== 'kim') {
+  if (!dictator || dictator.combatantId !== 'kim') {
     return { success: false, message: 'Not Kim' };
   }
 
@@ -257,7 +257,7 @@ export function applyDictatorSetupAbilities(game: MERCGame): void {
   const dictator = game.dictatorPlayer.dictator;
   if (!dictator) return;
 
-  switch (dictator.dictatorId) {
+  switch (dictator.combatantId) {
     case 'kim':
       applyKimSetupAbility(game);
       break;
@@ -277,7 +277,7 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
   const dictator = game.dictatorPlayer.dictator;
   if (!dictator) return;
 
-  switch (dictator.dictatorId) {
+  switch (dictator.combatantId) {
     case 'castro':
       applyCastroTurnAbility(game);
       break;

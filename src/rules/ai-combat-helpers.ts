@@ -172,7 +172,7 @@ export function detonateLandMines(
     for (const merc of mercsInSector) {
       merc.takeDamage(1);
       damageDealt++;
-      game.message(`Land mine deals 1 damage to ${merc.mercName}`);
+      game.message(`Land mine deals 1 damage to ${merc.combatantName}`);
     }
   }
 

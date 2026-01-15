@@ -39,7 +39,7 @@ export function sortMercsByInitiative(mercs: MercCard[]): MercCard[] {
       return b.initiative - a.initiative;
     }
     // Tie-breaker: alphabetical
-    return a.mercName.localeCompare(b.mercName);
+    return a.combatantName.localeCompare(b.combatantName);
   });
 }
 

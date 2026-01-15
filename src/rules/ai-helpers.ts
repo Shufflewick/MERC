@@ -397,7 +397,7 @@ export function sortEquipmentByAIPriority(equipment: Equipment[]): Equipment[] {
  * Per rules 4.7.1: Equip MERCs in alphabetical order.
  */
 export function sortMercsAlphabetically(mercs: MercCard[]): MercCard[] {
-  return [...mercs].sort((a, b) => a.mercName.localeCompare(b.mercName));
+  return [...mercs].sort((a, b) => a.combatantName.localeCompare(b.combatantName));
 }
 
 // =============================================================================
@@ -502,8 +502,8 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
 
   // Sort MERCs alphabetically (dictator card goes last)
   const sortedUnits = units.sort((a, b) => {
-    const nameA = a.isMerc ? a.mercName : 'ZZZZZ'; // Dictator card at end
-    const nameB = b.isMerc ? b.mercName : 'ZZZZZ';
+    const nameA = a.isMerc ? a.combatantName : 'ZZZZZ'; // Dictator card at end
+    const nameB = b.isMerc ? b.combatantName : 'ZZZZZ';
     return nameA.localeCompare(nameB);
   });
 
@@ -542,7 +542,7 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
       equippedCount++;
 
       if (unit.isMerc) {
-        game.message(`${unit.mercName} equipped ${equipment.equipmentName}`);
+        game.message(`${unit.combatantName} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`Dictator equipped ${equipment.equipmentName}`);
       }
@@ -765,7 +765,7 @@ export function useRepairKit(game: MERCGame, sector: Sector, merc: MercCard): bo
     repairKit.putInto(discard);
   }
 
-  game.message(`${merc.mercName} used Repair Kit and healed ${healed} damage`);
+  game.message(`${merc.combatantName} used Repair Kit and healed ${healed} damage`);
   return true;
 }
 
@@ -780,7 +780,7 @@ export function getMostDamagedMerc(mercs: MercCard[]): MercCard | null {
   // Sort by health (lowest first), then alphabetically
   return damaged.sort((a, b) => {
     if (a.health !== b.health) return a.health - b.health;
-    return a.mercName.localeCompare(b.mercName);
+    return a.combatantName.localeCompare(b.combatantName);
   })[0];
 }
 

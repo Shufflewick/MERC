@@ -58,13 +58,13 @@ export const MERC_INCOMPATIBILITIES: Record<string, string[]> = {
 export function canHireMercWithTeam(mercId: string, team: MercCard[]): boolean {
   // Check if new MERC is incompatible with anyone on team
   const newMercIncompat = MERC_INCOMPATIBILITIES[mercId] || [];
-  if (team.some(m => newMercIncompat.includes(m.mercId))) {
+  if (team.some(m => newMercIncompat.includes(m.combatantId))) {
     return false;
   }
 
   // Check if anyone on team is incompatible with the new MERC
   for (const member of team) {
-    const memberIncompat = MERC_INCOMPATIBILITIES[member.mercId] || [];
+    const memberIncompat = MERC_INCOMPATIBILITIES[member.combatantId] || [];
     if (memberIncompat.includes(mercId)) {
       return false;
     }
@@ -113,7 +113,7 @@ export function canTrainWith(merc: MercCard, cost: number): boolean {
   // Regular actions work for anyone
   if (merc.actionsRemaining >= cost) return true;
   // Faustina can also use her training-only action
-  if (merc.mercId === 'faustina' && merc.trainingActionsRemaining >= cost) return true;
+  if (merc.combatantId === 'faustina' && merc.trainingActionsRemaining >= cost) return true;
   return false;
 }
 
@@ -123,7 +123,7 @@ export function canTrainWith(merc: MercCard, cost: number): boolean {
  */
 export function useTrainingAction(merc: MercCard, cost: number): boolean {
   // Faustina uses her training-only action first
-  if (merc.mercId === 'faustina' && merc.trainingActionsRemaining >= cost) {
+  if (merc.combatantId === 'faustina' && merc.trainingActionsRemaining >= cost) {
     merc.trainingActionsRemaining -= cost;
     return true;
   }
@@ -196,8 +196,8 @@ export function clearGlobalCachedValue(game: MERCGame, key: string): void {
  * Get all dictator combatants that can take actions (MERCs + dictator card if in play)
  * Returns items with a common interface: id, actionsRemaining, isDead, sectorId
  */
-export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<MercCard | { id: number; mercId: string; mercName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> {
-  const combatants: Array<MercCard | { id: number; mercId: string; mercName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> = [];
+export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<MercCard | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> {
+  const combatants: Array<MercCard | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> = [];
 
   // Add hired MERCs with enough actions
   const hiredMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -208,8 +208,8 @@ export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): 
   if (dictatorCard?.inPlay && !dictatorCard.isDead && dictatorCard.actionsRemaining >= cost) {
     combatants.push({
       id: dictatorCard.id,
-      mercId: `dictator-${dictatorCard.dictatorId}`,
-      mercName: dictatorCard.dictatorName,
+      combatantId: `dictator-${dictatorCard.combatantId}`,
+      combatantName: dictatorCard.combatantName,
       actionsRemaining: dictatorCard.actionsRemaining,
       isDead: dictatorCard.isDead,
       sectorId: dictatorCard.sectorId,
@@ -266,10 +266,7 @@ export function isDictatorCard(unit: unknown): unit is DictatorCard {
  * Works with any unit type that has mercName or dictatorName.
  */
 export function getUnitName(unit: MercCard | DictatorCard): string {
-  if (unit.isDictator) {
-    return (unit as DictatorCard).dictatorName;
-  }
-  return (unit as MercCard).mercName;
+  return unit.combatantName;
 }
 
 /**
@@ -461,18 +458,18 @@ export function equipNewHire(
   let freeEquipment = game.drawEquipment(equipType);
 
   // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
-  if (merc.mercId === 'apeiron' && freeEquipment && isGrenadeOrMortar(freeEquipment)) {
+  if (merc.combatantId === 'apeiron' && freeEquipment && isGrenadeOrMortar(freeEquipment)) {
     const discard = game.getEquipmentDiscard(equipType);
     if (discard) {
       freeEquipment.putInto(discard);
-      game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
+      game.message(`${merc.combatantName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
     }
     freeEquipment = game.drawEquipment(equipType);
     // Keep redrawing up to 3 times if still getting grenades
     for (let attempts = 0; attempts < 3 && freeEquipment && isGrenadeOrMortar(freeEquipment); attempts++) {
       if (discard) {
         freeEquipment.putInto(discard);
-        game.message(`${merc.mercName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
+        game.message(`${merc.combatantName} refuses to use ${freeEquipment.equipmentName} - discarding and drawing again`);
       }
       freeEquipment = game.drawEquipment(equipType);
     }
@@ -481,7 +478,7 @@ export function equipNewHire(
       const disc = game.getEquipmentDiscard(equipType);
       if (disc) freeEquipment.putInto(disc);
       freeEquipment = undefined;
-      game.message(`${merc.mercName} could not find acceptable equipment`);
+      game.message(`${merc.combatantName} could not find acceptable equipment`);
     }
   }
 
@@ -492,15 +489,15 @@ export function equipNewHire(
       const discard = game.getEquipmentDiscard(replaced.equipmentType);
       if (discard) replaced.putInto(discard);
     }
-    game.message(`${merc.mercName} equipped free ${freeEquipment.equipmentName}`);
+    game.message(`${merc.combatantName} equipped free ${freeEquipment.equipmentName}`);
   }
 
   // MERC-9mxd: Vrbansk gets a free accessory when hired
-  if (merc.mercId === 'vrbansk' && !merc.accessorySlot) {
+  if (merc.combatantId === 'vrbansk' && !merc.accessorySlot) {
     const freeAccessory = game.drawEquipment('Accessory');
     if (freeAccessory) {
       merc.equip(freeAccessory);
-      game.message(`${merc.mercName} receives bonus accessory: ${freeAccessory.equipmentName}`);
+      game.message(`${merc.combatantName} receives bonus accessory: ${freeAccessory.equipmentName}`);
     }
   }
 }

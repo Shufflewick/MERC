@@ -105,7 +105,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Skip if Teresa is not on the team
                   const player = ctx.player;
                   if (!game.isRebelPlayer(player)) return true;
-                  const hasTeresa = player.team?.some((m: any) => m.mercId === 'teresa');
+                  const hasTeresa = player.team?.some((m: any) => m.combatantId === 'teresa');
                   return !hasTeresa;
                 },
               }),
@@ -147,7 +147,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   // Skip if not Kim, or AI, or base already set
-                  return dictator?.dictatorId !== 'kim' ||
+                  return dictator?.combatantId !== 'kim' ||
                          game.dictatorPlayer?.isAI === true ||
                          !!game.dictatorPlayer?.baseSectorId;
                 },
@@ -161,7 +161,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 prompt: "Apply Kim's ability",
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
-                  return dictator?.dictatorId !== 'kim';
+                  return dictator?.combatantId !== 'kim';
                 },
               }),
 
@@ -180,7 +180,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   // Skip for Kim (already applied above)
-                  return dictator?.dictatorId === 'kim';
+                  return dictator?.combatantId === 'kim';
                 },
               }),
 
