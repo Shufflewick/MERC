@@ -10,7 +10,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ## Current State
 
-**Shipped:** v1.4 Combatant Naming Unification (2026-01-14)
+**Shipped:** v1.5 Final Combatant Unification (2026-01-15)
 
 - 32,090 lines of TypeScript/Vue (modular structure)
 - Zero `as any` casts in src/rules/
@@ -51,6 +51,9 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Type guard renaming — isCombatUnitCard → isCombatantModel with backward-compat alias — v1.4
 - ✓ Vue component renaming — MercCard.vue → CombatantCard.vue — v1.4
 - ✓ Architecture documentation — CLAUDE.md guide with class hierarchy and conventions — v1.4
+- ✓ CombatantModel concrete class — single unified class with cardType discriminator — v1.5
+- ✓ Removed ID aliases — only combatantId/combatantName identity properties — v1.5
+- ✓ Removed backward-compat exports — clean CombatantModel-based types — v1.5
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -116,9 +119,9 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | Shared equipNewHire helper | Single function for all 4 hire paths | ✓ Good |
 | isDefeated includes base capture | Dictator loses when dead OR base captured | ✓ Good |
 | Abstract getters for identity | combatantId/combatantName via abstract getters allows subclass implementations | ✓ Good |
-| CombatantModel abstract class | Cannot be instantiated directly, only MercCard/DictatorCard | ✓ Good |
-| Backward-compat export aliases | CombatUnit, CombatUnitCard, isCombatUnitCard for gradual migration | ✓ Good |
+| CombatantModel concrete class | Single class with cardType discriminator; MercCard/DictatorCard as subclasses | ✓ Good |
+| No backward-compat aliases | Clean exports only - migration complete | ✓ Good |
 | className strings preserved | MercCard/DictatorCard classRegistry keys must match TypeScript class names | ✓ Good |
 
 ---
-*Last updated: 2026-01-14 after v1.4 milestone*
+*Last updated: 2026-01-15 after v1.5 milestone*
