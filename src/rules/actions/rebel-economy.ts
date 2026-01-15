@@ -399,11 +399,11 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: actingUnit.id,
+              combatantId: actingUnit.id,
               sectorId: sector.id,
             },
             display: {
-              mercId: capitalize(unitName),
+              combatantId: capitalize(unitName),
               sectorId: sector.sectorName,
             },
           },
@@ -455,15 +455,15 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     return element instanceof Sector ? element : undefined;
   }
 
-  // Helper to resolve unit from ctx.args (mercId is numeric element ID)
+  // Helper to resolve unit from ctx.args (combatantId is numeric element ID)
   // Handles both merc and dictator combatants
   function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
-    const mercArg = ctx.args?.mercId;
+    const combatantArg = ctx.args?.combatantId;
     let id: number | undefined;
-    if (typeof mercArg === 'number') {
-      id = mercArg;
-    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      id = (mercArg as { id: number }).id;
+    if (typeof combatantArg === 'number') {
+      id = combatantArg;
+    } else if (combatantArg && typeof combatantArg === 'object' && 'id' in combatantArg) {
+      id = (combatantArg as { id: number }).id;
     }
     if (id === undefined) return undefined;
 
@@ -544,11 +544,11 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'collectEquipment',
             args: {
-              mercId: ctx.args?.mercId,
+              combatantId: ctx.args?.combatantId,
               sectorId: ctx.args?.sectorId,
             },
             display: {
-              mercId: capitalize(unitName),
+              combatantId: capitalize(unitName),
               sectorId: sector.sectorName,
             },
           },
