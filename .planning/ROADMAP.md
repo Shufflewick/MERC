@@ -25,15 +25,15 @@ A systematic cleanup moving from type safety foundations through code quality im
 
 **Milestone Goal:** Eliminate MercCard/DictatorCard subclasses entirely, unifying on single CombatantModel class with cardType discriminator
 
-#### Phase 24: Merge Classes
+#### Phase 24: Merge Classes ✅
 
 **Goal**: Collapse MercCard/DictatorCard into CombatantModel, eliminating class hierarchy
 **Depends on**: Previous milestone complete
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 1 complete
 
 Plans:
-- [ ] 24-01: TBD (run /gsd:plan-phase 24 to break down)
+- [x] 24-01: Make CombatantModel concrete with unified ID properties
 
 #### Phase 25: Remove ID Aliases
 
@@ -123,7 +123,7 @@ Plans:
 | 21. Vue Component Renaming | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 22. Reference Updates | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 23. Documentation | v1.4 | 1/1 | Complete | 2026-01-14 |
-| 24. Merge Classes | v1.5 | 0/? | Not started | - |
+| 24. Merge Classes | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 25. Remove ID Aliases | v1.5 | 0/? | Not started | - |
 | 26. Update References | v1.5 | 0/? | Not started | - |
 | 27. Documentation | v1.5 | 0/? | Not started | - |
