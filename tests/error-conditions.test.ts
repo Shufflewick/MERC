@@ -431,7 +431,7 @@ describe('Error Conditions', () => {
         const merc = game.mercDeck.first(MercCard);
         if (merc) {
           merc.putInto(rebel.primarySquad);
-          merc.sectorId = sector.sectorId;
+          // sectorId inherited from squad
           merc.actionsRemaining = 0;
 
           expect(hasActionsRemaining(rebel, 1)).toBe(false);
@@ -445,12 +445,11 @@ describe('Error Conditions', () => {
 
         const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
         if (mercs.length >= 2) {
+          // sectorId inherited from squad
           mercs[0].putInto(rebel.primarySquad);
-          mercs[0].sectorId = sector.sectorId;
           mercs[0].actionsRemaining = 0; // Exhausted
 
           mercs[1].putInto(rebel.primarySquad);
-          mercs[1].sectorId = sector.sectorId;
           mercs[1].actionsRemaining = 2; // Has actions
 
           expect(hasActionsRemaining(rebel, 1)).toBe(true);
@@ -467,7 +466,7 @@ describe('Error Conditions', () => {
         const merc = game.mercDeck.first(MercCard);
         if (merc) {
           merc.putInto(rebel.primarySquad);
-          merc.sectorId = sector.sectorId;
+          // sectorId inherited from squad
           merc.actionsRemaining = 2;
 
           // Hire cost is 2
@@ -496,7 +495,7 @@ describe('Error Conditions', () => {
         const merc = game.mercDeck.first(MercCard);
         if (merc) {
           merc.putInto(rebel.primarySquad);
-          merc.sectorId = sector.sectorId;
+          // sectorId inherited from squad
 
           const foundSector = findUnitSector(merc, rebel, game);
           expect(foundSector).toBe(sector);
@@ -541,7 +540,9 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
 
         if (dictatorCard) {
-          dictatorCard.sectorId = sector.sectorId;
+          // sectorId inherited from squad
+          dictator.baseSquad.sectorId = sector.sectorId;
+          dictatorCard.putInto(dictator.baseSquad);
           dictatorCard.inPlay = true;
           dictator.baseSectorId = sector.sectorId;
 
@@ -555,7 +556,7 @@ describe('Error Conditions', () => {
         const dictatorCard = dictator?.dictator;
 
         if (dictatorCard) {
-          dictatorCard.sectorId = '';
+          // No squad placement = undefined sectorId
           const foundSector = findUnitSector(dictatorCard, dictator, game);
           expect(foundSector).toBeNull();
         }
@@ -720,7 +721,7 @@ describe('Error Conditions', () => {
         const merc = game.mercDeck.first(MercCard);
         if (merc) {
           merc.putInto(rebel.primarySquad);
-          merc.sectorId = sector.sectorId;
+          // sectorId inherited from squad
           merc.actionsRemaining = 0; // Exhausted
 
           expect(merc.actionsRemaining).toBe(0);
@@ -775,7 +776,7 @@ describe('Error Conditions', () => {
         const merc = game.mercDeck.first(MercCard);
         if (merc) {
           merc.putInto(rebel.primarySquad);
-          merc.sectorId = sector.sectorId;
+          // sectorId inherited from squad
 
           // Team limit should be BASE (1 per constants) + controlled sectors
           const teamLimit = rebel.getTeamLimit(game);
@@ -897,7 +898,7 @@ describe('Error Conditions', () => {
           const merc = game.mercDeck.first(MercCard);
           if (merc) {
             merc.putInto(rebel.primarySquad);
-            merc.sectorId = sector.sectorId;
+            // sectorId inherited from squad
           }
 
           // Make sure dictator card is dead or not in play
@@ -919,7 +920,7 @@ describe('Error Conditions', () => {
         const merc = game.mercDeck.first(MercCard);
         if (merc) {
           merc.putInto(rebel.primarySquad);
-          merc.sectorId = sector.sectorId;
+          // sectorId inherited from squad
         }
 
         const points = game.calculateVictoryPoints();

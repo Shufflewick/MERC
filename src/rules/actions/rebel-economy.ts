@@ -192,8 +192,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             }
           }
 
-          // Clear sectorId so fired MERC doesn't show on map
-          mercToFire.sectorId = undefined;
+          // Move to discard - sectorId becomes undefined automatically via computed getter
           mercToFire.putInto(game.mercDiscard);
           if (droppedEquipment.length > 0) {
             game.message(`Fired ${mercToFire.mercName}, dropped ${droppedEquipment.join(', ')} to stash`);
@@ -214,9 +213,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       for (const merc of drawnMercs) {
         if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
+          // Merc inherits sectorId from squad via computed getter
           merc.putInto(targetSquad);
-          // Sync merc's sectorId with the squad they joined
-          merc.sectorId = targetSquad.sectorId;
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
 

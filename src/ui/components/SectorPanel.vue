@@ -57,6 +57,10 @@ const props = defineProps<{
     sectorId: string;
     mercs: any[];
   };
+  baseSquad?: {
+    sectorId: string;
+    mercs: any[];
+  };
   // All sectors for adjacency calculation
   allSectors: Array<{
     sectorId: string;
@@ -239,15 +243,27 @@ const effectiveExplored = computed(() => {
   return props.sector.explored || isExplorationInProgress.value;
 });
 
-// Get which squad is in this sector
+// Get which squad is in this sector (combines all squads at same location)
 const squadInSector = computed(() => {
+  const mercs: any[] = [];
+  let name = '';
+
+  // Collect mercs from all squads at this sector
   if (props.primarySquad?.sectorId === props.sector.sectorId) {
-    return { name: 'Primary Squad', mercs: props.primarySquad.mercs || [] };
+    mercs.push(...(props.primarySquad.mercs || []));
+    name = 'Primary Squad';
   }
   if (props.secondarySquad?.sectorId === props.sector.sectorId) {
-    return { name: 'Secondary Squad', mercs: props.secondarySquad.mercs || [] };
+    mercs.push(...(props.secondarySquad.mercs || []));
+    name = name ? `${name} + Secondary` : 'Secondary Squad';
   }
-  return null;
+  if (props.baseSquad?.sectorId === props.sector.sectorId) {
+    mercs.push(...(props.baseSquad.mercs || []));
+    name = name ? `${name} + Base` : 'Base';
+  }
+
+  if (mercs.length === 0) return null;
+  return { name, mercs };
 });
 
 // Get MERC or Dictator image path

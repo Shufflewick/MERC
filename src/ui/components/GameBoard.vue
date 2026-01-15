@@ -100,6 +100,12 @@ function findAllByClassName(className: string, root?: any): any[] {
   return results;
 }
 
+// Find the dictator combatant (DictatorCard className)
+function findDictatorCombatant(root?: any): any {
+  // Try both with and without underscore prefix (BoardSmith serialization quirk)
+  return findByClassName('DictatorCard', root) || findByClassName('_DictatorCard', root);
+}
+
 // Find element by ref (id)
 function findByRef(ref: string, root?: any): any {
   if (!root) root = props.gameView;
@@ -599,9 +605,8 @@ const allMercs = computed(() => {
         // Skip dead MERCs
         if (isMercDead(merc)) continue;
 
-        if (mercId || merc.className === 'MercCard') {
-          // Use merc's own sectorId if set (important for dictator mercs who can be
-          // in different locations than their squad), otherwise fall back to squad's sectorId
+        if (mercId || normalizeClassName(merc.className) === 'MercCard') {
+          // Use squad's sectorId (sectorId is now a computed getter on combatants)
           const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
           mercs.push({
             ...merc,
@@ -614,45 +619,53 @@ const allMercs = computed(() => {
     }
   }
 
-  // Find dictator MERCs
-  const dictatorMercs = findAllByClassName('MercCard');
-  for (const merc of dictatorMercs) {
-    // Skip dead MERCs
-    if (isMercDead(merc)) continue;
+  // Find dictator combatants by iterating through dictator squads
+  // This approach gets sectorId from the squad (where it's stored) rather than
+  // trying to backtrack from combatants (sectorId is now a computed getter on combatants)
+  const allSquads = findAllByClassName('Squad');
+  const dictatorSquads = allSquads.filter((s: any) => {
+    const name = getAttr(s, 'name', '') || s.ref || '';
+    return name.includes('dictator');
+  });
 
-    const mercId = getAttr(merc, 'mercId', '') || merc.ref;
-    const sectorId = getAttr(merc, 'sectorId', '');
-    if (mercId && sectorId) {
-      const exists = mercs.some((m) => m.mercId === mercId);
-      if (!exists) {
-        mercs.push({
-          ...merc,
-          mercId,
-          playerColor: 'dictator',
-        });
+  for (const squad of dictatorSquads) {
+    const squadSectorId = getAttr(squad, 'sectorId', '');
+    if (!squadSectorId) continue;
+
+    for (const child of (squad.children || [])) {
+      const className = normalizeClassName(child.className);
+
+      if (className === 'MercCard') {
+        if (isMercDead(child)) continue;
+        const mercId = getAttr(child, 'mercId', '') || child.ref;
+        const exists = mercs.some((m) => m.mercId === mercId);
+        if (!exists) {
+          mercs.push({
+            ...child,
+            mercId,
+            sectorId: squadSectorId,
+            playerColor: 'dictator',
+          });
+        }
       }
-    }
-  }
 
-  // Include the dictator himself when in play (base revealed)
-  const dictatorCards = findAllByClassName('DictatorCard');
-  for (const dictator of dictatorCards) {
-    const inPlay = getAttr(dictator, 'inPlay', false);
-    const sectorId = getAttr(dictator, 'sectorId', '');
-    const isDead = getAttr(dictator, 'damage', 0) >= 10; // DictatorCard uses same health as MERCs
+      if (className === 'DictatorCard') {
+        const inPlay = getAttr(child, 'inPlay', false);
+        const isDead = getAttr(child, 'damage', 0) >= 10;
+        if (!inPlay || isDead) continue;
 
-    if (inPlay && sectorId && !isDead) {
-      const dictatorId = getAttr(dictator, 'dictatorId', '');
-      const exists = mercs.some((m) => m.mercId === `dictator-${dictatorId}`);
-      if (!exists) {
-        mercs.push({
-          ...dictator,
-          mercId: `dictator-${dictatorId}`,
-          mercName: getAttr(dictator, 'dictatorName', 'The Dictator'),
-          sectorId,
-          playerColor: 'dictator',
-          image: getAttr(dictator, 'image', ''),
-        });
+        const dictatorId = getAttr(child, 'dictatorId', '');
+        const exists = mercs.some((m) => m.mercId === `dictator-${dictatorId}`);
+        if (!exists) {
+          mercs.push({
+            ...child,
+            mercId: `dictator-${dictatorId}`,
+            mercName: getAttr(child, 'dictatorName', 'The Dictator'),
+            sectorId: squadSectorId,
+            playerColor: 'dictator',
+            image: getAttr(child, 'image', ''),
+          });
+        }
       }
     }
   }
@@ -796,7 +809,7 @@ const secondarySquad = computed(() => {
   };
 });
 
-// Helper to build a dictator squad with DictatorCard included when present
+// Helper to build a dictator squad with dictator combatant included when present
 function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: any | null) {
   const sectorId = getAttr(squad, 'sectorId', '');
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
@@ -852,9 +865,8 @@ const dictatorPrimarySquad = computed(() => {
 
   if (!squad) return undefined;
 
-  // Find dictator card to check if it should be included
-  let dictatorCardNode = findByClassName('DictatorCard');
-  if (!dictatorCardNode) dictatorCardNode = findByClassName('_DictatorCard');
+  // Find dictator combatant to check if it should be included
+  const dictatorCardNode = findDictatorCombatant();
 
   return buildDictatorSquad(squad, true, dictatorCardNode);
 });
@@ -871,9 +883,8 @@ const dictatorSecondarySquad = computed(() => {
 
   if (!squad) return undefined;
 
-  // Find dictator card to check if it should be included
-  let dictatorCardNode = findByClassName('DictatorCard');
-  if (!dictatorCardNode) dictatorCardNode = findByClassName('_DictatorCard');
+  // Find dictator combatant to check if it should be included
+  const dictatorCardNode = findDictatorCombatant();
 
   return buildDictatorSquad(squad, false, dictatorCardNode);
 });
@@ -952,14 +963,11 @@ const dictatorCard = computed(() => {
     dictatorPlayer = findByClassName('_DictatorPlayer');
   }
 
-  // Find dictator card in player (or in entire game view as fallback)
-  let dictatorCardNode = dictatorPlayer ? findByClassName('DictatorCard', dictatorPlayer) : null;
-  if (!dictatorCardNode) {
-    dictatorCardNode = findByClassName('_DictatorCard', dictatorPlayer || props.gameView);
-  }
+  // Find dictator combatant (DictatorCard)
+  let dictatorCardNode = dictatorPlayer ? findDictatorCombatant(dictatorPlayer) : null;
   if (!dictatorCardNode) {
     // Search entire gameView
-    dictatorCardNode = findByClassName('DictatorCard');
+    dictatorCardNode = findDictatorCombatant();
   }
 
   // If we still can't find it, return a placeholder so panel still shows
@@ -1007,14 +1015,11 @@ const dictatorCard = computed(() => {
 });
 
 // Get dictator base sector if revealed (visible to all players for map icon)
-// Get the permanent base sector location from DictatorCard.baseSectorId
+// Get the permanent base sector location from baseSectorId on dictator combatant
 // This is separate from sectorId (which is the dictator's current location)
 const dictatorBaseSectorId = computed(() => {
-  // Find the DictatorCard
-  let dictatorCardNode = findByClassName('DictatorCard');
-  if (!dictatorCardNode) {
-    dictatorCardNode = findByClassName('_DictatorCard');
-  }
+  // Find the dictator combatant
+  const dictatorCardNode = findDictatorCombatant();
   if (!dictatorCardNode) {
     return undefined;
   }
@@ -1176,7 +1181,7 @@ function calculateDictatorVictoryPoints(): number {
 // Check if the game is over
 const isGameOver = computed(() => {
   // 1. Check for dictator defeat (base revealed + dictator dead)
-  const dictatorCardNode = findByClassName('DictatorCard') || findByClassName('_DictatorCard');
+  const dictatorCardNode = findDictatorCombatant();
   if (dictatorCardNode) {
     const baseRevealed = getAttr(dictatorCardNode, 'inPlay', false);
     const damage = getAttr(dictatorCardNode, 'damage', 0);
@@ -1212,7 +1217,7 @@ const gameWinner = computed(() => {
   if (!isGameOver.value) return null;
 
   // 1. Check dictator defeat (rebels win)
-  const dictatorCardNode = findByClassName('DictatorCard') || findByClassName('_DictatorCard');
+  const dictatorCardNode = findDictatorCombatant();
   if (dictatorCardNode) {
     const baseRevealed = getAttr(dictatorCardNode, 'inPlay', false);
     const damage = getAttr(dictatorCardNode, 'damage', 0);
@@ -2310,6 +2315,7 @@ const clickableSectors = computed(() => {
       :game-view="gameView"
       :primary-squad="currentPlayerIsDictator ? dictatorPrimarySquad : primarySquad"
       :secondary-squad="currentPlayerIsDictator ? dictatorSecondarySquad : secondarySquad"
+      :base-squad="currentPlayerIsDictator ? dictatorBaseSquad : undefined"
       :all-sectors="sectors"
       :stash-contents="selectedSectorStash"
       :has-doc="hasDoc"

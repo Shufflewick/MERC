@@ -251,7 +251,7 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
     // MERC-2ay: Place at sector closest to weakest rebel per AI rules 4.3.2
     const targetSector = selectNewMercLocation(game);
     if (targetSector) {
-      merc.sectorId = targetSector.sectorId;
+      // Set squad's sectorId - merc inherits via computed getter
       game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
       game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
       game.message(`Dictator hired ${merc.mercName} (stationed at ${targetSector.sectorName})`);

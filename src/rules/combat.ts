@@ -1373,22 +1373,20 @@ export function getValidTargetsForPlayer(
 ): Combatant[] {
   const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
 
-  // Sort targets so "targeted last" MERCs (Runde) are at the end
-  const sortedForTargeting = [...aliveEnemies].sort((a, b) => {
-    const aMercId = getCombatantMercId(a);
-    const bMercId = getCombatantMercId(b);
-    const aLast = aMercId ? isTargetedLast(aMercId) : false;
-    const bLast = bMercId ? isTargetedLast(bMercId) : false;
-    if (aLast && !bLast) return 1;
-    if (bLast && !aLast) return -1;
-    return 0;
+  // Filter out "targeted last" MERCs (Runde) if other targets exist
+  const nonTargetedLast = aliveEnemies.filter(t => {
+    const mercId = getCombatantMercId(t);
+    return !mercId || !isTargetedLast(mercId);
   });
 
+  // Only include "targeted last" MERCs if no other targets available
+  const validTargets = nonTargetedLast.length > 0 ? nonTargetedLast : aliveEnemies;
+
   // Check dictator protection rule
-  const canHitDictator = canTargetDictator(sortedForTargeting);
+  const canHitDictator = canTargetDictator(validTargets);
   return canHitDictator
-    ? sortedForTargeting
-    : sortedForTargeting.filter(e => !e.isDictator);
+    ? validTargets
+    : validTargets.filter(e => !e.isDictator);
 }
 
 /**
@@ -2479,9 +2477,7 @@ function applyCombatResults(
           }
 
           // MERC-rwdv: putInto automatically removes from current container
-          // Clear sectorId so dead MERC doesn't show on map
-          merc.sectorId = undefined;
-          // Put MERC card in discard pile
+          // sectorId becomes undefined via computed getter when in discard
           merc.putInto(game.mercDiscard);
           game.message(`${merc.mercName} has been killed in combat!`);
         }

@@ -191,13 +191,10 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     game.dictatorPlayer.dictator.baseSectorId = game.dictatorPlayer.baseSectorId;
   }
 
-  // Set dictator card location to base sector
-  if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {
-    game.dictatorPlayer.dictator.sectorId = game.dictatorPlayer.baseSectorId;
-  }
-
-  // Put dictator into primary squad for proper squad membership tracking
-  if (game.dictatorPlayer.dictator && game.dictatorPlayer.primarySquad) {
+  // Put dictator into primary squad and set squad location to base
+  // sectorId is derived from squad membership
+  if (game.dictatorPlayer.dictator && game.dictatorPlayer.primarySquad && game.dictatorPlayer.baseSectorId) {
+    game.dictatorPlayer.primarySquad.sectorId = game.dictatorPlayer.baseSectorId;
     game.dictatorPlayer.dictator.putInto(game.dictatorPlayer.primarySquad);
   }
 

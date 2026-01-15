@@ -144,12 +144,8 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Invalid selection' };
       }
 
-      // Hire the selected MERC
+      // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
-      // Sync MERC's sectorId with squad's location
-      if (player.primarySquad.sectorId) {
-        merc.sectorId = player.primarySquad.sectorId;
-      }
       game.message(`${player.name} hired ${merc.mercName}`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
@@ -260,12 +256,8 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: `${merc.mercName} is incompatible with your current team` };
       }
 
-      // Hire the selected MERC
+      // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
-      // Sync MERC's sectorId with squad's location
-      if (player.primarySquad.sectorId) {
-        merc.sectorId = player.primarySquad.sectorId;
-      }
       game.message(`${player.name} hired ${merc.mercName}`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
@@ -405,12 +397,8 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: `${merc.mercName} is incompatible with your current team` };
       }
 
-      // Hire the selected MERC
+      // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
-      // Sync MERC's sectorId with squad's location
-      if (player.primarySquad.sectorId) {
-        merc.sectorId = player.primarySquad.sectorId;
-      }
       game.message(`${player.name} hired ${merc.mercName} (Teresa bonus)`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
@@ -699,12 +687,11 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       // Put MERC in primary squad
       merc.putInto(game.dictatorPlayer.primarySquad);
 
-      // Find target sector
+      // Find target sector and set squad location (merc inherits via computed getter)
       const sectorName = args.targetSector as string;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
 
       if (targetSector) {
-        merc.sectorId = targetSector.sectorId;
         game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
         game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
         game.message(`Dictator deployed ${merc.mercName} to ${targetSector.sectorName}`);

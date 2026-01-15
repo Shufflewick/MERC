@@ -59,9 +59,8 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   // Reveal base
   game.dictatorPlayer.baseRevealed = true;
 
-  // Put dictator card into play at the base (in the base squad)
+  // Put dictator card into play at the base - sectorId inherited from squad
   dictator.enterPlay();
-  dictator.sectorId = baseSector.sectorId;
   game.dictatorPlayer.baseSquad.sectorId = baseSector.sectorId;
   dictator.putInto(game.dictatorPlayer.baseSquad);
 
@@ -130,13 +129,12 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   // Put the hired MERC into the dictator's primary squad
   bestMerc.putInto(game.dictatorPlayer.primarySquad);
 
-  // MERC-2ay: Set MERC location per AI rules 4.3.2
+  // MERC-2ay: Set squad location per AI rules 4.3.2
   // Dictator-controlled sector closest to weakest rebel sector
-  // NOTE: Only set the individual MERC's sectorId, not the squad's
-  // (moving the squad would reset all existing MERCs to this location)
+  // Note: This moves all mercs in the squad - sectorId is derived from squad
   const targetSector = selectNewMercLocation(game);
   if (targetSector) {
-    bestMerc.sectorId = targetSector.sectorId;
+    game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
   }
 
   // All hired MERCs get 1 free equipment - prioritize weapon

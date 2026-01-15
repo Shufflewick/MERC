@@ -473,11 +473,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Both squads occupied - adding to primary squad`);
       }
 
-      // Put MERC into chosen squad
+      // Put MERC into chosen squad - merc inherits sectorId from squad
       selectedMerc.putInto(targetSquad);
-
-      // Set BOTH the MERC's sectorId AND the squad's sectorId
-      selectedMerc.sectorId = targetSector.sectorId;
       targetSquad.sectorId = targetSector.sectorId;
       game.message(`Castro deployed ${selectedMerc.mercName} to ${targetSector.sectorName}`);
 

@@ -198,18 +198,14 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         }
       }
 
+      // Set squad location - all MERCs inherit via computed getter
       squad.sectorId = destination.sectorId;
-      // Sync individual MERC sectorIds for consistency with map display
-      for (const merc of squad.getMercs()) {
-        merc.sectorId = destination.sectorId;
-      }
 
       // MERC-dict-move: If dictator player is moving and DictatorCard is in the moving squad, move it too
       if (!isRebel && game.dictatorPlayer?.dictator?.inPlay) {
         const dictatorCard = game.dictatorPlayer.dictator;
         // Check squad membership by searching for DictatorCard in squad
         if (isKimInSquad(squad, dictatorCard) && !dictatorCard.isDead) {
-          dictatorCard.sectorId = destination.sectorId;
           useAction(dictatorCard, ACTION_COSTS.MOVE);
           game.message(`${dictatorCard.dictatorName} moves with the squad`);
         }
@@ -328,13 +324,9 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         useAction(merc, ACTION_COSTS.MOVE);
       }
 
-      // Move both squads to target
+      // Move both squads to target - MERCs inherit sectorId via computed getter
       player.primarySquad.sectorId = target.sectorId;
       player.secondarySquad.sectorId = target.sectorId;
-      // Sync individual MERC sectorIds for consistency with map display
-      for (const merc of [...player.primarySquad.getMercs(), ...player.secondarySquad.getMercs()]) {
-        merc.sectorId = target.sectorId;
-      }
 
       const totalMercs = primaryMercs.length + secondaryMercs.length;
       game.message(`${player.name} launches coordinated attack with ${totalMercs} MERC(s) on ${target.sectorName}!`);
@@ -580,11 +572,8 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
           useAction(merc, ACTION_COSTS.MOVE);
         }
 
+        // Set squad location - MERCs inherit via computed getter
         squad.sectorId = target.sectorId;
-        // Sync individual MERC sectorIds for consistency with map display
-        for (const merc of squad.getMercs()) {
-          merc.sectorId = target.sectorId;
-        }
         totalMercs += mercs.length;
       }
 
@@ -875,9 +864,8 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
           destSquad.sectorId = sourceSquad.sectorId;
         }
 
-        // Move the combatant
+        // Move the combatant - sectorId inherited via computed getter
         merc.putInto(destSquad);
-        merc.sectorId = destSquad.sectorId;
 
         // If source squad is now empty, clear its location
         if (sourceSquad.mercCount === 0) {
@@ -955,11 +943,8 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
           destSquad.sectorId = sourceSquad.sectorId;
         }
 
-        // Move the combatant
+        // Move the combatant - sectorId inherited via computed getter
         combatant.putInto(destSquad);
-        if ('sectorId' in combatant) {
-          combatant.sectorId = destSquad.sectorId;
-        }
 
         // If source squad is now empty, clear its location (except base squad which is permanent)
         const sourceCount = getSquadCombatantCount(sourceSquad, dictator.dictator);

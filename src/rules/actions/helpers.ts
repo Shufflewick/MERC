@@ -293,20 +293,19 @@ export function findUnitSector(unit: MercCard | DictatorCard, player: unknown, g
 
   // Handle dictator player
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
-    // DictatorCard has sectorId directly
+    // DictatorCard - derive location from squad membership
     if (unit.isDictator) {
       return unit.sectorId ? game.getSector(unit.sectorId) || null : null;
     }
 
-    // MercCard - check squad or direct sectorId
+    // MercCard - only return sector if merc is in dictator's squad
+    // (sectorId is now derived from squad, not stored separately)
     const merc = unit as MercCard;
     const squad = game.dictatorPlayer.getSquadContaining(merc);
     if (squad?.sectorId) {
       return game.getSector(squad.sectorId) || null;
     }
-    if (merc.sectorId) {
-      return game.getSector(merc.sectorId) || null;
-    }
+    // If not in dictator's squad, return null (merc belongs to another player)
   }
 
   return null;

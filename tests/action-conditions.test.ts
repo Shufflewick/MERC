@@ -96,7 +96,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
       }
 
@@ -170,7 +170,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 0; // No actions
       }
 
@@ -198,7 +198,7 @@ describe('Action Conditions', () => {
       expect(merc).toBeDefined();
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
         merc.damage = 0; // Ensure not dead
       }
@@ -271,7 +271,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
       }
 
       game.currentDay = 2;
@@ -297,12 +297,10 @@ describe('Action Conditions', () => {
 
       const mercs = game.mercDeck.children.slice(0, 3) as MercCard[];
       if (mercs.length >= 3) {
+        // sectorId inherited from squad
         mercs[0].putInto(rebel.primarySquad);
-        mercs[0].sectorId = sector.sectorId;
         mercs[1].putInto(rebel.primarySquad);
-        mercs[1].sectorId = sector.sectorId;
         mercs[2].putInto(rebel.secondarySquad);
-        mercs[2].sectorId = sector.sectorId;
       }
 
       game.currentDay = 2;
@@ -356,10 +354,9 @@ describe('Action Conditions', () => {
 
       const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
       if (mercs.length >= 2) {
+        // sectorId inherited from squad
         mercs[0].putInto(rebel.primarySquad);
-        mercs[0].sectorId = sector.sectorId;
         mercs[1].putInto(rebel.primarySquad);
-        mercs[1].sectorId = sector.sectorId;
       }
 
       game.currentDay = 2;
@@ -386,10 +383,9 @@ describe('Action Conditions', () => {
 
         const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
         if (mercs.length >= 2) {
+          // sectorId inherited from squad
           mercs[0].putInto(rebel.primarySquad);
-          mercs[0].sectorId = sectors[0].sectorId;
           mercs[1].putInto(rebel.secondarySquad);
-          mercs[1].sectorId = sectors[1].sectorId;
         }
 
         game.currentDay = 2;
@@ -423,7 +419,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
       }
 
@@ -459,7 +455,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 0;
       }
 
@@ -487,7 +483,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
       }
 
@@ -516,7 +512,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
         merc.damage = 0;
       }
@@ -547,7 +543,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
       }
 
@@ -582,7 +578,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 0;
       }
 
@@ -609,7 +605,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
         // Override training to 0 for this test
         (merc as any).baseTraining = 0;
@@ -643,7 +639,7 @@ describe('Action Conditions', () => {
 
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
         merc.damage = 0;
       }
@@ -676,7 +672,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 3;
       }
 
@@ -711,7 +707,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 1; // Need 2 for hire
       }
 
@@ -738,7 +734,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 3;
       }
 
@@ -788,7 +784,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 3;
         merc.damage = 0;
       }
@@ -1167,7 +1163,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
       }
 
@@ -1206,7 +1202,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
       }
 
@@ -1235,7 +1231,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 0;
       }
 
@@ -1266,7 +1262,7 @@ describe('Action Conditions', () => {
       const merc = game.mercDeck.first(MercCard);
       if (merc) {
         merc.putInto(rebel.primarySquad);
-        merc.sectorId = sector.sectorId;
+        // sectorId inherited from squad
         merc.actionsRemaining = 2;
         merc.damage = 0;
       }

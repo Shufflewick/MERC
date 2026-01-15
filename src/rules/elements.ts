@@ -106,7 +106,18 @@ export abstract class CombatantBase extends BaseCard {
   // Current state
   damage: number = 0;
   actionsRemaining: number = 2;
-  sectorId: string = '';
+
+  /**
+   * Get the sector this combatant is in by querying parent squad.
+   * Returns undefined if combatant is not in a squad (e.g., in deck, dead, captured).
+   */
+  get sectorId(): string | undefined {
+    const squad = this.parent;
+    if (squad instanceof Squad) {
+      return squad.sectorId;
+    }
+    return undefined;
+  }
 
   // Haarg's ability bonuses (stored explicitly since parent isn't available during serialization)
   haargTrainingBonus: number = 0;
