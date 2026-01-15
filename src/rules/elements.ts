@@ -887,24 +887,25 @@ export { CombatantModel as CombatUnitCard };
 // =============================================================================
 
 /**
- * Mercenary unit card. Identity via mercId/mercName from JSON data.
- * Maps to combatantId/combatantName for unified API.
+ * Mercenary unit card. Identity via combatantId/combatantName from parent.
+ * mercId/mercName are backward-compat aliases.
  */
 export class MercCard extends CombatantModel {
-  // Identity - BoardSmith populates from JSON with these names
-  mercId!: string;
-  mercName!: string;
-
   // Card type discriminator
   override cardType: 'merc' | 'dictator' = 'merc';
 
-  // Provide combatantId/combatantName via getters with backward-compat
-  // Prefer mercId/mercName if set (from JSON), fall back to parent properties
-  override get combatantId(): string { return this.mercId || this._combatantId; }
-  override set combatantId(value: string) { this._combatantId = value; this.mercId = value; }
+  // Use parent's combatantId/combatantName directly
+  override get combatantId(): string { return this._combatantId; }
+  override set combatantId(value: string) { this._combatantId = value; }
 
-  override get combatantName(): string { return this.mercName || this._combatantName; }
-  override set combatantName(value: string) { this._combatantName = value; this.mercName = value; }
+  override get combatantName(): string { return this._combatantName; }
+  override set combatantName(value: string) { this._combatantName = value; }
+
+  // Backward-compat aliases - TEMPORARY, remove in Phase 25 Plan 04
+  get mercId(): string { return this.combatantId; }
+  set mercId(value: string) { this.combatantId = value; }
+  get mercName(): string { return this.combatantName; }
+  set mercName(value: string) { this.combatantName = value; }
 }
 
 // =============================================================================
