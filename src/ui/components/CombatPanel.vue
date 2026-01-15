@@ -462,7 +462,6 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
               :combatant-id="combatant.combatantId || combatant.mercId"
               :combatant-name="getCombatantDisplay(combatant).name"
               :player-color="combatant.playerColor"
-              :is-dictator="combatant.isDictatorSide"
               :is-militia="combatant.isMilitia"
               :is-attack-dog="combatant.isAttackDog"
               size="small"

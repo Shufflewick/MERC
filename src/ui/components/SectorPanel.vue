@@ -266,35 +266,14 @@ const squadInSector = computed(() => {
   return { name, mercs };
 });
 
-// Get MERC or Dictator image path
+// Get combatant image path
 function getMercImagePath(merc: any): string {
-  // Check for direct image property (dictators have full URLs)
   const image = getAttr(merc, 'image', '');
   if (image) return image;
 
-  // Check for dictator first
-  let isDictator = false;
-  let id = getAttr(merc, 'combatantId', '');
-  if (!id && merc?.attributes?.combatantId) {
-    id = merc.attributes.combatantId;
-  }
-  // Check cardType to determine if dictator
-  const cardType = getAttr(merc, 'cardType', '') || merc?.attributes?.cardType;
-  isDictator = cardType === 'dictator';
-
-  if (id) {
-    const folder = isDictator ? 'dictators' : 'mercs';
-    const ext = isDictator ? 'png' : 'jpg';
-    return `/${folder}/${id}.${ext}`;
-  }
-
-  // Fallback - try to derive from name (assume merc if unknown)
-  const name = getMercName(merc);
-  if (name && name !== 'Unknown') {
-    return `/mercs/${name.toLowerCase()}.jpg`;
-  }
-
-  return '/mercs/unknown.jpg';
+  // No fallback - log warning for debugging
+  console.warn('[SectorPanel] getMercImagePath: No image for merc:', merc);
+  return ''; // Return empty - broken image will be visible
 }
 
 // Get MERC or Dictator name
@@ -1356,7 +1335,6 @@ const hasContentToShow = computed(() => {
               <CombatantIconSmall
                 :image="getMercImagePath(item)"
                 :combatant-id="item.combatantId || item.mercId"
-                :is-dictator="item.isDictator"
                 :alt="item._choiceDisplay || getMercName(item)"
                 :player-color="playerColor"
                 :size="60"

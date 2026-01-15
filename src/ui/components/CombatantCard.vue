@@ -465,7 +465,9 @@ const borderColor = computed(() => getPlayerColor(props.playerColor));
 const imagePath = computed(() => {
   const img = getProp('image', '');
   if (img) return img;
-  return `/mercs/${mercId.value}.jpg`;
+  // No fallback - log warning for debugging
+  console.warn('[CombatantCard] No image for merc:', mercId.value);
+  return ''; // Return empty - broken image will be visible
 });
 
 // Helper to extract equipment name from slot data

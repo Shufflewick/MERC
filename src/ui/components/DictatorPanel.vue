@@ -96,8 +96,9 @@ function closeTacticsModal() {
 // Get dictator portrait path
 const dictatorImagePath = computed(() => {
   if (props.dictator.image) return props.dictator.image;
-  const id = props.dictator.combatantId || props.dictator.dictatorId;
-  return `/dictators/${id}.png`;
+  // No fallback - log warning for debugging
+  console.warn('[DictatorPanel] No image for dictator:', props.dictator.dictatorId);
+  return ''; // Return empty - broken image will be visible
 });
 
 // Actions available for dictator - only dictator-specific actions

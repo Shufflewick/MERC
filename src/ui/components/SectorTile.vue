@@ -136,8 +136,9 @@ function handleClick() {
 
 function getMercImagePath(merc: MercInSector) {
   if (merc.image) return merc.image;
-  const id = merc.combatantId || merc.mercId || '';
-  return `/mercs/${id}.jpg`;
+  // No fallback - log warning for debugging
+  console.warn('[SectorTile] getMercImagePath: No image for merc:', merc);
+  return ''; // Return empty - broken image will be visible
 }
 
 // Modal state for viewing MERC details

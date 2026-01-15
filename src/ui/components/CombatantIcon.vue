@@ -9,7 +9,6 @@ const props = defineProps<{
   playerColor?: string;
   size?: 'small' | 'medium' | 'large';
   clickable?: boolean;
-  isDictator?: boolean;
   isMilitia?: boolean;
   isAttackDog?: boolean;
 }>();
@@ -20,23 +19,13 @@ const emit = defineEmits<{
 
 const sizeClass = computed(() => props.size || 'medium');
 
-// Auto-detect dictator from combatantId prefix
-const autoDetectDictator = computed(() => props.combatantId?.startsWith('dictator-') ?? false);
-const isDictatorCombatant = computed(() => props.isDictator ?? autoDetectDictator.value);
-
 const imagePath = computed(() => {
-  // Use provided image path first (from JSON data)
   if (props.image) {
     return props.image;
   }
-  // Build path from combatantId
-  if (props.combatantId) {
-    const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
-    const ext = isDictatorCombatant.value ? 'png' : 'jpg';
-    return `/${folder}/${props.combatantId.toLowerCase()}.${ext}`;
-  }
-  // Derive from name if no combatantId
-  return `/mercs/${props.combatantName.toLowerCase()}.jpg`;
+  // No fallback - log warning for debugging
+  console.warn('[CombatantIcon] No image provided for:', props.combatantName);
+  return ''; // Empty src will show broken image indicator
 });
 
 
@@ -46,9 +35,9 @@ const borderColor = computed(() => {
 });
 
 function handleImageError(event: Event) {
-  const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
-  const ext = isDictatorCombatant.value ? 'png' : 'jpg';
-  (event.target as HTMLImageElement).src = `/${folder}/unknown.${ext}`;
+  const img = event.target as HTMLImageElement;
+  console.error('[CombatantIcon] Image failed to load:', img.src);
+  // Don't replace with fallback - show the broken image so bug is visible
 }
 
 function handleClick() {
