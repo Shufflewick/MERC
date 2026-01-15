@@ -615,6 +615,7 @@ const hasContentToShow = computed(() => {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+  margin-left: auto;
 }
 
 .header-tactics-card {

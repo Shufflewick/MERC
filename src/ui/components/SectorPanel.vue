@@ -531,7 +531,7 @@ const inSectorActions = computed(() => {
     actions.push({ name: 'armsDealer', label: 'Arms Dealer', icon: '🔫' });
   }
   if (props.stashContents && props.stashContents.length > 0 && props.availableActions.includes('reEquip')) {
-    actions.push({ name: 'reEquip', label: 'Re-Equip', icon: '🎒' });
+    actions.push({ name: 'reEquip', label: 'Equip', icon: '🎒' });
   }
   if (props.availableActions.includes('dropEquipment')) {
     actions.push({ name: 'dropEquipment', label: 'Unequip', icon: '📤' });
@@ -1173,12 +1173,17 @@ const sectorTypeIcon = computed(() => {
   if (isIndustry.value) return '🏭';
   return '🌲';
 });
+
+// Determine if panel-content has anything to show (only action flow)
+const hasContentToShow = computed(() => {
+  return isInActionFlow.value && currentSelection.value;
+});
 </script>
 
 <template>
   <div class="sector-panel">
-    <!-- Header with sector info -->
-    <div class="panel-header">
+    <!-- Header with sector info, squad, and actions -->
+    <div class="panel-header" :class="{ 'no-content-below': !hasContentToShow }">
       <div class="sector-info">
         <span class="sector-icon">{{ sectorTypeIcon }}</span>
         <div class="sector-details">
@@ -1191,11 +1196,132 @@ const sectorTypeIcon = computed(() => {
           </span>
         </div>
       </div>
+
+      <!-- Normal view content in header (when not in action flow) -->
+      <template v-if="!isInActionFlow">
+        <!-- Centered sector contents -->
+        <div class="header-center">
+          <!-- My Squad MERCs -->
+          <div v-if="squadInSector && squadInSector.mercs.length > 0" class="header-squad">
+            <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
+            <CombatantIconSmall
+              v-for="merc in squadInSector.mercs"
+              :key="getAttr(merc, 'mercId', '')"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              :player-color="playerColor"
+              :size="40"
+              clickable
+              @click="openMercCard(merc)"
+            />
+          </div>
+
+          <!-- My MERCs when not in squad location -->
+          <div v-else-if="myMercsInSector.length > 0" class="header-squad">
+            <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
+            <CombatantIconSmall
+              v-for="merc in myMercsInSector"
+              :key="merc.mercId"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              :player-color="playerColor"
+              :size="40"
+              clickable
+              @click="openMercCard(merc)"
+            />
+          </div>
+
+          <!-- Stash indicator -->
+          <div
+            v-if="stashContents && stashContents.length > 0"
+            class="stash-badge clickable"
+            @click="showStashModal = true"
+            title="Click to view stash"
+          >
+            <span class="stash-icon">📦</span>
+            <span class="stash-count">{{ stashContents.length }}</span>
+          </div>
+
+          <!-- Ally MERCs -->
+          <div v-if="allyMercsInSector.length > 0" class="header-squad">
+            <CombatantIconSmall
+              v-for="merc in allyMercsInSector"
+              :key="merc.mercId"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              :player-color="merc.playerColor"
+              :size="40"
+              clickable
+              @click="openMercCard(merc)"
+            />
+          </div>
+
+          <!-- Enemy MERCs -->
+          <div v-if="enemyMercsInSector.length > 0" class="header-squad">
+            <CombatantIconSmall
+              v-for="merc in enemyMercsInSector"
+              :key="merc.mercId"
+              :image="getMercImagePath(merc)"
+              :alt="getMercName(merc)"
+              player-color="enemy"
+              :size="40"
+              clickable
+              @click="openMercCard(merc)"
+            />
+          </div>
+
+          <!-- Militia indicators -->
+          <div
+            v-if="sector.dictatorMilitia > 0"
+            class="militia-clickable"
+            @click="openMilitiaCard(sector.dictatorMilitia, true)"
+            title="Click for militia details"
+          >
+            <MilitiaIndicator
+              :count="sector.dictatorMilitia"
+              :is-dictator="true"
+            />
+          </div>
+          <div
+            v-for="entry in rebelMilitiaEntries"
+            :key="entry.playerId"
+            class="militia-clickable"
+            @click="openMilitiaCard(entry.count, false, entry.color)"
+            title="Click for militia details"
+          >
+            <MilitiaIndicator
+              :count="entry.count"
+              :player-color="entry.color"
+            />
+          </div>
+
+          <!-- City facilities -->
+          <div v-if="isCity" class="facilities">
+            <span class="facility" title="Hospital">🏥</span>
+            <span class="facility" title="Arms Dealer">🔫</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div v-if="allActions.length > 0" class="header-actions">
+          <button
+            v-for="action in allActions"
+            :key="action.name"
+            class="action-btn"
+            @click="handleAction(action.name)"
+          >
+            <span class="action-icon">{{ action.icon }}</span>
+            <span class="action-label">{{ action.label }}</span>
+          </button>
+        </div>
+      </template>
+
+      <!-- Close button -->
       <button class="close-btn" @click="emit('close')">×</button>
     </div>
 
-    <!-- Main content area -->
-    <div class="panel-content">
+    <!-- Main content area (action flow only) -->
+    <div v-if="hasContentToShow" class="panel-content">
       <!-- Action Flow: Show selection UI when in action -->
       <template v-if="isInActionFlow && currentSelection">
         <div class="action-flow">
@@ -1326,145 +1452,6 @@ const sectorTypeIcon = computed(() => {
           </div>
         </div>
       </template>
-
-      <!-- Normal View: Squad and Actions -->
-      <template v-else>
-        <!-- My Squad MERCs (if squad is in this sector) -->
-        <div v-if="squadInSector && squadInSector.mercs.length > 0" class="squad-section">
-          <div class="squad-header-label">My Squad</div>
-          <div class="squad-mercs">
-            <!-- Dictator base icon -->
-            <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
-            <CombatantIconSmall
-              v-for="merc in squadInSector.mercs"
-              :key="getAttr(merc, 'mercId', '')"
-              :image="getMercImagePath(merc)"
-              :alt="getMercName(merc)"
-              :player-color="playerColor"
-              :size="40"
-              clickable
-              @click="openMercCard(merc)"
-            />
-          </div>
-          <!-- Stash indicator next to MERCs -->
-          <div
-            v-if="stashContents && stashContents.length > 0"
-            class="stash-badge clickable"
-            @click="showStashModal = true"
-            title="Click to view stash"
-          >
-            <span class="stash-icon">📦</span>
-            <span class="stash-count">{{ stashContents.length }}</span>
-          </div>
-        </div>
-
-        <!-- My MERCs when not in squad location (e.g., dictator's base) -->
-        <div v-else-if="myMercsInSector.length > 0" class="squad-section">
-          <div class="squad-header-label">My Forces</div>
-          <div class="squad-mercs">
-            <!-- Dictator base icon -->
-            <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
-            <CombatantIconSmall
-              v-for="merc in myMercsInSector"
-              :key="merc.mercId"
-              :image="getMercImagePath(merc)"
-              :alt="getMercName(merc)"
-              :player-color="playerColor"
-              :size="40"
-              clickable
-              @click="openMercCard(merc)"
-            />
-          </div>
-        </div>
-
-        <!-- Ally MERCs (other rebel players) -->
-        <div v-if="allyMercsInSector.length > 0" class="squad-section ally-section">
-          <div class="squad-header-label">Allies</div>
-          <div class="squad-mercs">
-            <CombatantIconSmall
-              v-for="merc in allyMercsInSector"
-              :key="merc.mercId"
-              :image="getMercImagePath(merc)"
-              :alt="getMercName(merc)"
-              :player-color="merc.playerColor"
-              :size="40"
-              clickable
-              @click="openMercCard(merc)"
-            />
-          </div>
-        </div>
-
-        <!-- Enemy MERCs (dictator) -->
-        <div v-if="enemyMercsInSector.length > 0" class="squad-section enemy-section">
-          <div class="squad-header-label enemy-label">Enemies</div>
-          <div class="squad-mercs">
-            <CombatantIconSmall
-              v-for="merc in enemyMercsInSector"
-              :key="merc.mercId"
-              :image="getMercImagePath(merc)"
-              :alt="getMercName(merc)"
-              player-color="enemy"
-              :size="40"
-              clickable
-              @click="openMercCard(merc)"
-            />
-          </div>
-        </div>
-
-        <!-- Forces info -->
-        <div class="forces-info">
-          <!-- Militia indicators (clickable to show details) -->
-          <div class="militia-area">
-            <div
-              v-if="sector.dictatorMilitia > 0"
-              class="militia-clickable"
-              @click="openMilitiaCard(sector.dictatorMilitia, true)"
-              title="Click for militia details"
-            >
-              <MilitiaIndicator
-                :count="sector.dictatorMilitia"
-                :is-dictator="true"
-              />
-            </div>
-            <div
-              v-for="entry in rebelMilitiaEntries"
-              :key="entry.playerId"
-              class="militia-clickable"
-              @click="openMilitiaCard(entry.count, false, entry.color)"
-              title="Click for militia details"
-            >
-              <MilitiaIndicator
-                :count="entry.count"
-                :player-color="entry.color"
-              />
-            </div>
-          </div>
-          <span v-if="isBase" class="base-badge">Base</span>
-          <div v-if="isCity" class="facilities">
-            <span class="facility" title="Hospital">🏥</span>
-            <span class="facility" title="Arms Dealer">🔫</span>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="actions-area" v-if="allActions.length > 0">
-          <button
-            v-for="action in allActions"
-            :key="action.name"
-            class="action-btn"
-            @click="handleAction(action.name)"
-          >
-            <span class="action-icon">{{ action.icon }}</span>
-            <span class="action-label">{{ action.label }}</span>
-          </button>
-        </div>
-
-        <!-- No actions message -->
-        <div v-else class="no-actions">
-          <span v-if="!hasSquadInSector && !hasSquadAdjacent">Move closer to interact</span>
-          <span v-else>No actions available</span>
-        </div>
-      </template>
     </div>
 
     <!-- MERC Details Modal -->
@@ -1524,17 +1511,43 @@ const sectorTypeIcon = computed(() => {
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px;
   padding: 12px 16px;
   background: v-bind('UI_COLORS.surfaceAlt');
   border-bottom: 1px solid v-bind('UI_COLORS.border');
+}
+
+.panel-header.no-content-below {
+  border-bottom: none;
 }
 
 .sector-info {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Header center content */
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.header-squad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .sector-icon {
@@ -1591,6 +1604,7 @@ const sectorTypeIcon = computed(() => {
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
@@ -1884,48 +1898,6 @@ const sectorTypeIcon = computed(() => {
   padding: 12px;
 }
 
-/* Normal View */
-.squad-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.squad-header-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: v-bind('UI_COLORS.textSecondary');
-  padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-.squad-section.ally-section {
-  border-left: 2px solid rgba(100, 181, 246, 0.5);
-  padding-left: 12px;
-  margin-left: 4px;
-}
-
-.squad-section.enemy-section {
-  border-left: 2px solid rgba(231, 76, 60, 0.5);
-  padding-left: 12px;
-  margin-left: 4px;
-}
-
-.squad-header-label.enemy-label {
-  background: rgba(231, 76, 60, 0.2);
-  color: #e74c3c;
-}
-
-.squad-mercs {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
 .stash-badge {
   display: flex;
   align-items: center;
@@ -1972,19 +1944,6 @@ const sectorTypeIcon = computed(() => {
   flex-shrink: 0;
 }
 
-.forces-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.militia-area {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .militia-clickable {
   cursor: pointer;
   transition: transform 0.2s, filter 0.2s;
@@ -2010,15 +1969,6 @@ const sectorTypeIcon = computed(() => {
 
 .force-icon {
   font-size: 0.7rem;
-}
-
-.base-badge {
-  background: #e74c3c;
-  color: #fff;
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 0.65rem;
-  font-weight: bold;
 }
 
 .facilities {
@@ -2060,13 +2010,6 @@ const sectorTypeIcon = computed(() => {
 
 .stash-count {
   transition: color 0.2s;
-}
-
-.actions-area {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-left: auto;
 }
 
 .action-btn {

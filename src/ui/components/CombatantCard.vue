@@ -441,7 +441,22 @@ const currentHealth = computed(() => {
 });
 const maxHealth = computed(() => getProp('effectiveMaxHealth', 0) || getProp('maxHealth', 3));
 const actionsRemaining = computed(() => getProp('actionsRemaining', 2));
-const maxActions = computed(() => 2); // Standard is 2
+const maxActions = computed(() => {
+  const base = 2;
+  // Ewok gets +1 action
+  if (mercId.value === 'ewok') return base + 1;
+  return base;
+});
+
+// Actions breakdown for tooltip
+const actionsBreakdown = computed(() => {
+  const breakdown: StatBreakdownItem[] = [];
+  breakdown.push({ label: 'Base', value: 2 });
+  if (mercId.value === 'ewok') {
+    breakdown.push({ label: "Ewok's Ability", value: 1 });
+  }
+  return breakdown;
+});
 
 // Ability text
 const abilityText = computed(() => getProp('ability', '') || getProp('bio', ''));
@@ -682,10 +697,30 @@ function confirmDropEquipment() {
           </div>
         </div>
       </div>
-      <div class="stat">
+      <div
+        class="stat stat-with-tooltip"
+        @mouseenter="showTooltip('actions')"
+        @mouseleave="hideTooltip"
+        @click="toggleTooltip('actions')"
+        tabindex="0"
+        @focus="showTooltip('actions')"
+        @blur="hideTooltip"
+      >
         <span class="stat-icon">&#9733;</span>
         <span class="stat-label">Actions:</span>
-        <span class="stat-value">{{ actionsRemaining }}/{{ maxActions }}</span>
+        <span class="stat-value" :class="{ modified: actionsBreakdown.length > 1 }">{{ actionsRemaining }}/{{ maxActions }}</span>
+        <div class="stat-tooltip" v-if="activeTooltip === 'actions'">
+          <div v-for="(item, idx) in actionsBreakdown" :key="idx" class="tooltip-row">
+            <span class="tooltip-label">{{ item.label }}</span>
+            <span class="tooltip-value" :class="{ positive: item.value > 0 && idx > 0, negative: item.value < 0 }">
+              {{ idx === 0 ? item.value : formatBonus(item.value) }}
+            </span>
+          </div>
+          <div class="tooltip-row tooltip-total">
+            <span class="tooltip-label">Total</span>
+            <span class="tooltip-value">{{ getBreakdownTotal(actionsBreakdown) }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
