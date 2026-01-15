@@ -203,7 +203,7 @@ describe('MERC Smoke Tests', () => {
       const dictator = game.dictatorPlayer;
       expect(dictator.dictator).toBeDefined();
       if (dictator.dictator) {
-        expect(dictator.dictator.dictatorId).toBeDefined();
+        expect(dictator.dictator.combatantId).toBeDefined();
       }
     });
 

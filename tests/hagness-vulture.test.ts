@@ -27,7 +27,7 @@ describe('Hagness Ability Tests', () => {
 
   // Helper to get a specific MERC from deck
   function getMercFromDeck(mercId: string): MercCard | undefined {
-    return game.mercDeck.all(MercCard).find(m => m.mercId === mercId);
+    return game.mercDeck.all(MercCard).find(m => m.combatantId === mercId);
   }
 
   // Helper to set up Hagness with a squad mate in rebel team
@@ -265,7 +265,7 @@ describe('Vulture Ability Tests', () => {
 
   // Helper to get a specific MERC from deck
   function getMercFromDeck(mercId: string): MercCard | undefined {
-    return game.mercDeck.all(MercCard).find(m => m.mercId === mercId);
+    return game.mercDeck.all(MercCard).find(m => m.combatantId === mercId);
   }
 
   // Helper to find equipment with initiative penalty

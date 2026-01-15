@@ -357,7 +357,7 @@ describe('Combat Ability Integration', () => {
                           'max', 'tavisto', 'snake', 'walter', 'adelheid'];
 
       for (const mercId of combatMercs) {
-        const found = mercs.find(m => m.mercId === mercId);
+        const found = mercs.find(m => m.combatantId === mercId);
         expect(found).toBeDefined();
       }
     });
@@ -367,9 +367,9 @@ describe('Combat Ability Integration', () => {
       expect(mercs.length).toBeGreaterThan(0);
 
       for (const merc of mercs) {
-        expect(merc.mercId).toBeDefined();
-        expect(typeof merc.mercId).toBe('string');
-        expect(merc.mercName).toBeDefined();
+        expect(merc.combatantId).toBeDefined();
+        expect(typeof merc.combatantId).toBe('string');
+        expect(merc.combatantName).toBeDefined();
       }
     });
   });

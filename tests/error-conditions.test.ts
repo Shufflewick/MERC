@@ -347,7 +347,7 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Find or create a MERC named 'borris' in the deck
-        const borris = game.mercDeck.all(MercCard).find(m => m.mercId === 'borris');
+        const borris = game.mercDeck.all(MercCard).find(m => m.combatantId === 'borris');
         if (borris) {
           borris.putInto(rebel.primarySquad);
           const team = rebel.team;
@@ -365,7 +365,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const squirrel = game.mercDeck.all(MercCard).find(m => m.mercId === 'squirrel');
+        const squirrel = game.mercDeck.all(MercCard).find(m => m.combatantId === 'squirrel');
         if (squirrel) {
           squirrel.putInto(rebel.primarySquad);
           const team = rebel.team;
@@ -383,8 +383,8 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Add multiple MERCs without incompatibilities
-        const merc1 = game.mercDeck.all(MercCard).find(m => m.mercId === 'basic');
-        const merc2 = game.mercDeck.all(MercCard).find(m => m.mercId === 'preaction');
+        const merc1 = game.mercDeck.all(MercCard).find(m => m.combatantId === 'basic');
+        const merc2 = game.mercDeck.all(MercCard).find(m => m.combatantId === 'preaction');
 
         if (merc1 && merc2) {
           merc1.putInto(rebel.primarySquad);
@@ -401,7 +401,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const natasha = game.mercDeck.all(MercCard).find(m => m.mercId === 'natasha');
+        const natasha = game.mercDeck.all(MercCard).find(m => m.combatantId === 'natasha');
         if (natasha) {
           natasha.putInto(rebel.primarySquad);
           const team = rebel.team;
@@ -791,8 +791,8 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Find Teresa if available
-        const teresa = game.mercDeck.all(MercCard).find(m => m.mercId === 'teresa');
-        const basicMerc = game.mercDeck.all(MercCard).find(m => m.mercId === 'basic');
+        const teresa = game.mercDeck.all(MercCard).find(m => m.combatantId === 'teresa');
+        const basicMerc = game.mercDeck.all(MercCard).find(m => m.combatantId === 'basic');
 
         if (teresa && basicMerc) {
           basicMerc.putInto(rebel.primarySquad);

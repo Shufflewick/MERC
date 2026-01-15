@@ -60,7 +60,7 @@ describe('Team Limit', () => {
 
     it('should exclude Teresa from teamSize calculation', () => {
       // Create Teresa and add to rebel's squad
-      const teresa = game.mercDeck.first(MercCard, m => m.mercId === 'teresa');
+      const teresa = game.mercDeck.first(MercCard, m => m.combatantId === 'teresa');
       expect(teresa).toBeDefined();
 
       // Move Teresa to rebel's primary squad
@@ -69,12 +69,12 @@ describe('Team Limit', () => {
       // Teresa should not count toward team size
       expect(rebel.teamSize).toBe(0);
       expect(rebel.team.length).toBe(1); // Teresa is in team
-      expect(rebel.team[0].mercId).toBe('teresa');
+      expect(rebel.team[0].combatantId).toBe('teresa');
     });
 
     it('should count non-Teresa MERCs in teamSize', () => {
       // Get a regular MERC
-      const merc = game.mercDeck.first(MercCard, m => m.mercId !== 'teresa');
+      const merc = game.mercDeck.first(MercCard, m => m.combatantId !== 'teresa');
       expect(merc).toBeDefined();
 
       // Move to rebel's primary squad
@@ -119,7 +119,7 @@ describe('Team Limit', () => {
 
     it('should prevent hiring when at team limit', () => {
       // Add a MERC to reach team limit
-      const merc = game.mercDeck.first(MercCard, m => m.mercId !== 'teresa');
+      const merc = game.mercDeck.first(MercCard, m => m.combatantId !== 'teresa');
       expect(merc).toBeDefined();
       merc!.putInto(rebel.primarySquad);
 
@@ -131,7 +131,7 @@ describe('Team Limit', () => {
 
     it('should allow Teresa to be hired even at team limit', () => {
       // Add a MERC to reach team limit
-      const merc = game.mercDeck.first(MercCard, m => m.mercId !== 'teresa');
+      const merc = game.mercDeck.first(MercCard, m => m.combatantId !== 'teresa');
       expect(merc).toBeDefined();
       merc!.putInto(rebel.primarySquad);
 
@@ -141,7 +141,7 @@ describe('Team Limit', () => {
       expect(rebel.canHireMerc(game)).toBe(false);
 
       // Now add Teresa - she doesn't count toward team size
-      const teresa = game.mercDeck.first(MercCard, m => m.mercId === 'teresa');
+      const teresa = game.mercDeck.first(MercCard, m => m.combatantId === 'teresa');
       expect(teresa).toBeDefined();
       teresa!.putInto(rebel.primarySquad);
 
