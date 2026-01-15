@@ -15,7 +15,6 @@ interface MercData {
   // Data can be at root level or nested in 'attributes'
   attributes?: Record<string, any>;
   // Root level properties (may not exist if data is in attributes)
-  mercId?: string;
   id?: string | number;
   ref?: string;
   combatantName?: string;
@@ -51,13 +50,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  dropEquipment: [mercId: number, equipmentId: number];
-  activateAbility: [mercId: string];
+  dropEquipment: [combatantElementId: number, equipmentId: number];
+  activateAbility: [combatantId: string];
 }>();
 
 // Handle ability button click
 function onAbilityClick() {
-  emit('activateAbility', mercId.value as string);
+  emit('activateAbility', combatantId.value as string);
 }
 
 // Helper to get a property from either attributes or root level
@@ -69,14 +68,14 @@ function getProp<T>(key: string, defaultVal: T): T {
   return defaultVal;
 }
 
-// Helper to get MERC ID
-const mercId = computed(() => {
-  return getProp('combatantId', '') || getProp('mercId', '') || getProp('id', '') || props.merc.ref || 'unknown';
+// Helper to get combatant ID
+const combatantId = computed(() => {
+  return getProp('combatantId', '') || getProp('id', '') || props.merc.ref || 'unknown';
 });
 
-// Helper to get MERC name (properly formatted)
-const mercName = computed(() => {
-  const rawName = getProp('combatantName', '') || getProp('name', '') || String(mercId.value);
+// Helper to get combatant display name (properly formatted)
+const displayName = computed(() => {
+  const rawName = getProp('combatantName', '') || getProp('name', '') || String(combatantId.value);
   // Remove "merc-" prefix if present and capitalize
   const cleanName = rawName.replace(/^merc-/i, '');
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
@@ -206,7 +205,7 @@ function buildStatBreakdown(statKey: string, baseStatKey: string): StatBreakdown
   }
 
   // Haarg's ability bonus (stored on the merc)
-  if (mercId.value === 'haarg') {
+  if (combatantId.value === 'haarg') {
     const haargBonusKey = statKey === 'training' ? 'haargTrainingBonus'
                         : statKey === 'initiative' ? 'haargInitiativeBonus'
                         : 'haargCombatBonus';
@@ -302,7 +301,7 @@ const initiativeBreakdown = computed(() => {
   const breakdown = buildStatBreakdown('initiative', 'baseInitiative');
 
   // For Vulture, add a line showing the ability negates initiative penalties
-  if (mercId.value === 'vulture') {
+  if (combatantId.value === 'vulture') {
     // Calculate total penalties from equipment (negative values)
     const penaltyTotal = breakdown
       .filter(item => item.label !== 'Base' && item.value < 0)
@@ -444,7 +443,7 @@ const actionsRemaining = computed(() => getProp('actionsRemaining', 2));
 const maxActions = computed(() => {
   const base = 2;
   // Ewok gets +1 action
-  if (mercId.value === 'ewok') return base + 1;
+  if (combatantId.value === 'ewok') return base + 1;
   return base;
 });
 
@@ -452,7 +451,7 @@ const maxActions = computed(() => {
 const actionsBreakdown = computed(() => {
   const breakdown: StatBreakdownItem[] = [];
   breakdown.push({ label: 'Base', value: 2 });
-  if (mercId.value === 'ewok') {
+  if (combatantId.value === 'ewok') {
     breakdown.push({ label: "Ewok's Ability", value: 1 });
   }
   return breakdown;
@@ -466,7 +465,7 @@ const imagePath = computed(() => {
   const img = getProp('image', '');
   if (img) return img;
   // No fallback - log warning for debugging
-  console.warn('[CombatantCard] No image for merc:', mercId.value);
+  console.warn('[CombatantCard] No image for merc:', combatantId.value);
   return ''; // Return empty - broken image will be visible
 });
 
@@ -558,14 +557,14 @@ function confirmDropEquipment() {
     <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
       <CombatantIconSmall
-        :combatant-id="mercId"
+        :combatant-id="combatantId"
         :image="imagePath"
-        :alt="mercName"
+        :alt="displayName"
         :player-color="playerColor"
         :size="compact ? 40 : 56"
       />
       <div class="name-section">
-        <span class="merc-name">{{ mercName }}</span>
+        <span class="merc-name">{{ displayName }}</span>
         <span v-if="squadName" class="squad-badge" :style="{ backgroundColor: borderColor }">{{ squadName }}</span>
       </div>
     </div>

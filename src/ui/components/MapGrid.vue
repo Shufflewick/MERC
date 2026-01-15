@@ -42,11 +42,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   sectorClick: [sectorId: string];
-  dropEquipment: [mercId: number, equipmentId: number];
+  dropEquipment: [combatantElementId: number, equipmentId: number];
 }>();
 
-function handleDropEquipment(mercId: number, equipmentId: number) {
-  emit('dropEquipment', mercId, equipmentId);
+function handleDropEquipment(combatantElementId: number, equipmentId: number) {
+  emit('dropEquipment', combatantElementId, equipmentId);
 }
 
 // Calculate grid dimensions

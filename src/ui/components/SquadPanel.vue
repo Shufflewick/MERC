@@ -37,26 +37,26 @@ const props = defineProps<{
   baseSquad?: SquadData; // Dictator's base squad (third squad when at home)
   playerColor: string;
   canDropEquipment?: boolean;
-  mercAbilitiesAvailable?: string[]; // List of mercIds that have abilities available
+  mercAbilitiesAvailable?: string[]; // List of combatantIds that have abilities available
 }>();
 
 const emit = defineEmits<{
-  dropEquipment: [mercId: number, equipmentId: number];
-  activateAbility: [mercId: string];
+  dropEquipment: [combatantElementId: number, equipmentId: number];
+  activateAbility: [combatantId: string];
 }>();
 
-function handleDropEquipment(mercId: number, equipmentId: number) {
-  emit('dropEquipment', mercId, equipmentId);
+function handleDropEquipment(combatantElementId: number, equipmentId: number) {
+  emit('dropEquipment', combatantElementId, equipmentId);
 }
 
-function handleActivateAbility(mercId: string) {
-  emit('activateAbility', mercId);
+function handleActivateAbility(combatantId: string) {
+  emit('activateAbility', combatantId);
 }
 
 // Check if a MERC has their ability available
 function isMercAbilityAvailable(merc: MercData): boolean {
-  const combatantId = merc.combatantId || merc.mercId || (merc as any).attributes?.combatantId || (merc as any).attributes?.mercId;
-  return props.mercAbilitiesAvailable?.includes(combatantId) || false;
+  const id = merc.combatantId || (merc as any).attributes?.combatantId;
+  return props.mercAbilitiesAvailable?.includes(id) || false;
 }
 
 // Get unique key for combatant - never returns empty to prevent Vue warnings
