@@ -231,13 +231,13 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'reEquipContinue',
             args: {
-              mercId: unit.id,
+              combatantId: unit.id,
               sectorId: sector.id,
               // Pass the replaced item's ID to prevent ping-pong loop
               lastReplacedId: replaced?.id,
             },
             display: {
-              mercId: capitalize(unitName),
+              combatantId: capitalize(unitName),
               sectorId: sector.sectorName,
               lastReplacedId: replaced?.equipmentName ?? '',
             },
@@ -259,17 +259,17 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
  * Works for both rebel MERCs and dictator units (MERCs and dictator combatant).
  */
 export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve unit from ctx.args (mercId is numeric element ID)
+  // Helper to resolve unit from ctx.args (combatantId is numeric element ID)
   // Handles both merc and dictator combatants
   function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
-    const mercArg = ctx.args?.mercId;
-    if (typeof mercArg === 'number') {
-      const el = game.getElementById(mercArg);
+    const combatantArg = ctx.args?.combatantId;
+    if (typeof combatantArg === 'number') {
+      const el = game.getElementById(combatantArg);
       if (isCombatantModel(el)) return el;
       return undefined;
-    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      const mercObj = mercArg as { id: number };
-      const el = game.getElementById(mercObj.id);
+    } else if (combatantArg && typeof combatantArg === 'object' && 'id' in combatantArg) {
+      const combatantObj = combatantArg as { id: number };
+      const el = game.getElementById(combatantObj.id);
       if (isCombatantModel(el)) return el;
       return undefined;
     }
@@ -298,8 +298,8 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
   return Action.create('reEquipContinue')
     .prompt('Continue equipping')
     .condition({
-      'has merc and sector from followUp': (ctx) => {
-        if (ctx.args?.mercId == null || ctx.args?.sectorId == null) return false;
+      'has combatant and sector from followUp': (ctx) => {
+        if (ctx.args?.combatantId == null || ctx.args?.sectorId == null) return false;
         const unit = getUnit(ctx);
         const sector = getSector(ctx);
         return unit != null && sector != null;
@@ -375,13 +375,13 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
           followUp: {
             action: 'reEquipContinue',
             args: {
-              mercId: unit.id,
+              combatantId: unit.id,
               sectorId: sector.id,
               // Pass the replaced item's ID to prevent ping-pong loop
               lastReplacedId: replaced?.id,
             },
             display: {
-              mercId: unitName,
+              combatantId: unitName,
               sectorId: sector.sectorName,
               lastReplacedId: replaced?.equipmentName ?? '',
             },
