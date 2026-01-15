@@ -345,8 +345,8 @@ const hasDoc = computed(() => {
     ...(secondarySquad.value?.mercs || []),
   ];
   return allMercsInSquads.some((m: any) =>
-    getAttr(m, 'mercId', '').toLowerCase() === 'doc' ||
-    getAttr(m, 'mercName', '').toLowerCase() === 'doc'
+    getAttr(m, 'combatantId', '').toLowerCase() === 'doc' ||
+    getAttr(m, 'combatantName', '').toLowerCase() === 'doc'
   );
 });
 
@@ -357,8 +357,8 @@ const hasSquidhead = computed(() => {
     ...(secondarySquad.value?.mercs || []),
   ];
   return allMercsInSquads.some((m: any) =>
-    getAttr(m, 'mercId', '').toLowerCase() === 'squidhead' ||
-    getAttr(m, 'mercName', '').toLowerCase() === 'squidhead'
+    getAttr(m, 'combatantId', '').toLowerCase() === 'squidhead' ||
+    getAttr(m, 'combatantName', '').toLowerCase() === 'squidhead'
   );
 });
 
@@ -404,8 +404,8 @@ const squidheadHasLandMine = computed(() => {
     ...(secondarySquad.value?.mercs || []),
   ];
   const squidhead = allMercsInSquads.find((m: any) =>
-    getAttr(m, 'mercId', '').toLowerCase() === 'squidhead' ||
-    getAttr(m, 'mercName', '').toLowerCase() === 'squidhead'
+    getAttr(m, 'combatantId', '').toLowerCase() === 'squidhead' ||
+    getAttr(m, 'combatantName', '').toLowerCase() === 'squidhead'
   );
   if (!squidhead) return false;
 
@@ -601,16 +601,18 @@ const allMercs = computed(() => {
 
     if (squad.children) {
       for (const merc of squad.children) {
-        const mercId = getAttr(merc, 'mercId', '');
+        const mercId = getAttr(merc, 'combatantId', '');
         // Skip dead MERCs
         if (isMercDead(merc)) continue;
 
         if (mercId || normalizeClassName(merc.className) === 'MercCard') {
           // Use squad's sectorId (sectorId is now a computed getter on combatants)
           const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
+          const combatantId = mercId || merc.ref;
           mercs.push({
             ...merc,
-            mercId: mercId || merc.ref,
+            combatantId,
+            mercId: combatantId, // backward compat
             sectorId: mercSectorId,
             playerColor,
           });
@@ -637,12 +639,13 @@ const allMercs = computed(() => {
 
       if (className === 'MercCard') {
         if (isMercDead(child)) continue;
-        const mercId = getAttr(child, 'mercId', '') || child.ref;
-        const exists = mercs.some((m) => m.mercId === mercId);
+        const combatantId = getAttr(child, 'combatantId', '') || child.ref;
+        const exists = mercs.some((m) => m.combatantId === combatantId);
         if (!exists) {
           mercs.push({
             ...child,
-            mercId,
+            combatantId,
+            mercId: combatantId, // backward compat
             sectorId: squadSectorId,
             playerColor: 'dictator',
           });
@@ -654,13 +657,16 @@ const allMercs = computed(() => {
         const isDead = getAttr(child, 'damage', 0) >= 10;
         if (!inPlay || isDead) continue;
 
-        const dictatorId = getAttr(child, 'dictatorId', '');
-        const exists = mercs.some((m) => m.mercId === `dictator-${dictatorId}`);
+        const dictatorId = getAttr(child, 'combatantId', '');
+        const dictatorIdWithPrefix = `dictator-${dictatorId}`;
+        const exists = mercs.some((m) => m.combatantId === dictatorIdWithPrefix);
         if (!exists) {
           mercs.push({
             ...child,
-            mercId: `dictator-${dictatorId}`,
-            mercName: getAttr(child, 'dictatorName', 'The Dictator'),
+            combatantId: dictatorIdWithPrefix,
+            combatantName: getAttr(child, 'combatantName', 'The Dictator'),
+            mercId: dictatorIdWithPrefix, // backward compat
+            mercName: getAttr(child, 'combatantName', 'The Dictator'), // backward compat
             sectorId: squadSectorId,
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
@@ -775,7 +781,7 @@ const primarySquad = computed(() => {
       .filter((c: any) => {
         // Skip dead MERCs
         if (isMercDead(c)) return false;
-        return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+        return getAttr(c, 'combatantId', '') || normalizeClassName(c.className) === 'MercCard';
       })
       .map((c: any) => c),
   };
@@ -803,7 +809,7 @@ const secondarySquad = computed(() => {
       .filter((c: any) => {
         // Skip dead MERCs
         if (isMercDead(c)) return false;
-        return getAttr(c, 'mercId', '') || normalizeClassName(c.className) === 'MercCard';
+        return getAttr(c, 'combatantId', '') || normalizeClassName(c.className) === 'MercCard';
       })
       .map((c: any) => c),
   };
@@ -828,7 +834,7 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
         return !isMercDead(c);
       }
       // Also check by mercId for serialized cards
-      return getAttr(c, 'mercId', '');
+      return getAttr(c, 'combatantId', '');
     })
     .map((c: any) => {
       const className = normalizeClassName(c.className);
@@ -836,8 +842,8 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
         // Map dictator to merc-like format for SquadPanel
         return {
           ...c,
-          mercId: `dictator-${getAttr(c, 'dictatorId', '')}`,
-          mercName: getAttr(c, 'dictatorName', 'The Dictator'),
+          mercId: `dictator-${getAttr(c, 'combatantId', '')}`,
+          mercName: getAttr(c, 'combatantName', 'The Dictator'),
           isDictator: true,
         };
       }
@@ -929,8 +935,8 @@ const dictatorBaseSquad = computed(() => {
       if (className === 'DictatorCard') {
         return {
           ...c,
-          mercId: `dictator-${getAttr(c, 'dictatorId', '')}`,
-          mercName: getAttr(c, 'dictatorName', 'The Dictator'),
+          mercId: `dictator-${getAttr(c, 'combatantId', '')}`,
+          mercName: getAttr(c, 'combatantName', 'The Dictator'),
           isDictator: true,
         };
       }
@@ -993,8 +999,11 @@ const dictatorCard = computed(() => {
 
   return {
     id: dictatorCardNode.ref,
-    dictatorId: attrs.dictatorId || getAttr(dictatorCardNode, 'dictatorId', 'unknown'),
-    dictatorName: attrs.dictatorName || getAttr(dictatorCardNode, 'dictatorName', 'Unknown Dictator'),
+    combatantId: attrs.combatantId || getAttr(dictatorCardNode, 'combatantId', 'unknown'),
+    combatantName: attrs.combatantName || getAttr(dictatorCardNode, 'combatantName', 'Unknown Dictator'),
+    // backward compat aliases
+    dictatorId: attrs.combatantId || getAttr(dictatorCardNode, 'combatantId', 'unknown'),
+    dictatorName: attrs.combatantName || getAttr(dictatorCardNode, 'combatantName', 'Unknown Dictator'),
     ability: attrs.ability || getAttr(dictatorCardNode, 'ability', ''),
     bio: attrs.bio || getAttr(dictatorCardNode, 'bio', ''),
     image: attrs.image || getAttr(dictatorCardNode, 'image', ''),
@@ -1556,11 +1565,14 @@ const selectedMercForEquipment = computed(() => {
   if (merc) return merc;
 
   // During Day 1 hiring, the MERC isn't in the tree yet - create minimal data
-  // The mercId is typically the lowercase version of the name
+  // The combatantId is typically the lowercase version of the name
+  const combatantId = mercName.toLowerCase();
   return {
-    mercName,
-    mercId: mercName.toLowerCase(),
-    attributes: { mercName, mercId: mercName.toLowerCase() },
+    combatantName: mercName,
+    combatantId,
+    mercName, // backward compat
+    mercId: combatantId, // backward compat
+    attributes: { combatantName: mercName, combatantId, mercName, mercId: combatantId },
   };
 });
 
@@ -1570,23 +1582,23 @@ const selectedMercImagePath = computed(() => {
   if (!merc) return null;
   const img = getAttr(merc, 'image', '');
   if (img) return img;
-  // Use mercId to construct path - during Day 1, mercId is lowercase name
-  const mercId = getAttr(merc, 'mercId', '') || (merc as any).mercId;
-  return mercId ? `/mercs/${mercId}.jpg` : null;
+  // Use combatantId to construct path - during Day 1, combatantId is lowercase name
+  const combatantId = getAttr(merc, 'combatantId', '') || (merc as any).combatantId || (merc as any).mercId;
+  return combatantId ? `/mercs/${combatantId}.jpg` : null;
 });
 
 // Get the name for the selected MERC
 const selectedMercName = computed(() => {
   const merc = selectedMercForEquipment.value;
   if (!merc) return '';
-  return getAttr(merc, 'mercName', '') || (merc as any).mercName || '';
+  return getAttr(merc, 'combatantName', '') || (merc as any).combatantName || (merc as any).mercName || '';
 });
 
-// Get the mercId for the selected MERC
+// Get the combatantId for the selected MERC
 const selectedMercId = computed(() => {
   const merc = selectedMercForEquipment.value;
   if (!merc) return '';
-  return getAttr(merc, 'mercId', '') || (merc as any).mercId || '';
+  return getAttr(merc, 'combatantId', '') || (merc as any).combatantId || (merc as any).mercId || '';
 });
 
 // State for showing MERC detail modal during hiring
@@ -1707,9 +1719,9 @@ const hagnessSquadMates = computed(() => {
     // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName ← Equipment" }
     return choices.map((choice: any) => {
       const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' ←')[0] || 'Unknown');
-      // Try to get mercId from choice metadata if available
-      const mercId = choice.mercId || displayName.toLowerCase();
-      return { displayName, mercId, choice }; // Keep the full choice for when user clicks
+      // Try to get combatantId from choice metadata if available
+      const combatantId = choice.combatantId || choice.mercId || displayName.toLowerCase();
+      return { displayName, mercId: combatantId, choice }; // Keep the full choice for when user clicks
     }).sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
@@ -1723,8 +1735,8 @@ const hagnessSquadMates = computed(() => {
 
   // Create choice-like objects from squad mercs
   return allSquadMercs.map((merc: any) => {
-    const mercId = getAttr(merc, 'mercId', '') || '';
-    const mercName = getAttr(merc, 'mercName', '') || mercId || 'Unknown';
+    const mercId = getAttr(merc, 'combatantId', '') || '';
+    const mercName = getAttr(merc, 'combatantName', '') || mercId || 'Unknown';
     // Capitalize first letter of each word
     const displayName = mercName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     return {
@@ -1857,7 +1869,7 @@ function findMercByName(name: string | any, node?: any): any {
   const searchName = typeof name === 'string' ? name : (name?.value || name?.label || String(name || ''));
   if (!searchName) return null;
 
-  const mercName = getAttr(node, 'mercName', '');
+  const mercName = getAttr(node, 'combatantName', '');
   if (mercName && mercName.toLowerCase() === searchName.toLowerCase()) {
     return node;
   }
@@ -1992,20 +2004,20 @@ const landingSectors = computed(() => {
   });
 });
 
-// Get MERC ID from merc object (handles different data structures)
+// Get combatant ID from merc object (handles different data structures)
 // Never returns empty string to prevent Vue duplicate key warnings
 let mercIdCounter = 0;
 function getMercId(merc: any): string {
-  const id = merc.attributes?.mercId || merc.mercId || merc.id || merc.ref;
+  const id = merc.attributes?.combatantId || merc.combatantId || merc.attributes?.mercId || merc.mercId || merc.id || merc.ref;
   if (id) return id;
   // Generate a unique fallback ID using merc name if available
-  const name = merc.attributes?.mercName || merc.mercName || '';
+  const name = merc.attributes?.combatantName || merc.combatantName || merc.attributes?.mercName || merc.mercName || '';
   return name ? `temp-${name}` : `temp-merc-${++mercIdCounter}`;
 }
 
-// Get capitalized MERC name for action (action expects capitalized names)
+// Get capitalized combatant name for action (action expects capitalized names)
 function getMercDisplayName(merc: any): string {
-  const name = merc.attributes?.mercName || merc.mercName || getMercId(merc);
+  const name = merc.attributes?.combatantName || merc.combatantName || merc.attributes?.mercName || merc.mercName || getMercId(merc);
   // Capitalize first letter
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
@@ -2347,8 +2359,8 @@ const clickableSectors = computed(() => {
       <DrawEquipmentType
         v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
         :choices="equipmentTypeChoices"
-        :merc-id="selectedMercId"
-        :merc-name="selectedMercName"
+        :combatant-id="selectedMercId"
+        :combatant-name="selectedMercName"
         :player-color="currentPlayerColor"
         @select="selectEquipmentType"
         @clickMerc="openHiringMercDetail"
@@ -2452,8 +2464,8 @@ const clickableSectors = computed(() => {
             <CombatantIcon
               v-for="mate in hagnessSquadMates"
               :key="mate.displayName"
-              :merc-id="mate.mercId"
-              :merc-name="mate.displayName"
+              :combatant-id="mate.mercId"
+              :combatant-name="mate.displayName"
               :player-color="currentPlayerColor"
               size="large"
               clickable

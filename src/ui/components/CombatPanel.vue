@@ -305,7 +305,7 @@ function capitalize(str: string): string {
 
 function getCombatantDisplay(combatant: any) {
   const isAttackDog = combatant.isAttackDog === true;
-  const isMerc = !combatant.isMilitia && !isAttackDog && (combatant.mercId || combatant.isDictator);
+  const isMerc = !combatant.isMilitia && !isAttackDog && (combatant.combatantId || combatant.mercId || combatant.isDictator);
 
   // Get name - capitalize it
   let name = combatant.name;
@@ -330,7 +330,7 @@ function getCombatantDisplay(combatant: any) {
     isAttackDog,
     health: combatant.health ?? (isAttackDog ? 3 : 1),
     maxHealth: combatant.maxHealth ?? defaultMaxHealth,
-    mercId: combatant.mercId,
+    mercId: combatant.combatantId || combatant.mercId, // backward compat
     image,
     isDead: (combatant.health ?? 1) <= 0,
   };
@@ -406,8 +406,8 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
           >
             <CombatantIcon
               :image="combatant.image"
-              :merc-id="combatant.mercId"
-              :merc-name="getCombatantDisplay(combatant).name"
+              :combatant-id="combatant.mercId"
+              :combatant-name="getCombatantDisplay(combatant).name"
               :player-color="combatant.playerColor"
               :is-militia="combatant.isMilitia"
               :is-attack-dog="combatant.isAttackDog"
@@ -459,8 +459,8 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
           >
             <CombatantIcon
               :image="combatant.image"
-              :merc-id="combatant.mercId"
-              :merc-name="getCombatantDisplay(combatant).name"
+              :combatant-id="combatant.mercId"
+              :combatant-name="getCombatantDisplay(combatant).name"
               :player-color="combatant.playerColor"
               :is-dictator="combatant.isDictatorSide"
               :is-militia="combatant.isMilitia"

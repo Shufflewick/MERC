@@ -3,8 +3,8 @@ import { computed } from 'vue';
 import { getPlayerColor } from '../colors';
 
 const props = defineProps<{
-  mercId?: string;
-  mercName: string;
+  combatantId?: string;
+  combatantName: string;
   image?: string;
   playerColor?: string;
   size?: 'small' | 'medium' | 'large';
@@ -20,8 +20,8 @@ const emit = defineEmits<{
 
 const sizeClass = computed(() => props.size || 'medium');
 
-// Auto-detect dictator from mercId prefix
-const autoDetectDictator = computed(() => props.mercId?.startsWith('dictator-') ?? false);
+// Auto-detect dictator from combatantId prefix
+const autoDetectDictator = computed(() => props.combatantId?.startsWith('dictator-') ?? false);
 const isDictatorCombatant = computed(() => props.isDictator ?? autoDetectDictator.value);
 
 const imagePath = computed(() => {
@@ -29,14 +29,14 @@ const imagePath = computed(() => {
   if (props.image) {
     return props.image;
   }
-  // Build path from mercId
-  if (props.mercId) {
+  // Build path from combatantId
+  if (props.combatantId) {
     const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
     const ext = isDictatorCombatant.value ? 'png' : 'jpg';
-    return `/${folder}/${props.mercId.toLowerCase()}.${ext}`;
+    return `/${folder}/${props.combatantId.toLowerCase()}.${ext}`;
   }
-  // Derive from name if no mercId
-  return `/mercs/${props.mercName.toLowerCase()}.jpg`;
+  // Derive from name if no combatantId
+  return `/mercs/${props.combatantName.toLowerCase()}.jpg`;
 });
 
 
@@ -71,11 +71,11 @@ function handleClick() {
       <img
         v-else
         :src="imagePath"
-        :alt="mercName"
+        :alt="combatantName"
         @error="handleImageError"
       />
     </div>
-    <span class="name">{{ mercName }}</span>
+    <span class="name">{{ combatantName }}</span>
   </div>
 </template>
 

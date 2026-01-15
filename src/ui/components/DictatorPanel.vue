@@ -96,7 +96,8 @@ function closeTacticsModal() {
 // Get dictator portrait path
 const dictatorImagePath = computed(() => {
   if (props.dictator.image) return props.dictator.image;
-  return `/dictators/${props.dictator.dictatorId}.png`;
+  const id = props.dictator.combatantId || props.dictator.dictatorId;
+  return `/dictators/${id}.png`;
 });
 
 // Actions available for dictator - only dictator-specific actions
@@ -288,7 +289,7 @@ async function selectMercToHire(merc: any) {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return;
   // Use _choiceValue if available (from our processing), otherwise fall back
-  const value = merc._choiceValue ?? merc.mercId ?? merc.value;
+  const value = merc._choiceValue ?? merc.combatantId ?? merc.mercId ?? merc.value;
   await props.actionController.fill(sel.name, value);
 }
 
@@ -404,7 +405,7 @@ const hasContentToShow = computed(() => {
     <div class="panel-header">
       <div class="dictator-info">
         <CombatantIconSmall
-          :merc-id="dictator.dictatorId"
+          :combatant-id="dictator.dictatorId"
           :image="dictatorImagePath"
           :alt="dictator.dictatorName"
           :player-color="playerColor"
@@ -493,8 +494,8 @@ const hasContentToShow = computed(() => {
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :merc-id="dictator?.dictatorId"
-            :merc-name="dictator?.dictatorName"
+            :combatant-id="dictator?.dictatorId"
+            :combatant-name="dictator?.dictatorName"
             player-color="dictator"
             is-dictator
             @select="selectEquipmentType"
@@ -528,7 +529,7 @@ const hasContentToShow = computed(() => {
     <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
       <div class="dictator-modal">
         <CombatantIconSmall
-          :merc-id="dictator.dictatorId"
+          :combatant-id="dictator.dictatorId"
           :image="dictatorImagePath"
           :alt="dictator.dictatorName"
           :player-color="playerColor"

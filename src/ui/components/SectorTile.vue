@@ -17,13 +17,16 @@ interface SectorData {
   rebelMilitia?: Record<string, number>;
 }
 
-// Extended interface to include full MERC data for card display
+// Extended interface to include full combatant data for card display
 interface MercInSector {
-  mercId: string;
+  combatantId: string;
+  combatantName?: string;
+  // Backward compat aliases (deprecated)
+  mercId?: string;
   mercName?: string;
   image?: string;
   playerColor?: string;
-  // Full MERC data (from gameView)
+  // Full combatant data (from gameView)
   attributes?: Record<string, any>;
   // Optional additional fields
   training?: number;
@@ -61,9 +64,9 @@ function handleDropEquipment(mercId: number, equipmentId: number) {
   closeMercModal();
 }
 
-// Get unique key for merc - never returns empty to prevent Vue warnings
+// Get unique key for combatant - never returns empty to prevent Vue warnings
 function getMercKey(merc: MercInSector, index: number): string {
-  return merc.mercId || merc.mercName || `merc-${index}`;
+  return merc.combatantId || merc.combatantName || merc.mercId || merc.mercName || `merc-${index}`;
 }
 
 const showTooltip = ref(false);
@@ -133,7 +136,8 @@ function handleClick() {
 
 function getMercImagePath(merc: MercInSector) {
   if (merc.image) return merc.image;
-  return `/mercs/${merc.mercId}.jpg`;
+  const id = merc.combatantId || merc.mercId || '';
+  return `/mercs/${id}.jpg`;
 }
 
 // Modal state for viewing MERC details
@@ -201,9 +205,9 @@ function closeMercModal() {
         <CombatantIconSmall
           v-for="(merc, index) in mercsInSector.slice(0, isDictatorBase ? 3 : 4)"
           :key="getMercKey(merc, index)"
-          :merc-id="merc.mercId"
+          :combatant-id="merc.combatantId || merc.mercId"
           :image="getMercImagePath(merc)"
-          :alt="merc.mercName || merc.mercId"
+          :alt="merc.combatantName || merc.mercName || merc.combatantId || merc.mercId"
           :player-color="merc.playerColor"
           :size="42"
           clickable
@@ -240,13 +244,13 @@ function closeMercModal() {
         @click="showMercDetails(merc, $event)"
       >
         <CombatantIconSmall
-          :merc-id="merc.mercId"
+          :combatant-id="merc.combatantId || merc.mercId"
           :image="getMercImagePath(merc)"
-          :alt="merc.mercName || merc.mercId"
+          :alt="merc.combatantName || merc.mercName || merc.combatantId || merc.mercId"
           :player-color="merc.playerColor"
           :size="32"
         />
-        <span class="tooltip-name">{{ merc.mercName || merc.mercId }}</span>
+        <span class="tooltip-name">{{ merc.combatantName || merc.mercName || merc.combatantId || merc.mercId }}</span>
         <span class="tooltip-hint">ℹ</span>
       </div>
     </div>

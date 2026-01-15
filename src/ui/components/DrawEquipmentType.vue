@@ -10,8 +10,8 @@ interface EquipmentChoice {
 const props = defineProps<{
   choices: EquipmentChoice[];
   prompt?: string;
-  mercId?: string; // MERC ID for portrait
-  mercName?: string; // MERC name
+  combatantId?: string; // Combatant ID for portrait
+  combatantName?: string; // Combatant name
   playerColor?: string; // Player color for border
   isDictator?: boolean; // Whether this is a dictator (affects image path)
 }>();
@@ -42,9 +42,9 @@ function handleClick(value: string) {
     <div class="equipment-row">
       <!-- MERC/Dictator portrait with name (clickable to view details) -->
       <CombatantIcon
-        v-if="mercName"
-        :merc-id="mercId"
-        :merc-name="mercName"
+        v-if="combatantName"
+        :combatant-id="combatantId"
+        :combatant-name="combatantName"
         :player-color="playerColor"
         :is-dictator="isDictator"
         size="large"

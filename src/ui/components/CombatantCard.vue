@@ -556,7 +556,7 @@ function confirmDropEquipment() {
     <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
       <CombatantIconSmall
-        :merc-id="mercId"
+        :combatant-id="mercId"
         :image="imagePath"
         :alt="mercName"
         :player-color="playerColor"

@@ -211,16 +211,16 @@ const selectedMercSquadName = computed(() => {
   if (isEnemy) return null;
   // For my own mercs, determine which squad they're in
   if (mercColor === props.playerColor || !mercColor) {
-    const mercId = selectedMerc.value.mercId || getAttr(selectedMerc.value, 'mercId', '');
+    const mercId = selectedMerc.value.combatantId || getAttr(selectedMerc.value, 'combatantId', '');
     // Check if in primary squad
     if (props.primarySquad?.mercs?.some((m: any) =>
-      getAttr(m, 'mercId', '') === mercId || m.ref === selectedMerc.value.ref
+      getAttr(m, 'combatantId', '') === mercId || m.ref === selectedMerc.value.ref
     )) {
       return 'Primary';
     }
     // Check if in secondary squad
     if (props.secondarySquad?.mercs?.some((m: any) =>
-      getAttr(m, 'mercId', '') === mercId || m.ref === selectedMerc.value.ref
+      getAttr(m, 'combatantId', '') === mercId || m.ref === selectedMerc.value.ref
     )) {
       return 'Secondary';
     }
@@ -274,19 +274,13 @@ function getMercImagePath(merc: any): string {
 
   // Check for dictator first
   let isDictator = false;
-  let id = getAttr(merc, 'dictatorId', '');
-  if (!id && merc?.attributes?.dictatorId) {
-    id = merc.attributes.dictatorId;
+  let id = getAttr(merc, 'combatantId', '');
+  if (!id && merc?.attributes?.combatantId) {
+    id = merc.attributes.combatantId;
   }
-  if (id) {
-    isDictator = true;
-  } else {
-    // Check for mercId
-    id = getAttr(merc, 'mercId', '');
-    if (!id && merc?.attributes?.mercId) {
-      id = merc.attributes.mercId;
-    }
-  }
+  // Check cardType to determine if dictator
+  const cardType = getAttr(merc, 'cardType', '') || merc?.attributes?.cardType;
+  isDictator = cardType === 'dictator';
 
   if (id) {
     const folder = isDictator ? 'dictators' : 'mercs';
@@ -305,10 +299,8 @@ function getMercImagePath(merc: any): string {
 
 // Get MERC or Dictator name
 function getMercName(merc: any): string {
-  return getAttr(merc, 'mercName', '') ||
-         getAttr(merc, 'dictatorName', '') ||
-         getAttr(merc, 'mercId', '') ||
-         getAttr(merc, 'dictatorId', 'Unknown');
+  return getAttr(merc, 'combatantName', '') ||
+         getAttr(merc, 'combatantId', 'Unknown');
 }
 
 // Get equipment image path
@@ -700,7 +692,7 @@ const isSelectingMerc = computed(() => {
   // Check if element selection with MERC elements (use reactive computed)
   const mercValidEls = props.actionController.validElements.value || [];
   if (sel.type === 'element' && mercValidEls.length > 0) {
-    return mercValidEls.some((e: any) => e.mercId || e.element?.attributes?.mercId);
+    return mercValidEls.some((e: any) => e.combatantId || e.element?.attributes?.combatantId);
   }
 
   return false;
@@ -973,7 +965,7 @@ const selectableItems = computed(() => {
   // Also check for 'unit' which is used for selections that can include both MERCs and DictatorCard
   const isMercSelection = selName.includes('merc') || prompt.includes('merc') ||
     selName.includes('unit') || prompt.includes('unit') ||
-    (validEls.length > 0 && validEls.some((e: any) => e.mercId || e.element?.attributes?.mercId));
+    (validEls.length > 0 && validEls.some((e: any) => e.combatantId || e.element?.attributes?.combatantId));
 
   if (sel.type === 'element' && validEls.length > 0) {
     if (isMercSelection) {
@@ -985,21 +977,18 @@ const selectableItems = computed(() => {
         // Also check squad data as fallback
         const squadMerc = findSquadMerc(elementId);
 
-        // Check if this is a dictator (has dictatorId)
-        const dictatorId = attrs.dictatorId || squadMerc?.attributes?.dictatorId;
-        const isDictator = !!dictatorId;
+        // Check if this is a dictator (cardType === 'dictator')
+        const cardType = attrs.cardType || squadMerc?.attributes?.cardType;
+        const isDictator = cardType === 'dictator';
 
-        // For combatantId, prefer dictatorId for dictators, mercId for mercs
-        const combatantId = isDictator
-          ? dictatorId
-          : (attrs.mercId || squadMerc?.attributes?.mercId || (ve.display || '').toLowerCase());
+        // Use combatantId from either source
+        const combatantId = attrs.combatantId || squadMerc?.attributes?.combatantId || (ve.display || '').toLowerCase();
 
         return {
           ...attrs,
           ...(squadMerc || {}),
           mercId: combatantId,
-          mercName: attrs.mercName || attrs.dictatorName || squadMerc?.attributes?.mercName || squadMerc?.attributes?.dictatorName || ve.display,
-          dictatorId: dictatorId,
+          mercName: attrs.combatantName || squadMerc?.attributes?.combatantName || ve.display,
           isDictator: isDictator,
           image: attrs.image || squadMerc?.attributes?.image,
           _choiceValue: elementId,
@@ -1058,7 +1047,7 @@ const selectableItems = computed(() => {
       const mercMatch = allSquadMercs.find((m: any) => {
         const name = getMercName(m).toLowerCase();
         const ref = m?.ref;  // BoardSmith element ID
-        const mercId = getAttr(m, 'mercId', null);
+        const mercId = getAttr(m, 'combatantId', null);
 
         // Match by ref (element ID), name, or mercId
         return ref === c.value ||
@@ -1128,7 +1117,7 @@ async function selectMerc(item: any) {
   }
 
   // Fallback: try to get element ID from various sources
-  const elementId = item.ref || getAttr(item, 'id', null) || getAttr(item, 'mercId', null);
+  const elementId = item.ref || getAttr(item, 'id', null) || getAttr(item, 'combatantId', null);
   if (elementId !== null) {
     await props.actionController.fill(sel.name, elementId);
   }
@@ -1222,7 +1211,7 @@ const hasContentToShow = computed(() => {
             <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
             <CombatantIconSmall
               v-for="merc in squadInSector.mercs"
-              :key="getAttr(merc, 'mercId', '')"
+              :key="getAttr(merc, 'combatantId', '')"
               :image="getMercImagePath(merc)"
               :alt="getMercName(merc)"
               :player-color="playerColor"
@@ -1237,7 +1226,7 @@ const hasContentToShow = computed(() => {
             <div v-if="isBase" class="base-icon-portrait" :style="baseIconStyle" title="Dictator's Base">🏠</div>
             <CombatantIconSmall
               v-for="merc in myMercsInSector"
-              :key="merc.mercId"
+              :key="merc.combatantId"
               :image="getMercImagePath(merc)"
               :alt="getMercName(merc)"
               :player-color="playerColor"
@@ -1262,7 +1251,7 @@ const hasContentToShow = computed(() => {
           <div v-if="allyMercsInSector.length > 0" class="header-squad">
             <CombatantIconSmall
               v-for="merc in allyMercsInSector"
-              :key="merc.mercId"
+              :key="merc.combatantId"
               :image="getMercImagePath(merc)"
               :alt="getMercName(merc)"
               :player-color="merc.playerColor"
@@ -1276,7 +1265,7 @@ const hasContentToShow = computed(() => {
           <div v-if="enemyMercsInSector.length > 0" class="header-squad">
             <CombatantIconSmall
               v-for="merc in enemyMercsInSector"
-              :key="merc.mercId"
+              :key="merc.combatantId"
               :image="getMercImagePath(merc)"
               :alt="getMercName(merc)"
               player-color="enemy"
@@ -1366,7 +1355,7 @@ const hasContentToShow = computed(() => {
             >
               <CombatantIconSmall
                 :image="getMercImagePath(item)"
-                :merc-id="item.mercId"
+                :combatant-id="item.mercId"
                 :is-dictator="item.isDictator"
                 :alt="item._choiceDisplay || getMercName(item)"
                 :player-color="playerColor"

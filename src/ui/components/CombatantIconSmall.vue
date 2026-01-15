@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { getPlayerColor } from '../colors';
 
 const props = withDefaults(defineProps<{
-  mercId?: string;
+  combatantId?: string;
   image?: string;
   alt?: string;
   playerColor?: string;
@@ -19,8 +19,8 @@ const emit = defineEmits<{
   click: [];
 }>();
 
-// Auto-detect dictator from mercId prefix
-const autoDetectDictator = computed(() => props.mercId?.startsWith('dictator-') ?? false);
+// Auto-detect dictator from combatantId prefix
+const autoDetectDictator = computed(() => props.combatantId?.startsWith('dictator-') ?? false);
 const isDictatorCombatant = computed(() => props.isDictator ?? autoDetectDictator.value);
 
 const imagePath = computed(() => {
@@ -28,11 +28,11 @@ const imagePath = computed(() => {
   if (props.image) {
     return props.image;
   }
-  // Build path from mercId
-  if (props.mercId) {
+  // Build path from combatantId
+  if (props.combatantId) {
     const folder = isDictatorCombatant.value ? 'dictators' : 'mercs';
     const ext = isDictatorCombatant.value ? 'png' : 'jpg';
-    return `/${folder}/${props.mercId.toLowerCase()}.${ext}`;
+    return `/${folder}/${props.combatantId.toLowerCase()}.${ext}`;
   }
   // Fallback
   return isDictatorCombatant.value ? '/dictators/unknown.png' : '/mercs/unknown.jpg';

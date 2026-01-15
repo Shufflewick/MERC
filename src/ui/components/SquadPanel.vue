@@ -4,8 +4,10 @@ import CombatantCard from './CombatantCard.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 
 interface MercData {
-  mercId: string;
-  mercName: string;
+  combatantId?: string;
+  combatantName?: string;
+  mercId?: string; // backward compat
+  mercName?: string; // backward compat
   image?: string;
   baseTraining?: number;
   baseCombat?: number;
@@ -55,14 +57,14 @@ function handleActivateAbility(mercId: string) {
 
 // Check if a MERC has their ability available
 function isMercAbilityAvailable(merc: MercData): boolean {
-  const mercId = merc.mercId || (merc as any).attributes?.mercId;
-  return props.mercAbilitiesAvailable?.includes(mercId) || false;
+  const combatantId = merc.combatantId || merc.mercId || (merc as any).attributes?.combatantId || (merc as any).attributes?.mercId;
+  return props.mercAbilitiesAvailable?.includes(combatantId) || false;
 }
 
-// Get unique key for merc - never returns empty to prevent Vue warnings
+// Get unique key for combatant - never returns empty to prevent Vue warnings
 let mercKeyCounter = 0;
 function getMercKey(merc: MercData, index: number): string {
-  return merc.mercId || merc.mercName || `merc-${index}-${++mercKeyCounter}`;
+  return merc.combatantId || merc.combatantName || merc.mercId || merc.mercName || `merc-${index}-${++mercKeyCounter}`;
 }
 
 const borderColor = computed(() => getPlayerColor(props.playerColor));

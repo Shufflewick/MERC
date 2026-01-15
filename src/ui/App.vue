@@ -66,7 +66,7 @@ function getMercCount(player: any, gameView: any): number {
       // Count MERCs in this squad (children with mercId)
       if (node.children) {
         count += node.children.filter((c: any) =>
-          c.attributes?.mercId || normalizeClassName(c.className) === 'MercCard'
+          c.attributes?.combatantId || c.attributes?.mercId || normalizeClassName(c.className) === 'MercCard'
         ).length;
       }
     }
@@ -75,7 +75,7 @@ function getMercCount(player: any, gameView: any): number {
     if (className === 'Squad' && attrs.name === playerAttrs.hiredMercsSquadRef) {
       if (node.children) {
         count += node.children.filter((c: any) =>
-          c.attributes?.mercId || normalizeClassName(c.className) === 'MercCard'
+          c.attributes?.combatantId || c.attributes?.mercId || normalizeClassName(c.className) === 'MercCard'
         ).length;
       }
     }
