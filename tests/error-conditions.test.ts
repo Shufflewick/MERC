@@ -290,7 +290,7 @@ describe('Error Conditions', () => {
       });
 
       it('should return false (not throw) for plain object', () => {
-        const fakeCard = { dictatorId: 'fake', dictatorName: 'Fake' };
+        const fakeCard = { combatantId: 'fake', combatantName: 'Fake' };
         expect(() => isCombatantModel(fakeCard)).not.toThrow();
         expect(isCombatantModel(fakeCard)).toBe(false);
       });
