@@ -497,8 +497,8 @@ const hasContentToShow = computed(() => {
             :choices="equipmentTypeChoices"
             :combatant-id="dictator?.combatantId || dictator?.dictatorId"
             :combatant-name="dictator?.combatantName || dictator?.dictatorName"
+            :image="dictator?.image"
             player-color="dictator"
-            is-dictator
             @select="selectEquipmentType"
           />
         </div>

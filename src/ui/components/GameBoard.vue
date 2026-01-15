@@ -161,10 +161,13 @@ function findElementById(id: number | string, root?: any): any {
   return null;
 }
 
-// Helper to get property from node (checks attributes first, then root)
+// Helper to get property from node (checks attributes first, then root, then underscore-prefixed)
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
   if (node?.attributes && node.attributes[key] !== undefined) return node.attributes[key];
   if (node && node[key] !== undefined) return node[key];
+  // Check for underscore-prefixed private property (e.g., _combatantName)
+  const privateKey = `_${key}`;
+  if (node && node[privateKey] !== undefined) return node[privateKey];
   return defaultVal;
 }
 
@@ -1598,12 +1601,8 @@ const selectedMercForEquipment = computed(() => {
 // Get the image path for the selected MERC
 const selectedMercImagePath = computed(() => {
   const merc = selectedMercForEquipment.value;
-  if (!merc) return null;
-  const img = getAttr(merc, 'image', '');
-  if (img) return img;
-  // Use combatantId to construct path - during Day 1, combatantId is lowercase name
-  const combatantId = getAttr(merc, 'combatantId', '') || (merc as any).combatantId || (merc as any).mercId;
-  return combatantId ? `/mercs/${combatantId}.jpg` : null;
+  if (!merc) return '';
+  return getAttr(merc, 'image', '');
 });
 
 // Get the name for the selected MERC
@@ -2381,6 +2380,7 @@ const clickableSectors = computed(() => {
         :choices="equipmentTypeChoices"
         :combatant-id="selectedMercId"
         :combatant-name="selectedMercName"
+        :image="selectedMercImagePath"
         :player-color="currentPlayerColor"
         @select="selectEquipmentType"
         @clickMerc="openHiringMercDetail"

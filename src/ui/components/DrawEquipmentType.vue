@@ -12,8 +12,8 @@ const props = defineProps<{
   prompt?: string;
   combatantId?: string; // Combatant ID for portrait
   combatantName?: string; // Combatant name
+  image?: string; // Combatant image path
   playerColor?: string; // Player color for border
-  isDictator?: boolean; // Whether this is a dictator (affects image path)
 }>();
 
 const emit = defineEmits<{
@@ -45,8 +45,8 @@ function handleClick(value: string) {
         v-if="combatantName"
         :combatant-id="combatantId"
         :combatant-name="combatantName"
+        :image="image"
         :player-color="playerColor"
-        :is-dictator="isDictator"
         size="large"
         clickable
         @click="handleMercClick"
