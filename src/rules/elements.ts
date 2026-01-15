@@ -1174,25 +1174,27 @@ export class Sector extends GridCell {
 // =============================================================================
 
 /**
- * Dictator unit card. Identity via dictatorId/dictatorName from JSON data.
+ * Dictator unit card. Identity via combatantId/combatantName from parent.
+ * dictatorId/dictatorName are backward-compat aliases.
  * Starts not in play (inPlay=false), enters play when base is revealed.
  */
 export class DictatorCard extends CombatantModel {
-  // Identity - BoardSmith populates from JSON with these names
-  dictatorId!: string;
-  dictatorName!: string;
-
   // Card type discriminator - dictators start not in play
   override cardType: 'merc' | 'dictator' = 'dictator';
   override inPlay: boolean = false;
 
-  // Provide combatantId/combatantName via getters with backward-compat
-  // Prefer dictatorId/dictatorName if set (from JSON), fall back to parent properties
-  override get combatantId(): string { return this.dictatorId || this._combatantId; }
-  override set combatantId(value: string) { this._combatantId = value; this.dictatorId = value; }
+  // Use parent's combatantId/combatantName directly
+  override get combatantId(): string { return this._combatantId; }
+  override set combatantId(value: string) { this._combatantId = value; }
 
-  override get combatantName(): string { return this.dictatorName || this._combatantName; }
-  override set combatantName(value: string) { this._combatantName = value; this.dictatorName = value; }
+  override get combatantName(): string { return this._combatantName; }
+  override set combatantName(value: string) { this._combatantName = value; }
+
+  // Backward-compat aliases - TEMPORARY, remove in Phase 25 Plan 04
+  get dictatorId(): string { return this.combatantId; }
+  set dictatorId(value: string) { this.combatantId = value; }
+  get dictatorName(): string { return this.combatantName; }
+  set dictatorName(value: string) { this.combatantName = value; }
 }
 
 // =============================================================================
