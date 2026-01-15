@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, DictatorCard, Sector, Equipment, TacticsCard } from '../elements.js';
+import { MercCard, DictatorCard, Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { executeCombat, hasEnemies } from '../combat.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
 import {
@@ -26,12 +26,12 @@ import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from 
 // =============================================================================
 
 // MERC-07j: Type for units that can perform dictator actions (hired MERCs or dictator card)
-type DictatorUnit = MercCard | DictatorCard;
+// Using CombatantModel as it represents both MercCard and DictatorCard
 
-// Note: getDictatorUnitName was removed - use getUnitName from helpers.ts instead
+// Note: getCombatantModelName was removed - use getUnitName from helpers.ts instead
 // Note: move, explore, train, reEquip, dropEquipment actions now unified with rebel actions
 
-function canDictatorUnitFireMortar(unit: DictatorUnit, game: MERCGame): boolean {
+function canCombatantModelFireMortar(unit: CombatantModel, game: MERCGame): boolean {
   if (unit.actionsRemaining < 1 || !unit.sectorId) return false;
   if (!hasMortar(unit)) return false;
 

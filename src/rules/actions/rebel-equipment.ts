@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, MERCPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, isGrenadeOrMortar, DictatorCard } from '../elements.js';
+import { MercCard, Sector, Equipment, isGrenadeOrMortar, DictatorCard, CombatantModel } from '../elements.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -38,16 +38,16 @@ import { hasMortar } from '../ai-helpers.js';
  * Works for both rebel and dictator players.
  */
 // Type for units that can equip (MERCs or DictatorCard)
-type EquippableUnit = MercCard | DictatorCard;
+// Using CombatantModel as it represents both MercCard and DictatorCard
 
 // Helper to get living units with actions for any player type
 // Returns MERCs + DictatorCard if applicable
-function getPlayerUnitsWithActions(player: unknown, game: MERCGame): EquippableUnit[] {
+function getPlayerUnitsWithActions(player: unknown, game: MERCGame): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
     return player.team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
   }
   if (game.isDictatorPlayer(player)) {
-    const units: EquippableUnit[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
+    const units: CombatantModel[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
     // Include DictatorCard if in play with enough actions
     const dictatorCard = game.dictatorPlayer?.dictator;
     if (dictatorCard?.inPlay && !dictatorCard.isDead && dictatorCard.actionsRemaining >= ACTION_COSTS.RE_EQUIP) {
@@ -59,7 +59,7 @@ function getPlayerUnitsWithActions(player: unknown, game: MERCGame): EquippableU
 }
 
 // Helper to check if unit can re-equip (in a sector with stash and has actions)
-function canUnitReEquip(unit: EquippableUnit, player: unknown, game: MERCGame): boolean {
+function canUnitReEquip(unit: CombatantModel, player: unknown, game: MERCGame): boolean {
   if (unit.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
   if (isDictatorCard(unit) && (!unit.inPlay || unit.isDead)) return false;
   const sector = findUnitSector(unit, player, game);
@@ -77,7 +77,7 @@ function canAnyUnitReEquip(player: unknown, game: MERCGame): boolean {
 
 export function createReEquipAction(game: MERCGame): ActionDefinition {
   // Helper to resolve unit from ctx.args (parses composite string "id:name:isDictatorCard")
-  function getUnit(ctx: { args?: Record<string, unknown> }): EquippableUnit | undefined {
+  function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
     const unitArg = ctx.args?.actingUnit;
 
     // Handle string format: "id:name:isDictatorCard"

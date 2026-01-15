@@ -8,7 +8,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { MercCard, DictatorCard, Sector, Equipment } from './elements.js';
+import { MercCard, DictatorCard, Sector, Equipment, CombatantModel } from './elements.js';
 import { isMercCard } from './actions/helpers.js';
 import {
   getAIMercAction,
@@ -31,15 +31,12 @@ import {
   type AIActionType,
 } from './ai-helpers.js';
 
-// Type for dictator units (MERC or Dictator card)
-type DictatorUnit = MercCard | DictatorCard;
-
 /**
  * Result of AI action selection
  */
 export interface AIActionSelection {
   actionName: string;
-  unit: DictatorUnit | null;
+  unit: CombatantModel | null;
   destination?: Sector;
   equipment?: Equipment;
   reason: string;
@@ -332,7 +329,7 @@ function convertDecisionToAction(
 export function getAIUnitSelection(
   game: MERCGame,
   actionName: string
-): DictatorUnit | null {
+): CombatantModel | null {
   const nextAction = getNextAIAction(game);
   if (!nextAction || nextAction.actionName !== actionName) {
     return null;
@@ -345,7 +342,7 @@ export function getAIUnitSelection(
  */
 export function getAIMoveDestination(
   game: MERCGame,
-  unit: DictatorUnit
+  unit: CombatantModel
 ): Sector | null {
   if (!unit.sectorId) return null;
 
@@ -369,7 +366,7 @@ export function getAIMoveDestination(
  */
 export function getAIEquipmentSelection(
   game: MERCGame,
-  unit: DictatorUnit
+  unit: CombatantModel
 ): Equipment | null {
   if (!unit.sectorId) return null;
 
