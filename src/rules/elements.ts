@@ -85,14 +85,9 @@ export interface EquipmentSlotData {
  */
 export abstract class CombatantBase extends BaseCard {
   // Identity - canonical names for all combatants
-  // Abstract getters allow subclasses to provide values via their own properties
-  // (MercCard uses mercId, DictatorCard uses dictatorId, etc.)
+  // Abstract getters - implemented in CombatantModel via _combatantId/_combatantName
   abstract get combatantId(): string;
   abstract get combatantName(): string;
-
-  // Backward-compat getters for API stability
-  get unitId(): string { return this.combatantId; }
-  get unitName(): string { return this.combatantName; }
 
   bio!: string;
   ability!: string;
