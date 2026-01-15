@@ -134,12 +134,12 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const mercName = args.merc as string;
-      if (!mercName || mercName === 'No MERCs available') {
+      const chosenMercName = args.merc as string;
+      if (!chosenMercName || chosenMercName === 'No MERCs available') {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const merc = available.find(m => capitalize(m.combatantName) === mercName);
+      const merc = available.find(m => capitalize(m.combatantName) === chosenMercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
@@ -241,12 +241,12 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const mercName = args.merc as string;
-      if (!mercName || mercName === 'No MERCs available' || mercName === 'No compatible MERCs available') {
+      const chosenMercName = args.merc as string;
+      if (!chosenMercName || chosenMercName === 'No MERCs available' || chosenMercName === 'No compatible MERCs available') {
         return { success: false, message: 'No compatible MERCs available' };
       }
 
-      const merc = available.find(m => capitalize(m.combatantName) === mercName);
+      const merc = available.find(m => capitalize(m.combatantName) === chosenMercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
@@ -366,10 +366,10 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       const player = asRebelPlayer(ctx.player);
       const playerId = `${player.position}`;
       const available = getMercsFromCache(game, playerId) || [];
-      const mercName = args.merc as string;
+      const chosenMercName = args.merc as string;
 
       // Handle skip option
-      if (mercName === 'Skip (no third hire)') {
+      if (chosenMercName === 'Skip (no third hire)') {
         // Discard remaining MERCs
         for (const other of available) {
           other.putInto(game.mercDiscard);
@@ -383,11 +383,11 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      if (!mercName) {
+      if (!chosenMercName) {
         return { success: false, message: 'No MERC selected' };
       }
 
-      const merc = available.find(m => capitalize(m.combatantName) === mercName);
+      const merc = available.find(m => capitalize(m.combatantName) === chosenMercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
@@ -565,13 +565,13 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const dictatorName = args.dictatorChoice as string;
+      const chosenDictatorName = args.dictatorChoice as string;
 
       // Find the dictator by name and set up - filter combatantData for dictator entries
       const dictatorData = game.combatantData.filter(d => d.cardType === 'dictator');
-      const dictator = dictatorData.find(d => d.name === dictatorName);
+      const dictator = dictatorData.find(d => d.name === chosenDictatorName);
       if (!dictator) {
-        return { success: false, message: `Unknown dictator: ${dictatorName}` };
+        return { success: false, message: `Unknown dictator: ${chosenDictatorName}` };
       }
 
       const dictatorCard = setupDictator(game, dictatorData, dictator.id);

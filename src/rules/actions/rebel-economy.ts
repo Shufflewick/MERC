@@ -427,7 +427,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
  * Cost: 0 actions (free)
  *
  * This action is chained from explore via followUp. It receives pre-filled
- * mercId and sectorId args so the player doesn't need to re-select the merc.
+ * combatant and sector args so the player doesn't need to re-select the merc.
  * The UI updates after exploration completes (showing stash contents) before
  * this action starts.
  *
