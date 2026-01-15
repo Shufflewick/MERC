@@ -11,7 +11,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
 - ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
 - ✅ **v1.4 Combatant Naming Unification** — Phases 20-23 (shipped 2026-01-14)
-- 🚧 **v1.5 Final Combatant Unification** — Phases 24-27 (in progress)
+- ✅ **v1.5 Final Combatant Unification** — Phases 24-27 (shipped 2026-01-15)
 
 ## Completed Milestones
 
@@ -20,8 +20,21 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md) (Phases 9-13) — SHIPPED 2026-01-11
 - ✅ [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) (Phases 14-19) — SHIPPED 2026-01-13
 - ✅ [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) (Phases 20-23) — SHIPPED 2026-01-14
+- ✅ [v1.5 Final Combatant Unification](milestones/v1.5-ROADMAP.md) (Phases 24-27) — SHIPPED 2026-01-15
 
-### 🚧 v1.5 Final Combatant Unification (In Progress)
+<details>
+<summary>✅ v1.5 Final Combatant Unification (Phases 24-27) — SHIPPED 2026-01-15</summary>
+
+**Milestone Goal:** Eliminate MercCard/DictatorCard subclasses entirely, unifying on single CombatantModel class with cardType discriminator
+
+- [x] Phase 24: Merge Classes (1/1 plan) — completed 2026-01-15
+- [x] Phase 25: Remove ID Aliases (4/4 plans) — completed 2026-01-15
+- [x] Phase 26: Update References (1/1 plan) — completed 2026-01-15
+- [x] Phase 27: Documentation (1/1 plan) — completed 2026-01-15
+
+</details>
+
+### ✅ v1.5 Final Combatant Unification (Complete)
 
 **Milestone Goal:** Eliminate MercCard/DictatorCard subclasses entirely, unifying on single CombatantModel class with cardType discriminator
 
@@ -58,15 +71,15 @@ Plans:
 Plans:
 - [x] 26-01: Remove backward-compat exports, replace union types with CombatantModel
 
-#### Phase 27: Documentation
+#### Phase 27: Documentation ✅
 
 **Goal**: Update CLAUDE.md, remove dead code, verify no regressions
 **Depends on**: Phase 26
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 1 complete
 
 Plans:
-- [ ] 27-01: TBD
+- [x] 27-01: Update documentation for v1.5 completion
 
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
@@ -129,7 +142,7 @@ Plans:
 | 24. Merge Classes | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 25. Remove ID Aliases | v1.5 | 4/4 | Complete | 2026-01-15 |
 | 26. Update References | v1.5 | 1/1 | Complete | 2026-01-15 |
-| 27. Documentation | v1.5 | 0/? | Not started | - |
+| 27. Documentation | v1.5 | 1/1 | Complete | 2026-01-15 |
 
 <details>
 <summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
@@ -155,7 +168,7 @@ Plans:
 
 ## Status
 
-v1.5 Final Combatant Unification in progress (Phases 24-27).
+All milestones complete. v1.5 Final Combatant Unification shipped 2026-01-15.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) — Type safety and ship confidence
@@ -163,3 +176,4 @@ See milestone archives for completed work:
 - [v1.2 Merge Dictator and Merc Cards](milestones/v1.2-ROADMAP.md) — Unified card architecture
 - [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) — Shared abilities and hiring
 - [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) — Canonical naming and documentation
+- [v1.5 Final Combatant Unification](milestones/v1.5-ROADMAP.md) — Concrete CombatantModel, clean exports

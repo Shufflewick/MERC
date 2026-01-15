@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-14)
+See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** Eliminate MercCard/DictatorCard subclasses, unify on CombatantModel
+**Current focus:** Cleanup complete - codebase ready for future development
 
 ## Current Position
 
-Phase: 26 of 27 (Update References)
+Phase: 27 of 27 (Documentation)
 Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-15 — Completed 26-01-PLAN.md
+Status: Phase complete, milestone complete
+Last activity: 2026-01-15 — Completed 27-01-PLAN.md
 
 Progress: ██████████ 100%
 
@@ -23,14 +23,15 @@ Progress: ██████████ 100%
 - v1.2 Merge Dictator and Merc Cards (Phases 9-13) — 7 plans
 - v1.3 Combatant Unification (Phases 14-19) — 6 plans
 - v1.4 Combatant Naming Unification (Phases 20-23) — 6 plans
+- v1.5 Final Combatant Unification (Phases 24-27) — 7 plans
 
-Total: 23 phases, 45 plans, 5 milestones shipped
+Total: 27 phases, 52 plans, 6 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 48
-- Total execution time: ~8.5 hours
+- Total plans completed: 52
+- Total execution time: ~9 hours
 - Average duration: 10 min/plan
 
 ## Accumulated Context
@@ -49,10 +50,10 @@ None active. (Previous 56 test failures now passing)
 
 ### Roadmap Evolution
 
-- Milestone v1.5 created: Final Combatant Unification, 4 phases (Phase 24-27)
+- Milestone v1.5 completed: Final Combatant Unification, 4 phases (Phase 24-27)
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed 26-01-PLAN.md (Phase 26 complete)
+Stopped at: All milestones complete - v1.5 shipped
 Resume file: None
