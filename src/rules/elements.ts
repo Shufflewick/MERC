@@ -790,11 +790,6 @@ export class CombatantModel extends CombatantBase {
   inPlay: boolean = true;
   baseSectorId?: string; // Permanent base location for dictators (never changes after revealed)
 
-  // Note: mercId/mercName/dictatorId/dictatorName are provided by subclasses
-  // MercCard has mercId/mercName as properties (from JSON)
-  // DictatorCard has dictatorId/dictatorName as properties (from JSON)
-  // These map to combatantId/combatantName via getters in each subclass
-
   /**
    * Put the dictator into play (when base is revealed).
    * For mercs, this is a no-op (they're always in play).

@@ -35,18 +35,18 @@ A systematic cleanup moving from type safety foundations through code quality im
 Plans:
 - [x] 24-01: Make CombatantModel concrete with unified ID properties
 
-#### Phase 25: Remove ID Aliases
+#### Phase 25: Remove ID Aliases ✅
 
 **Goal**: Eliminate mercId/mercName, dictatorId/dictatorName, unitId/unitName - only combatantId/combatantName
 **Depends on**: Phase 24
 **Research**: Unlikely (internal refactoring)
-**Plans**: 4 planned
+**Plans**: 4 complete
 
 Plans:
 - [x] 25-01: Core class changes (elements.ts, game.ts, setup.ts with backward-compat getters)
 - [x] 25-02: Rules layer updates (324 occurrences across 21 files)
 - [x] 25-03: UI and Tests updates (155 occurrences across 15 files)
-- [ ] 25-04: Remove backward-compat getters and update documentation
+- [x] 25-04: Remove backward-compat getters and update documentation
 
 #### Phase 26: Update References
 
@@ -127,7 +127,7 @@ Plans:
 | 22. Reference Updates | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 23. Documentation | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 24. Merge Classes | v1.5 | 1/1 | Complete | 2026-01-15 |
-| 25. Remove ID Aliases | v1.5 | 3/4 | In progress | - |
+| 25. Remove ID Aliases | v1.5 | 4/4 | Complete | 2026-01-15 |
 | 26. Update References | v1.5 | 0/? | Not started | - |
 | 27. Documentation | v1.5 | 0/? | Not started | - |
 
