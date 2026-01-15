@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** Eradicate legacy ID naming patterns (mercId/dictatorId → combatantId)
+**Current focus:** v1.6 Final ID Cleanup complete
 
 ## Current Position
 
-Phase: 29 of 30 (Rules Layer ID Cleanup)
+Phase: 30 of 30 (UI Layer ID Cleanup)
 Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-15 — Completed 29-02-PLAN.md
+Status: Milestone complete
+Last activity: 2026-01-15 — Completed 30-02-PLAN.md
 
-Progress: ███████░░░ 67% (2 of 3 v1.6 phases)
+Progress: ██████████ 100% (3 of 3 v1.6 phases)
 
 ## Milestones Completed
 
@@ -24,14 +24,15 @@ Progress: ███████░░░ 67% (2 of 3 v1.6 phases)
 - v1.3 Combatant Unification (Phases 14-19) — 6 plans
 - v1.4 Combatant Naming Unification (Phases 20-23) — 6 plans
 - v1.5 Final Combatant Unification (Phases 24-27) — 7 plans
+- v1.6 Final ID Cleanup (Phases 28-30) — 5 plans
 
-Total: 27 phases, 52 plans, 6 milestones shipped
+Total: 30 phases, 57 plans, 7 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 52
-- Total execution time: ~9 hours
+- Total plans completed: 57
+- Total execution time: ~9.5 hours
 - Average duration: 10 min/plan
 
 ## Accumulated Context
@@ -46,15 +47,14 @@ None active.
 
 ### Blockers/Concerns
 
-None active. (Previous 56 test failures now passing)
+None active.
 
 ### Roadmap Evolution
 
-- Milestone v1.5 completed: Final Combatant Unification, 4 phases (Phase 24-27)
-- Milestone v1.6 created: Final ID Cleanup, 3 phases (Phase 28-30)
+- Milestone v1.6 completed: Final ID Cleanup, 3 phases (Phase 28-30)
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed Phase 29 (Rules Layer ID Cleanup)
+Stopped at: Completed v1.6 milestone (all phases complete)
 Resume file: None

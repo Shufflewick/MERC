@@ -146,7 +146,7 @@ Plans:
 | 27. Documentation | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 28. Remove Legacy Comments | v1.6 | 1/1 | Complete | 2026-01-15 |
 | 29. Rules Layer ID Cleanup | v1.6 | 2/2 | Complete | 2026-01-15 |
-| 30. UI Layer ID Cleanup | v1.6 | 0/? | Not started | - |
+| 30. UI Layer ID Cleanup | v1.6 | 2/2 | Complete | 2026-01-15 |
 
 <details>
 <summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
@@ -170,7 +170,7 @@ Plans:
 
 </details>
 
-### 🚧 v1.6 Final ID Cleanup (In Progress)
+### ✅ v1.6 Final ID Cleanup (Complete)
 
 **Milestone Goal:** Eradicate all legacy mercId/dictatorId/mercName/dictatorName patterns from the codebase, leaving only combatantId/combatantName
 
@@ -184,31 +184,31 @@ Plans:
 Plans:
 - [x] 28-01: Remove legacy comments and deprecated functions from rules and UI layers
 
-#### Phase 29: Rules Layer ID Cleanup
+#### Phase 29: Rules Layer ID Cleanup ✅
 
 **Goal**: Replace mercId with combatantId in state types, combat utilities, and action args (excluding merc-abilities.ts which uses mercId semantically correctly)
 **Depends on**: Phase 28
 **Research**: Unlikely (internal refactoring)
-**Plans**: 2
+**Plans**: 2 complete
 
 Plans:
 - [x] 29-01: Update core state types (game.ts) and combat utilities (combat.ts)
 - [x] 29-02: Update action layer (rebel-economy.ts, rebel-equipment.ts, day-one-actions.ts)
 
-#### Phase 30: UI Layer ID Cleanup
+#### Phase 30: UI Layer ID Cleanup ✅
 
 **Goal**: Replace mercName/dictatorName with combatantName in src/ui/ (~39 occurrences, 7 files) + tests (~1 occurrence, 1 file)
 **Depends on**: Phase 29
 **Research**: Unlikely (internal refactoring)
-**Plans**: 2
+**Plans**: 2 complete
 
 Plans:
-- [ ] 30-01: Update UI component interfaces and type definitions
-- [ ] 30-02: Remove fallback chains and update data mappings + test fixture
+- [x] 30-01: Update UI component interfaces and type definitions
+- [x] 30-02: Remove fallback chains and update data mappings + test fixture
 
 ## Status
 
-v1.6 Final ID Cleanup in progress (Phases 28-30).
+v1.6 Final ID Cleanup complete (Phases 28-30). 7 milestones shipped.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) — Type safety and ship confidence
