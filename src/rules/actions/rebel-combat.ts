@@ -595,7 +595,7 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
       const newHits = newRolls.filter(r => r >= pending.hitThreshold).length;
 
       // Count Wolverine 6s if applicable
-      const isWolverine = pending.attackerMercId === 'wolverine';
+      const isWolverine = pending.attackerCombatantId === 'wolverine';
       const newWolverineSixes = isWolverine ? newRolls.filter(r => r === 6).length : 0;
 
       game.message(`${pending.attackerName} uses reroll ability! [${newRolls.join(', ')}] - ${newHits} hit(s)`);
@@ -1036,7 +1036,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       prompt: () => {
         const pending = game.activeCombat?.pendingEpinephrine;
         return pending
-          ? `Choose who uses Epinephrine Shot to save ${pending.dyingMercName}`
+          ? `Choose who uses Epinephrine Shot to save ${pending.dyingCombatantName}`
           : 'Choose merc to use Epinephrine Shot';
       },
       elementClass: CombatantModel,
@@ -1056,12 +1056,12 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
 
       // Find the dying MERC
       let dyingMerc: CombatantModel | undefined;
-      if (pending.dyingMercSide === 'dictator') {
-        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingMercId);
+      if (pending.dyingCombatantSide === 'dictator') {
+        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingCombatantId);
       } else {
         for (const rebel of game.rebelPlayers) {
           const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
-          dyingMerc = allMercs.find(m => m.id === pending.dyingMercId);
+          dyingMerc = allMercs.find(m => m.id === pending.dyingCombatantId);
           if (dyingMerc) break;
         }
       }
@@ -1124,12 +1124,12 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
 
       // Find the dying MERC
       let dyingMerc: CombatantModel | undefined;
-      if (pending.dyingMercSide === 'dictator') {
-        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingMercId);
+      if (pending.dyingCombatantSide === 'dictator') {
+        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingCombatantId);
       } else {
         for (const rebel of game.rebelPlayers) {
           const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
-          dyingMerc = allMercs.find(m => m.id === pending.dyingMercId);
+          dyingMerc = allMercs.find(m => m.id === pending.dyingCombatantId);
           if (dyingMerc) break;
         }
       }

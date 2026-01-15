@@ -29,7 +29,7 @@ const props = defineProps<{
     pendingHitAllocation?: {
       attackerId: string;
       attackerName: string;
-      attackerMercId: string;
+      attackerCombatantId: string;
       diceRolls: number[];
       hits: number;
       hitThreshold: number;
