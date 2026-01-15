@@ -361,14 +361,14 @@ describe('State Persistence', () => {
     describe('Dictator global state caching', () => {
       it('uses global cache for dictator-only state', () => {
         const DRAWN_MERCS_KEY = 'dictator_drawnMercs';
-        const mercIds = [201, 202];
+        const combatantElementIds = [201, 202];
 
         // Dictator draws MERCs - no player scoping needed
-        setGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY, mercIds);
+        setGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY, combatantElementIds);
 
         // Retrieve for hiring
         const cached = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY);
-        expect(cached).toEqual(mercIds);
+        expect(cached).toEqual(combatantElementIds);
 
         // Cleanup
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);

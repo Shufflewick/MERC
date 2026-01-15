@@ -675,12 +675,12 @@ const allMercs = computed(() => {
         if (!inPlay || isDead) continue;
 
         const charId = getAttr(child, 'combatantId', '');
-        const dictatorIdWithPrefix = `dictator-${charId}`;
-        const exists = mercs.some((m) => m.combatantId === dictatorIdWithPrefix);
+        const combatantDisplayId = `dictator-${charId}`;
+        const exists = mercs.some((m) => m.combatantId === combatantDisplayId);
         if (!exists) {
           mercs.push({
             ...child,
-            combatantId: dictatorIdWithPrefix,
+            combatantId: combatantDisplayId,
             combatantName: getAttr(child, 'combatantName', 'The Dictator'),
             sectorId: squadSectorId,
             playerColor: 'dictator',

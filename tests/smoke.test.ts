@@ -198,7 +198,7 @@ describe('MERC Smoke Tests', () => {
     });
 
     it('should initialize dictator with dictator card', () => {
-      // Manually set up the dictator card since createTestGame doesn't pass dictatorId
+      // Manually set up the dictator card since createTestGame doesn't pass dictatorChoice
       game.setupDictator('castro');
       const dictator = game.dictatorPlayer;
       expect(dictator.dictator).toBeDefined();
@@ -266,7 +266,7 @@ describe('MERC Smoke Tests', () => {
         seed: 'dictator-state-test',
       });
       game = testGame.game;
-      // Manually set up the dictator card since createTestGame doesn't pass dictatorId
+      // Manually set up the dictator card since createTestGame doesn't pass dictatorChoice
       game.setupDictator('castro');
       dictator = game.dictatorPlayer;
     });

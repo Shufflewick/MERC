@@ -356,8 +356,8 @@ describe('Combat Ability Integration', () => {
       const combatMercs = ['lucid', 'basic', 'sarge', 'tack', 'valkyrie',
                           'max', 'tavisto', 'snake', 'walter', 'adelheid'];
 
-      for (const mercId of combatMercs) {
-        const found = mercs.find(m => m.combatantId === mercId);
+      for (const combatantId of combatMercs) {
+        const found = mercs.find(m => m.combatantId === combatantId);
         expect(found).toBeDefined();
       }
     });
@@ -477,7 +477,7 @@ describe('Combat Ability Integration', () => {
         seed: 'dictator-combat',
       });
       game = testGame.game;
-      // Manually set up the dictator card since createTestGame doesn't pass dictatorId
+      // Manually set up the dictator card since createTestGame doesn't pass dictatorChoice
       game.setupDictator('castro');
     });
 
