@@ -6,7 +6,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { Sector, MercCard } from './elements.js';
+import { Sector, CombatantModel } from './elements.js';
 import { isLandMine } from './equipment-effects.js';
 
 // =============================================================================
@@ -100,7 +100,7 @@ export interface CombatTarget {
   armor: number;
   targets: number;
   initiative: number;
-  sourceElement: MercCard | null;
+  sourceElement: CombatantModel | null;
 }
 
 /**

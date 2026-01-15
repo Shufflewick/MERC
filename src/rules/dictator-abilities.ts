@@ -9,7 +9,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { MercCard, Sector } from './elements.js';
+import { CombatantModel, Sector } from './elements.js';
 import { SectorConstants } from './constants.js';
 import {
   selectNewMercLocation,
@@ -108,7 +108,7 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
   }
 
   // Draw 3 MERCs
-  const drawnMercs: MercCard[] = [];
+  const drawnMercs: CombatantModel[] = [];
   for (let i = 0; i < 3; i++) {
     const merc = game.drawMerc();
     if (merc) {

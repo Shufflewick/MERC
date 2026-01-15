@@ -605,7 +605,7 @@ const allMercs = computed(() => {
         // Skip dead MERCs
         if (isMercDead(merc)) continue;
 
-        if (mercId || normalizeClassName(merc.className) === 'MercCard') {
+        if (mercId || getAttr(merc, 'cardType', '') === 'merc') {
           // Use squad's sectorId (sectorId is now a computed getter on combatants)
           const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
           const combatantId = mercId || merc.ref;
@@ -635,9 +635,9 @@ const allMercs = computed(() => {
     if (!squadSectorId) continue;
 
     for (const child of (squad.children || [])) {
-      const className = normalizeClassName(child.className);
+      const cardType = getAttr(child, 'cardType', '');
 
-      if (className === 'MercCard') {
+      if (cardType === 'merc') {
         if (isMercDead(child)) continue;
         const combatantId = getAttr(child, 'combatantId', '') || child.ref;
         const exists = mercs.some((m) => m.combatantId === combatantId);
@@ -652,7 +652,7 @@ const allMercs = computed(() => {
         }
       }
 
-      if (className === 'DictatorCard') {
+      if (cardType === 'dictator') {
         const inPlay = getAttr(child, 'inPlay', false);
         const isDead = getAttr(child, 'damage', 0) >= 10;
         if (!inPlay || isDead) continue;
@@ -781,7 +781,7 @@ const primarySquad = computed(() => {
       .filter((c: any) => {
         // Skip dead MERCs
         if (isMercDead(c)) return false;
-        return getAttr(c, 'combatantId', '') || normalizeClassName(c.className) === 'MercCard';
+        return getAttr(c, 'combatantId', '') || getAttr(c, 'cardType', '') === 'merc';
       })
       .map((c: any) => c),
   };
@@ -809,7 +809,7 @@ const secondarySquad = computed(() => {
       .filter((c: any) => {
         // Skip dead MERCs
         if (isMercDead(c)) return false;
-        return getAttr(c, 'combatantId', '') || normalizeClassName(c.className) === 'MercCard';
+        return getAttr(c, 'combatantId', '') || getAttr(c, 'cardType', '') === 'merc';
       })
       .map((c: any) => c),
   };
@@ -823,22 +823,22 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
   // Get all combatants from squad (MERCs and DictatorCard)
   const combatants = (squad.children || [])
     .filter((c: any) => {
-      const className = normalizeClassName(c.className);
-      if (className === 'DictatorCard') {
+      const cardType = getAttr(c, 'cardType', '');
+      if (cardType === 'dictator') {
         // Include dictator if alive and in play
         const isDead = getAttr(c, 'damage', 0) >= 10;
         const inPlay = getAttr(c, 'inPlay', false);
         return inPlay && !isDead;
       }
-      if (className === 'MercCard') {
+      if (cardType === 'merc') {
         return !isMercDead(c);
       }
       // Also check by mercId for serialized cards
       return getAttr(c, 'combatantId', '');
     })
     .map((c: any) => {
-      const className = normalizeClassName(c.className);
-      if (className === 'DictatorCard') {
+      const cardType = getAttr(c, 'cardType', '');
+      if (cardType === 'dictator') {
         // Map dictator to merc-like format for SquadPanel
         return {
           ...c,
@@ -917,22 +917,22 @@ const dictatorBaseSquad = computed(() => {
   // Get all combatants in the base squad (MERCs and DictatorCard)
   const combatants = (baseSquad.children || [])
     .filter((c: any) => {
-      const className = normalizeClassName(c.className);
-      if (className === 'DictatorCard') {
+      const cardType = getAttr(c, 'cardType', '');
+      if (cardType === 'dictator') {
         // Include dictator if alive and in play
         const isDead = getAttr(c, 'damage', 0) >= 10;
         const inPlay = getAttr(c, 'inPlay', false);
         return inPlay && !isDead;
       }
-      if (className === 'MercCard') {
+      if (cardType === 'merc') {
         // Include MERCs if not dead
         return !isMercDead(c);
       }
       return false;
     })
     .map((c: any) => {
-      const className = normalizeClassName(c.className);
-      if (className === 'DictatorCard') {
+      const cardType = getAttr(c, 'cardType', '');
+      if (cardType === 'dictator') {
         return {
           ...c,
           mercId: `dictator-${getAttr(c, 'combatantId', '')}`,

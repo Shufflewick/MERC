@@ -42,12 +42,12 @@ import {
 // Settings key for drawn MERCs cache (persists across BoardSmith contexts)
 const HIRE_DRAWN_MERCS_KEY = 'hireDrawnMercs';
 
-// Helper to get MercCard elements from cached IDs
-function getHireDrawnMercs(game: MERCGame, playerId: string): MercCard[] | undefined {
+// Helper to get CombatantModel elements from cached IDs
+function getHireDrawnMercs(game: MERCGame, playerId: string): CombatantModel[] | undefined {
   const ids = getCachedValue<number[]>(game, HIRE_DRAWN_MERCS_KEY, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty
-  return ids.map(id => game.getElementById(id)).filter((e): e is MercCard => isMercCard(e));
+  return ids.map(id => game.getElementById(id)).filter((e): e is CombatantModel => isCombatantModel(e));
 }
 
 /**
@@ -269,7 +269,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 function isUnitOwnedForExplore(unit: CombatantModel, player: unknown, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
     if (!unit.isMerc) return false;
-    return isInPlayerTeam(unit as MercCard, asRebelPlayer(player));
+    return isInPlayerTeam(unit as CombatantModel, asRebelPlayer(player));
   }
   if (game.isDictatorPlayer(player)) {
     // DictatorCard always belongs to dictator
@@ -309,19 +309,19 @@ function getPlayerUnitsForExplore(player: unknown, game: MERCGame): CombatantMod
 }
 
 // Legacy helpers for backward compatibility
-function findMercSectorForExplore(merc: MercCard, player: unknown, game: MERCGame): Sector | null {
+function findMercSectorForExplore(merc: CombatantModel, player: unknown, game: MERCGame): Sector | null {
   return findUnitSector(merc, player, game);
 }
 
-function isMercOwnedForExplore(merc: MercCard, player: unknown, game: MERCGame): boolean {
+function isMercOwnedForExplore(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
   return isUnitOwnedForExplore(merc, player, game);
 }
 
-function canMercExplore(merc: MercCard, player: unknown, game: MERCGame): boolean {
+function canMercExplore(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
   return canUnitExplore(merc, player, game);
 }
 
-function getPlayerMercsForExplore(player: unknown, game: MERCGame): MercCard[] {
+function getPlayerMercsForExplore(player: unknown, game: MERCGame): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
     return asRebelPlayer(player).team.filter(m => !m.isDead);
   }
@@ -523,7 +523,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit?.isMerc && (unit as MercCard).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -641,7 +641,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = findExplorerUnit(ctx);
-        const isApeiron = unit?.isMerc && (unit as MercCard).combatantId === 'apeiron';
+        const isApeiron = unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron';
 
         const equipmentChoices = sector.stash
           .filter(e => !isApeiron || !isGrenadeOrMortar(e))
@@ -758,15 +758,15 @@ function getPlayerUnitsForTrain(player: unknown, game: MERCGame): CombatantModel
 }
 
 // Legacy helpers for backward compatibility
-function findMercSectorForTrain(merc: MercCard, player: unknown, game: MERCGame): Sector | null {
+function findMercSectorForTrain(merc: CombatantModel, player: unknown, game: MERCGame): Sector | null {
   return findUnitSector(merc, player, game);
 }
 
-function canMercTrain(merc: MercCard, player: unknown, game: MERCGame): boolean {
+function canMercTrain(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
   return canUnitTrain(merc, player, game);
 }
 
-function isMercOwnedForTrain(merc: MercCard, player: unknown, game: MERCGame): boolean {
+function isMercOwnedForTrain(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
     return isInPlayerTeam(merc, asRebelPlayer(player));
   }
@@ -777,7 +777,7 @@ function isMercOwnedForTrain(merc: MercCard, player: unknown, game: MERCGame): b
   return false;
 }
 
-function getPlayerMercsForTrain(player: unknown, game: MERCGame): MercCard[] {
+function getPlayerMercsForTrain(player: unknown, game: MERCGame): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
     return asRebelPlayer(player).team.filter(m => !m.isDead);
   }
@@ -849,7 +849,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       if (isDictatorCard(actingUnit)) {
         actingUnit.actionsRemaining -= ACTION_COSTS.TRAIN;
       } else {
-        useTrainingAction(actingUnit as MercCard, ACTION_COSTS.TRAIN);
+        useTrainingAction(actingUnit as CombatantModel, ACTION_COSTS.TRAIN);
       }
 
       // Get unit name for messages
@@ -938,7 +938,7 @@ function getPlayerUnitsForCity(player: unknown, game: MERCGame): CombatantModel[
 }
 
 // Legacy helper for backward compatibility (only MERCs)
-function getPlayerMercsForCity(player: unknown, game: MERCGame): MercCard[] {
+function getPlayerMercsForCity(player: unknown, game: MERCGame): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
     return asRebelPlayer(player).team.filter(m => !m.isDead);
   }
@@ -949,7 +949,7 @@ function getPlayerMercsForCity(player: unknown, game: MERCGame): MercCard[] {
 }
 
 // Helper to check if merc belongs to player (for hospital/armsDealer)
-function isMercOwnedForCity(merc: MercCard, player: unknown, game: MERCGame): boolean {
+function isMercOwnedForCity(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
     return isInPlayerTeam(merc, asRebelPlayer(player));
   }

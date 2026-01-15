@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, Sector, DictatorCard } from '../elements.js';
+import { MercCard, Sector, DictatorCard, CombatantModel } from '../elements.js';
 import {
   drawMercsForHiring,
   isValidLandingSector,
@@ -32,21 +32,21 @@ const DRAWN_MERCS_KEY = 'drawnMercsForHiring';
  * Get MercCard objects from cached IDs
  * Returns undefined if no cache exists (so callers can distinguish from empty cache)
  */
-function getMercsFromCache(game: MERCGame, playerId: string): MercCard[] | undefined {
+function getMercsFromCache(game: MERCGame, playerId: string): CombatantModel[] | undefined {
   const ids = getCachedValue<number[]>(game, DRAWN_MERCS_KEY, playerId);
   if (!ids) return undefined; // No cache - caller should draw
   if (ids.length === 0) return []; // Cache exists but empty (all MERCs hired)
   return ids.map(id => {
     const el = game.getElementById(id);
     return isMercCard(el) ? el : null;
-  }).filter((m): m is MercCard => m !== null);
+  }).filter((m): m is CombatantModel => m !== null);
 }
 
 /**
  * Draw and cache MERCs for a player if not already cached.
  * Uses game.settings for persistence across BoardSmith contexts.
  */
-function ensureMercsDrawn(game: MERCGame, playerId: string): MercCard[] {
+function ensureMercsDrawn(game: MERCGame, playerId: string): CombatantModel[] {
   const cachedMercs = getMercsFromCache(game, playerId);
   if (cachedMercs !== undefined) {
     // Cache exists (even if empty) - return what's there
@@ -612,7 +612,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
   const DRAWN_MERC_KEY = 'dictatorFirstMercId';
 
   // Helper to get the drawn MERC
-  const getDrawnMerc = (): MercCard | null => {
+  const getDrawnMerc = (): CombatantModel | null => {
     // Draw the MERC if not already drawn
     if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
       const merc = game.drawMerc();

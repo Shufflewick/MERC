@@ -8,7 +8,7 @@
  */
 
 import type { MERCGame, RebelPlayer } from './game.js';
-import { MercCard, Equipment, Sector, TacticsCard, isGrenadeOrMortar } from './elements.js';
+import { Equipment, Sector, TacticsCard, isGrenadeOrMortar, CombatantModel } from './elements.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 import { selectNewMercLocation } from './ai-helpers.js';
@@ -22,8 +22,8 @@ import { equipNewHire } from './actions/helpers.js';
  * Draw multiple MERCs for initial hiring selection.
  * Rebels draw 3, then choose which to hire.
  */
-export function drawMercsForHiring(game: MERCGame, count: number = 3): MercCard[] {
-  const drawnMercs: MercCard[] = [];
+export function drawMercsForHiring(game: MERCGame, count: number = 3): CombatantModel[] {
+  const drawnMercs: CombatantModel[] = [];
 
   for (let i = 0; i < count; i++) {
     const merc = game.drawMerc();
@@ -42,10 +42,10 @@ export function drawMercsForHiring(game: MERCGame, count: number = 3): MercCard[
 export function hireSelectedMercs(
   game: MERCGame,
   player: RebelPlayer,
-  drawnMercs: MercCard[],
+  drawnMercs: CombatantModel[],
   selectedIndices: number[]
-): MercCard[] {
-  const hiredMercs: MercCard[] = [];
+): CombatantModel[] {
+  const hiredMercs: CombatantModel[] = [];
 
   for (let i = 0; i < drawnMercs.length; i++) {
     const merc = drawnMercs[i];
@@ -129,7 +129,7 @@ export function placeLanding(
  */
 export function equipStartingEquipment(
   game: MERCGame,
-  merc: MercCard,
+  merc: CombatantModel,
   equipmentType: 'Weapon' | 'Armor' | 'Accessory'
 ): Equipment | undefined {
   let equipment = game.drawEquipment(equipmentType);
@@ -181,8 +181,8 @@ export function equipStartingEquipment(
  * This is a helper function that orchestrates the full rebel setup.
  */
 export interface RebelDay1Setup {
-  drawnMercs: MercCard[];
-  hiredMercs: MercCard[];
+  drawnMercs: CombatantModel[];
+  hiredMercs: CombatantModel[];
   landingSector: Sector | null;
   startingEquipment: Equipment[];
 }
@@ -241,7 +241,7 @@ export function placeInitialMilitia(game: MERCGame): number {
  * The MERC is placed at a sector the Dictator controls.
  * All hired MERCs get 1 free equipment.
  */
-export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
+export function hireDictatorMerc(game: MERCGame): CombatantModel | undefined {
   const merc = game.drawMerc();
 
   if (merc) {

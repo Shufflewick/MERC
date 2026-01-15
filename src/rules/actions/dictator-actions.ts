@@ -44,7 +44,7 @@ function canCombatantModelFireMortar(unit: CombatantModel, game: MERCGame): bool
 
 // MERC-7fy: Helper to check if a MERC has a healing item equipped
 // Uses equipment registry instead of string matching
-function hasHealingItemEquipped(merc: MercCard): boolean {
+function hasHealingItemEquipped(merc: CombatantModel): boolean {
   // Check accessory slot
   if (merc.accessorySlot && isHealingItem(merc.accessorySlot.equipmentId)) {
     return true;
@@ -356,7 +356,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       choices: () => {
         // Draw 3 MERCs if not already drawn
         if (!getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY)) {
-          const drawnMercs: MercCard[] = [];
+          const drawnMercs: CombatantModel[] = [];
           for (let i = 0; i < 3; i++) {
             const merc = game.drawMerc();
             if (merc) drawnMercs.push(merc);
@@ -368,7 +368,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
         const mercs = mercIds
           .map(id => game.getElementById(id))
-          .filter((el): el is MercCard => isMercCard(el))
+          .filter((el): el is CombatantModel => isMercCard(el))
           .sort((a, b) => b.baseCombat - a.baseCombat);
 
         if (mercs.length === 0) {
@@ -412,7 +412,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       // Find the MERC by name
       const mercs = mercIds
         .map(id => game.getElementById(id))
-        .filter((el): el is MercCard => isMercCard(el));
+        .filter((el): el is CombatantModel => isMercCard(el));
       const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);
 
       if (!selectedMerc) {

@@ -15,7 +15,7 @@
  */
 
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
-import { MercCard, Sector, DictatorCard, Militia } from './elements.js';
+import { Sector, Militia, CombatantModel } from './elements.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
   sortTargetsByAIPriority,
@@ -676,14 +676,14 @@ function applySargeBonus(game: MERCGame, combatants: Combatant[]): void {
   if (sargeCombatants.length === 0) return;
 
   for (const sarge of sargeCombatants) {
-    const sargeMerc = sarge.sourceElement as MercCard;
+    const sargeMerc = sarge.sourceElement as CombatantModel;
 
     // Find squad mates
     for (const rebel of game.rebelPlayers) {
       const primaryMercs = rebel.primarySquad.getLivingMercs();
       const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
-      let squadMates: MercCard[] | null = null;
+      let squadMates: CombatantModel[] | null = null;
       if (primaryMercs.some(m => m.id === sargeMerc.id)) {
         squadMates = primaryMercs;
       } else if (secondaryMercs.some(m => m.id === sargeMerc.id)) {
@@ -713,13 +713,13 @@ function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
   if (tackCombatants.length === 0) return;
 
   for (const tack of tackCombatants) {
-    const tackMerc = tack.sourceElement as MercCard;
+    const tackMerc = tack.sourceElement as CombatantModel;
 
     for (const rebel of game.rebelPlayers) {
       const primaryMercs = rebel.primarySquad.getLivingMercs();
       const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
-      let squadMates: MercCard[] | null = null;
+      let squadMates: CombatantModel[] | null = null;
       if (primaryMercs.some(m => m.id === tackMerc.id)) {
         squadMates = primaryMercs;
       } else if (secondaryMercs.some(m => m.id === tackMerc.id)) {
@@ -754,13 +754,13 @@ function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
   if (valkyrieCombatants.length === 0) return;
 
   for (const valkyrie of valkyrieCombatants) {
-    const valkyrieMerc = valkyrie.sourceElement as MercCard;
+    const valkyrieMerc = valkyrie.sourceElement as CombatantModel;
 
     for (const rebel of game.rebelPlayers) {
       const primaryMercs = rebel.primarySquad.getLivingMercs();
       const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
-      let squadMates: MercCard[] | null = null;
+      let squadMates: CombatantModel[] | null = null;
       if (primaryMercs.some(m => m.id === valkyrieMerc.id)) {
         squadMates = primaryMercs;
       } else if (secondaryMercs.some(m => m.id === valkyrieMerc.id)) {
@@ -792,13 +792,13 @@ function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
   if (tavistoCombatants.length === 0) return;
 
   for (const tavisto of tavistoCombatants) {
-    const tavistoMerc = tavisto.sourceElement as MercCard;
+    const tavistoMerc = tavisto.sourceElement as CombatantModel;
 
     for (const rebel of game.rebelPlayers) {
       const primaryMercs = rebel.primarySquad.getLivingMercs();
       const secondaryMercs = rebel.secondarySquad.getLivingMercs();
 
-      let squadMates: MercCard[] | null = null;
+      let squadMates: CombatantModel[] | null = null;
       if (primaryMercs.some(m => m.id === tavistoMerc.id)) {
         squadMates = primaryMercs;
       } else if (secondaryMercs.some(m => m.id === tavistoMerc.id)) {
@@ -829,7 +829,7 @@ function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
 function applyVultureBonus(combatants: Combatant[]): void {
   for (const combatant of combatants) {
     if (isVulture(combatant) && combatant.health > 0) {
-      const merc = combatant.sourceElement as MercCard;
+      const merc = combatant.sourceElement as CombatantModel;
       // Calculate total negative initiative from equipment (use slotData as fallback)
       let penalty = 0;
 
@@ -864,7 +864,7 @@ function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
   if (!walterCombatant) return;
 
   // Find which player owns Walter
-  const walterMerc = walterCombatant.sourceElement as MercCard;
+  const walterMerc = walterCombatant.sourceElement as CombatantModel;
   let walterOwnerId: string | undefined;
   for (const rebel of game.rebelPlayers) {
     if (rebel.team.some(m => m.id === walterMerc.id)) {
@@ -994,7 +994,7 @@ const ATTACK_DOG_ID = 'attack-dog';
 /**
  * MERC-l09: Check if a MERC has an Attack Dog equipped
  */
-function hasAttackDogEquipped(merc: MercCard): boolean {
+function hasAttackDogEquipped(merc: CombatantModel): boolean {
   // Check accessory slot
   if (merc.accessorySlot?.equipmentId === ATTACK_DOG_ID) {
     return true;
@@ -1006,7 +1006,7 @@ function hasAttackDogEquipped(merc: MercCard): boolean {
 /**
  * MERC-l09: Check if a MERC is immune to attack dogs (Shadkaam)
  */
-function isImmuneToAttackDogs(merc: MercCard): boolean {
+function isImmuneToAttackDogs(merc: CombatantModel): boolean {
   const ability = merc.ability?.toLowerCase() ?? '';
   return ability.includes('immune to attack dogs');
 }
@@ -1014,7 +1014,7 @@ function isImmuneToAttackDogs(merc: MercCard): boolean {
 /**
  * MERC-l09: Check if a MERC will not harm dogs (Tao)
  */
-function willNotHarmDogs(merc: MercCard): boolean {
+function willNotHarmDogs(merc: CombatantModel): boolean {
   const ability = merc.ability?.toLowerCase() ?? '';
   return ability.includes('will not harm dogs');
 }
@@ -1024,7 +1024,7 @@ function willNotHarmDogs(merc: MercCard): boolean {
  * MERC-38e: Includes armorPiercing from weapon
  * MERC-l09: Includes Attack Dog support
  */
-function mercToCombatant(merc: MercCard, isDictatorSide: boolean, playerColor?: string): Combatant {
+function mercToCombatant(merc: CombatantModel, isDictatorSide: boolean, playerColor?: string): Combatant {
   return {
     id: String(merc.id),
     name: merc.combatantName,
@@ -1052,7 +1052,7 @@ function mercToCombatant(merc: MercCard, isDictatorSide: boolean, playerColor?: 
 /**
  * Build combatant from the Dictator card
  */
-function dictatorToCombatant(dictator: DictatorCard, playerColor?: string): Combatant {
+function dictatorToCombatant(dictator: CombatantModel, playerColor?: string): Combatant {
   return {
     id: String(dictator.id),
     name: dictator.combatantName,
@@ -1169,7 +1169,7 @@ function refreshCombatantStats(combatant: Combatant): void {
     combatant.armor = merc.equipmentArmor;
     combatant.armorPiercing = merc.weaponSlot?.negatesArmor ?? false;
   } else if (combatant.sourceElement?.isDictator) {
-    const dictator = combatant.sourceElement as DictatorCard;
+    const dictator = combatant.sourceElement as CombatantModel;
     combatant.initiative = dictator.initiative;
     combatant.combat = dictator.combat;
     // Dictator targets and armor could be updated here if they get equipment
@@ -1255,7 +1255,7 @@ function applySnakeBonus(game: MERCGame, allCombatants: Combatant[]): void {
   if (snakeCombatants.length === 0) return;
 
   for (const snake of snakeCombatants) {
-    const snakeMerc = snake.sourceElement as MercCard;
+    const snakeMerc = snake.sourceElement as CombatantModel;
 
     // Find which player owns Snake and which squad he's in
     for (const rebel of game.rebelPlayers) {
@@ -1811,7 +1811,7 @@ function executeCombatRound(
     // MERC-fix: For rebel mercs, find the owning player and check if they're AI
     let isRebelHumanControlled = false;
     if (isRebelMerc && hasMercSource) {
-      const attackerMerc = attacker.sourceElement as MercCard;
+      const attackerMerc = attacker.sourceElement as CombatantModel;
       const ownerPlayer = game.rebelPlayers.find(p =>
         p.team.some(m => m.id === attackerMerc.id)
       );
@@ -2081,7 +2081,7 @@ function executeCombatRound(
         // MERC-clsx: Adelheid converts militia instead of killing
         if (isAdelheid(attacker) && target.isMilitia && !attacker.isDictatorSide) {
           // Convert militia to rebel's side
-          const attackerMerc = attacker.sourceElement as MercCard;
+          const attackerMerc = attacker.sourceElement as CombatantModel;
           const ownerPlayer = game.rebelPlayers.find(p =>
             p.team.some(m => m.id === attackerMerc.id)
           );
@@ -2483,7 +2483,7 @@ function applyCombatResults(
         }
       }
     } else if (combatant.sourceElement?.isDictator) {
-      const dictator = combatant.sourceElement as DictatorCard;
+      const dictator = combatant.sourceElement as CombatantModel;
       const damageTaken = combatant.maxHealth - combatant.health;
       dictator.damage = damageTaken;
 

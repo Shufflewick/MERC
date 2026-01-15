@@ -55,7 +55,7 @@ export const MERC_INCOMPATIBILITIES: Record<string, string[]> = {
  * Checks both directions: the new MERC's incompatibilities AND
  * whether any team member has an incompatibility with the new MERC.
  */
-export function canHireMercWithTeam(mercId: string, team: MercCard[]): boolean {
+export function canHireMercWithTeam(mercId: string, team: CombatantModel[]): boolean {
   // Check if new MERC is incompatible with anyone on team
   const newMercIncompat = MERC_INCOMPATIBILITIES[mercId] || [];
   if (team.some(m => newMercIncompat.includes(m.combatantId))) {
@@ -87,21 +87,21 @@ export function hasActionsRemaining(player: RebelPlayer, cost: number): boolean 
 /**
  * Get MERCs that have enough actions remaining
  */
-export function getMercsWithActions(player: RebelPlayer, cost: number): MercCard[] {
+export function getMercsWithActions(player: RebelPlayer, cost: number): CombatantModel[] {
   return player.team.filter(merc => merc.actionsRemaining >= cost);
 }
 
 /**
  * Check if a MERC is in a player's team (uses ID comparison to avoid object reference issues)
  */
-export function isInPlayerTeam(merc: MercCard, player: RebelPlayer): boolean {
+export function isInPlayerTeam(merc: CombatantModel, player: RebelPlayer): boolean {
   return player.team.some(m => m.id === merc.id);
 }
 
 /**
  * Use an action from a MERC
  */
-export function useAction(merc: MercCard, cost: number): boolean {
+export function useAction(merc: CombatantModel, cost: number): boolean {
   return merc.useAction(cost);
 }
 
@@ -109,7 +109,7 @@ export function useAction(merc: MercCard, cost: number): boolean {
  * MERC-bd4: Check if a MERC can perform a training action
  * Faustina can use her trainingActionsRemaining in addition to regular actions
  */
-export function canTrainWith(merc: MercCard, cost: number): boolean {
+export function canTrainWith(merc: CombatantModel, cost: number): boolean {
   // Regular actions work for anyone
   if (merc.actionsRemaining >= cost) return true;
   // Faustina can also use her training-only action
@@ -121,7 +121,7 @@ export function canTrainWith(merc: MercCard, cost: number): boolean {
  * MERC-bd4: Use a training action from a MERC
  * Faustina uses her trainingActionsRemaining first before regular actions
  */
-export function useTrainingAction(merc: MercCard, cost: number): boolean {
+export function useTrainingAction(merc: CombatantModel, cost: number): boolean {
   // Faustina uses her training-only action first
   if (merc.combatantId === 'faustina' && merc.trainingActionsRemaining >= cost) {
     merc.trainingActionsRemaining -= cost;
@@ -196,8 +196,8 @@ export function clearGlobalCachedValue(game: MERCGame, key: string): void {
  * Get all dictator combatants that can take actions (MERCs + dictator card if in play)
  * Returns items with a common interface: id, actionsRemaining, isDead, sectorId
  */
-export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<MercCard | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> {
-  const combatants: Array<MercCard | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> = [];
+export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<CombatantModel | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> {
+  const combatants: Array<CombatantModel | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> = [];
 
   // Add hired MERCs with enough actions
   const hiredMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -294,8 +294,7 @@ export function findUnitSector(unit: CombatantModel, player: unknown, game: MERC
 
     // MercCard - only return sector if merc is in dictator's squad
     // (sectorId is now derived from squad, not stored separately)
-    const merc = unit as MercCard;
-    const squad = game.dictatorPlayer.getSquadContaining(merc);
+    const squad = game.dictatorPlayer.getSquadContaining(unit);
     if (squad?.sectorId) {
       return game.getSector(squad.sectorId) || null;
     }
@@ -449,7 +448,7 @@ export function getTypedArg<T>(args: Record<string, unknown>, key: string): T | 
  */
 export function equipNewHire(
   game: MERCGame,
-  merc: MercCard,
+  merc: CombatantModel,
   equipType: 'Weapon' | 'Armor' | 'Accessory'
 ): void {
   let freeEquipment = game.drawEquipment(equipType);

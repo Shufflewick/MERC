@@ -181,7 +181,7 @@ export function getNextAIAction(game: MERCGame): AIActionSelection | null {
  */
 function getDictatorAction(
   game: MERCGame,
-  dictator: DictatorCard
+  dictator: CombatantModel
 ): AIActionSelection | null {
   const sector = dictator.sectorId ? game.getSector(dictator.sectorId) : null;
   if (!sector) return null;
@@ -239,7 +239,7 @@ function getDictatorAction(
  */
 function convertDecisionToAction(
   game: MERCGame,
-  merc: MercCard,
+  merc: CombatantModel,
   decision: AIActionDecision
 ): AIActionSelection | null {
   const sector = merc.sectorId ? game.getSector(merc.sectorId) : null;

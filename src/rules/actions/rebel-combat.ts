@@ -8,7 +8,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
-import { Sector, MercCard, Equipment } from '../elements.js';
+import { Sector, MercCard, Equipment, CombatantModel } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
@@ -396,10 +396,10 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
  */
 function getMercsWithHealingItems(combatants: Combatant[]): Array<{
   combatant: Combatant;
-  merc: MercCard;
+  merc: CombatantModel;
   healingItem: Equipment;
 }> {
-  const result: Array<{ combatant: Combatant; merc: MercCard; healingItem: Equipment }> = [];
+  const result: Array<{ combatant: Combatant; merc: CombatantModel; healingItem: Equipment }> = [];
 
   for (const combatant of combatants) {
     if (combatant.health <= 0) continue;
@@ -758,7 +758,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
         const damagedMercs = getDamagedMercs(rebelCombatants);
 
         return damagedMercs.map(c => {
-          const merc = c.sourceElement as MercCard;
+          const merc = c.sourceElement as CombatantModel;
           const damage = c.maxHealth - c.health;
           return `${capitalize(merc.combatantName)} (${damage} damage)`;
         });
@@ -787,7 +787,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       // Find the target
       const damagedMercs = getDamagedMercs(rebelCombatants);
       const targetCombatant = damagedMercs.find(c => {
-        const merc = c.sourceElement as MercCard;
+        const merc = c.sourceElement as CombatantModel;
         const damage = c.maxHealth - c.health;
         return `${capitalize(merc.combatantName)} (${damage} damage)` === targetChoice;
       });
@@ -797,7 +797,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       }
 
       const { combatant: healerCombatant, merc: healerMerc, healingItem } = healerData;
-      const targetMerc = targetCombatant.sourceElement as MercCard;
+      const targetMerc = targetCombatant.sourceElement as CombatantModel;
 
       const healingEffect = getHealingEffect(healingItem.equipmentId);
       if (!healingEffect) {
@@ -1040,7 +1040,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       },
       elementClass: MercCard,
       filter: (element) => {
-        const merc = element as unknown as MercCard;
+        const merc = element as unknown as CombatantModel;
         const pending = game.activeCombat?.pendingEpinephrine;
         if (!pending) return false;
         return pending.availableSavers.some(s => s.combatantId === merc.id);
@@ -1053,7 +1053,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       }
 
       // Find the dying MERC
-      let dyingMerc: MercCard | undefined;
+      let dyingMerc: CombatantModel | undefined;
       if (pending.dyingMercSide === 'dictator') {
         dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingMercId);
       } else {
@@ -1121,7 +1121,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
       }
 
       // Find the dying MERC
-      let dyingMerc: MercCard | undefined;
+      let dyingMerc: CombatantModel | undefined;
       if (pending.dyingMercSide === 'dictator') {
         dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingMercId);
       } else {

@@ -396,7 +396,7 @@ export function sortEquipmentByAIPriority(equipment: Equipment[]): Equipment[] {
  * Sort MERCs alphabetically for equipping order.
  * Per rules 4.7.1: Equip MERCs in alphabetical order.
  */
-export function sortMercsAlphabetically(mercs: MercCard[]): MercCard[] {
+export function sortMercsAlphabetically(mercs: CombatantModel[]): CombatantModel[] {
   return [...mercs].sort((a, b) => a.combatantName.localeCompare(b.combatantName));
 }
 
@@ -417,7 +417,7 @@ export function getAIFreeEquipmentType(): 'Weapon' | 'Armor' | 'Accessory' {
  * MERC-632: Per rules 4.3.1, if choice of more than 1, pick randomly from top of deck.
  * Returns the index of the selected MERC.
  */
-export function selectAIMercForHiring(availableMercs: MercCard[], random: () => number): number {
+export function selectAIMercForHiring(availableMercs: CombatantModel[], random: () => number): number {
   if (availableMercs.length === 0) return -1;
   if (availableMercs.length === 1) return 0;
 
@@ -431,7 +431,7 @@ export function selectAIMercForHiring(availableMercs: MercCard[], random: () => 
  * Returns indices of selected MERCs.
  */
 export function selectAIMercsForHiring(
-  availableMercs: MercCard[],
+  availableMercs: CombatantModel[],
   countToSelect: number,
   random: () => number
 ): number[] {
@@ -560,7 +560,7 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
  * Check if a MERC needs healing.
  * Per rules 4.8, AI prioritizes healing when MERCs are injured.
  */
-export function mercNeedsHealing(merc: MercCard): boolean {
+export function mercNeedsHealing(merc: CombatantModel): boolean {
   return merc.damage > 0 && !merc.isDead;
 }
 
@@ -568,7 +568,7 @@ export function mercNeedsHealing(merc: MercCard): boolean {
  * Get MERCs with healing abilities.
  * MERC-6kw: Per rules 4.8.1, AI uses MERC healing abilities first.
  */
-export function getMercsWithHealingAbility(mercs: MercCard[]): MercCard[] {
+export function getMercsWithHealingAbility(mercs: CombatantModel[]): CombatantModel[] {
   return mercs.filter(m =>
     !m.isDead &&
     m.ability &&
@@ -586,16 +586,16 @@ export function getMercsWithHealingAbility(mercs: MercCard[]): MercCard[] {
  */
 export interface AIHealingAction {
   type: 'ability' | 'item' | 'repairKit';
-  merc?: MercCard;
+  merc?: CombatantModel;
   item?: string;
-  target: MercCard;
+  target: CombatantModel;
   sector?: Sector;
 }
 
 export function getAIHealingPriority(
   game: MERCGame,
-  damagedMercs: MercCard[],
-  allMercs: MercCard[]
+  damagedMercs: CombatantModel[],
+  allMercs: CombatantModel[]
 ): AIHealingAction | null {
   if (damagedMercs.length === 0) return null;
 
@@ -640,7 +640,7 @@ export function getAIHealingPriority(
  * Check if squad has Epinephrine Shot.
  * MERC-jjr: Per rules 4.9, AI saves dying MERCs with Epinephrine Shot.
  */
-export function hasEpinephrineShot(mercs: MercCard[]): MercCard | null {
+export function hasEpinephrineShot(mercs: CombatantModel[]): CombatantModel | null {
   for (const merc of mercs) {
     // Check accessory slot
     const accessory = merc.accessorySlot;
@@ -661,9 +661,9 @@ export function hasEpinephrineShot(mercs: MercCard[]): MercCard | null {
  * Returns the MERC with the shot if saving is needed.
  */
 export function shouldUseEpinephrine(
-  dyingMerc: MercCard,
-  squadMercs: MercCard[]
-): MercCard | null {
+  dyingMerc: CombatantModel,
+  squadMercs: CombatantModel[]
+): CombatantModel | null {
   // Only save if MERC is about to die (0 health)
   if (dyingMerc.health > 0 || dyingMerc.isDead) return null;
 
@@ -679,7 +679,7 @@ export function shouldUseEpinephrine(
  * Check if AI should use a MERC's special ability.
  * MERC-65u: Per rules 4.10, AI ALWAYS uses MERC special abilities when appropriate.
  */
-export function shouldUseSpecialAbility(merc: MercCard, _situation: string): boolean {
+export function shouldUseSpecialAbility(merc: CombatantModel, _situation: string): boolean {
   // AI always uses abilities when they can be used
   return !!merc.ability && merc.ability.length > 0;
 }
@@ -688,7 +688,7 @@ export function shouldUseSpecialAbility(merc: MercCard, _situation: string): boo
  * Get list of special ability activations for the AI.
  * MERC-65u: AI always uses abilities when beneficial.
  */
-export function getAIAbilityActivations(mercs: MercCard[]): MercCard[] {
+export function getAIAbilityActivations(mercs: CombatantModel[]): CombatantModel[] {
   return mercs.filter(m => !m.isDead && shouldUseSpecialAbility(m, 'any'));
 }
 
@@ -700,7 +700,7 @@ export function getAIAbilityActivations(mercs: MercCard[]): MercCard[] {
  * Check if a unit has Attack Dogs.
  * MERC-dol: Per rules 4.11, AI always assigns Attack Dogs to Rebel MERCs.
  */
-export function hasAttackDogEquipped(unit: MercCard): boolean {
+export function hasAttackDogEquipped(unit: CombatantModel): boolean {
   // Check accessory slot
   if (unit.accessorySlot && isAttackDog(unit.accessorySlot.equipmentId)) {
     return true;
@@ -713,7 +713,7 @@ export function hasAttackDogEquipped(unit: MercCard): boolean {
  * Get all units with Attack Dogs.
  * MERC-dol: Returns units that can assign dogs to enemies.
  */
-export function getUnitsWithAttackDogs(mercs: MercCard[]): MercCard[] {
+export function getUnitsWithAttackDogs(mercs: CombatantModel[]): CombatantModel[] {
   return mercs.filter(m => !m.isDead && hasAttackDogEquipped(m));
 }
 
@@ -745,7 +745,7 @@ export function hasRepairKitInStash(sector: Sector): boolean {
  * MERC-gqy: Per rules 4.10, AI uses repair kits to heal MERCs.
  * Returns true if healing was performed.
  */
-export function useRepairKit(game: MERCGame, sector: Sector, merc: MercCard): boolean {
+export function useRepairKit(game: MERCGame, sector: Sector, merc: CombatantModel): boolean {
   const stash = sector.getStashContents();
   const repairKitIdx = stash.findIndex(e => isRepairKit(e.equipmentId));
 
@@ -773,7 +773,7 @@ export function useRepairKit(game: MERCGame, sector: Sector, merc: MercCard): bo
  * Get the damaged MERC that most needs healing.
  * Per rules 4.10, prioritize the lowest health MERC.
  */
-export function getMostDamagedMerc(mercs: MercCard[]): MercCard | null {
+export function getMostDamagedMerc(mercs: CombatantModel[]): CombatantModel | null {
   const damaged = mercs.filter(m => m.damage > 0 && !m.isDead);
   if (damaged.length === 0) return null;
 
@@ -818,7 +818,7 @@ export function findNearestHospital(game: MERCGame, fromSector: Sector): Sector 
 /**
  * Check if a unit has a mortar equipped (in accessory slot or bandolier).
  */
-export function hasMortar(unit: MercCard | { accessorySlot?: Equipment }): boolean {
+export function hasMortar(unit: CombatantModel | { accessorySlot?: Equipment }): boolean {
   // Check accessory slot
   const accessory = 'accessorySlot' in unit ? unit.accessorySlot : undefined;
   if (accessory && hasRangedAttack(accessory.equipmentId)) {

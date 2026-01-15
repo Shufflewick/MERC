@@ -6,7 +6,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { Sector, MercCard } from './elements.js';
+import { Sector, CombatantModel } from './elements.js';
 import {
   calculateRebelStrength,
   getRebelControlledSectors,
@@ -32,7 +32,7 @@ export interface AIActionDecision {
  * Sort MERCs by Initiative order (highest first).
  * MERC-est: Per rules Section 3 "Action Order", MERCs act in Initiative order.
  */
-export function sortMercsByInitiative(mercs: MercCard[]): MercCard[] {
+export function sortMercsByInitiative(mercs: CombatantModel[]): CombatantModel[] {
   return [...mercs].sort((a, b) => {
     // Higher initiative acts first
     if (a.initiative !== b.initiative) {
@@ -47,7 +47,7 @@ export function sortMercsByInitiative(mercs: MercCard[]): MercCard[] {
  * Get all AI MERCs in the same squad/sector for movement cohesion.
  * MERC-1gu: Per rules 3.4, "Never split the squad - All MERCs with actions remaining move together"
  */
-export function getSquadMercs(game: MERCGame): MercCard[] {
+export function getSquadMercs(game: MERCGame): CombatantModel[] {
   const mercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead && m.sectorId);
   return sortMercsByInitiative(mercs);
 }
@@ -69,7 +69,7 @@ export function canSquadMoveTogether(game: MERCGame, fromSectorId: string): bool
  * MERC-1gu: Per rules 3.4, all MERCs move together when possible.
  * Returns a single decision for the entire squad.
  */
-export function getSquadAction(game: MERCGame): AIActionDecision & { mercs: MercCard[] } {
+export function getSquadAction(game: MERCGame): AIActionDecision & { mercs: CombatantModel[] } {
   const mercs = getSquadMercs(game);
   if (mercs.length === 0) {
     return { action: 'move', reason: 'No MERCs available', mercs: [] };
@@ -102,7 +102,7 @@ export function getSquadAction(game: MERCGame): AIActionDecision & { mercs: Merc
  * Check if MERC is fully equipped.
  * MERC-81u: Per rules 3.1, not fully equipped = explore/re-equip priority
  */
-function isMercFullyEquipped(merc: MercCard): boolean {
+function isMercFullyEquipped(merc: CombatantModel): boolean {
   return merc.isFullyEquipped;
 }
 
@@ -159,7 +159,7 @@ function isRebelInRange(game: MERCGame, fromSector: Sector): boolean {
  * 3.5 - If militia < 10 → Train militia
  * 3.6 - Default → Move toward nearest Rebel
  */
-export function getAIMercAction(game: MERCGame, merc: MercCard): AIActionDecision {
+export function getAIMercAction(game: MERCGame, merc: CombatantModel): AIActionDecision {
   const sector = merc.sectorId ? game.getSector(merc.sectorId) : null;
 
   if (!sector) {
@@ -226,7 +226,7 @@ export function getAIMercAction(game: MERCGame, merc: MercCard): AIActionDecisio
  */
 export function getAIMercActionPriority(
   game: MERCGame,
-  merc: MercCard
+  merc: CombatantModel
 ): AIActionType[] {
   const decision = getAIMercAction(game, merc);
   return [decision.action];
