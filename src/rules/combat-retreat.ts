@@ -139,13 +139,13 @@ export function executeRetreat(
     // Move dictator card if it's in the combat sector (message only - position via squad)
     // Note: baseSectorId is the PERMANENT base location, dictator.sectorId is current location
     if (dictatorPlayer.baseRevealed && dictatorPlayer.dictator?.sectorId === fromSector.sectorId) {
-      game.message(`${dictatorPlayer.dictator?.dictatorName || 'Dictator'} retreats to ${toSector.sectorName}`);
+      game.message(`${dictatorPlayer.dictator?.combatantName || 'Dictator'} retreats to ${toSector.sectorName}`);
     }
 
     // Move any hired MERCs in the sector (message only - position via squad)
     const mercsInSector = game.getDictatorMercsInSector(fromSector);
     for (const merc of mercsInSector) {
-      game.message(`${merc.mercName} retreats to ${toSector.sectorName}`);
+      game.message(`${merc.combatantName} retreats to ${toSector.sectorName}`);
     }
 
     // Update squad sectorIds - MERCs inherit via computed getter

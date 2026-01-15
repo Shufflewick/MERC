@@ -90,11 +90,11 @@ function countHits(rolls: number[]): number {
 }
 
 /**
- * Get mercId from a combatant (undefined if not a MERC)
+ * Get combatantId from a combatant (undefined if militia/other)
  */
 function getCombatantMercId(combatant: Combatant): string | undefined {
   return combatant.sourceElement?.isMerc
-    ? combatant.sourceElement.mercId
+    ? combatant.sourceElement.combatantId
     : undefined;
 }
 
@@ -136,7 +136,7 @@ function isKastern(combatant: Combatant): boolean {
  */
 function isLucid(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'lucid';
+    return combatant.sourceElement.combatantId === 'lucid';
   }
   return false;
 }
@@ -146,7 +146,7 @@ function isLucid(combatant: Combatant): boolean {
  */
 function isBasic(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'basic';
+    return combatant.sourceElement.combatantId === 'basic';
   }
   return false;
 }
@@ -158,7 +158,7 @@ function isBasic(combatant: Combatant): boolean {
  */
 function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MERCGame): number {
   const mercId = combatant.sourceElement?.isMerc
-    ? combatant.sourceElement.mercId
+    ? combatant.sourceElement.combatantId
     : undefined;
 
   // MERC-7zax: Better Weapons gives dictator militia 3+ hit threshold
@@ -179,7 +179,7 @@ function shouldUseReroll(combatant: Combatant, rolls: number[], hits: number): b
   if (combatant.hasUsedReroll) return false;
 
   const mercId = combatant.sourceElement?.isMerc
-    ? combatant.sourceElement.mercId
+    ? combatant.sourceElement.combatantId
     : undefined;
   if (!mercId || !canRerollOnce(mercId)) return false;
 
@@ -199,8 +199,8 @@ function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
     if (ally.health <= 0) continue;
     if (!ally.sourceElement?.isMerc) continue;
 
-    const combatDebuff = getEnemyCombatDebuff(ally.sourceElement.mercId);
-    const initiativeDebuff = getEnemyInitiativeDebuff(ally.sourceElement.mercId);
+    const combatDebuff = getEnemyCombatDebuff(ally.sourceElement.combatantId);
+    const initiativeDebuff = getEnemyInitiativeDebuff(ally.sourceElement.combatantId);
     if (combatDebuff === 0 && initiativeDebuff === 0) continue;
 
     // Apply debuffs to enemy MERCs (not militia, dictator, or dogs)
@@ -222,7 +222,7 @@ function applyEnemyDebuffs(enemies: Combatant[], allies: Combatant[]): void {
  */
 function isSurgeon(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'surgeon';
+    return combatant.sourceElement.combatantId === 'surgeon';
   }
   return false;
 }
@@ -278,7 +278,7 @@ function applySurgeonHeal(
  */
 function isAdelheid(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'adelheid';
+    return combatant.sourceElement.combatantId === 'adelheid';
   }
   return false;
 }
@@ -288,7 +288,7 @@ function isAdelheid(combatant: Combatant): boolean {
  */
 function isGolem(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'golem';
+    return combatant.sourceElement.combatantId === 'golem';
   }
   return false;
 }
@@ -298,7 +298,7 @@ function isGolem(combatant: Combatant): boolean {
  */
 function isBouba(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'bouba';
+    return combatant.sourceElement.combatantId === 'bouba';
   }
   return false;
 }
@@ -331,7 +331,7 @@ function applyBoubaBonus(combatants: Combatant[]): void {
  */
 function isBuzzkill(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'buzzkill';
+    return combatant.sourceElement.combatantId === 'buzzkill';
   }
   return false;
 }
@@ -341,7 +341,7 @@ function isBuzzkill(combatant: Combatant): boolean {
  */
 function isKhenn(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'khenn';
+    return combatant.sourceElement.combatantId === 'khenn';
   }
   return false;
 }
@@ -351,7 +351,7 @@ function isKhenn(combatant: Combatant): boolean {
  */
 function isMayhem(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'mayhem';
+    return combatant.sourceElement.combatantId === 'mayhem';
   }
   return false;
 }
@@ -373,7 +373,7 @@ function hasUzi(combatant: Combatant): boolean {
  */
 function isMeatbop(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'meatbop';
+    return combatant.sourceElement.combatantId === 'meatbop';
   }
   return false;
 }
@@ -395,7 +395,7 @@ function hasAccessory(combatant: Combatant): boolean {
  */
 function isRa(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'ra';
+    return combatant.sourceElement.combatantId === 'ra';
   }
   return false;
 }
@@ -405,7 +405,7 @@ function isRa(combatant: Combatant): boolean {
  */
 function isRozeske(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'rozeske';
+    return combatant.sourceElement.combatantId === 'rozeske';
   }
   return false;
 }
@@ -425,7 +425,7 @@ function hasArmor(combatant: Combatant): boolean {
  */
 function isRunde(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'runde';
+    return combatant.sourceElement.combatantId === 'runde';
   }
   return false;
 }
@@ -435,7 +435,7 @@ function isRunde(combatant: Combatant): boolean {
  */
 function isSarge(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'sarge';
+    return combatant.sourceElement.combatantId === 'sarge';
   }
   return false;
 }
@@ -445,7 +445,7 @@ function isSarge(combatant: Combatant): boolean {
  */
 function isStumpy(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'stumpy';
+    return combatant.sourceElement.combatantId === 'stumpy';
   }
   return false;
 }
@@ -473,7 +473,7 @@ function hasExplosive(combatant: Combatant): boolean {
  */
 function isTack(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'tack';
+    return combatant.sourceElement.combatantId === 'tack';
   }
   return false;
 }
@@ -483,7 +483,7 @@ function isTack(combatant: Combatant): boolean {
  */
 function isTavisto(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'tavisto';
+    return combatant.sourceElement.combatantId === 'tavisto';
   }
   return false;
 }
@@ -493,7 +493,7 @@ function isTavisto(combatant: Combatant): boolean {
  */
 function isValkyrie(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'valkyrie';
+    return combatant.sourceElement.combatantId === 'valkyrie';
   }
   return false;
 }
@@ -503,7 +503,7 @@ function isValkyrie(combatant: Combatant): boolean {
  */
 function isVandradi(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'vandradi';
+    return combatant.sourceElement.combatantId === 'vandradi';
   }
   return false;
 }
@@ -524,7 +524,7 @@ function hasMultiTargetWeapon(combatant: Combatant): boolean {
  */
 function isVulture(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'vulture';
+    return combatant.sourceElement.combatantId === 'vulture';
   }
   return false;
 }
@@ -534,7 +534,7 @@ function isVulture(combatant: Combatant): boolean {
  */
 function isWalter(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'walter';
+    return combatant.sourceElement.combatantId === 'walter';
   }
   return false;
 }
@@ -544,7 +544,7 @@ function isWalter(combatant: Combatant): boolean {
  */
 function isWolverine(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'wolverine';
+    return combatant.sourceElement.combatantId === 'wolverine';
   }
   return false;
 }
@@ -554,7 +554,7 @@ function isWolverine(combatant: Combatant): boolean {
  */
 function isDutch(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'dutch';
+    return combatant.sourceElement.combatantId === 'dutch';
   }
   return false;
 }
@@ -578,7 +578,7 @@ function isDutchUsingFists(combatant: Combatant): boolean {
  */
 function isMoe(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'moe';
+    return combatant.sourceElement.combatantId === 'moe';
   }
   return false;
 }
@@ -808,7 +808,7 @@ function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
       if (squadMates) {
         // Check if any woman in squad
         const hasWoman = squadMates.some(m => {
-          return FEMALE_MERCS.includes(m.mercId) && m !== tavistoMerc;
+          return FEMALE_MERCS.includes(m.combatantId) && m !== tavistoMerc;
         });
 
         if (hasWoman) {
@@ -1027,7 +1027,7 @@ function willNotHarmDogs(merc: MercCard): boolean {
 function mercToCombatant(merc: MercCard, isDictatorSide: boolean, playerColor?: string): Combatant {
   return {
     id: String(merc.id),
-    name: merc.mercName,
+    name: merc.combatantName,
     initiative: merc.initiative,
     combat: merc.combat,
     health: merc.health,
@@ -1044,7 +1044,7 @@ function mercToCombatant(merc: MercCard, isDictatorSide: boolean, playerColor?: 
     isImmuneToAttackDogs: isImmuneToAttackDogs(merc), // MERC-l09
     willNotHarmDogs: willNotHarmDogs(merc), // MERC-l09
     image: merc.image, // Portrait from JSON data
-    mercId: merc.mercId, // MERC ID for identification
+    combatantId: merc.combatantId, // MERC ID for identification
     playerColor, // Player color for UI
   };
 }
@@ -1055,7 +1055,7 @@ function mercToCombatant(merc: MercCard, isDictatorSide: boolean, playerColor?: 
 function dictatorToCombatant(dictator: DictatorCard, playerColor?: string): Combatant {
   return {
     id: String(dictator.id),
-    name: dictator.dictatorName,
+    name: dictator.combatantName,
     initiative: dictator.initiative,
     combat: dictator.combat,
     health: dictator.health,
@@ -1072,7 +1072,7 @@ function dictatorToCombatant(dictator: DictatorCard, playerColor?: string): Comb
     isImmuneToAttackDogs: false,
     willNotHarmDogs: false,
     image: dictator.image, // Portrait from JSON data
-    mercId: dictator.dictatorId, // Dictator ID for identification
+    combatantId: dictator.combatantId, // Dictator ID for identification
     playerColor, // Player color for UI
   };
 }
@@ -1181,7 +1181,7 @@ function refreshCombatantStats(combatant: Combatant): void {
  */
 function isHaarg(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'haarg';
+    return combatant.sourceElement.combatantId === 'haarg';
   }
   return false;
 }
@@ -1228,7 +1228,7 @@ function applyHaargBonus(allCombatants: Combatant[]): void {
  */
 function isSnake(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'snake';
+    return combatant.sourceElement.combatantId === 'snake';
   }
   return false;
 }
@@ -1238,7 +1238,7 @@ function isSnake(combatant: Combatant): boolean {
  */
 function isVandal(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'vandal';
+    return combatant.sourceElement.combatantId === 'vandal';
   }
   return false;
 }
@@ -1358,7 +1358,7 @@ function canTargetDictator(dictatorSide: Combatant[]): boolean {
  */
 function isRizen(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.mercId === 'rizen';
+    return combatant.sourceElement.combatantId === 'rizen';
   }
   return false;
 }
@@ -1496,7 +1496,7 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPie
       const merc = target.sourceElement;
       if (merc.armorSlot) {
         merc.armorSlot.isDamaged = true;
-        game.message(`${merc.mercName}'s ${merc.armorSlot.equipmentName} is destroyed!`);
+        game.message(`${merc.combatantName}'s ${merc.armorSlot.equipmentName} is destroyed!`);
         // Discard the armor
         const armor = merc.unequip('Armor');
         if (armor) {
@@ -2118,20 +2118,20 @@ function executeCombatRound(
                 // For human dictator, pause and let them choose
                 if (!game.dictatorPlayer?.isAI && game.activeCombat) {
                   // Build list of savers
-                  const savers: Array<{ mercId: number; mercName: string }> = [];
+                  const savers: Array<{ combatantId: number; combatantName: string }> = [];
                   for (const m of squadMercs) {
                     if (m.id !== merc.id && !m.isDead) {
                       const hasEpi = (m.accessorySlot && isEpinephrine(m.accessorySlot.equipmentId)) ||
                                      m.bandolierSlots.some(e => isEpinephrine(e.equipmentId));
                       if (hasEpi) {
-                        savers.push({ mercId: m.id, mercName: m.mercName });
+                        savers.push({ combatantId: m.id, combatantName: m.combatantName });
                       }
                     }
                   }
                   if (savers.length > 0) {
                     game.activeCombat.pendingEpinephrine = {
                       dyingMercId: merc.id,
-                      dyingMercName: merc.mercName,
+                      dyingMercName: merc.combatantName,
                       dyingMercSide: 'dictator',
                       availableSavers: savers,
                     };
@@ -2156,7 +2156,7 @@ function executeCombatRound(
                   target.health = 1;
                   merc.damage = merc.maxHealth - 1;
                   savedByEpinephrine = true;
-                  game.message(`${mercWithEpi.mercName} uses Epinephrine Shot to save ${merc.mercName}!`);
+                  game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
                   // Remove from casualties since they survived
                   casualties.pop();
                 }
@@ -2178,18 +2178,18 @@ function executeCombatRound(
                     // For human rebel player, pause for choice
                     if (!rebel.isAI && game.activeCombat) {
                       // Build list of all squadmates who have epinephrine
-                      const savers: Array<{ mercId: number; mercName: string }> = [];
+                      const savers: Array<{ combatantId: number; combatantName: string }> = [];
                       for (const m of squadMercs) {
                         const hasEpi = (m.accessorySlot && isEpinephrine(m.accessorySlot.equipmentId)) ||
                                        m.bandolierSlots.some(e => isEpinephrine(e.equipmentId));
                         if (hasEpi) {
-                          savers.push({ mercId: m.id, mercName: m.mercName });
+                          savers.push({ combatantId: m.id, combatantName: m.combatantName });
                         }
                       }
                       if (savers.length > 0) {
                         game.activeCombat.pendingEpinephrine = {
                           dyingMercId: merc.id,
-                          dyingMercName: merc.mercName,
+                          dyingMercName: merc.combatantName,
                           dyingMercSide: 'rebel',
                           availableSavers: savers,
                         };
@@ -2213,7 +2213,7 @@ function executeCombatRound(
                       target.health = 1;
                       merc.damage = merc.maxHealth - 1;
                       savedByEpinephrine = true;
-                      game.message(`${mercWithEpi.mercName} uses Epinephrine Shot to save ${merc.mercName}!`);
+                      game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
                       // Remove from casualties since they survived
                       casualties.pop();
                     }
@@ -2266,7 +2266,7 @@ function executeCombatRound(
 
       // Check accessory slot
       if (merc.accessorySlot && checkDiscardAfterAttack(merc.accessorySlot.equipmentId)) {
-        game.message(`${merc.mercName}'s ${merc.accessorySlot.equipmentName} is used up!`);
+        game.message(`${merc.combatantName}'s ${merc.accessorySlot.equipmentName} is used up!`);
         const accessory = merc.unequip('Accessory');
         if (accessory && accessoryDiscard) {
           accessory.putInto(accessoryDiscard);
@@ -2278,7 +2278,7 @@ function executeCombatRound(
         checkDiscardAfterAttack(e.equipmentId)
       );
       for (const equipment of bandolierToDiscard) {
-        game.message(`${merc.mercName}'s ${equipment.equipmentName} is used up!`);
+        game.message(`${merc.combatantName}'s ${equipment.equipmentName} is used up!`);
         // Extract bandolier index from equippedSlot (format: 'bandolier:0', 'bandolier:1', etc.)
         const slotMatch = equipment.equippedSlot?.match(/^bandolier:(\d+)$/);
         if (slotMatch) {
@@ -2420,7 +2420,7 @@ function applyCombatResults(
               combatant.health = 1;
               merc.damage = merc.maxHealth - 1;
               savedByEpinephrine = true;
-              game.message(`${mercWithEpi.mercName} uses Epinephrine Shot to save ${merc.mercName}!`);
+              game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
             }
           }
         } else if (!combatant.isDictatorSide) {
@@ -2455,7 +2455,7 @@ function applyCombatResults(
                   combatant.health = 1;
                   merc.damage = merc.maxHealth - 1;
                   savedByEpinephrine = true;
-                  game.message(`${mercWithEpi.mercName} uses Epinephrine Shot to save ${merc.mercName}!`);
+                  game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
                 }
               }
               break;
@@ -2479,7 +2479,7 @@ function applyCombatResults(
           // MERC-rwdv: putInto automatically removes from current container
           // sectorId becomes undefined via computed getter when in discard
           merc.putInto(game.mercDiscard);
-          game.message(`${merc.mercName} has been killed in combat!`);
+          game.message(`${merc.combatantName} has been killed in combat!`);
         }
       }
     } else if (combatant.sourceElement?.isDictator) {
