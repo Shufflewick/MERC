@@ -221,18 +221,6 @@ export function getAIMercAction(game: MERCGame, merc: CombatantModel): AIActionD
 }
 
 /**
- * Legacy function for backwards compatibility.
- * @deprecated Use getAIMercAction instead
- */
-export function getAIMercActionPriority(
-  game: MERCGame,
-  merc: CombatantModel
-): AIActionType[] {
-  const decision = getAIMercAction(game, merc);
-  return [decision.action];
-}
-
-/**
  * Find the closest rebel-controlled sector.
  * MERC-asf: Per rules 3.4, move toward CLOSEST rebel sector.
  */

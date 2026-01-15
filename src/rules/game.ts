@@ -164,7 +164,6 @@ export class MERCPlayer extends Player {
   tacticsDeck?: TacticsDeck;
   tacticsHand?: TacticsHand;
   tacticsDiscard?: DiscardPile;
-  mercSquad?: Squad;  // Legacy for backward compatibility
   mercSquadRef?: string;
   baseSquadRef?: string; // Dictator's base squad (third squad)
   baseRevealed: boolean = false;
@@ -342,7 +341,7 @@ export class MERCPlayer extends Player {
   }
 }
 
-// Legacy type aliases for backward compatibility during migration
+// Type aliases for convenience - both roles use the same MERCPlayer class
 export type RebelPlayer = MERCPlayer;
 export type DictatorPlayer = MERCPlayer;
 
@@ -776,10 +775,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     player.primarySquadRef = primaryRef;
     player.secondarySquadRef = secondaryRef;
     player.baseSquadRef = baseRef;
-
-    // Legacy mercSquad points to primary for backward compatibility
     player.mercSquadRef = primaryRef;
-    player.mercSquad = this.first(Squad, s => s.name === primaryRef)!;
   }
 
   /**
@@ -917,7 +913,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
   }
 
-  // Legacy method for array-based loading
   loadSetupConfigArray(configs: SetupConfiguration[]): void {
     this.loadSetupConfig({ setupConfigurations: configs });
   }

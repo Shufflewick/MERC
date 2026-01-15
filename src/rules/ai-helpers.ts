@@ -39,7 +39,7 @@ import {
   getRebelControlledSectors,
 } from './ai-combat-helpers.js';
 
-// Re-export from ai-action-helpers.ts for backwards compatibility
+// Re-export from ai-action-helpers.ts
 export {
   sortMercsByInitiative,
   getSquadMercs,
@@ -47,7 +47,6 @@ export {
   getSquadAction,
   findUnoccupiedIndustriesInRange,
   getAIMercAction,
-  getAIMercActionPriority,
   findClosestRebelSector,
   getBestMoveDirection,
 } from './ai-action-helpers.js';

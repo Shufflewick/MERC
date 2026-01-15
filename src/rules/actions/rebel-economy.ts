@@ -307,28 +307,6 @@ function getPlayerUnitsForExplore(player: unknown, game: MERCGame): CombatantMod
   return [];
 }
 
-// Legacy helpers for backward compatibility
-function findMercSectorForExplore(merc: CombatantModel, player: unknown, game: MERCGame): Sector | null {
-  return findUnitSector(merc, player, game);
-}
-
-function isMercOwnedForExplore(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
-  return isUnitOwnedForExplore(merc, player, game);
-}
-
-function canMercExplore(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
-  return canUnitExplore(merc, player, game);
-}
-
-function getPlayerMercsForExplore(player: unknown, game: MERCGame): CombatantModel[] {
-  if (game.isRebelPlayer(player)) {
-    return asRebelPlayer(player).team.filter(m => !m.isDead);
-  }
-  if (game.isDictatorPlayer(player)) {
-    return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
-  }
-  return [];
-}
 
 /**
  * Explore the current sector to discover loot.
@@ -756,35 +734,6 @@ function getPlayerUnitsForTrain(player: unknown, game: MERCGame): CombatantModel
   return [];
 }
 
-// Legacy helpers for backward compatibility
-function findMercSectorForTrain(merc: CombatantModel, player: unknown, game: MERCGame): Sector | null {
-  return findUnitSector(merc, player, game);
-}
-
-function canMercTrain(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
-  return canUnitTrain(merc, player, game);
-}
-
-function isMercOwnedForTrain(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
-  if (game.isRebelPlayer(player)) {
-    return isInPlayerTeam(merc, asRebelPlayer(player));
-  }
-  if (game.isDictatorPlayer(player)) {
-    const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
-    return dictatorMercs.some(m => m.id === merc.id);
-  }
-  return false;
-}
-
-function getPlayerMercsForTrain(player: unknown, game: MERCGame): CombatantModel[] {
-  if (game.isRebelPlayer(player)) {
-    return asRebelPlayer(player).team.filter(m => !m.isDead);
-  }
-  if (game.isDictatorPlayer(player)) {
-    return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
-  }
-  return [];
-}
 
 /**
  * Train militia in the current sector
@@ -936,28 +885,6 @@ function getPlayerUnitsForCity(player: unknown, game: MERCGame): CombatantModel[
   return [];
 }
 
-// Legacy helper for backward compatibility (only MERCs)
-function getPlayerMercsForCity(player: unknown, game: MERCGame): CombatantModel[] {
-  if (game.isRebelPlayer(player)) {
-    return asRebelPlayer(player).team.filter(m => !m.isDead);
-  }
-  if (game.isDictatorPlayer(player)) {
-    return game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
-  }
-  return [];
-}
-
-// Helper to check if merc belongs to player (for hospital/armsDealer)
-function isMercOwnedForCity(merc: CombatantModel, player: unknown, game: MERCGame): boolean {
-  if (game.isRebelPlayer(player)) {
-    return isInPlayerTeam(merc, asRebelPlayer(player));
-  }
-  if (game.isDictatorPlayer(player)) {
-    const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
-    return dictatorMercs.some(m => m.id === merc.id);
-  }
-  return false;
-}
 
 // Helper to find sector where player's MERC is located (for hospital/armsDealer)
 function findMercSectorForCity(player: unknown, game: MERCGame): Sector | null {

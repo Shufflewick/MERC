@@ -116,22 +116,6 @@ function isMerc(combatant: Combatant, mercId: string): boolean {
 }
 
 /**
- * MERC-dac: Check if a combatant is Badger
- * @deprecated Use alwaysBeforesMilitia(getCombatantMercId(c)) from registry
- */
-function isBadger(combatant: Combatant): boolean {
-  return isMerc(combatant, 'badger');
-}
-
-/**
- * MERC-nvr: Check if a combatant is Kastern
- * @deprecated Use alwaysGoesFirst(getCombatantMercId(c)) from registry
- */
-function isKastern(combatant: Combatant): boolean {
-  return isMerc(combatant, 'kastern');
-}
-
-/**
  * MERC-cpb: Check if a combatant is Lucid
  */
 function isLucid(combatant: Combatant): boolean {
