@@ -39,9 +39,6 @@ export {
   type EquipmentBonuses,
 } from './elements.js';
 
-// Backward-compat aliases for renamed classes
-export { CombatantBase as CombatUnit, CombatantModel as CombatUnitCard } from './elements.js';
-
 // Actions
 export {
   createHireMercAction,

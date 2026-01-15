@@ -869,9 +869,6 @@ export class CombatantModel extends CombatantBase {
   }
 }
 
-// Backward-compat alias - CombatUnitCard is now CombatantModel
-export { CombatantModel as CombatUnitCard };
-
 // =============================================================================
 // MERC Card - The mercenary characters (thin wrapper for backward compatibility)
 // =============================================================================

@@ -242,9 +242,6 @@ export function isCombatantModel(element: unknown): element is CombatantModel {
          typeof (element as CombatantModel).isMerc === 'boolean';
 }
 
-// Backward-compat alias
-export const isCombatUnitCard = isCombatantModel;
-
 /**
  * Check if a unit is a MercCard (type guard).
  * Uses property check instead of instanceof for bundler compatibility.
@@ -507,4 +504,4 @@ export function equipNewHire(
 // =============================================================================
 
 export type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
-export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard, CombatantModel, CombatantModel as CombatUnitCard } from '../elements.js';
+export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard, CombatantModel } from '../elements.js';
