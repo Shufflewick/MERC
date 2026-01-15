@@ -45,7 +45,7 @@ Plans:
 Plans:
 - [x] 25-01: Core class changes (elements.ts, game.ts, setup.ts with backward-compat getters)
 - [x] 25-02: Rules layer updates (324 occurrences across 21 files)
-- [ ] 25-03: UI and Tests updates (155 occurrences across 15 files)
+- [x] 25-03: UI and Tests updates (155 occurrences across 15 files)
 - [ ] 25-04: Remove backward-compat getters and update documentation
 
 #### Phase 26: Update References
@@ -127,7 +127,7 @@ Plans:
 | 22. Reference Updates | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 23. Documentation | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 24. Merge Classes | v1.5 | 1/1 | Complete | 2026-01-15 |
-| 25. Remove ID Aliases | v1.5 | 2/4 | In progress | - |
+| 25. Remove ID Aliases | v1.5 | 3/4 | In progress | - |
 | 26. Update References | v1.5 | 0/? | Not started | - |
 | 27. Documentation | v1.5 | 0/? | Not started | - |
 
