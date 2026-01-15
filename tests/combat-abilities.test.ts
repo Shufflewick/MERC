@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
-import { MercCard, Sector, Squad, Equipment } from '../src/rules/elements.js';
+import { CombatantModel, Sector, Squad, Equipment } from '../src/rules/elements.js';
 import { getCombatants, type Combatant } from '../src/rules/combat.js';
 import {
   getHitThreshold,
@@ -350,7 +350,7 @@ describe('Combat Ability Integration', () => {
     });
 
     it('should have combat-ability MERCs in deck', () => {
-      const mercs = game.mercDeck.all(MercCard);
+      const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
 
       // MERCs with combat abilities
       const combatMercs = ['lucid', 'basic', 'sarge', 'tack', 'valkyrie',
@@ -363,7 +363,7 @@ describe('Combat Ability Integration', () => {
     });
 
     it('should have valid stats for MERCs', () => {
-      const mercs = game.mercDeck.all(MercCard);
+      const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
       expect(mercs.length).toBeGreaterThan(0);
 
       for (const merc of mercs) {

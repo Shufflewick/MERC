@@ -5,9 +5,7 @@ export type { MERCOptions, SetupConfiguration, MERCPlayerRole, RebelPlayer, Dict
 // Element classes
 export {
   // Cards
-  MercCard,
   Equipment,
-  DictatorCard,
   TacticsCard,
 
   // Board elements

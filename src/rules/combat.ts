@@ -2071,7 +2071,7 @@ function executeCombatRound(
       const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
       damageDealt.set(target.id, damage);
 
-      // Sync damage to source MercCard immediately (so UI shows correct state during combat)
+      // Sync damage to source merc immediately (so UI shows correct state during combat)
       if (target.sourceElement?.isMerc) {
         const merc = target.sourceElement;
         merc.damage = merc.maxHealth - target.health;

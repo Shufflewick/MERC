@@ -5,7 +5,7 @@
  */
 
 import { MERCPlayer, type MERCGame, type RebelPlayer, type DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, TacticsCard, Squad, DictatorCard, CombatantModel, isGrenadeOrMortar } from '../elements.js';
+import { Sector, Equipment, TacticsCard, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -196,24 +196,24 @@ export function clearGlobalCachedValue(game: MERCGame, key: string): void {
  * Get all dictator combatants that can take actions (MERCs + dictator card if in play)
  * Returns items with a common interface: id, actionsRemaining, isDead, sectorId
  */
-export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<CombatantModel | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> {
-  const combatants: Array<CombatantModel | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCard: true }> = [];
+export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): Array<CombatantModel | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCombatant: true }> {
+  const combatants: Array<CombatantModel | { id: number; combatantId: string; combatantName: string; actionsRemaining: number; isDead: boolean; sectorId: string; isDictatorCombatant: true }> = [];
 
   // Add hired MERCs with enough actions
   const hiredMercs = game.dictatorPlayer?.hiredMercs || [];
   combatants.push(...hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= cost));
 
-  // Add dictator card if in play with enough actions
-  const dictatorCard = game.dictatorPlayer?.dictator;
-  if (dictatorCard?.inPlay && !dictatorCard.isDead && dictatorCard.actionsRemaining >= cost) {
+  // Add dictator combatant if in play with enough actions
+  const dictatorCombatant = game.dictatorPlayer?.dictator;
+  if (dictatorCombatant?.inPlay && !dictatorCombatant.isDead && dictatorCombatant.actionsRemaining >= cost) {
     combatants.push({
-      id: dictatorCard.id,
-      combatantId: `dictator-${dictatorCard.combatantId}`,
-      combatantName: dictatorCard.combatantName,
-      actionsRemaining: dictatorCard.actionsRemaining,
-      isDead: dictatorCard.isDead,
-      sectorId: dictatorCard.sectorId,
-      isDictatorCard: true,
+      id: dictatorCombatant.id,
+      combatantId: `dictator-${dictatorCombatant.combatantId}`,
+      combatantName: dictatorCombatant.combatantName,
+      actionsRemaining: dictatorCombatant.actionsRemaining,
+      isDead: dictatorCombatant.isDead,
+      sectorId: dictatorCombatant.sectorId,
+      isDictatorCombatant: true,
     });
   }
 
@@ -232,7 +232,7 @@ export function dictatorHasActionsRemaining(game: MERCGame, cost: number): boole
 // =============================================================================
 
 /**
- * Type guard to check if an element is a CombatantModel (MercCard or DictatorCard).
+ * Type guard to check if an element is a CombatantModel (merc or dictator).
  * Uses property check instead of instanceof for bundler compatibility.
  */
 export function isCombatantModel(element: unknown): element is CombatantModel {
@@ -243,23 +243,23 @@ export function isCombatantModel(element: unknown): element is CombatantModel {
 }
 
 /**
- * Check if a unit is a MercCard (type guard).
+ * Check if a unit is a merc (type guard).
  * Uses property check instead of instanceof for bundler compatibility.
  */
-export function isMercCard(unit: unknown): unit is MercCard {
+export function isMerc(unit: unknown): boolean {
   return isCombatantModel(unit) && unit.isMerc;
 }
 
 /**
- * Check if a unit is a DictatorCard (type guard).
+ * Check if a unit is a dictator (type guard).
  * Uses property check instead of instanceof for bundler compatibility.
  */
-export function isDictatorCard(unit: unknown): unit is DictatorCard {
+export function isDictatorUnit(unit: unknown): boolean {
   return isCombatantModel(unit) && unit.isDictator;
 }
 
 /**
- * Get the display name from a MercCard or DictatorCard.
+ * Get the display name from a CombatantModel.
  * Works with any combatant type.
  */
 export function getUnitName(unit: CombatantModel): string {
@@ -267,7 +267,7 @@ export function getUnitName(unit: CombatantModel): string {
 }
 
 /**
- * Find the sector containing a unit (MercCard or DictatorCard).
+ * Find the sector containing a unit (merc or dictator combatant).
  * Searches across rebel squads and dictator units.
  * Returns null if unit is not in any sector.
  */
@@ -287,12 +287,12 @@ export function findUnitSector(unit: CombatantModel, player: unknown, game: MERC
 
   // Handle dictator player
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
-    // DictatorCard - derive location from squad membership
+    // Dictator combatant - derive location from squad membership
     if (unit.isDictator) {
       return unit.sectorId ? game.getSector(unit.sectorId) || null : null;
     }
 
-    // MercCard - only return sector if merc is in dictator's squad
+    // Merc combatant - only return sector if merc is in dictator's squad
     // (sectorId is now derived from squad, not stored separately)
     const squad = game.dictatorPlayer.getSquadContaining(unit);
     if (squad?.sectorId) {
@@ -362,15 +362,15 @@ export function asRebelPlayerOrNull(player: unknown): RebelPlayer | null {
 }
 
 /**
- * Assert that an element is a MercCard.
- * Throws if not a MercCard.
+ * Assert that an element is a CombatantModel.
+ * Throws if not a CombatantModel.
  */
-export function asMercCard(element: unknown): MercCard {
-  if (isMercCard(element)) {
+export function asCombatantModel(element: unknown): CombatantModel {
+  if (isCombatantModel(element)) {
     return element;
   }
-  const elementType = (element as any)?.constructor?.name || typeof element;
-  throw new Error(`Expected MercCard but got ${elementType}`);
+  const elementType = (element as unknown as { constructor?: { name?: string } })?.constructor?.name || typeof element;
+  throw new Error(`Expected CombatantModel but got ${elementType}`);
 }
 
 /**
@@ -503,4 +503,4 @@ export function equipNewHire(
 // =============================================================================
 
 export type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
-export type { MercCard, Sector, Equipment, Squad, DictatorCard, TacticsCard, CombatantModel } from '../elements.js';
+export type { Sector, Equipment, Squad, TacticsCard, CombatantModel } from '../elements.js';

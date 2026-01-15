@@ -5,7 +5,7 @@
  * Contains interfaces used throughout the combat system.
  */
 
-import { MercCard, DictatorCard, Sector, CombatantModel } from './elements.js';
+import { Sector, CombatantModel } from './elements.js';
 
 // =============================================================================
 // Combat Types

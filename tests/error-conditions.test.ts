@@ -2,22 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import {
-  MercCard,
+  CombatantModel,
   Sector,
   Squad,
   Equipment,
   TacticsCard,
-  DictatorCard,
 } from '../src/rules/elements.js';
 import {
   asRebelPlayer,
-  asMercCard,
+  asCombatantModel,
   asSector,
   asSquad,
   asEquipment,
   asTacticsCard,
   isRebelPlayer,
-  isDictatorCard,
+  isCombatantModel,
   canHireMercWithTeam,
   hasActionsRemaining,
   findUnitSector,
@@ -82,50 +81,50 @@ describe('Error Conditions', () => {
       });
     });
 
-    describe('asMercCard', () => {
-      it('should throw for non-MercCard element with descriptive message', () => {
+    describe('asCombatantModel', () => {
+      it('should throw for non-CombatantModel element with descriptive message', () => {
         const sector = game.gameMap.getAllSectors()[0];
-        expect(() => asMercCard(sector)).toThrow();
-        expect(() => asMercCard(sector)).toThrowError(/Expected MercCard/);
-        expect(() => asMercCard(sector)).toThrowError(/Sector/);
+        expect(() => asCombatantModel(sector)).toThrow();
+        expect(() => asCombatantModel(sector)).toThrowError(/Expected CombatantModel/);
+        expect(() => asCombatantModel(sector)).toThrowError(/Sector/);
       });
 
       it('should throw for null with descriptive message', () => {
-        expect(() => asMercCard(null)).toThrow();
-        expect(() => asMercCard(null)).toThrowError(/Expected MercCard/);
+        expect(() => asCombatantModel(null)).toThrow();
+        expect(() => asCombatantModel(null)).toThrowError(/Expected CombatantModel/);
       });
 
       it('should throw for undefined with descriptive message', () => {
-        expect(() => asMercCard(undefined)).toThrow();
-        expect(() => asMercCard(undefined)).toThrowError(/Expected MercCard/);
+        expect(() => asCombatantModel(undefined)).toThrow();
+        expect(() => asCombatantModel(undefined)).toThrowError(/Expected CombatantModel/);
       });
 
       it('should throw for string', () => {
-        expect(() => asMercCard('merc-123')).toThrow();
-        expect(() => asMercCard('merc-123')).toThrowError(/Expected MercCard/);
-        expect(() => asMercCard('merc-123')).toThrowError(/String/);
+        expect(() => asCombatantModel('merc-123')).toThrow();
+        expect(() => asCombatantModel('merc-123')).toThrowError(/Expected CombatantModel/);
+        expect(() => asCombatantModel('merc-123')).toThrowError(/String/);
       });
 
       it('should throw for number', () => {
-        expect(() => asMercCard(42)).toThrow();
-        expect(() => asMercCard(42)).toThrowError(/Expected MercCard/);
-        expect(() => asMercCard(42)).toThrowError(/Number/);
+        expect(() => asCombatantModel(42)).toThrow();
+        expect(() => asCombatantModel(42)).toThrowError(/Expected CombatantModel/);
+        expect(() => asCombatantModel(42)).toThrowError(/Number/);
       });
 
-      it('should return MercCard for valid merc', () => {
-        const merc = game.mercDeck.first(MercCard);
+      it('should return CombatantModel for valid merc', () => {
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         expect(merc).toBeDefined();
-        expect(() => asMercCard(merc)).not.toThrow();
-        expect(asMercCard(merc)).toBe(merc);
+        expect(() => asCombatantModel(merc)).not.toThrow();
+        expect(asCombatantModel(merc)).toBe(merc);
       });
     });
 
     describe('asSector', () => {
       it('should throw for non-Sector element with descriptive message', () => {
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         expect(() => asSector(merc)).toThrow();
         expect(() => asSector(merc)).toThrowError(/Expected Sector/);
-        expect(() => asSector(merc)).toThrowError(/MercCard/);
+        expect(() => asSector(merc)).toThrowError(/CombatantModel/);
       });
 
       it('should throw for null with descriptive message', () => {
@@ -153,10 +152,10 @@ describe('Error Conditions', () => {
 
     describe('asSquad', () => {
       it('should throw for non-Squad element with descriptive message', () => {
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         expect(() => asSquad(merc)).toThrow();
         expect(() => asSquad(merc)).toThrowError(/Expected Squad/);
-        expect(() => asSquad(merc)).toThrowError(/MercCard/);
+        expect(() => asSquad(merc)).toThrowError(/CombatantModel/);
       });
 
       it('should throw for null with descriptive message', () => {
@@ -179,10 +178,10 @@ describe('Error Conditions', () => {
 
     describe('asEquipment', () => {
       it('should throw for non-Equipment element with descriptive message', () => {
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         expect(() => asEquipment(merc)).toThrow();
         expect(() => asEquipment(merc)).toThrowError(/Expected Equipment/);
-        expect(() => asEquipment(merc)).toThrowError(/MercCard/);
+        expect(() => asEquipment(merc)).toThrowError(/CombatantModel/);
       });
 
       it('should throw for null with descriptive message', () => {
@@ -205,10 +204,10 @@ describe('Error Conditions', () => {
 
     describe('asTacticsCard', () => {
       it('should throw for non-TacticsCard element with descriptive message', () => {
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         expect(() => asTacticsCard(merc)).toThrow();
         expect(() => asTacticsCard(merc)).toThrowError(/Expected TacticsCard/);
-        expect(() => asTacticsCard(merc)).toThrowError(/MercCard/);
+        expect(() => asTacticsCard(merc)).toThrowError(/CombatantModel/);
       });
 
       it('should throw for null with descriptive message', () => {
@@ -273,33 +272,33 @@ describe('Error Conditions', () => {
       });
     });
 
-    describe('isDictatorCard', () => {
-      it('should return false (not throw) for MercCard', () => {
-        const merc = game.mercDeck.first(MercCard);
-        expect(() => isDictatorCard(merc)).not.toThrow();
-        expect(isDictatorCard(merc)).toBe(false);
+    describe('isCombatantModel with isDictator check', () => {
+      it('should return false for merc combatant isDictator check', () => {
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
+        expect(() => isCombatantModel(merc)).not.toThrow();
+        expect(isCombatantModel(merc) && merc!.isDictator).toBe(false);
       });
 
       it('should return false (not throw) for null', () => {
-        expect(() => isDictatorCard(null)).not.toThrow();
-        expect(isDictatorCard(null)).toBe(false);
+        expect(() => isCombatantModel(null)).not.toThrow();
+        expect(isCombatantModel(null)).toBe(false);
       });
 
       it('should return false (not throw) for undefined', () => {
-        expect(() => isDictatorCard(undefined)).not.toThrow();
-        expect(isDictatorCard(undefined)).toBe(false);
+        expect(() => isCombatantModel(undefined)).not.toThrow();
+        expect(isCombatantModel(undefined)).toBe(false);
       });
 
       it('should return false (not throw) for plain object', () => {
         const fakeCard = { dictatorId: 'fake', dictatorName: 'Fake' };
-        expect(() => isDictatorCard(fakeCard)).not.toThrow();
-        expect(isDictatorCard(fakeCard)).toBe(false);
+        expect(() => isCombatantModel(fakeCard)).not.toThrow();
+        expect(isCombatantModel(fakeCard)).toBe(false);
       });
 
-      it('should return true for valid DictatorCard', () => {
+      it('should return true for valid dictator CombatantModel', () => {
         const dictatorCard = game.dictatorPlayer?.dictator;
         if (dictatorCard) {
-          expect(isDictatorCard(dictatorCard)).toBe(true);
+          expect(isCombatantModel(dictatorCard) && dictatorCard.isDictator).toBe(true);
         }
       });
     });
@@ -324,7 +323,7 @@ describe('Error Conditions', () => {
 
     describe('canHireMercWithTeam', () => {
       it('should allow any MERC when team is empty', () => {
-        const emptyTeam: MercCard[] = [];
+        const emptyTeam: CombatantModel[] = [];
         // Borris can be hired with empty team
         expect(canHireMercWithTeam('borris', emptyTeam)).toBe(true);
         // Squirrel can be hired with empty team
@@ -334,7 +333,7 @@ describe('Error Conditions', () => {
       });
 
       it('should allow unknown MERC IDs (not in incompatibilities)', () => {
-        const emptyTeam: MercCard[] = [];
+        const emptyTeam: CombatantModel[] = [];
         // Unknown MERC should work (no incompatibilities defined)
         expect(canHireMercWithTeam('unknown-merc', emptyTeam)).toBe(true);
         expect(canHireMercWithTeam('totally-made-up', emptyTeam)).toBe(true);
@@ -347,7 +346,7 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Find or create a MERC named 'borris' in the deck
-        const borris = game.mercDeck.all(MercCard).find(m => m.combatantId === 'borris');
+        const borris = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'borris');
         if (borris) {
           borris.putInto(rebel.primarySquad);
           const team = rebel.team;
@@ -365,7 +364,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const squirrel = game.mercDeck.all(MercCard).find(m => m.combatantId === 'squirrel');
+        const squirrel = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'squirrel');
         if (squirrel) {
           squirrel.putInto(rebel.primarySquad);
           const team = rebel.team;
@@ -383,8 +382,9 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Add multiple MERCs without incompatibilities
-        const merc1 = game.mercDeck.all(MercCard).find(m => m.combatantId === 'basic');
-        const merc2 = game.mercDeck.all(MercCard).find(m => m.combatantId === 'preaction');
+        const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
+        const merc1 = mercs.find(m => m.combatantId === 'basic');
+        const merc2 = mercs.find(m => m.combatantId === 'preaction');
 
         if (merc1 && merc2) {
           merc1.putInto(rebel.primarySquad);
@@ -401,7 +401,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const natasha = game.mercDeck.all(MercCard).find(m => m.combatantId === 'natasha');
+        const natasha = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'natasha');
         if (natasha) {
           natasha.putInto(rebel.primarySquad);
           const team = rebel.team;
@@ -428,7 +428,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // sectorId inherited from squad
@@ -443,7 +443,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
+        const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).slice(0, 2);
         if (mercs.length >= 2) {
           // sectorId inherited from squad
           mercs[0].putInto(rebel.primarySquad);
@@ -463,7 +463,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // sectorId inherited from squad
@@ -481,7 +481,7 @@ describe('Error Conditions', () => {
 
     describe('findUnitSector', () => {
       it('should return null for unit not in any sector', () => {
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         const rebel = game.rebelPlayers[0];
         // MERC is in deck, not in any squad or sector
         expect(findUnitSector(merc!, rebel, game)).toBeNull();
@@ -492,7 +492,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // sectorId inherited from squad
@@ -506,7 +506,7 @@ describe('Error Conditions', () => {
         const rebel = game.rebelPlayers[0];
         // Don't set squad sectorId - squad not placed on map
 
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // Don't set merc sectorId either
@@ -521,7 +521,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // Don't set merc.sectorId - merc is only in rebel squad
@@ -601,33 +601,35 @@ describe('Error Conditions', () => {
     describe('Empty Deck Scenarios', () => {
       it('should handle empty MERC deck gracefully', () => {
         // Move all MERCs to discard
-        const allMercs = game.mercDeck.all(MercCard);
+        const allMercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
         for (const merc of allMercs) {
           merc.putInto(game.mercDiscard);
         }
 
         // Deck should be empty
-        expect(game.mercDeck.count(MercCard)).toBe(0);
+        expect(game.mercDeck.all(CombatantModel).filter(c => c.isMerc).length).toBe(0);
 
         // drawMerc should reshuffle and return a card
         const drawn = game.drawMerc();
         expect(drawn).toBeDefined();
 
         // Deck should still work after reshuffle
-        expect(game.mercDeck.count(MercCard) + game.mercDiscard.count(MercCard)).toBeGreaterThan(0);
+        const deckCount = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).length;
+        const discardCount = game.mercDiscard.all(CombatantModel).filter(c => c.isMerc).length;
+        expect(deckCount + discardCount).toBeGreaterThan(0);
       });
 
       it('should return undefined when MERC deck and discard are both empty', () => {
         // This is an edge case - normally impossible in real gameplay
         // Move all MERCs somewhere they can't be reshuffled from
         const rebel = game.rebelPlayers[0];
-        const allMercs = game.mercDeck.all(MercCard);
+        const allMercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
         for (const merc of allMercs) {
           merc.putInto(rebel.primarySquad);
         }
 
         // Ensure discard is empty too
-        const discardMercs = game.mercDiscard.all(MercCard);
+        const discardMercs = game.mercDiscard.all(CombatantModel).filter(c => c.isMerc);
         for (const merc of discardMercs) {
           merc.putInto(rebel.primarySquad);
         }
@@ -718,7 +720,7 @@ describe('Error Conditions', () => {
         const sector = game.gameMap.getAllSectors()[0];
         rebel.primarySquad.sectorId = sector.sectorId;
 
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // sectorId inherited from squad
@@ -754,7 +756,7 @@ describe('Error Conditions', () => {
 
         // Team limit starts at BASE_TEAM_LIMIT (3 per constants)
         // Add MERCs up to limit
-        const mercs = game.mercDeck.children.slice(0, 10) as MercCard[];
+        const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).slice(0, 10);
         let added = 0;
         for (const merc of mercs) {
           if (rebel.canHireMerc(game)) {
@@ -773,7 +775,7 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Add a MERC to control the sector
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // sectorId inherited from squad
@@ -791,8 +793,9 @@ describe('Error Conditions', () => {
         rebel.primarySquad.sectorId = sector.sectorId;
 
         // Find Teresa if available
-        const teresa = game.mercDeck.all(MercCard).find(m => m.combatantId === 'teresa');
-        const basicMerc = game.mercDeck.all(MercCard).find(m => m.combatantId === 'basic');
+        const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
+        const teresa = mercs.find(m => m.combatantId === 'teresa');
+        const basicMerc = mercs.find(m => m.combatantId === 'basic');
 
         if (teresa && basicMerc) {
           basicMerc.putInto(rebel.primarySquad);
@@ -895,7 +898,7 @@ describe('Error Conditions', () => {
 
           // Place rebel at base
           rebel.primarySquad.sectorId = sector.sectorId;
-          const merc = game.mercDeck.first(MercCard);
+          const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
           if (merc) {
             merc.putInto(rebel.primarySquad);
             // sectorId inherited from squad
@@ -917,7 +920,7 @@ describe('Error Conditions', () => {
 
         // Place rebel at sector (to control it)
         rebel.primarySquad.sectorId = sector.sectorId;
-        const merc = game.mercDeck.first(MercCard);
+        const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
         if (merc) {
           merc.putInto(rebel.primarySquad);
           // sectorId inherited from squad

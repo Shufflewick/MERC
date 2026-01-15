@@ -173,7 +173,7 @@ function closeMilitiaModal() {
   selectedMilitia.value = null;
 }
 
-function openMercCard(merc: any) {
+function openCombatant(merc: any) {
   selectedMerc.value = merc;
   showMercModal.value = true;
 }
@@ -507,7 +507,7 @@ const canDropEquipmentForSelectedMerc = computed(() => {
   return props.availableActions.includes('dropEquipment');
 });
 
-// Handle drop equipment from MercCard
+// Handle drop equipment from CombatantModel
 async function handleDropEquipment(mercId: number, equipmentId: number) {
   // Close the modal first
   closeMercModal();
@@ -683,7 +683,7 @@ const isSelectingMerc = computed(() => {
   const selPrompt = (sel.prompt || '').toLowerCase();
 
   // If prompt or name mentions MERC or unit, it's a MERC selection
-  // "unit" is used for actions that can select both MERCs and DictatorCard
+  // "unit" is used for actions that can select both MERCs and dictator combatant
   if (selName.includes('merc') || selPrompt.includes('merc') ||
       selName.includes('unit') || selPrompt.includes('unit')) {
     return true;
@@ -837,7 +837,7 @@ const mercWithPendingEquipment = computed(() => {
   return previewMerc;
 });
 
-// Get the type of slot being previewed (for highlighting in MercCard)
+// Get the type of slot being previewed (for highlighting in CombatantModel)
 const pendingSlotType = computed((): 'Weapon' | 'Armor' | 'Accessory' | null => {
   if (!pendingEquipmentId.value || !isSelectingEquipment.value) return null;
 
@@ -962,7 +962,7 @@ const selectableItems = computed(() => {
   const selName = (sel.name || '').toLowerCase();
 
   // Check if this is a MERC selection (by name or prompt)
-  // Also check for 'unit' which is used for selections that can include both MERCs and DictatorCard
+  // Also check for 'unit' which is used for selections that can include both MERCs and dictator combatant
   const isMercSelection = selName.includes('merc') || prompt.includes('merc') ||
     selName.includes('unit') || prompt.includes('unit') ||
     (validEls.length > 0 && validEls.some((e: any) => e.combatantId || e.element?.attributes?.combatantId));
@@ -1217,7 +1217,7 @@ const hasContentToShow = computed(() => {
               :player-color="playerColor"
               :size="40"
               clickable
-              @click="openMercCard(merc)"
+              @click="openCombatant(merc)"
             />
           </div>
 
@@ -1232,7 +1232,7 @@ const hasContentToShow = computed(() => {
               :player-color="playerColor"
               :size="40"
               clickable
-              @click="openMercCard(merc)"
+              @click="openCombatant(merc)"
             />
           </div>
 
@@ -1257,7 +1257,7 @@ const hasContentToShow = computed(() => {
               :player-color="merc.playerColor"
               :size="40"
               clickable
-              @click="openMercCard(merc)"
+              @click="openCombatant(merc)"
             />
           </div>
 
@@ -1271,7 +1271,7 @@ const hasContentToShow = computed(() => {
               player-color="enemy"
               :size="40"
               clickable
-              @click="openMercCard(merc)"
+              @click="openCombatant(merc)"
             />
           </div>
 

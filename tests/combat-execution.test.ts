@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
-import { MercCard, Sector, Equipment, Squad } from '../src/rules/elements.js';
+import { CombatantModel, Sector, Equipment, Squad } from '../src/rules/elements.js';
 import {
   getCombatants,
   executeCombat,
@@ -276,7 +276,7 @@ describe('Combat Execution Tests', () => {
 
     it('should be able to place MERC in sector', () => {
       const sector = game.gameMap.getAllSectors()[0];
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
 
       if (merc && sector) {
         merc.putInto(rebel.primarySquad);
@@ -304,7 +304,7 @@ describe('Combat Execution Tests', () => {
     });
 
     it('armor should reduce damage', () => {
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
       const initialHealth = merc.health;
@@ -391,7 +391,7 @@ describe('Combat Execution Tests', () => {
     });
 
     it('damage should reduce health correctly', () => {
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
       const maxHealth = merc.maxHealth;
@@ -404,7 +404,7 @@ describe('Combat Execution Tests', () => {
     });
 
     it('healing should restore health', () => {
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
       merc.takeDamage(2, game);
@@ -416,7 +416,7 @@ describe('Combat Execution Tests', () => {
     });
 
     it('full heal should restore all health', () => {
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
       merc.takeDamage(2, game);
@@ -427,7 +427,7 @@ describe('Combat Execution Tests', () => {
     });
 
     it('overkill damage should not exceed max health', () => {
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
       const maxHealth = merc.maxHealth;

@@ -4,8 +4,7 @@ import {
   assertActionAvailable,
 } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
-import { MercCard, Sector, Squad, Equipment } from '../src/rules/elements.js';
-import { isMercCard } from '../src/rules/actions/helpers.js';
+import { CombatantModel, Sector, Squad, Equipment } from '../src/rules/elements.js';
 
 /**
  * Action Condition Tests
@@ -93,7 +92,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
 
       // Add a MERC to the squad via the deck
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -167,7 +166,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -194,7 +193,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       expect(merc).toBeDefined();
       if (merc) {
         merc.putInto(rebel.primarySquad);
@@ -232,8 +231,8 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc1 = game.mercDeck.first(MercCard);
-      const merc2 = game.mercDeck.children[1] as MercCard;
+      const merc1 = game.mercDeck.first(CombatantModel, c => c.isMerc);
+      const merc2 = game.mercDeck.children[1] as CombatantModel;
       if (merc1 && merc2) {
         merc1.putInto(rebel.primarySquad);
         merc2.putInto(rebel.primarySquad);
@@ -268,7 +267,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
       rebel.secondarySquad.sectorId = undefined;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -295,7 +294,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
       rebel.secondarySquad.sectorId = sector.sectorId;
 
-      const mercs = game.mercDeck.children.slice(0, 3) as MercCard[];
+      const mercs = game.mercDeck.children.slice(0, 3) as CombatantModel[];
       if (mercs.length >= 3) {
         // sectorId inherited from squad
         mercs[0].putInto(rebel.primarySquad);
@@ -324,7 +323,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
+      const mercs = game.mercDeck.children.slice(0, 2) as CombatantModel[];
       if (mercs.length >= 2) {
         mercs[0].putInto(rebel.primarySquad);
         mercs[1].putInto(rebel.primarySquad);
@@ -352,7 +351,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
       rebel.secondarySquad.sectorId = undefined;
 
-      const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
+      const mercs = game.mercDeck.children.slice(0, 2) as CombatantModel[];
       if (mercs.length >= 2) {
         // sectorId inherited from squad
         mercs[0].putInto(rebel.primarySquad);
@@ -381,7 +380,7 @@ describe('Action Conditions', () => {
         rebel.primarySquad.sectorId = sectors[0].sectorId;
         rebel.secondarySquad.sectorId = sectors[1].sectorId;
 
-        const mercs = game.mercDeck.children.slice(0, 2) as MercCard[];
+        const mercs = game.mercDeck.children.slice(0, 2) as CombatantModel[];
         if (mercs.length >= 2) {
           // sectorId inherited from squad
           mercs[0].putInto(rebel.primarySquad);
@@ -416,7 +415,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -452,7 +451,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -480,7 +479,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -509,7 +508,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -540,7 +539,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -575,7 +574,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -602,7 +601,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -633,7 +632,7 @@ describe('Action Conditions', () => {
 
       // Find a MERC with training > 0
       const mercs = game.mercDeck.children.filter(
-        (c): c is MercCard => isMercCard(c) && c.training > 0
+        (c): c is CombatantModel => c.isMerc && c.training > 0
       );
       const merc = mercs[0];
 
@@ -669,7 +668,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -704,7 +703,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -731,7 +730,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -739,7 +738,7 @@ describe('Action Conditions', () => {
       }
 
       // Empty the MERC deck
-      const allMercs = game.mercDeck.all(MercCard);
+      const allMercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
       for (const m of allMercs) {
         m.putInto(game.mercDiscard);
       }
@@ -781,7 +780,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -790,7 +789,7 @@ describe('Action Conditions', () => {
       }
 
       // Ensure deck has MERCs
-      expect(game.mercDeck.count(MercCard)).toBeGreaterThan(0);
+      expect(game.mercDeck.all(CombatantModel).filter(c => c.isMerc).length).toBeGreaterThan(0);
 
       game.currentDay = 2;
 
@@ -1021,7 +1020,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
 
       // Give rebel a MERC
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
       }
@@ -1104,7 +1103,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // Give the merc some equipment
@@ -1130,7 +1129,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // Don't equip anything - MERC has no equipment
@@ -1160,7 +1159,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -1199,7 +1198,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -1228,7 +1227,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad
@@ -1259,7 +1258,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const merc = game.mercDeck.first(MercCard);
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) {
         merc.putInto(rebel.primarySquad);
         // sectorId inherited from squad

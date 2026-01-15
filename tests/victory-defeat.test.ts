@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
-import { MercCard, Sector } from '../src/rules/elements.js';
+import { CombatantModel, Sector } from '../src/rules/elements.js';
 
 /**
  * Victory/Defeat Condition Tests

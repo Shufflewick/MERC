@@ -8,8 +8,8 @@
  */
 
 import type { MERCGame } from './game.js';
-import { MercCard, DictatorCard, Sector, Equipment, CombatantModel } from './elements.js';
-import { isMercCard } from './actions/helpers.js';
+import { Sector, Equipment, CombatantModel } from './elements.js';
+import { isCombatantModel } from './actions/helpers.js';
 import {
   getAIMercAction,
   getSquadAction,

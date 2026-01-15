@@ -8,7 +8,7 @@
  */
 
 import type { MERCGame, RebelPlayer } from './game.js';
-import { TacticsCard, Sector, MercCard } from './elements.js';
+import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
 import { executeCombat } from './combat.js';
 import { selectAIBaseLocation } from './ai-helpers.js';

@@ -870,18 +870,6 @@ export class CombatantModel extends CombatantBase {
 }
 
 // =============================================================================
-// MercCard - Minimal wrapper for BoardSmith element queries
-// =============================================================================
-
-/**
- * Mercenary unit. Minimal subclass for element query compatibility.
- * Use CombatantModel for type annotations. Check isMerc for type discrimination.
- */
-export class MercCard extends CombatantModel {
-  override cardType: 'merc' | 'dictator' = 'merc';
-}
-
-// =============================================================================
 // Equipment Card - Weapons, Armor, Accessories
 // =============================================================================
 
@@ -1143,19 +1131,6 @@ export class Sector extends GridCell {
 }
 
 // =============================================================================
-// DictatorCard - Minimal wrapper for BoardSmith element queries
-// =============================================================================
-
-/**
- * Dictator unit. Minimal subclass for element query compatibility.
- * Use CombatantModel for type annotations. Check isDictator for type discrimination.
- */
-export class DictatorCard extends CombatantModel {
-  override cardType: 'merc' | 'dictator' = 'dictator';
-  override inPlay: boolean = false;
-}
-
-// =============================================================================
 // Dictator Tactics Card
 // =============================================================================
 
@@ -1208,7 +1183,7 @@ export class Squad extends Space {
   sectorId?: string; // Which sector this squad is in
 
   getMercs(): CombatantModel[] {
-    return this.all(MercCard);
+    return this.all(CombatantModel).filter(c => c.isMerc);
   }
 
   get mercCount(): number {
@@ -1217,7 +1192,7 @@ export class Squad extends Space {
 
   // Get only living MERCs (for UI and certain game logic)
   getLivingMercs(): CombatantModel[] {
-    return this.all(MercCard).filter(m => !m.isDead);
+    return this.all(CombatantModel).filter(m => m.isMerc && !m.isDead);
   }
 
   get livingMercCount(): number {

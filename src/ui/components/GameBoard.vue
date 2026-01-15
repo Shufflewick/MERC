@@ -100,10 +100,25 @@ function findAllByClassName(className: string, root?: any): any[] {
   return results;
 }
 
-// Find the dictator combatant (DictatorCard className)
+// Find the dictator combatant (by cardType attribute)
 function findDictatorCombatant(root?: any): any {
-  // Try both with and without underscore prefix (BoardSmith serialization quirk)
-  return findByClassName('DictatorCard', root) || findByClassName('_DictatorCard', root);
+  // Search for CombatantModel with cardType === 'dictator'
+  if (!root) root = props.gameView;
+  if (!root) return null;
+
+  // Check if this element is a dictator combatant
+  if (root.className === 'CombatantModel' || root.className === '_CombatantModel') {
+    if (root.cardType === 'dictator') return root;
+  }
+
+  // Recurse into children
+  if (root.children) {
+    for (const child of root.children) {
+      const found = findDictatorCombatant(child);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 // Find element by ref (id)
@@ -289,7 +304,7 @@ const selectedSectorStash = computed(() => {
     primarySquad.value?.sectorId === activeSector.value.sectorId ||
     secondarySquad.value?.sectorId === activeSector.value.sectorId;
 
-  // Check dictator squads and DictatorCard location
+  // Check dictator squads and dictator combatant location
   const hasDictatorUnitInSector =
     dictatorPrimarySquad.value?.sectorId === activeSector.value.sectorId ||
     dictatorSecondarySquad.value?.sectorId === activeSector.value.sectorId ||
@@ -429,7 +444,7 @@ const selectedSectorHasDictatorForces = computed(() => {
 // Check if active sector is the dictator base
 const selectedSectorIsBase = computed(() => {
   if (!activeSector.value) return false;
-  // Use dictatorBaseSectorId which is computed from DictatorCard.sectorId
+  // Use dictatorBaseSectorId which is computed from dictator combatant.sectorId
   return activeSector.value.sectorId === dictatorBaseSectorId.value;
 });
 
@@ -820,7 +835,7 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
   const sectorId = getAttr(squad, 'sectorId', '');
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
-  // Get all combatants from squad (MERCs and DictatorCard)
+  // Get all combatants from squad (MERCs and dictator combatant)
   const combatants = (squad.children || [])
     .filter((c: any) => {
       const cardType = getAttr(c, 'cardType', '');
@@ -914,7 +929,7 @@ const dictatorBaseSquad = computed(() => {
 
   const sector = sectors.value.find((s) => s.sectorId === sectorId);
 
-  // Get all combatants in the base squad (MERCs and DictatorCard)
+  // Get all combatants in the base squad (MERCs and dictator combatant)
   const combatants = (baseSquad.children || [])
     .filter((c: any) => {
       const cardType = getAttr(c, 'cardType', '');
@@ -969,7 +984,7 @@ const dictatorCard = computed(() => {
     dictatorPlayer = findByClassName('_DictatorPlayer');
   }
 
-  // Find dictator combatant (DictatorCard)
+  // Find dictator combatant (dictator combatant)
   let dictatorCardNode = dictatorPlayer ? findDictatorCombatant(dictatorPlayer) : null;
   if (!dictatorCardNode) {
     // Search entire gameView
@@ -992,7 +1007,7 @@ const dictatorCard = computed(() => {
 
   const attrs = dictatorCardNode.attributes || {};
 
-  // Extract equipment slot data (similar to how MercCard does it)
+  // Extract equipment slot data (similar to how CombatantModel does it)
   const weaponSlotData = attrs.weaponSlotData || getAttr(dictatorCardNode, 'weaponSlotData', null);
   const armorSlotData = attrs.armorSlotData || getAttr(dictatorCardNode, 'armorSlotData', null);
   const accessorySlotData = attrs.accessorySlotData || getAttr(dictatorCardNode, 'accessorySlotData', null);
@@ -1900,7 +1915,7 @@ const hirableMercs = computed(() => {
   // Get already-selected merc names from shared actionArgs to filter them out
   const selectedMercs = Object.values(props.actionArgs || {}) as string[];
 
-  // For dictator selection, convert to MercCard-compatible format
+  // For dictator selection, convert to CombatantModel-compatible format
   if (isSelectingDictator.value) {
     const combatantData = props.gameView?.attributes?.settings?.combatantData ||
                            props.state?.state?.settings?.combatantData ||
@@ -1917,7 +1932,7 @@ const hirableMercs = computed(() => {
         const choiceValue = choice.value ?? choice;
         const dictatorInfo = dictatorDataList.find((d: any) => d.name === choiceDisplay);
 
-        // Return MercCard-compatible data structure
+        // Return CombatantModel-compatible data structure
         return {
           mercName: choiceDisplay,
           _choiceValue: choiceValue,

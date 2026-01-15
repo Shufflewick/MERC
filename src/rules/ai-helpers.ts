@@ -11,7 +11,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { Sector, MercCard, Equipment, CombatantModel } from './elements.js';
+import { Sector, Equipment, CombatantModel } from './elements.js';
 import {
   isLandMine,
   isRepairKit,
@@ -20,7 +20,7 @@ import {
   isHealingItem,
   hasRangedAttack,
 } from './equipment-effects.js';
-import { isMercCard } from './actions/helpers.js';
+import { isCombatantModel } from './actions/helpers.js';
 
 // Re-export from ai-combat-helpers.ts for backwards compatibility
 export {
@@ -492,7 +492,7 @@ export function selectNewMercLocation(game: MERCGame): Sector | null {
  * Returns the number of items equipped.
  */
 export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
-  // Get all dictator units in this sector (MercCards + DictatorCard share CombatantModel base)
+  // Get all dictator units in this sector (all use CombatantModel)
   const units: CombatantModel[] = game.dictatorPlayer.hiredMercs.filter(m => m.sectorId === sector.sectorId);
   if (game.dictatorPlayer.dictator?.inPlay && game.dictatorPlayer.dictator.sectorId === sector.sectorId) {
     units.push(game.dictatorPlayer.dictator);
@@ -825,8 +825,8 @@ export function hasMortar(unit: CombatantModel | { accessorySlot?: Equipment }):
     return true;
   }
 
-  // Check bandolier slots (only for MercCard)
-  if (isMercCard(unit)) {
+  // Check bandolier slots (only for merc combatants)
+  if (isCombatantModel(unit) && unit.isMerc) {
     return unit.bandolierSlots.some(e => hasRangedAttack(e.equipmentId));
   }
 

@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { MercCard, DictatorCard, Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
+import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { executeCombat, hasEnemies } from '../combat.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
 import {
@@ -18,7 +18,7 @@ import {
   getAIHealingPriority,
 } from '../ai-helpers.js';
 import { getNextAIAction } from '../ai-executor.js';
-import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asMercCard, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isMercCard, equipNewHire } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire } from './helpers.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
@@ -26,7 +26,7 @@ import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from 
 // =============================================================================
 
 // MERC-07j: Type for units that can perform dictator actions (hired MERCs or dictator card)
-// Using CombatantModel as it represents both MercCard and DictatorCard
+// Using CombatantModel as it represents both merc and dictator combatants
 
 // Note: getCombatantModelName was removed - use getUnitName from helpers.ts instead
 // Note: move, explore, train, reEquip, dropEquipment actions now unified with rebel actions
@@ -368,7 +368,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         const mercIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
         const mercs = mercIds
           .map(id => game.getElementById(id))
-          .filter((el): el is CombatantModel => isMercCard(el))
+          .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc)
           .sort((a, b) => b.baseCombat - a.baseCombat);
 
         if (mercs.length === 0) {
@@ -412,7 +412,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       // Find the MERC by name
       const mercs = mercIds
         .map(id => game.getElementById(id))
-        .filter((el): el is CombatantModel => isMercCard(el));
+        .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc);
       const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);
 
       if (!selectedMerc) {

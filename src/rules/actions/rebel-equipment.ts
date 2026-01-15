@@ -6,15 +6,15 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, MERCPlayer } from '../game.js';
-import { MercCard, Sector, Equipment, isGrenadeOrMortar, DictatorCard, CombatantModel } from '../elements.js';
+import { Sector, Equipment, isGrenadeOrMortar, CombatantModel } from '../elements.js';
 import {
   ACTION_COSTS,
   capitalize,
   hasActionsRemaining,
   isInPlayerTeam,
   useAction,
-  isDictatorCard,
-  isMercCard,
+  isMerc,
+  isDictatorUnit,
   isCombatantModel,
   getUnitName,
   findUnitSector,
@@ -37,18 +37,18 @@ import { hasMortar } from '../ai-helpers.js';
  * Chains via followUp if more items remain in stash.
  * Works for both rebel and dictator players.
  */
-// Type for units that can equip (MERCs or DictatorCard)
-// Using CombatantModel as it represents both MercCard and DictatorCard
+// Type for units that can equip (MERCs or dictator combatant)
+// Using CombatantModel as it represents both merc and dictator combatants
 
 // Helper to get living units with actions for any player type
-// Returns MERCs + DictatorCard if applicable
+// Returns MERCs + dictator combatant if applicable
 function getPlayerUnitsWithActions(player: unknown, game: MERCGame): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
     return player.team.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP);
   }
   if (game.isDictatorPlayer(player)) {
     const units: CombatantModel[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead && m.actionsRemaining >= ACTION_COSTS.RE_EQUIP) || [];
-    // Include DictatorCard if in play with enough actions
+    // Include dictator combatant if in play with enough actions
     const dictatorCard = game.dictatorPlayer?.dictator;
     if (dictatorCard?.inPlay && !dictatorCard.isDead && dictatorCard.actionsRemaining >= ACTION_COSTS.RE_EQUIP) {
       units.push(dictatorCard);
@@ -61,7 +61,7 @@ function getPlayerUnitsWithActions(player: unknown, game: MERCGame): CombatantMo
 // Helper to check if unit can re-equip (in a sector with stash and has actions)
 function canUnitReEquip(unit: CombatantModel, player: unknown, game: MERCGame): boolean {
   if (unit.actionsRemaining < ACTION_COSTS.RE_EQUIP) return false;
-  if (isDictatorCard(unit) && (!unit.inPlay || unit.isDead)) return false;
+  if (unit.isDictator && (!unit.inPlay || unit.isDead)) return false;
   const sector = findUnitSector(unit, player, game);
   return sector !== null && sector.stash.length > 0;
 }
@@ -76,24 +76,24 @@ function canAnyUnitReEquip(player: unknown, game: MERCGame): boolean {
 }
 
 export function createReEquipAction(game: MERCGame): ActionDefinition {
-  // Helper to resolve unit from ctx.args (parses composite string "id:name:isDictatorCard")
+  // Helper to resolve unit from ctx.args (parses composite string "id:name:isDictator")
   function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
     const unitArg = ctx.args?.actingUnit;
 
-    // Handle string format: "id:name:isDictatorCard"
+    // Handle string format: "id:name:isDictator"
     if (typeof unitArg === 'string') {
       const parts = unitArg.split(':');
       if (parts.length < 3) return undefined;
 
       const idStr = parts[0];
-      const isDictatorStr = parts[parts.length - 1]; // Last part is always isDictatorCard
+      const isDictatorStr = parts[parts.length - 1]; // Last part is always isDictator
       const unitId = parseInt(idStr, 10);
-      const isUnitDictatorCard = isDictatorStr === 'true';
+      const isUnitDictator = isDictatorStr === 'true';
 
-      if (isUnitDictatorCard) {
+      if (isUnitDictator) {
         return game.dictatorPlayer?.dictator;
       }
-      return game.all(MercCard).find(m => m.id === unitId);
+      return game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === unitId);
     }
 
     // Handle object format (in case BoardSmith passes the choice object)
@@ -106,12 +106,12 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         const idStr = parts[0];
         const isDictatorStr = parts[parts.length - 1];
         const unitId = parseInt(idStr, 10);
-        const isUnitDictatorCard = isDictatorStr === 'true';
+        const isUnitDictator = isDictatorStr === 'true';
 
-        if (isUnitDictatorCard) {
+        if (isUnitDictator) {
           return game.dictatorPlayer?.dictator;
         }
-        return game.all(MercCard).find(m => m.id === unitId);
+        return game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === unitId);
       }
     }
 
@@ -147,10 +147,9 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         return units
           .filter(u => canUnitReEquip(u, ctx.player, game))
           .map(u => {
-            // Use string format: "id:name:isDictatorCard" (like explore/train actions)
-            const isDictator = isDictatorCard(u);
+            // Use string format: "id:name:isDictator" (like explore/train actions)
             return {
-              value: `${u.id}:${getUnitName(u)}:${isDictator}`,
+              value: `${u.id}:${getUnitName(u)}:${u.isDictator}`,
               label: capitalize(getUnitName(u)),
             };
           });
@@ -257,11 +256,11 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 /**
  * Continue re-equipping from sector stash (no action cost - action already spent).
  * This is chained from reEquip via followUp to allow picking multiple items.
- * Works for both rebel MERCs and dictator units (MERCs and DictatorCard).
+ * Works for both rebel MERCs and dictator units (MERCs and dictator combatant).
  */
 export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
   // Helper to resolve unit from ctx.args (mercId is numeric element ID)
-  // Handles both MercCard and DictatorCard
+  // Handles both merc and dictator combatants
   function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
@@ -444,7 +443,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
     if (mercId !== undefined) {
       const el = g.getElementById(mercId);
-      return isMercCard(el) ? el : undefined;
+      return isCombatantModel(el) && el.isMerc ? el : undefined;
     }
     return undefined;
   }
@@ -486,7 +485,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         return livingMercs.some(m => getMercEquipment(m).length > 0);
       },
     })
-    .fromElements<MercCard>('actingMerc', {
+    .fromElements<CombatantModel>('actingMerc', {
       prompt: 'Select MERC to drop equipment from',
       display: (merc) => capitalize(merc.combatantName),
       elements: (ctx) => {
@@ -528,7 +527,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         }
         if (mercId !== undefined) {
           const el = g.getElementById(mercId);
-          if (isMercCard(el)) {
+          if (isCombatantModel(el) && el.isMerc) {
             return getMercEquipment(el);
           }
         }
@@ -549,7 +548,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         mercId = mercObj.id;
       }
       const mercEl = mercId !== undefined ? g.getElementById(mercId) : undefined;
-      const actingMerc = isMercCard(mercEl) ? mercEl : undefined;
+      const actingMerc = isCombatantModel(mercEl) && mercEl.isMerc ? mercEl : undefined;
 
       const equipArg = args.equipment;
       let equipId: number | undefined;
@@ -1179,12 +1178,12 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       'has merc with repair kit': (ctx) => getMercsWithRepairKit(ctx.player, game).length > 0,
       'has equipment in discard piles': () => getDiscardPileEquipment(game).length > 0,
     })
-    .chooseElement<MercCard>('merc', {
+    .chooseElement<CombatantModel>('merc', {
       prompt: 'Select MERC to use Repair Kit',
-      elementClass: MercCard,
+      elementClass: CombatantModel,
       display: (merc) => capitalize(merc.combatantName),
       filter: (element, ctx) => {
-        if (!isMercCard(element)) return false;
+        if (!isCombatantModel(element) || !element.isMerc) return false;
         // Use unified helper - checks ownership, living status, and repair kit
         const mercsWithKit = getMercsWithRepairKit(ctx.player, game);
         return mercsWithKit.some(m => m.id === element.id);
@@ -1346,7 +1345,7 @@ function countEnemyTargetsInSector(game: MERCGame, sector: Sector, player: any):
 
 /**
  * Get units with mortars for any player type.
- * Includes both MERCs and DictatorCard for dictator player.
+ * Includes both MERCs and dictator combatant for dictator player.
  */
 function getMercsWithMortars(game: MERCGame, player: any): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
@@ -1361,7 +1360,7 @@ function getMercsWithMortars(game: MERCGame, player: any): CombatantModel[] {
       !m.isDead && m.actionsRemaining >= 1 && hasMortar(m)
     ) || [];
     units.push(...hiredMercs);
-    // Add DictatorCard if it has mortar and is in play
+    // Add dictator combatant if it has mortar and is in play
     const dictator = game.dictatorPlayer?.dictator;
     if (dictator?.inPlay && !dictator.isDead && dictator.actionsRemaining >= 1 && hasMortar(dictator)) {
       units.push(dictator);
@@ -1373,7 +1372,7 @@ function getMercsWithMortars(game: MERCGame, player: any): CombatantModel[] {
 
 /**
  * Check if unit belongs to player (for mortar action).
- * Handles both MercCard and DictatorCard.
+ * Handles both merc and dictator combatants.
  */
 function isUnitOwnedForMortar(unit: CombatantModel, player: any, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
@@ -1613,13 +1612,13 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
         return false;
       },
     })
-    .chooseElement<MercCard>('merc', {
+    .chooseElement<CombatantModel>('merc', {
       prompt: 'Select MERC to detonate explosives',
-      elementClass: MercCard,
+      elementClass: CombatantModel,
       display: (merc) => capitalize(merc.combatantName),
       filter: (element, ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
-        if (!isMercCard(element)) return false;
+        if (!isCombatantModel(element) || !element.isMerc) return false;
         const merc = element;
 
         if (!isInPlayerTeam(merc, ctx.player)) return false;
@@ -1640,7 +1639,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Only rebels can detonate explosives' };
       }
       const player = ctx.player;
-      const merc = isMercCard(args.merc) ? args.merc : undefined;
+      const merc = isCombatantModel(args.merc) && args.merc.isMerc ? args.merc : undefined;
       if (!merc) {
         return { success: false, message: 'Invalid merc' };
       }

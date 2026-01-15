@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
 import { MERCGame, RebelPlayer } from '../src/rules/game.js';
-import { MercCard, Equipment } from '../src/rules/elements.js';
+import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { ignoresInitiativePenalties, drawsEquipmentForSquad } from '../src/rules/merc-abilities.js';
 
 /**
@@ -26,12 +26,12 @@ describe('Hagness Ability Tests', () => {
   });
 
   // Helper to get a specific MERC from deck
-  function getMercFromDeck(mercId: string): MercCard | undefined {
-    return game.mercDeck.all(MercCard).find(m => m.combatantId === mercId);
+  function getMercFromDeck(mercId: string): CombatantModel | undefined {
+    return game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === mercId);
   }
 
   // Helper to set up Hagness with a squad mate in rebel team
-  function setupHagnessSquad(): { hagness: MercCard; squadMate: MercCard } | null {
+  function setupHagnessSquad(): { hagness: CombatantModel; squadMate: CombatantModel } | null {
     const hagness = getMercFromDeck('hagness');
     const basic = getMercFromDeck('basic') || getMercFromDeck('sarge');
 
@@ -264,8 +264,8 @@ describe('Vulture Ability Tests', () => {
   });
 
   // Helper to get a specific MERC from deck
-  function getMercFromDeck(mercId: string): MercCard | undefined {
-    return game.mercDeck.all(MercCard).find(m => m.combatantId === mercId);
+  function getMercFromDeck(mercId: string): CombatantModel | undefined {
+    return game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === mercId);
   }
 
   // Helper to find equipment with initiative penalty

@@ -10,7 +10,6 @@ import type { MERCGame } from './game.js';
 import {
   Sector,
   CombatantModel,
-  DictatorCard,
   TacticsCard,
   TacticsDeck,
   TacticsHand,
@@ -290,7 +289,9 @@ export function setupDictator(
   }
 
   // Create the dictator card
-  const dictatorCard = game.create(DictatorCard, `dictator-${selectedDictator.id}`, {
+  const dictatorCard = game.create(CombatantModel, `dictator-${selectedDictator.id}`, {
+    cardType: 'dictator',
+    inPlay: false, // Dictator starts hidden until base is revealed
     combatantId: selectedDictator.id,
     combatantName: selectedDictator.name,
     ability: selectedDictator.ability,

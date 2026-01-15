@@ -1,8 +1,6 @@
 import { Game, Player, type GameOptions, type ElementClass } from '@boardsmith/engine';
 import {
   CombatantModel,
-  MercCard,
-  DictatorCard,
   Equipment,
   Sector,
   TacticsCard,
@@ -675,9 +673,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Register all element classes for serialization
     // Cast to ElementClass is safe - these are all valid GameElement subclasses
     // The cast is needed because our constructors have additional parameters beyond ElementContext
+    // Register CombatantModel for serialization
     this._ctx.classRegistry.set('CombatantModel', CombatantModel as unknown as ElementClass);
-    this._ctx.classRegistry.set('MercCard', MercCard as unknown as ElementClass);
-    this._ctx.classRegistry.set('DictatorCard', DictatorCard as unknown as ElementClass);
     this._ctx.classRegistry.set('Equipment', Equipment as unknown as ElementClass);
     this._ctx.classRegistry.set('Sector', Sector as unknown as ElementClass);
     this._ctx.classRegistry.set('TacticsCard', TacticsCard as unknown as ElementClass);
@@ -843,12 +840,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   loadCombatantData(data: CombatantData[]): void {
     this.combatantData = data;
-    // Create MercCard elements for merc entries
+    // Create CombatantModel elements for merc entries
     const mercEntries = data.filter(d => d.cardType === 'merc');
     for (const merc of mercEntries) {
       for (let i = 0; i < merc.quantity; i++) {
         const suffix = merc.quantity > 1 ? `-${i + 1}` : '';
-        const mercCard = this.mercDeck.create(MercCard, `merc-${merc.id}${suffix}`, {
+        const combatant = this.mercDeck.create(CombatantModel, `merc-${merc.id}${suffix}`, {
+          cardType: 'merc',
           combatantId: merc.id,
           combatantName: merc.name,
           bio: merc.bio,
@@ -859,7 +857,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
           baseCombat: merc.combat,
         });
         // Initialize computed stats (no equipment yet, so just base stats)
-        mercCard.updateComputedStats();
+        combatant.updateComputedStats();
       }
     }
   }
@@ -1064,15 +1062,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   drawMerc(): CombatantModel | undefined {
     // Draw to discard as holding area (caller will putInto final destination)
-    let drawn = this.mercDeck.drawTo(this.mercDiscard, 1, MercCard);
+    let drawn = this.mercDeck.drawTo(this.mercDiscard, 1, CombatantModel);
 
     // If deck is empty, reshuffle discard and try again
-    if (drawn.length === 0 && this.mercDiscard.count(MercCard) > 0) {
-      for (const merc of this.mercDiscard.all(MercCard)) {
+    if (drawn.length === 0 && this.mercDiscard.count(CombatantModel) > 0) {
+      for (const merc of this.mercDiscard.all(CombatantModel)) {
         merc.putInto(this.mercDeck);
       }
       this.mercDeck.shuffle();
-      drawn = this.mercDeck.drawTo(this.mercDiscard, 1, MercCard);
+      drawn = this.mercDeck.drawTo(this.mercDiscard, 1, CombatantModel);
     }
 
     return drawn[0];

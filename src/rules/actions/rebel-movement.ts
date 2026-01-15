@@ -13,19 +13,18 @@
 
 import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Squad, DictatorCard, CombatantModel } from '../elements.js';
+import { Sector, Squad, CombatantModel } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';
-import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asRebelPlayer, isDictatorCard } from './helpers.js';
+import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit } from './helpers.js';
 
 // =============================================================================
 // Move Action Helpers (work for both player types)
 // =============================================================================
 
-// Helper to check if Kim (DictatorCard) is in a specific squad
-// Since we can't access parent directly, search for DictatorCard in the squad
-function isKimInSquad(squad: Squad | null | undefined, dictatorCard: CombatantModel | null | undefined): boolean {
-  if (!squad || !dictatorCard) return false;
-  return squad.all(DictatorCard).some(d => d.combatantId === dictatorCard.combatantId);
+// Helper to check if dictator combatant (Kim) is in a specific squad
+function isKimInSquad(squad: Squad | null | undefined, dictatorCombatant: CombatantModel | null | undefined): boolean {
+  if (!squad || !dictatorCombatant) return false;
+  return squad.all(CombatantModel).filter(c => c.isDictator).some(d => d.combatantId === dictatorCombatant.combatantId);
 }
 
 // Helper to get squads that can move for any player type
@@ -34,12 +33,12 @@ function getMovableSquads(player: unknown, game: MERCGame): Squad[] {
 
   if (game.isRebelPlayer(player)) {
     // Type guard narrowed player to RebelPlayer
-    // Rebels don't need DictatorCard check, so pass minimal args
+    // Rebels don't need dictator combatant check, so pass minimal args
     if (canSquadMove(player.primarySquad)) squads.push(player.primarySquad);
     if (canSquadMove(player.secondarySquad)) squads.push(player.secondarySquad);
   } else if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
     const dictator = game.dictatorPlayer;
-    // Pass player and game for DictatorCard action check
+    // Pass player and game for dictator combatant action check
     try {
       if (canSquadMove(dictator.primarySquad, player, game)) squads.push(dictator.primarySquad);
     } catch { /* not initialized */ }
@@ -52,7 +51,7 @@ function getMovableSquads(player: unknown, game: MERCGame): Squad[] {
 }
 
 // Helper to check if a squad can move
-// For dictator: also checks if DictatorCard (if in this squad) has enough actions
+// For dictator: also checks if dictator combatant (if in this squad) has enough actions
 function canSquadMove(squad: Squad | null | undefined, player?: unknown, game?: MERCGame): boolean {
   if (!squad?.sectorId) return false;
   const mercs = squad.getLivingMercs();
@@ -201,13 +200,13 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       // Set squad location - all MERCs inherit via computed getter
       squad.sectorId = destination.sectorId;
 
-      // MERC-dict-move: If dictator player is moving and DictatorCard is in the moving squad, move it too
+      // MERC-dict-move: If dictator player is moving and dictator combatant is in the moving squad, move it too
       if (!isRebel && game.dictatorPlayer?.dictator?.inPlay) {
-        const dictatorCard = game.dictatorPlayer.dictator;
-        // Check squad membership by searching for DictatorCard in squad
-        if (isKimInSquad(squad, dictatorCard) && !dictatorCard.isDead) {
-          useAction(dictatorCard, ACTION_COSTS.MOVE);
-          game.message(`${dictatorCard.combatantName} moves with the squad`);
+        const dictatorCombatant = game.dictatorPlayer.dictator;
+        // Check squad membership by searching for dictator combatant in squad
+        if (isKimInSquad(squad, dictatorCombatant) && !dictatorCombatant.isDead) {
+          useAction(dictatorCombatant, ACTION_COSTS.MOVE);
+          game.message(`${dictatorCombatant.combatantName} moves with the squad`);
         }
       }
 
@@ -611,7 +610,7 @@ interface SquadChoice {
 }
 
 /**
- * Get count of combatants in a squad (including DictatorCard for dictator player)
+ * Get count of combatants in a squad (including dictator combatant for dictator player)
  */
 function getSquadCombatantCount(squad: Squad | null | undefined, dictatorCard?: CombatantModel | null): number {
   if (!squad) return 0;
@@ -646,7 +645,7 @@ function getAssignableCombatants(player: unknown, game: MERCGame): CombatantMode
         combatants.push(merc);
       }
     }
-    // Add DictatorCard if in play
+    // Add dictator combatant if in play
     if (dictator.dictator?.inPlay && !dictator.dictator.isDead) {
       if (getValidTargetSquads(dictator.dictator, player, game).length > 0) {
         combatants.push(dictator.dictator);
@@ -712,17 +711,17 @@ function getValidTargetSquads(
 
     // Find current squad for this combatant (check all 3 squads)
     let currentSquad: Squad | null = null;
-    if (isDictatorCard(combatant)) {
+    if (combatant.isDictator) {
       if (isKimInSquad(primary, combatant)) currentSquad = primary;
       else if (isKimInSquad(secondary, combatant)) currentSquad = secondary;
       else if (base && isKimInSquad(base, combatant)) currentSquad = base;
     } else {
-      // Check all squads for MercCard
-      if (primary.all(MercCard).some(m => m.combatantId === (combatant as CombatantModel).combatantId)) {
+      // Check all squads for merc
+      if (primary.all(CombatantModel).filter(c => c.isMerc).some(m => m.combatantId === combatant.combatantId)) {
         currentSquad = primary;
-      } else if (secondary.all(MercCard).some(m => m.combatantId === (combatant as CombatantModel).combatantId)) {
+      } else if (secondary.all(CombatantModel).filter(c => c.isMerc).some(m => m.combatantId === combatant.combatantId)) {
         currentSquad = secondary;
-      } else if (base?.all(MercCard).some(m => m.combatantId === (combatant as CombatantModel).combatantId)) {
+      } else if (base?.all(CombatantModel).filter(c => c.isMerc).some(m => m.combatantId === combatant.combatantId)) {
         currentSquad = base;
       }
     }
@@ -889,7 +888,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
           baseSquad = dictator.baseSquad;
         } catch { /* base squad not initialized yet */ }
 
-        // Find the combatant (could be MercCard or DictatorCard)
+        // Find the combatant (could be merc or dictator)
         let combatant: CombatantModel | undefined;
         let sourceSquad: Squad | null = null;
 
@@ -909,11 +908,11 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
           if (combatant) {
             // Check primary, secondary, and base squads
             const merc = combatant as CombatantModel;
-            if (dictator.primarySquad.all(MercCard).some(m => m.combatantId === merc.combatantId)) {
+            if (dictator.primarySquad.all(CombatantModel).filter(c => c.isMerc).some(m => m.combatantId === merc.combatantId)) {
               sourceSquad = dictator.primarySquad;
-            } else if (dictator.secondarySquad.all(MercCard).some(m => m.combatantId === merc.combatantId)) {
+            } else if (dictator.secondarySquad.all(CombatantModel).filter(c => c.isMerc).some(m => m.combatantId === merc.combatantId)) {
               sourceSquad = dictator.secondarySquad;
-            } else if (baseSquad?.all(MercCard).some(m => m.combatantId === merc.combatantId)) {
+            } else if (baseSquad?.all(CombatantModel).filter(c => c.isMerc).some(m => m.combatantId === merc.combatantId)) {
               sourceSquad = baseSquad;
             }
           }

@@ -10,7 +10,7 @@ import {
   diffSnapshots,
 } from '@boardsmith/testing';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
-import { MercCard, Sector, Equipment } from '../src/rules/elements.js';
+import { CombatantModel, Sector, Equipment } from '../src/rules/elements.js';
 
 /**
  * Smoke Tests for MERC

@@ -35,18 +35,15 @@ CombatantBase (abstract)
 ├── Equipment slots (weapon, armor, accessory, bandolier[])
 └── effectiveStats computed from base + equipment + abilities
 
-CombatantModel extends CombatantBase  ← USE THIS FOR TYPE ANNOTATIONS
+CombatantModel extends CombatantBase  ← USE THIS FOR ALL COMBATANTS
 ├── _combatantId/_combatantName - stored identity
 ├── cardType: 'merc' | 'dictator' - discriminator
-├── isMerc/isDictator - type checks
+├── isMerc/isDictator - type checks (use these for filtering)
 ├── inPlay - dictators start false, enter play when base revealed
 └── Special equip rules (Gunther accessories, Genesis weapons)
-
-MercCard extends CombatantModel       ← FOR ELEMENT QUERIES ONLY
-DictatorCard extends CombatantModel   ← FOR ELEMENT QUERIES ONLY
 ```
 
-**Important:** Use `CombatantModel` for all type annotations. Use `MercCard`/`DictatorCard` only for BoardSmith element queries (`.all()`, `.first()`, `.create()`).
+**Important:** Use `CombatantModel` for all type annotations and element queries. Filter with `.isMerc` or `.isDictator` properties.
 
 ### Game Structure
 
@@ -95,8 +92,9 @@ if (player.isRebel()) { /* rebel player */ }
 if (player.isDictator()) { /* dictator player */ }
 
 // Helper functions (from helpers.ts)
-isMercCard(unit)      // Returns true if CombatantModel with isMerc
-isDictatorCard(unit)  // Returns true if CombatantModel with isDictator
+isCombatantModel(unit)  // Type guard for CombatantModel
+isMerc(unit)            // Returns true if CombatantModel with isMerc
+isDictatorUnit(unit)    // Returns true if CombatantModel with isDictator
 ```
 
 ### Identity Properties
@@ -125,8 +123,8 @@ merc.combat          // Computed getter (real-time)
 
 **Find a MERC by ID:**
 ```typescript
-// Use MercCard class for BoardSmith element queries
-game.first(MercCard, m => m.combatantId === 'haarg')  // Returns CombatantModel | undefined
+// Use CombatantModel with filter for element queries
+game.first(CombatantModel, m => m.isMerc && m.combatantId === 'haarg')
 ```
 
 **Get all MERCs in a sector:**

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from '@boardsmith/testing';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 import { TeamConstants, DictatorConstants } from '../src/rules/constants.js';
-import { MercCard, Sector } from '../src/rules/elements.js';
+import { CombatantModel, Sector } from '../src/rules/elements.js';
 
 describe('Team Limit', () => {
   describe('Team Limit Formula', () => {
@@ -60,7 +60,7 @@ describe('Team Limit', () => {
 
     it('should exclude Teresa from teamSize calculation', () => {
       // Create Teresa and add to rebel's squad
-      const teresa = game.mercDeck.first(MercCard, m => m.combatantId === 'teresa');
+      const teresa = game.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId === 'teresa');
       expect(teresa).toBeDefined();
 
       // Move Teresa to rebel's primary squad
@@ -74,7 +74,7 @@ describe('Team Limit', () => {
 
     it('should count non-Teresa MERCs in teamSize', () => {
       // Get a regular MERC
-      const merc = game.mercDeck.first(MercCard, m => m.combatantId !== 'teresa');
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId !== 'teresa');
       expect(merc).toBeDefined();
 
       // Move to rebel's primary squad
@@ -119,7 +119,7 @@ describe('Team Limit', () => {
 
     it('should prevent hiring when at team limit', () => {
       // Add a MERC to reach team limit
-      const merc = game.mercDeck.first(MercCard, m => m.combatantId !== 'teresa');
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId !== 'teresa');
       expect(merc).toBeDefined();
       merc!.putInto(rebel.primarySquad);
 
@@ -131,7 +131,7 @@ describe('Team Limit', () => {
 
     it('should allow Teresa to be hired even at team limit', () => {
       // Add a MERC to reach team limit
-      const merc = game.mercDeck.first(MercCard, m => m.combatantId !== 'teresa');
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId !== 'teresa');
       expect(merc).toBeDefined();
       merc!.putInto(rebel.primarySquad);
 
@@ -141,7 +141,7 @@ describe('Team Limit', () => {
       expect(rebel.canHireMerc(game)).toBe(false);
 
       // Now add Teresa - she doesn't count toward team size
-      const teresa = game.mercDeck.first(MercCard, m => m.combatantId === 'teresa');
+      const teresa = game.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId === 'teresa');
       expect(teresa).toBeDefined();
       teresa!.putInto(rebel.primarySquad);
 
@@ -157,7 +157,7 @@ describe('Team Limit', () => {
       expect(dictator.canHireMerc(game)).toBe(true);
 
       // Even after hiring many MERCs
-      const mercs = [...game.mercDeck.all(MercCard)].slice(0, 5);
+      const mercs = [...game.mercDeck.all(CombatantModel)].filter(c => c.isMerc).slice(0, 5);
       for (const merc of mercs) {
         merc.putInto(dictator.primarySquad);
       }

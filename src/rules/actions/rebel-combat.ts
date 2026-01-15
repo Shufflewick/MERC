@@ -8,11 +8,11 @@
 
 import { Action, type ActionDefinition } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
-import { Sector, MercCard, Equipment, CombatantModel } from '../elements.js';
+import { Sector, Equipment, CombatantModel } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
-import { capitalize, isRebelPlayer, isMercCard } from './helpers.js';
+import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
 
 /**
  * Continue fighting in active combat
@@ -392,7 +392,7 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
 // =============================================================================
 
 /**
- * Helper to find MERCs with healing items (Medical Kit / First Aid Kit)
+ * Helper to find mercs with healing items (Medical Kit / First Aid Kit)
  */
 function getMercsWithHealingItems(combatants: Combatant[]): Array<{
   combatant: Combatant;
@@ -403,7 +403,7 @@ function getMercsWithHealingItems(combatants: Combatant[]): Array<{
 
   for (const combatant of combatants) {
     if (combatant.health <= 0) continue;
-    if (!isMercCard(combatant.sourceElement)) continue;
+    if (!isCombatantModel(combatant.sourceElement) || !combatant.sourceElement.isMerc) continue;
 
     const merc = combatant.sourceElement;
 
@@ -430,13 +430,14 @@ function getMercsWithHealingItems(combatants: Combatant[]): Array<{
 }
 
 /**
- * Helper to find damaged MERCs that can be healed
+ * Helper to find damaged mercs that can be healed
  */
 function getDamagedMercs(combatants: Combatant[]): Combatant[] {
   return combatants.filter(c =>
     c.health > 0 &&
     c.health < c.maxHealth &&
-    isMercCard(c.sourceElement)
+    isCombatantModel(c.sourceElement) &&
+    c.sourceElement.isMerc
   );
 }
 
@@ -822,7 +823,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
         diceUsedAlready + healingEffect.dicePerHeal
       );
 
-      // Heal the target (both combatant and source MercCard)
+      // Heal the target (both combatant and source merc)
       const healAmount = Math.min(healingEffect.healPerUse, targetCombatant.maxHealth - targetCombatant.health);
       targetCombatant.health += healAmount;
       targetMerc.heal(healAmount);
@@ -1031,16 +1032,17 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
     .condition({
       'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
     })
-    .chooseElement<MercCard>('saverMerc', {
+    .chooseElement<CombatantModel>('saverMerc', {
       prompt: () => {
         const pending = game.activeCombat?.pendingEpinephrine;
         return pending
           ? `Choose who uses Epinephrine Shot to save ${pending.dyingMercName}`
-          : 'Choose MERC to use Epinephrine Shot';
+          : 'Choose merc to use Epinephrine Shot';
       },
-      elementClass: MercCard,
+      elementClass: CombatantModel,
       filter: (element) => {
-        const merc = element as unknown as CombatantModel;
+        const merc = element as CombatantModel;
+        if (!merc.isMerc) return false;
         const pending = game.activeCombat?.pendingEpinephrine;
         if (!pending) return false;
         return pending.availableSavers.some(s => s.combatantId === merc.id);
