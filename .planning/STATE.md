@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 
 ## Current Position
 
-Phase: 28 of 30 (Remove Legacy Comments)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-15 — Completed 28-01-PLAN.md
+Phase: 29 of 30 (Rules Layer ID Cleanup)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-15 — Completed 29-01-PLAN.md
 
-Progress: █░░░░░░░░░ 3% (1 of 3 v1.6 phases)
+Progress: ██░░░░░░░░ 6% (1.5 of 3 v1.6 phases)
 
 ## Milestones Completed
 
@@ -56,5 +56,5 @@ None active. (Previous 56 test failures now passing)
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed Phase 28 (Remove Legacy Comments)
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
