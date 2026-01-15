@@ -144,7 +144,7 @@ Plans:
 | 25. Remove ID Aliases | v1.5 | 4/4 | Complete | 2026-01-15 |
 | 26. Update References | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 27. Documentation | v1.5 | 1/1 | Complete | 2026-01-15 |
-| 28. Remove Legacy Comments | v1.6 | 0/? | Not started | - |
+| 28. Remove Legacy Comments | v1.6 | 1/1 | Complete | 2026-01-15 |
 | 29. Rules Layer ID Cleanup | v1.6 | 0/? | Not started | - |
 | 30. UI Layer ID Cleanup | v1.6 | 0/? | Not started | - |
 
@@ -174,15 +174,15 @@ Plans:
 
 **Milestone Goal:** Eradicate all legacy mercId/dictatorId/mercName/dictatorName patterns from the codebase, leaving only combatantId/combatantName
 
-#### Phase 28: Remove Legacy Comments
+#### Phase 28: Remove Legacy Comments ✅
 
 **Goal**: Clean up backward-compat and legacy comments from recent refactors
 **Depends on**: Previous milestone complete
 **Research**: Unlikely (internal cleanup)
-**Plans**: TBD
+**Plans**: 1 complete
 
 Plans:
-- [ ] 28-01: TBD (run /gsd:plan-phase 28 to break down)
+- [x] 28-01: Remove legacy comments and deprecated functions from rules and UI layers
 
 #### Phase 29: Rules Layer ID Cleanup
 
