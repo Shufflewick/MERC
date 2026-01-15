@@ -1,5 +1,32 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.5 Final Combatant Unification (Shipped: 2026-01-15)
+
+**Delivered:** Single CombatantModel class with cardType discriminator, eliminated all ID aliases leaving only combatantId/combatantName.
+
+**Phases completed:** 24-27 (7 plans total)
+
+**Key accomplishments:**
+
+- Made CombatantModel concrete class (eliminated need for MercCard/DictatorCard subclasses)
+- Removed all ID aliases (mercId/mercName, dictatorId/dictatorName, unitId/unitName)
+- Replaced 479 alias property occurrences with combatantId/combatantName across 36 files
+- Removed backward-compat exports and type aliases
+- Updated all type annotations to use CombatantModel directly
+
+**Stats:**
+
+- 59 files changed
+- +2,328 / -891 lines changed
+- 4 phases, 7 plans
+- Same day execution
+
+**Git range:** `refactor(24-01)` → `docs(27-01)`
+
+**What's next:** Codebase cleanup complete - ready for new features
+
+---
+
 ## v1.4 Combatant Naming Unification (Shipped: 2026-01-14)
 
 **Delivered:** Unified naming conventions with combatantId/combatantName as canonical identity, CombatantCard.vue component, and CLAUDE.md architecture documentation.
