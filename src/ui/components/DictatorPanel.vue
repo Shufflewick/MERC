@@ -405,9 +405,9 @@ const hasContentToShow = computed(() => {
     <div class="panel-header">
       <div class="dictator-info">
         <CombatantIconSmall
-          :combatant-id="dictator.dictatorId"
+          :combatant-id="dictator.combatantId || dictator.dictatorId"
           :image="dictatorImagePath"
-          :alt="dictator.dictatorName"
+          :alt="dictator.combatantName || dictator.dictatorName"
           :player-color="playerColor"
           :size="50"
           is-dictator
@@ -415,7 +415,7 @@ const hasContentToShow = computed(() => {
           @click="showDictatorModal = true"
         />
         <div class="dictator-details">
-          <span class="dictator-name">{{ dictator.dictatorName }}</span>
+          <span class="dictator-name">{{ dictator.combatantName || dictator.dictatorName }}</span>
           <span class="dictator-ability">{{ dictator.ability }}</span>
         </div>
       </div>
@@ -468,7 +468,7 @@ const hasContentToShow = computed(() => {
             <div class="merc-choices">
               <div
                 v-for="merc in selectableMercs"
-                :key="merc.mercId"
+                :key="merc.combatantId || merc.mercId"
                 class="merc-choice"
                 @click="selectMercToHire(merc)"
               >
@@ -494,8 +494,8 @@ const hasContentToShow = computed(() => {
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :combatant-id="dictator?.dictatorId"
-            :combatant-name="dictator?.dictatorName"
+            :combatant-id="dictator?.combatantId || dictator?.dictatorId"
+            :combatant-name="dictator?.combatantName || dictator?.dictatorName"
             player-color="dictator"
             is-dictator
             @select="selectEquipmentType"
@@ -529,15 +529,15 @@ const hasContentToShow = computed(() => {
     <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
       <div class="dictator-modal">
         <CombatantIconSmall
-          :combatant-id="dictator.dictatorId"
+          :combatant-id="dictator.combatantId || dictator.dictatorId"
           :image="dictatorImagePath"
-          :alt="dictator.dictatorName"
+          :alt="dictator.combatantName || dictator.dictatorName"
           :player-color="playerColor"
           :size="120"
           is-dictator
         />
         <div class="dictator-modal-info">
-          <h2>{{ dictator.dictatorName }}</h2>
+          <h2>{{ dictator.combatantName || dictator.dictatorName }}</h2>
           <p class="ability-text">{{ dictator.ability }}</p>
           <p v-if="dictator.bio" class="bio-text">{{ dictator.bio }}</p>
 

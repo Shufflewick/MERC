@@ -1735,13 +1735,14 @@ const hagnessSquadMates = computed(() => {
 
   // Create choice-like objects from squad mercs
   return allSquadMercs.map((merc: any) => {
-    const mercId = getAttr(merc, 'combatantId', '') || '';
-    const mercName = getAttr(merc, 'combatantName', '') || mercId || 'Unknown';
+    const combatantId = getAttr(merc, 'combatantId', '') || '';
+    const combatantName = getAttr(merc, 'combatantName', '') || combatantId || 'Unknown';
     // Capitalize first letter of each word
-    const displayName = mercName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    const displayName = combatantName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     return {
       displayName,
-      mercId,
+      combatantId,
+      mercId: combatantId, // backward compat
       choice: { value: displayName }, // Simple choice object for selection
     };
   }).sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -2464,7 +2465,7 @@ const clickableSectors = computed(() => {
             <CombatantIcon
               v-for="mate in hagnessSquadMates"
               :key="mate.displayName"
-              :combatant-id="mate.mercId"
+              :combatant-id="mate.combatantId || mate.mercId"
               :combatant-name="mate.displayName"
               :player-color="currentPlayerColor"
               size="large"

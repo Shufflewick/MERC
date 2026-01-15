@@ -1355,7 +1355,7 @@ const hasContentToShow = computed(() => {
             >
               <CombatantIconSmall
                 :image="getMercImagePath(item)"
-                :combatant-id="item.mercId"
+                :combatant-id="item.combatantId || item.mercId"
                 :is-dictator="item.isDictator"
                 :alt="item._choiceDisplay || getMercName(item)"
                 :player-color="playerColor"

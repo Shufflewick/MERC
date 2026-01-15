@@ -406,7 +406,7 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
           >
             <CombatantIcon
               :image="combatant.image"
-              :combatant-id="combatant.mercId"
+              :combatant-id="combatant.combatantId || combatant.mercId"
               :combatant-name="getCombatantDisplay(combatant).name"
               :player-color="combatant.playerColor"
               :is-militia="combatant.isMilitia"
@@ -459,7 +459,7 @@ watch(() => props.activeCombat.pendingTargetSelection, () => {
           >
             <CombatantIcon
               :image="combatant.image"
-              :combatant-id="combatant.mercId"
+              :combatant-id="combatant.combatantId || combatant.mercId"
               :combatant-name="getCombatantDisplay(combatant).name"
               :player-color="combatant.playerColor"
               :is-dictator="combatant.isDictatorSide"
