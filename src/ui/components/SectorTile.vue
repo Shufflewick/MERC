@@ -21,8 +21,6 @@ interface SectorData {
 interface MercInSector {
   combatantId: string;
   combatantName?: string;
-  mercId?: string;
-  mercName?: string;
   image?: string;
   playerColor?: string;
   // Full combatant data (from gameView)
@@ -65,7 +63,7 @@ function handleDropEquipment(mercId: number, equipmentId: number) {
 
 // Get unique key for combatant - never returns empty to prevent Vue warnings
 function getMercKey(merc: MercInSector, index: number): string {
-  return merc.combatantId || merc.combatantName || merc.mercId || merc.mercName || `merc-${index}`;
+  return merc.combatantId || merc.combatantName || `merc-${index}`;
 }
 
 const showTooltip = ref(false);
@@ -205,9 +203,9 @@ function closeMercModal() {
         <CombatantIconSmall
           v-for="(merc, index) in mercsInSector.slice(0, isDictatorBase ? 3 : 4)"
           :key="getMercKey(merc, index)"
-          :combatant-id="merc.combatantId || merc.mercId"
+          :combatant-id="merc.combatantId"
           :image="getMercImagePath(merc)"
-          :alt="merc.combatantName || merc.mercName || merc.combatantId || merc.mercId"
+          :alt="merc.combatantName || merc.combatantId"
           :player-color="merc.playerColor"
           :size="42"
           clickable
@@ -244,13 +242,13 @@ function closeMercModal() {
         @click="showMercDetails(merc, $event)"
       >
         <CombatantIconSmall
-          :combatant-id="merc.combatantId || merc.mercId"
+          :combatant-id="merc.combatantId"
           :image="getMercImagePath(merc)"
-          :alt="merc.combatantName || merc.mercName || merc.combatantId || merc.mercId"
+          :alt="merc.combatantName || merc.combatantId"
           :player-color="merc.playerColor"
           :size="32"
         />
-        <span class="tooltip-name">{{ merc.combatantName || merc.mercName || merc.combatantId || merc.mercId }}</span>
+        <span class="tooltip-name">{{ merc.combatantName || merc.combatantId }}</span>
         <span class="tooltip-hint">ℹ</span>
       </div>
     </div>

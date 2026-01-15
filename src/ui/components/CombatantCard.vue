@@ -76,7 +76,7 @@ const mercId = computed(() => {
 
 // Helper to get MERC name (properly formatted)
 const mercName = computed(() => {
-  const rawName = getProp('combatantName', '') || getProp('mercName', '') || getProp('name', '') || String(mercId.value);
+  const rawName = getProp('combatantName', '') || getProp('name', '') || String(mercId.value);
   // Remove "merc-" prefix if present and capitalize
   const cleanName = rawName.replace(/^merc-/i, '');
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
