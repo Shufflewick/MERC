@@ -684,8 +684,6 @@ const allMercs = computed(() => {
             ...child,
             combatantId: dictatorIdWithPrefix,
             combatantName: getAttr(child, 'combatantName', 'The Dictator'),
-            mercId: dictatorIdWithPrefix,
-            mercName: getAttr(child, 'combatantName', 'The Dictator'),
             sectorId: squadSectorId,
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
@@ -861,8 +859,8 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
         // Map dictator to merc-like format for SquadPanel
         return {
           ...c,
-          mercId: `dictator-${getAttr(c, 'combatantId', '')}`,
-          mercName: getAttr(c, 'combatantName', 'The Dictator'),
+          combatantId: `dictator-${getAttr(c, 'combatantId', '')}`,
+          combatantName: getAttr(c, 'combatantName', 'The Dictator'),
           isDictator: true,
         };
       }
@@ -954,8 +952,8 @@ const dictatorBaseSquad = computed(() => {
       if (cardType === 'dictator') {
         return {
           ...c,
-          mercId: `dictator-${getAttr(c, 'combatantId', '')}`,
-          mercName: getAttr(c, 'combatantName', 'The Dictator'),
+          combatantId: `dictator-${getAttr(c, 'combatantId', '')}`,
+          combatantName: getAttr(c, 'combatantName', 'The Dictator'),
           isDictator: true,
         };
       }
@@ -999,8 +997,8 @@ const dictatorCard = computed(() => {
   if (!dictatorCardNode) {
     return {
       id: 0,
-      dictatorId: 'unknown',
-      dictatorName: 'Dictator',
+      combatantId: 'unknown',
+      combatantName: 'Dictator',
       ability: 'Ability not loaded',
       bio: '',
       image: '',
@@ -1024,8 +1022,6 @@ const dictatorCard = computed(() => {
     id: dictatorCardNode.ref,
     combatantId,
     combatantName,
-    dictatorId: combatantId,
-    dictatorName: combatantName,
     ability: attrs.ability || getAttr(dictatorCardNode, 'ability', ''),
     bio: attrs.bio || getAttr(dictatorCardNode, 'bio', ''),
     image: attrs.image || getAttr(dictatorCardNode, 'image', ''),
@@ -1579,13 +1575,13 @@ const selectedMercForEquipment = computed(() => {
   if (!isSelectingEquipmentType.value && !isSelectingSector.value) return null;
 
   // Get MERC name from actionArgs (works for both rebel and dictator flows now)
-  const mercName = props.actionArgs['merc'] as string | undefined;
-  if (!mercName) return null;
+  const combatantName = props.actionArgs['merc'] as string | undefined;
+  if (!combatantName) return null;
 
   // Find the MERC in the game tree
-  const merc = findMercByName(mercName);
+  const merc = findMercByName(combatantName);
   if (!merc) {
-    console.warn('[GameBoard] selectedMercForEquipment: Could not find MERC in game tree:', mercName);
+    console.warn('[GameBoard] selectedMercForEquipment: Could not find MERC in game tree:', combatantName);
   }
   return merc;
 });
@@ -1601,7 +1597,7 @@ const selectedMercImagePath = computed(() => {
 const selectedMercName = computed(() => {
   const merc = selectedMercForEquipment.value;
   if (!merc) return '';
-  return getAttr(merc, 'combatantName', '') || (merc as any).combatantName || (merc as any).mercName || '';
+  return getAttr(merc, 'combatantName', '') || (merc as any).combatantName || '';
 });
 
 // Get the combatantId for the selected MERC
@@ -1880,8 +1876,8 @@ function findMercByName(name: string | any, node?: any): any {
   const searchName = typeof name === 'string' ? name : (name?.value || name?.label || String(name || ''));
   if (!searchName) return null;
 
-  const mercName = getAttr(node, 'combatantName', '');
-  if (mercName && mercName.toLowerCase() === searchName.toLowerCase()) {
+  const nodeName = getAttr(node, 'combatantName', '');
+  if (nodeName && nodeName.toLowerCase() === searchName.toLowerCase()) {
     return node;
   }
 
@@ -1929,11 +1925,11 @@ const hirableMercs = computed(() => {
 
         // Return CombatantModel-compatible data structure
         return {
-          mercName: choiceDisplay,
+          combatantName: choiceDisplay,
           _choiceValue: choiceValue,
           attributes: {
-            mercName: choiceDisplay,
-            mercId: dictatorInfo?.id || choiceDisplay.toLowerCase(),
+            combatantName: choiceDisplay,
+            combatantId: dictatorInfo?.id || choiceDisplay.toLowerCase(),
             image: dictatorInfo?.image || '',
             baseInitiative: dictatorInfo?.initiative || 0,
             baseCombat: dictatorInfo?.combat || 0,
@@ -1963,7 +1959,7 @@ const hirableMercs = computed(() => {
       const choiceValue = choice.value ?? choice;
       const merc = findMercByName(choiceDisplay);
       // Attach the original choice value so we can use it when clicking
-      const result = merc ? { ...merc, _choiceValue: choiceValue } : { mercName: choiceDisplay, attributes: { mercName: choiceDisplay }, _choiceValue: choiceValue };
+      const result = merc ? { ...merc, _choiceValue: choiceValue } : { combatantName: choiceDisplay, attributes: { combatantName: choiceDisplay }, _choiceValue: choiceValue };
       return result;
     });
 });
@@ -2019,16 +2015,16 @@ const landingSectors = computed(() => {
 // Never returns empty string to prevent Vue duplicate key warnings
 let mercIdCounter = 0;
 function getMercId(merc: any): string {
-  const id = merc.attributes?.combatantId || merc.combatantId || merc.attributes?.mercId || merc.mercId || merc.id || merc.ref;
+  const id = merc.attributes?.combatantId || merc.combatantId || merc.id || merc.ref;
   if (id) return id;
   // Generate a unique fallback ID using merc name if available
-  const name = merc.attributes?.combatantName || merc.combatantName || merc.attributes?.mercName || merc.mercName || '';
+  const name = merc.attributes?.combatantName || merc.combatantName || '';
   return name ? `temp-${name}` : `temp-merc-${++mercIdCounter}`;
 }
 
 // Get capitalized combatant name for action (action expects capitalized names)
 function getMercDisplayName(merc: any): string {
-  const name = merc.attributes?.combatantName || merc.combatantName || merc.attributes?.mercName || merc.mercName || getMercId(merc);
+  const name = merc.attributes?.combatantName || merc.combatantName || getMercId(merc);
   // Capitalize first letter
   return name.charAt(0).toUpperCase() + name.slice(1);
 }

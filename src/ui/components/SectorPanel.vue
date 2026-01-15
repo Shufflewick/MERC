@@ -37,8 +37,6 @@ const props = defineProps<{
   allMercsInSector?: Array<{
     combatantId?: string;
     combatantName?: string;
-    mercId?: string;
-    mercName?: string;
     playerColor: string;
     sectorId: string;
     actionsRemaining?: number;
@@ -968,8 +966,8 @@ const selectableItems = computed(() => {
         return {
           ...attrs,
           ...(squadMerc || {}),
-          mercId: combatantId,
-          mercName: attrs.combatantName || squadMerc?.attributes?.combatantName || ve.display,
+          combatantId: combatantId,
+          combatantName: attrs.combatantName || squadMerc?.attributes?.combatantName || ve.display,
           isDictator: isDictator,
           image: attrs.image || squadMerc?.attributes?.image,
           _choiceValue: elementId,
@@ -1048,8 +1046,8 @@ const selectableItems = computed(() => {
 
       // No match found - create item with display name for image lookup
       return {
-        mercId: displayLower,
-        mercName: c.display,
+        combatantId: displayLower,
+        combatantName: c.display,
         _choiceValue: c.value,
         _choiceDisplay: c.display,
       };
