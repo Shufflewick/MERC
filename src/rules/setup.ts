@@ -266,20 +266,20 @@ export function buildMap(game: MERCGame, sectorData: SectorData[]): void {
  *
  * @param game - The game instance
  * @param dictatorData - Array of dictator data from JSON
- * @param dictatorId - Optional specific dictator to use (random if not specified)
+ * @param dictatorChoice - Optional specific dictator to use (random if not specified)
  */
 export function setupDictator(
   game: MERCGame,
   dictatorData: DictatorData[],
-  dictatorId?: string
+  dictatorChoice?: string
 ): CombatantModel {
   // Select dictator (random or specified)
   let selectedDictator: DictatorData;
 
-  if (dictatorId) {
-    const found = dictatorData.find(d => d.id === dictatorId);
+  if (dictatorChoice) {
+    const found = dictatorData.find(d => d.id === dictatorChoice);
     if (!found) {
-      throw new Error(`Dictator not found: ${dictatorId}`);
+      throw new Error(`Dictator not found: ${dictatorChoice}`);
     }
     selectedDictator = found;
   } else {
@@ -437,7 +437,7 @@ export interface SetupOptions {
   sectorData: SectorData[];
   dictatorData: DictatorData[];
   tacticsData: TacticsData[];
-  dictatorId?: string;
+  dictatorChoice?: string;
   activeTacticsCount?: number;
   /** Debug: specify tactics IDs in order (first = top of deck, drawn first) */
   debugTacticsOrder?: string[];
@@ -465,7 +465,7 @@ export function performSetup(game: MERCGame, options: SetupOptions): void {
 
   // 2. Set up the dictator (skip if human player will choose during Day 1)
   if (!options.skipDictatorSetup) {
-    setupDictator(game, options.dictatorData, options.dictatorId);
+    setupDictator(game, options.dictatorData, options.dictatorChoice);
   } else {
     game.message('Dictator selection deferred to Day 1');
   }

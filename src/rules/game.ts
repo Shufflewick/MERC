@@ -62,7 +62,7 @@ export interface PlayerConfig {
 export interface MERCOptions extends GameOptions {
   seed?: string;
   rebelCount?: number;  // 1-6 rebels
-  dictatorId?: string;  // Which dictator character to use
+  dictatorChoice?: string;  // Which dictator character to use
   expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
   dictatorIsAI?: boolean;  // MERC-exaf: Explicitly set if dictator is AI-controlled
   // MERC-pbx4: Role selection - which player position is the dictator
@@ -749,12 +749,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.loadTacticsData(tacticsData as TacticsData[]);
 
     // Perform initial setup (build map, select dictator, etc.)
-    // Use dictatorCharacter from gameOptions, or dictatorId for legacy/direct API
+    // Use dictatorCharacter from gameOptions, or dictatorChoice for legacy/direct API
     const dictatorCharacter = options.gameOptions?.dictatorCharacter;
-    const dictatorId = dictatorCharacter && dictatorCharacter !== 'random'
+    const dictatorChoice = dictatorCharacter && dictatorCharacter !== 'random'
       ? dictatorCharacter
-      : options.dictatorId;
-    this.performSetup(dictatorId, undefined, options.debugTacticsOrder);
+      : options.dictatorChoice;
+    this.performSetup(dictatorChoice, undefined, options.debugTacticsOrder);
   }
 
   /**
@@ -925,11 +925,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    * Perform complete game setup using loaded data.
    * This should be called after all data is loaded via loadXxxData methods.
    *
-   * @param dictatorId - Optional specific dictator to use (random if not specified)
+   * @param dictatorChoice - Optional specific dictator to use (random if not specified)
    * @param activeTacticsCount - Number of active tactics cards (default: 5)
    * @param debugTacticsOrder - Debug: specific tactics IDs in draw order (first = top)
    */
-  performSetup(dictatorId?: string, activeTacticsCount?: number, debugTacticsOrder?: string[]): void {
+  performSetup(dictatorChoice?: string, activeTacticsCount?: number, debugTacticsOrder?: string[]): void {
     if (!this.setupConfig) {
       throw new Error('Setup configuration not loaded. Call loadSetupConfig first.');
     }
@@ -951,14 +951,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Check for debug tactics order in settings as well
     const effectiveTacticsOrder = debugTacticsOrder || this.settings.debugTacticsOrder as string[] | undefined;
 
-    // Skip dictator setup if human player will choose (no dictatorId specified and not AI)
-    const skipDictatorSetup = !dictatorId && !this.dictatorPlayer?.isAI;
+    // Skip dictator setup if human player will choose (no dictatorChoice specified and not AI)
+    const skipDictatorSetup = !dictatorChoice && !this.dictatorPlayer?.isAI;
 
     performSetup(this, {
       sectorData: this.sectorData as SetupSectorData[],
       dictatorData: dictatorData as SetupDictatorData[],
       tacticsData: this.tacticsData as SetupTacticsData[],
-      dictatorId,
+      dictatorChoice,
       activeTacticsCount,
       debugTacticsOrder: effectiveTacticsOrder,
       skipDictatorSetup,
@@ -981,12 +981,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   /**
    * Set up just the dictator (useful for testing or custom setup)
    */
-  setupDictator(dictatorId?: string): CombatantModel {
+  setupDictator(dictatorChoice?: string): CombatantModel {
     const dictatorData = this.combatantData.filter(d => d.cardType === 'dictator');
     if (dictatorData.length === 0) {
       throw new Error('Dictator data not found in combatants');
     }
-    return setupDictator(this, dictatorData as SetupDictatorData[], dictatorId);
+    return setupDictator(this, dictatorData as SetupDictatorData[], dictatorChoice);
   }
 
   /**
