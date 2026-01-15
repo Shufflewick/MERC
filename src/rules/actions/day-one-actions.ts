@@ -621,9 +621,9 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         game.message(`Dictator drew ${merc.combatantName}`);
       }
     }
-    const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-    if (!mercId) return null;
-    const el = game.getElementById(mercId);
+    const combatantId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+    if (!combatantId) return null;
+    const el = game.getElementById(combatantId);
     return (isCombatantModel(el) && el.isMerc) ? el : null;
   };
 
@@ -675,8 +675,8 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       }
 
       // Human path - use selected equipment and sector
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const mercEl = mercId ? game.getElementById(mercId) : null;
+      const combatantId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+      const mercEl = combatantId ? game.getElementById(combatantId) : null;
       const merc = (isCombatantModel(mercEl) && mercEl.isMerc) ? mercEl : null;
 
       if (!merc) {
