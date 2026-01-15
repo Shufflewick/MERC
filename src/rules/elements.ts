@@ -764,8 +764,8 @@ export abstract class CombatantBase extends BaseCard {
 // =============================================================================
 
 /**
- * Extended combatant with card type discrimination and special equipment rules.
- * Use isMerc/isDictator for type checks. Subclassed by MercCard and DictatorCard.
+ * Unified combatant model for MERCs and Dictators.
+ * Use isMerc/isDictator for type checks. Single class with cardType discriminator.
  */
 export class CombatantModel extends CombatantBase {
   // Identity - unified properties for all combatants
@@ -870,15 +870,14 @@ export class CombatantModel extends CombatantBase {
 }
 
 // =============================================================================
-// MERC Card - The mercenary characters (thin wrapper for backward compatibility)
+// MercCard - Minimal wrapper for BoardSmith element queries
 // =============================================================================
 
 /**
- * Mercenary unit card. Thin subclass that sets cardType = 'merc'.
- * Identity via combatantId/combatantName inherited from CombatantModel.
+ * Mercenary unit. Minimal subclass for element query compatibility.
+ * Use CombatantModel for type annotations. Check isMerc for type discrimination.
  */
 export class MercCard extends CombatantModel {
-  // Card type discriminator
   override cardType: 'merc' | 'dictator' = 'merc';
 }
 
@@ -1144,16 +1143,14 @@ export class Sector extends GridCell {
 }
 
 // =============================================================================
-// Dictator Card - Thin wrapper for backward compatibility
+// DictatorCard - Minimal wrapper for BoardSmith element queries
 // =============================================================================
 
 /**
- * Dictator unit card. Thin subclass that sets cardType = 'dictator'.
- * Identity via combatantId/combatantName inherited from CombatantModel.
- * Starts not in play (inPlay=false), enters play when base is revealed.
+ * Dictator unit. Minimal subclass for element query compatibility.
+ * Use CombatantModel for type annotations. Check isDictator for type discrimination.
  */
 export class DictatorCard extends CombatantModel {
-  // Card type discriminator - dictators start not in play
   override cardType: 'merc' | 'dictator' = 'dictator';
   override inPlay: boolean = false;
 }
@@ -1210,7 +1207,7 @@ export class Squad extends Space {
   isBase: boolean = false; // True for dictator's base squad (third squad)
   sectorId?: string; // Which sector this squad is in
 
-  getMercs(): MercCard[] {
+  getMercs(): CombatantModel[] {
     return this.all(MercCard);
   }
 
@@ -1219,7 +1216,7 @@ export class Squad extends Space {
   }
 
   // Get only living MERCs (for UI and certain game logic)
-  getLivingMercs(): MercCard[] {
+  getLivingMercs(): CombatantModel[] {
     return this.all(MercCard).filter(m => !m.isDead);
   }
 

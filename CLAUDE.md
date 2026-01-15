@@ -35,19 +35,18 @@ CombatantBase (abstract)
 ├── Equipment slots (weapon, armor, accessory, bandolier[])
 └── effectiveStats computed from base + equipment + abilities
 
-CombatantModel extends CombatantBase
+CombatantModel extends CombatantBase  ← USE THIS FOR TYPE ANNOTATIONS
 ├── _combatantId/_combatantName - stored identity
 ├── cardType: 'merc' | 'dictator' - discriminator
 ├── isMerc/isDictator - type checks
 ├── inPlay - dictators start false, enter play when base revealed
 └── Special equip rules (Gunther accessories, Genesis weapons)
 
-MercCard extends CombatantModel
-└── Sets cardType = 'merc'
-
-DictatorCard extends CombatantModel
-└── Sets cardType = 'dictator', inPlay = false
+MercCard extends CombatantModel       ← FOR ELEMENT QUERIES ONLY
+DictatorCard extends CombatantModel   ← FOR ELEMENT QUERIES ONLY
 ```
+
+**Important:** Use `CombatantModel` for all type annotations. Use `MercCard`/`DictatorCard` only for BoardSmith element queries (`.all()`, `.first()`, `.create()`).
 
 ### Game Structure
 
@@ -63,8 +62,8 @@ MERCPlayer extends Player
 ├── role: 'rebel' | 'dictator'
 ├── primarySquad, secondarySquad (both roles)
 ├── baseSquad (dictator only)
-├── dictator: DictatorCard (dictator only)
-└── team: MercCard[] (living MERCs)
+├── dictator: CombatantModel (dictator only)
+└── team: CombatantModel[] (living MERCs)
 ```
 
 ## Key File Locations
@@ -87,13 +86,17 @@ MERCPlayer extends Player
 ### Type Guards
 
 ```typescript
-// Check combatant type
-if (combatant.isMerc) { /* MercCard */ }
-if (combatant.isDictator) { /* DictatorCard */ }
+// Check combatant type (CombatantModel has these properties)
+if (combatant.isMerc) { /* merc combatant */ }
+if (combatant.isDictator) { /* dictator combatant */ }
 
 // Check player role
 if (player.isRebel()) { /* rebel player */ }
 if (player.isDictator()) { /* dictator player */ }
+
+// Helper functions (from helpers.ts)
+isMercCard(unit)      // Returns true if CombatantModel with isMerc
+isDictatorCard(unit)  // Returns true if CombatantModel with isDictator
 ```
 
 ### Identity Properties
@@ -122,13 +125,14 @@ merc.combat          // Computed getter (real-time)
 
 **Find a MERC by ID:**
 ```typescript
-game.first(MercCard, m => m.combatantId === 'haarg')
+// Use MercCard class for BoardSmith element queries
+game.first(MercCard, m => m.combatantId === 'haarg')  // Returns CombatantModel | undefined
 ```
 
 **Get all MERCs in a sector:**
 ```typescript
-game.getMercsInSector(sector, player)
-game.getDictatorMercsInSector(sector)
+game.getMercsInSector(sector, player)    // Returns CombatantModel[]
+game.getDictatorMercsInSector(sector)    // Returns CombatantModel[]
 ```
 
 **Check sector control:**

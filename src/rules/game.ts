@@ -1,9 +1,10 @@
 import { Game, Player, type GameOptions, type ElementClass } from '@boardsmith/engine';
 import {
+  CombatantModel,
   MercCard,
+  DictatorCard,
   Equipment,
   Sector,
-  DictatorCard,
   TacticsCard,
   Squad,
   MercDeck,
@@ -161,7 +162,7 @@ export class MERCPlayer extends Player {
   areaRef?: string;
 
   // Dictator-specific properties
-  dictator?: DictatorCard;
+  dictator?: CombatantModel;
   tacticsDeck?: TacticsDeck;
   tacticsHand?: TacticsHand;
   tacticsDiscard?: DiscardPile;
@@ -252,9 +253,9 @@ export class MERCPlayer extends Player {
     return area;
   }
 
-  get team(): MercCard[] {
+  get team(): CombatantModel[] {
     // Return only living MERCs (dead MERCs can't take actions)
-    const mercs: MercCard[] = [];
+    const mercs: CombatantModel[] = [];
     try {
       mercs.push(...this.primarySquad.getLivingMercs());
     } catch { /* Squad not initialized yet */ }
@@ -291,13 +292,13 @@ export class MERCPlayer extends Player {
   }
 
   // Dictator-only: hired mercs (alias for team)
-  get hiredMercs(): MercCard[] {
+  get hiredMercs(): CombatantModel[] {
     return this.team;
   }
 
   // Dictator-only: all mercs including dead ones
-  get allMercs(): MercCard[] {
-    const mercs: MercCard[] = [];
+  get allMercs(): CombatantModel[] {
+    const mercs: CombatantModel[] = [];
     try {
       mercs.push(...this.primarySquad.getMercs());
     } catch { /* Squad not initialized yet */ }
@@ -319,7 +320,7 @@ export class MERCPlayer extends Player {
    * Find which squad contains a specific MERC.
    * Returns null if the MERC is not in either squad.
    */
-  getSquadContaining(merc: MercCard): Squad | null {
+  getSquadContaining(merc: CombatantModel): Squad | null {
     try {
       if (this.primarySquad.getMercs().some(m => m.id === merc.id)) {
         return this.primarySquad;
@@ -674,10 +675,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Register all element classes for serialization
     // Cast to ElementClass is safe - these are all valid GameElement subclasses
     // The cast is needed because our constructors have additional parameters beyond ElementContext
+    this._ctx.classRegistry.set('CombatantModel', CombatantModel as unknown as ElementClass);
     this._ctx.classRegistry.set('MercCard', MercCard as unknown as ElementClass);
+    this._ctx.classRegistry.set('DictatorCard', DictatorCard as unknown as ElementClass);
     this._ctx.classRegistry.set('Equipment', Equipment as unknown as ElementClass);
     this._ctx.classRegistry.set('Sector', Sector as unknown as ElementClass);
-    this._ctx.classRegistry.set('DictatorCard', DictatorCard as unknown as ElementClass);
     this._ctx.classRegistry.set('TacticsCard', TacticsCard as unknown as ElementClass);
     this._ctx.classRegistry.set('Squad', Squad as unknown as ElementClass);
     this._ctx.classRegistry.set('MercDeck', MercDeck as unknown as ElementClass);
@@ -841,7 +843,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   loadCombatantData(data: CombatantData[]): void {
     this.combatantData = data;
-    // Create MercCard elements only for merc entries
+    // Create MercCard elements for merc entries
     const mercEntries = data.filter(d => d.cardType === 'merc');
     for (const merc of mercEntries) {
       for (let i = 0; i < merc.quantity; i++) {
@@ -986,7 +988,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   /**
    * Set up just the dictator (useful for testing or custom setup)
    */
-  setupDictator(dictatorId?: string): DictatorCard {
+  setupDictator(dictatorId?: string): CombatantModel {
     const dictatorData = this.combatantData.filter(d => d.cardType === 'dictator');
     if (dictatorData.length === 0) {
       throw new Error('Dictator data not found in combatants');
@@ -1060,7 +1062,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return drawn[0];
   }
 
-  drawMerc(): MercCard | undefined {
+  drawMerc(): CombatantModel | undefined {
     // Draw to discard as holding area (caller will putInto final destination)
     let drawn = this.mercDeck.drawTo(this.mercDiscard, 1, MercCard);
 
@@ -1120,8 +1122,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     });
   }
 
-  getMercsInSector(sector: Sector, player: RebelPlayer): MercCard[] {
-    const mercs: MercCard[] = [];
+  getMercsInSector(sector: Sector, player: RebelPlayer): CombatantModel[] {
+    const mercs: CombatantModel[] = [];
 
     if (player.primarySquad?.sectorId === sector.sectorId) {
       mercs.push(...player.primarySquad.getMercs());
@@ -1240,7 +1242,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
   }
 
-  getDictatorMercsInSector(sector: Sector): MercCard[] {
+  getDictatorMercsInSector(sector: Sector): CombatantModel[] {
     if (!this.dictatorPlayer) return [];
     return this.dictatorPlayer.hiredMercs.filter(m =>
       !m.isDead && m.sectorId === sector.sectorId

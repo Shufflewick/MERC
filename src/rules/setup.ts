@@ -9,12 +9,12 @@
 import type { MERCGame } from './game.js';
 import {
   Sector,
+  CombatantModel,
   DictatorCard,
   TacticsCard,
   TacticsDeck,
   TacticsHand,
   DiscardPile,
-  MercCard,
   type SectorType,
 } from './elements.js';
 import { DictatorConstants } from './constants.js';
@@ -273,7 +273,7 @@ export function setupDictator(
   game: MERCGame,
   dictatorData: DictatorData[],
   dictatorId?: string
-): DictatorCard {
+): CombatantModel {
   // Select dictator (random or specified)
   let selectedDictator: DictatorData;
 
@@ -300,7 +300,6 @@ export function setupDictator(
     baseTraining: selectedDictator.training,
     baseCombat: selectedDictator.combat,
     damage: 0,
-    inPlay: false,
   });
 
   // Assign to dictator player
