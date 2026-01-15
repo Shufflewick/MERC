@@ -5,7 +5,7 @@
  * Contains interfaces used throughout the combat system.
  */
 
-import { MercCard, DictatorCard, Sector } from './elements.js';
+import { MercCard, DictatorCard, Sector, CombatantModel } from './elements.js';
 
 // =============================================================================
 // Combat Types
@@ -24,7 +24,7 @@ export interface Combatant {
   isMilitia: boolean;
   isDictator: boolean;
   isAttackDog: boolean; // MERC-l09: Attack Dogs
-  sourceElement: MercCard | DictatorCard | null;
+  sourceElement: CombatantModel | null;
   ownerId?: string; // For rebel militia
   armorPiercing: boolean; // MERC-38e: Weapon ignores armor
   hasAttackDog: boolean; // MERC-l09: Has Attack Dog equipped

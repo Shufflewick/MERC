@@ -594,7 +594,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
  */
 export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
   // Helper to find the unit that explored
-  function findExplorerUnit(ctx: { player: unknown }): MercCard | DictatorCard | null {
+  function findExplorerUnit(ctx: { player: unknown }): CombatantModel | null {
     if (!game.lastExplorer) return null;
     const unitId = game.lastExplorer.mercId;
 

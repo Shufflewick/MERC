@@ -13,7 +13,7 @@
 
 import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
-import { MercCard, Sector, Squad, DictatorCard } from '../elements.js';
+import { MercCard, Sector, Squad, DictatorCard, CombatantModel } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asRebelPlayer, isDictatorCard } from './helpers.js';
 
@@ -626,8 +626,8 @@ function getSquadCombatantCount(squad: Squad | null | undefined, dictatorCard?: 
  * Get all combatants that can be reassigned to a different squad.
  * A combatant can be reassigned if there's a valid target squad for them.
  */
-function getAssignableCombatants(player: unknown, game: MERCGame): (MercCard | DictatorCard)[] {
-  const combatants: (MercCard | DictatorCard)[] = [];
+function getAssignableCombatants(player: unknown, game: MERCGame): CombatantModel[] {
+  const combatants: CombatantModel[] = [];
 
   if (game.isRebelPlayer(player)) {
     const rebel = asRebelPlayer(player);
@@ -665,7 +665,7 @@ function getAssignableCombatants(player: unknown, game: MERCGame): (MercCard | D
  * - Base squad (dictator only): true third squad at base sector
  */
 function getValidTargetSquads(
-  combatant: MercCard | DictatorCard,
+  combatant: CombatantModel,
   player: unknown,
   game: MERCGame
 ): SquadChoice[] {
@@ -786,10 +786,7 @@ function getValidTargetSquads(
 /**
  * Get display name for a combatant
  */
-function getCombatantName(combatant: MercCard | DictatorCard): string {
-  if (isDictatorCard(combatant)) {
-    return capitalize(combatant.combatantName);
-  }
+function getCombatantName(combatant: CombatantModel): string {
   return capitalize(combatant.combatantName);
 }
 
@@ -893,7 +890,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         } catch { /* base squad not initialized yet */ }
 
         // Find the combatant (could be MercCard or DictatorCard)
-        let combatant: MercCard | DictatorCard | undefined;
+        let combatant: CombatantModel | undefined;
         let sourceSquad: Squad | null = null;
 
         // Check if it's the dictator (check all 3 squads)

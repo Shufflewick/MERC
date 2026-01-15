@@ -260,9 +260,9 @@ export function isDictatorCard(unit: unknown): unit is DictatorCard {
 
 /**
  * Get the display name from a MercCard or DictatorCard.
- * Works with any unit type that has mercName or dictatorName.
+ * Works with any combatant type.
  */
-export function getUnitName(unit: MercCard | DictatorCard): string {
+export function getUnitName(unit: CombatantModel): string {
   return unit.combatantName;
 }
 
@@ -271,7 +271,7 @@ export function getUnitName(unit: MercCard | DictatorCard): string {
  * Searches across rebel squads and dictator units.
  * Returns null if unit is not in any sector.
  */
-export function findUnitSector(unit: MercCard | DictatorCard, player: unknown, game: MERCGame): Sector | null {
+export function findUnitSector(unit: CombatantModel, player: unknown, game: MERCGame): Sector | null {
   // Handle rebel player - search squads for the merc
   if (isRebelPlayer(player)) {
     if (!unit.isMerc) return null;

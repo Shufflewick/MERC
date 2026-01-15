@@ -262,7 +262,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
   // Helper to resolve unit from ctx.args (mercId is numeric element ID)
   // Handles both MercCard and DictatorCard
-  function getUnit(ctx: { args?: Record<string, unknown> }): MercCard | DictatorCard | undefined {
+  function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
     const mercArg = ctx.args?.mercId;
     if (typeof mercArg === 'number') {
       const el = game.getElementById(mercArg);
@@ -278,7 +278,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
   }
 
   // Helper to get unit name for display
-  function getUnitDisplayName(unit: MercCard | DictatorCard): string {
+  function getUnitDisplayName(unit: CombatantModel): string {
     return capitalize(getUnitName(unit));
   }
 
@@ -1348,14 +1348,14 @@ function countEnemyTargetsInSector(game: MERCGame, sector: Sector, player: any):
  * Get units with mortars for any player type.
  * Includes both MERCs and DictatorCard for dictator player.
  */
-function getMercsWithMortars(game: MERCGame, player: any): (MercCard | DictatorCard)[] {
+function getMercsWithMortars(game: MERCGame, player: any): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
     return (player as RebelPlayer).team.filter(m =>
       !m.isDead && m.actionsRemaining >= 1 && hasMortar(m)
     );
   }
   if (game.isDictatorPlayer(player)) {
-    const units: (MercCard | DictatorCard)[] = [];
+    const units: CombatantModel[] = [];
     // Add hired MERCs with mortars
     const hiredMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
       !m.isDead && m.actionsRemaining >= 1 && hasMortar(m)
@@ -1375,7 +1375,7 @@ function getMercsWithMortars(game: MERCGame, player: any): (MercCard | DictatorC
  * Check if unit belongs to player (for mortar action).
  * Handles both MercCard and DictatorCard.
  */
-function isUnitOwnedForMortar(unit: MercCard | DictatorCard, player: any, game: MERCGame): boolean {
+function isUnitOwnedForMortar(unit: CombatantModel, player: any, game: MERCGame): boolean {
   if (game.isRebelPlayer(player)) {
     return unit.isMerc && isInPlayerTeam(unit as MercCard, player as RebelPlayer);
   }
