@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-14)
 
 **Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** Cleanup milestones complete, ready for release or new features
+**Current focus:** Eliminate MercCard/DictatorCard subclasses, unify on CombatantModel
 
 ## Current Position
 
-Phase: 23 of 23 (Documentation)
-Plan: 1 of 1 complete
-Status: All milestones complete
-Last activity: 2026-01-14 — v1.4 milestone archived
+Phase: 24 of 27 (Merge Classes)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-14 — Milestone v1.5 created
 
-Progress: ██████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Milestones Completed
 
@@ -49,10 +49,10 @@ None active.
 
 ### Roadmap Evolution
 
-All cleanup milestones complete. Game ready for release or new feature development.
+- Milestone v1.5 created: Final Combatant Unification, 4 phases (Phase 24-27)
 
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: v1.4 milestone complete and archived
+Stopped at: Milestone v1.5 initialization
 Resume file: None

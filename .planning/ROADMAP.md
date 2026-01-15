@@ -11,6 +11,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.2 Merge Dictator and Merc Cards** — Phases 9-13 (shipped 2026-01-11)
 - ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
 - ✅ **v1.4 Combatant Naming Unification** — Phases 20-23 (shipped 2026-01-14)
+- 🚧 **v1.5 Final Combatant Unification** — Phases 24-27 (in progress)
 
 ## Completed Milestones
 
@@ -20,7 +21,49 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) (Phases 14-19) — SHIPPED 2026-01-13
 - ✅ [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) (Phases 20-23) — SHIPPED 2026-01-14
 
-All cleanup milestones complete. Game ready for release or new feature development.
+### 🚧 v1.5 Final Combatant Unification (In Progress)
+
+**Milestone Goal:** Eliminate MercCard/DictatorCard subclasses entirely, unifying on single CombatantModel class with cardType discriminator
+
+#### Phase 24: Merge Classes
+
+**Goal**: Collapse MercCard/DictatorCard into CombatantModel, eliminating class hierarchy
+**Depends on**: Previous milestone complete
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 24-01: TBD (run /gsd:plan-phase 24 to break down)
+
+#### Phase 25: Remove ID Aliases
+
+**Goal**: Eliminate mercId/mercName, dictatorId/dictatorName, unitId/unitName - only combatantId/combatantName
+**Depends on**: Phase 24
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 25-01: TBD
+
+#### Phase 26: Update References
+
+**Goal**: Fix all imports, type annotations, instanceof checks, and tests
+**Depends on**: Phase 25
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 26-01: TBD
+
+#### Phase 27: Documentation
+
+**Goal**: Update CLAUDE.md, remove dead code, verify no regressions
+**Depends on**: Phase 26
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 27-01: TBD
 
 <details>
 <summary>✅ v1.0 Codebase Cleanup (Phases 1-6) — SHIPPED 2026-01-09</summary>
@@ -80,6 +123,10 @@ All cleanup milestones complete. Game ready for release or new feature developme
 | 21. Vue Component Renaming | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 22. Reference Updates | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 23. Documentation | v1.4 | 1/1 | Complete | 2026-01-14 |
+| 24. Merge Classes | v1.5 | 0/? | Not started | - |
+| 25. Remove ID Aliases | v1.5 | 0/? | Not started | - |
+| 26. Update References | v1.5 | 0/? | Not started | - |
+| 27. Documentation | v1.5 | 0/? | Not started | - |
 
 <details>
 <summary>✅ v1.3 Combatant Unification (Phases 14-19) — SHIPPED 2026-01-13</summary>
@@ -105,7 +152,7 @@ All cleanup milestones complete. Game ready for release or new feature developme
 
 ## Status
 
-All cleanup milestones complete (v1.0 - v1.4).
+v1.5 Final Combatant Unification in progress (Phases 24-27).
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) — Type safety and ship confidence
