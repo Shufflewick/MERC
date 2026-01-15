@@ -35,22 +35,19 @@ CombatantBase (abstract)
 ├── Equipment slots (weapon, armor, accessory, bandolier[])
 └── effectiveStats computed from base + equipment + abilities
 
-CombatantModel extends CombatantBase (abstract)
+CombatantModel extends CombatantBase
+├── _combatantId/_combatantName - stored identity
 ├── cardType: 'merc' | 'dictator' - discriminator
 ├── isMerc/isDictator - type checks
 ├── inPlay - dictators start false, enter play when base revealed
 └── Special equip rules (Gunther accessories, Genesis weapons)
 
 MercCard extends CombatantModel
-├── mercId/mercName - populated from JSON
-└── combatantId returns mercId (canonical mapping)
+└── Sets cardType = 'merc'
 
 DictatorCard extends CombatantModel
-├── dictatorId/dictatorName - populated from JSON
-└── combatantId returns dictatorId (canonical mapping)
+└── Sets cardType = 'dictator', inPlay = false
 ```
-
-**Backward compatibility:** `unitId`/`unitName` getters alias to `combatantId`/`combatantName`.
 
 ### Game Structure
 
@@ -101,9 +98,8 @@ if (player.isDictator()) { /* dictator player */ }
 
 ### Identity Properties
 
-- Use `combatantId`/`combatantName` for canonical identity
-- `mercId`/`mercName` and `dictatorId`/`dictatorName` are JSON-populated
-- `unitId`/`unitName` are backward-compat aliases (prefer combatantId)
+- Use `combatantId`/`combatantName` for all combatant identity
+- These are the only identity properties (no aliases)
 
 ### Equipment Slots
 
@@ -126,7 +122,7 @@ merc.combat          // Computed getter (real-time)
 
 **Find a MERC by ID:**
 ```typescript
-game.first(MercCard, m => m.mercId === 'haarg')
+game.first(MercCard, m => m.combatantId === 'haarg')
 ```
 
 **Get all MERCs in a sector:**
