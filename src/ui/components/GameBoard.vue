@@ -108,7 +108,9 @@ function findDictatorCombatant(root?: any): any {
 
   // Check if this element is a dictator combatant
   if (root.className === 'CombatantModel' || root.className === '_CombatantModel') {
-    if (root.cardType === 'dictator') return root;
+    // Check cardType at root level or in attributes
+    const cardType = root.cardType || root.attributes?.cardType;
+    if (cardType === 'dictator') return root;
   }
 
   // Recurse into children
@@ -630,6 +632,7 @@ const allMercs = computed(() => {
             mercId: combatantId, // backward compat
             sectorId: mercSectorId,
             playerColor,
+            image: getAttr(merc, 'image', ''),
           });
         }
       }
@@ -663,6 +666,7 @@ const allMercs = computed(() => {
             mercId: combatantId, // backward compat
             sectorId: squadSectorId,
             playerColor: 'dictator',
+            image: getAttr(child, 'image', ''),
           });
         }
       }
