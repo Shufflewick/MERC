@@ -161,13 +161,10 @@ function findElementById(id: number | string, root?: any): any {
   return null;
 }
 
-// Helper to get property from node (checks attributes first, then root, then underscore-prefixed)
+// Helper to get property from node (checks attributes first, then root)
 function getAttr<T>(node: any, key: string, defaultVal: T): T {
   if (node?.attributes && node.attributes[key] !== undefined) return node.attributes[key];
   if (node && node[key] !== undefined) return node[key];
-  // Check for underscore-prefixed private property (e.g., _combatantName)
-  const privateKey = `_${key}`;
-  if (node && node[privateKey] !== undefined) return node[privateKey];
   return defaultVal;
 }
 
@@ -1019,13 +1016,17 @@ const dictatorCard = computed(() => {
   const armorSlotData = attrs.armorSlotData || getAttr(dictatorCardNode, 'armorSlotData', null);
   const accessorySlotData = attrs.accessorySlotData || getAttr(dictatorCardNode, 'accessorySlotData', null);
 
+  // Get combatant identity
+  const combatantId = attrs.combatantId || getAttr(dictatorCardNode, 'combatantId', 'unknown');
+  const combatantName = attrs.combatantName || getAttr(dictatorCardNode, 'combatantName', 'Unknown Dictator');
+
   return {
     id: dictatorCardNode.ref,
-    combatantId: attrs.combatantId || getAttr(dictatorCardNode, 'combatantId', 'unknown'),
-    combatantName: attrs.combatantName || getAttr(dictatorCardNode, 'combatantName', 'Unknown Dictator'),
+    combatantId,
+    combatantName,
     // backward compat aliases
-    dictatorId: attrs.combatantId || getAttr(dictatorCardNode, 'combatantId', 'unknown'),
-    dictatorName: attrs.combatantName || getAttr(dictatorCardNode, 'combatantName', 'Unknown Dictator'),
+    dictatorId: combatantId,
+    dictatorName: combatantName,
     ability: attrs.ability || getAttr(dictatorCardNode, 'ability', ''),
     bio: attrs.bio || getAttr(dictatorCardNode, 'bio', ''),
     image: attrs.image || getAttr(dictatorCardNode, 'image', ''),
@@ -1582,20 +1583,12 @@ const selectedMercForEquipment = computed(() => {
   const mercName = props.actionArgs['merc'] as string | undefined;
   if (!mercName) return null;
 
-  // Try to find the MERC in the game tree first
+  // Find the MERC in the game tree
   const merc = findMercByName(mercName);
-  if (merc) return merc;
-
-  // During Day 1 hiring, the MERC isn't in the tree yet - create minimal data
-  // The combatantId is typically the lowercase version of the name
-  const combatantId = mercName.toLowerCase();
-  return {
-    combatantName: mercName,
-    combatantId,
-    mercName, // backward compat
-    mercId: combatantId, // backward compat
-    attributes: { combatantName: mercName, combatantId, mercName, mercId: combatantId },
-  };
+  if (!merc) {
+    console.warn('[GameBoard] selectedMercForEquipment: Could not find MERC in game tree:', mercName);
+  }
+  return merc;
 });
 
 // Get the image path for the selected MERC

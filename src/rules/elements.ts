@@ -769,15 +769,9 @@ export abstract class CombatantBase extends BaseCard {
  */
 export class CombatantModel extends CombatantBase {
   // Identity - unified properties for all combatants
-  // Subclasses can override via getters to delegate to their own properties
-  protected _combatantId: string = '';
-  protected _combatantName: string = '';
-
-  get combatantId(): string { return this._combatantId; }
-  set combatantId(value: string) { this._combatantId = value; }
-
-  get combatantName(): string { return this._combatantName; }
-  set combatantName(value: string) { this._combatantName = value; }
+  // Direct properties (not underscore-prefixed) so BoardSmith serializes them
+  combatantId: string = '';
+  combatantName: string = '';
 
   // Card type discriminator
   cardType: 'merc' | 'dictator' = 'merc';
