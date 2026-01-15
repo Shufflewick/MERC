@@ -847,8 +847,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       for (let i = 0; i < merc.quantity; i++) {
         const suffix = merc.quantity > 1 ? `-${i + 1}` : '';
         const mercCard = this.mercDeck.create(MercCard, `merc-${merc.id}${suffix}`, {
-          mercId: merc.id,
-          mercName: merc.name,
+          combatantId: merc.id,
+          combatantName: merc.name,
           bio: merc.bio,
           ability: merc.ability,
           image: merc.image,

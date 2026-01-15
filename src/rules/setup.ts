@@ -291,8 +291,8 @@ export function setupDictator(
 
   // Create the dictator card
   const dictatorCard = game.create(DictatorCard, `dictator-${selectedDictator.id}`, {
-    dictatorId: selectedDictator.id,
-    dictatorName: selectedDictator.name,
+    combatantId: selectedDictator.id,
+    combatantName: selectedDictator.name,
     ability: selectedDictator.ability,
     bio: selectedDictator.bio,
     image: selectedDictator.image,
