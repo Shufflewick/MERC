@@ -887,25 +887,12 @@ export { CombatantModel as CombatUnitCard };
 // =============================================================================
 
 /**
- * Mercenary unit card. Identity via combatantId/combatantName from parent.
- * mercId/mercName are backward-compat aliases.
+ * Mercenary unit card. Thin subclass that sets cardType = 'merc'.
+ * Identity via combatantId/combatantName inherited from CombatantModel.
  */
 export class MercCard extends CombatantModel {
   // Card type discriminator
   override cardType: 'merc' | 'dictator' = 'merc';
-
-  // Use parent's combatantId/combatantName directly
-  override get combatantId(): string { return this._combatantId; }
-  override set combatantId(value: string) { this._combatantId = value; }
-
-  override get combatantName(): string { return this._combatantName; }
-  override set combatantName(value: string) { this._combatantName = value; }
-
-  // Backward-compat aliases - TEMPORARY, remove in Phase 25 Plan 04
-  get mercId(): string { return this.combatantId; }
-  set mercId(value: string) { this.combatantId = value; }
-  get mercName(): string { return this.combatantName; }
-  set mercName(value: string) { this.combatantName = value; }
 }
 
 // =============================================================================
@@ -1174,27 +1161,14 @@ export class Sector extends GridCell {
 // =============================================================================
 
 /**
- * Dictator unit card. Identity via combatantId/combatantName from parent.
- * dictatorId/dictatorName are backward-compat aliases.
+ * Dictator unit card. Thin subclass that sets cardType = 'dictator'.
+ * Identity via combatantId/combatantName inherited from CombatantModel.
  * Starts not in play (inPlay=false), enters play when base is revealed.
  */
 export class DictatorCard extends CombatantModel {
   // Card type discriminator - dictators start not in play
   override cardType: 'merc' | 'dictator' = 'dictator';
   override inPlay: boolean = false;
-
-  // Use parent's combatantId/combatantName directly
-  override get combatantId(): string { return this._combatantId; }
-  override set combatantId(value: string) { this._combatantId = value; }
-
-  override get combatantName(): string { return this._combatantName; }
-  override set combatantName(value: string) { this._combatantName = value; }
-
-  // Backward-compat aliases - TEMPORARY, remove in Phase 25 Plan 04
-  get dictatorId(): string { return this.combatantId; }
-  set dictatorId(value: string) { this.combatantId = value; }
-  get dictatorName(): string { return this.combatantName; }
-  set dictatorName(value: string) { this.combatantName = value; }
 }
 
 // =============================================================================
