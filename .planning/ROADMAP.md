@@ -197,13 +197,14 @@ Plans:
 
 #### Phase 30: UI Layer ID Cleanup
 
-**Goal**: Replace mercName/dictatorName with combatantName in src/ui/ (~135 occurrences, 8 files) + tests (~13 occurrences, 5 files)
+**Goal**: Replace mercName/dictatorName with combatantName in src/ui/ (~39 occurrences, 7 files) + tests (~1 occurrence, 1 file)
 **Depends on**: Phase 29
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 30-01: TBD
+- [ ] 30-01: Update UI component interfaces and type definitions
+- [ ] 30-02: Remove fallback chains and update data mappings + test fixture
 
 ## Status
 
