@@ -195,7 +195,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         const equipment = game.drawEquipment(equipType);
         if (equipment && game.dictatorPlayer.dictator) {
           game.dictatorPlayer.dictator.equip(equipment);
-          game.message(`${game.dictatorPlayer.dictator.dictatorName} equipped ${equipment.equipmentName}`);
+          game.message(`${game.dictatorPlayer.dictator.combatantName} equipped ${equipment.equipmentName}`);
         }
       }
 
@@ -347,7 +347,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
     .prompt("Castro's Ability: Hire a MERC")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
-      'is Castro': () => game.dictatorPlayer?.dictator?.dictatorId === 'castro',
+      'is Castro': () => game.dictatorPlayer?.dictator?.combatantId === 'castro',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
     .chooseFrom<string>('selectedMerc', {
@@ -376,7 +376,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         }
 
         // Return just capitalized names (UI finds MERC data via findMercByName)
-        return mercs.map(m => capitalize(m.mercName));
+        return mercs.map(m => capitalize(m.combatantName));
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -413,7 +413,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       const mercs = mercIds
         .map(id => game.getElementById(id))
         .filter((el): el is MercCard => isMercCard(el));
-      const selectedMerc = mercs.find(m => capitalize(m.mercName) === selectedMercName);
+      const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);
 
       if (!selectedMerc) {
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
@@ -462,11 +462,11 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       if (primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) {
         // Primary squad is empty or already at target - use primary
         targetSquad = primarySquad;
-        game.message(`Placing ${selectedMerc.mercName} in primary squad at ${targetSector.sectorName}`);
+        game.message(`Placing ${selectedMerc.combatantName} in primary squad at ${targetSector.sectorName}`);
       } else if (secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) {
         // Secondary squad is empty or already at target - use secondary
         targetSquad = secondarySquad;
-        game.message(`Placing ${selectedMerc.mercName} in secondary squad at ${targetSector.sectorName}`);
+        game.message(`Placing ${selectedMerc.combatantName} in secondary squad at ${targetSector.sectorName}`);
       } else {
         // Both squads occupied elsewhere - default to primary (this is an edge case)
         targetSquad = primarySquad;
@@ -476,7 +476,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       // Put MERC into chosen squad - merc inherits sectorId from squad
       selectedMerc.putInto(targetSquad);
       targetSquad.sectorId = targetSector.sectorId;
-      game.message(`Castro deployed ${selectedMerc.mercName} to ${targetSector.sectorName}`);
+      game.message(`Castro deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
 
       // Give equipment of chosen type - uses shared helper for Apeiron/Vrbansk ability handling
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -492,8 +492,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       // Clean up
       clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
 
-      game.message(`Castro hired ${selectedMerc.mercName}`);
-      return { success: true, message: `Hired ${selectedMerc.mercName}` };
+      game.message(`Castro hired ${selectedMerc.combatantName}`);
+      return { success: true, message: `Hired ${selectedMerc.combatantName}` };
     });
 }
 
@@ -510,7 +510,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
     .prompt("Kim's Ability: Place bonus militia")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
-      'is Kim': () => game.dictatorPlayer?.dictator?.dictatorId === 'kim',
+      'is Kim': () => game.dictatorPlayer?.dictator?.combatantId === 'kim',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
     .chooseFrom<string>('targetSector', {

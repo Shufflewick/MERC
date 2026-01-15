@@ -56,7 +56,7 @@ function ensureMercsDrawn(game: MERCGame, playerId: string): MercCard[] {
   // No cache - draw fresh
   const drawn = drawMercsForHiring(game, 3);
   setCachedValue(game, DRAWN_MERCS_KEY, playerId, drawn.map(m => m.id));
-  game.message(`Drew ${drawn.length} MERCs for hiring: ${drawn.map(m => m.mercName).join(', ')}`);
+  game.message(`Drew ${drawn.length} MERCs for hiring: ${drawn.map(m => m.combatantName).join(', ')}`);
   return drawn;
 }
 
@@ -97,13 +97,13 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
           if (drawn.length === 0) {
             return ['No MERCs available'];
           }
-          return drawn.map((m) => capitalize(m.mercName));
+          return drawn.map((m) => capitalize(m.combatantName));
         }
 
         if (available.length === 0) {
           return ['No MERCs available'];
         }
-        return available.map((m) => capitalize(m.mercName));
+        return available.map((m) => capitalize(m.combatantName));
       },
       // AI: Pick a random available MERC
       aiSelect: (ctx) => {
@@ -113,7 +113,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         const available = cached ?? ensureMercsDrawn(game, playerId);
         if (available.length === 0) return undefined;
         const pick = available[Math.floor(game.random() * available.length)];
-        return capitalize(pick.mercName);
+        return capitalize(pick.combatantName);
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -139,14 +139,14 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const merc = available.find(m => capitalize(m.mercName) === mercName);
+      const merc = available.find(m => capitalize(m.combatantName) === mercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
 
       // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
-      game.message(`${player.name} hired ${merc.mercName}`);
+      game.message(`${player.name} hired ${merc.combatantName}`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
@@ -163,9 +163,9 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       return {
         success: true,
         message: equipment
-          ? `Hired ${merc.mercName}, equipped ${equipment.equipmentName}`
-          : `Hired ${merc.mercName}`,
-        data: { hiredMerc: merc.mercName },
+          ? `Hired ${merc.combatantName}, equipped ${equipment.equipmentName}`
+          : `Hired ${merc.combatantName}`,
+        data: { hiredMerc: merc.combatantName },
       };
     });
 }
@@ -204,23 +204,23 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
 
         // Filter out MERCs incompatible with current team
         const compatible = available.filter(m =>
-          canHireMercWithTeam(m.mercId, player.team)
+          canHireMercWithTeam(m.combatantId, player.team)
         );
 
         if (compatible.length === 0) {
           return ['No compatible MERCs available'];
         }
-        return compatible.map((m) => capitalize(m.mercName));
+        return compatible.map((m) => capitalize(m.combatantName));
       },
       // AI: Pick a random compatible MERC
       aiSelect: (ctx) => {
         const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const available = getMercsFromCache(game, playerId) || [];
-        const compatible = available.filter(m => canHireMercWithTeam(m.mercId, player.team));
+        const compatible = available.filter(m => canHireMercWithTeam(m.combatantId, player.team));
         if (compatible.length === 0) return undefined;
         const pick = compatible[Math.floor(game.random() * compatible.length)];
-        return capitalize(pick.mercName);
+        return capitalize(pick.combatantName);
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -246,19 +246,19 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No compatible MERCs available' };
       }
 
-      const merc = available.find(m => capitalize(m.mercName) === mercName);
+      const merc = available.find(m => capitalize(m.combatantName) === mercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
 
       // Double-check compatibility (safety check)
-      if (!canHireMercWithTeam(merc.mercId, player.team)) {
-        return { success: false, message: `${merc.mercName} is incompatible with your current team` };
+      if (!canHireMercWithTeam(merc.combatantId, player.team)) {
+        return { success: false, message: `${merc.combatantName} is incompatible with your current team` };
       }
 
       // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
-      game.message(`${player.name} hired ${merc.mercName}`);
+      game.message(`${player.name} hired ${merc.combatantName}`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
@@ -272,14 +272,14 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       const remaining = available.filter(m => m !== merc);
       setCachedValue(game, DRAWN_MERCS_KEY, playerId, remaining.map(m => m.id));
 
-      const hasTeresa = player.team.some(m => m.mercId === 'teresa');
+      const hasTeresa = player.team.some(m => m.combatantId === 'teresa');
 
       // Only discard remaining if Teresa is NOT on the team
       // Teresa doesn't count toward limit, so player can hire a 3rd MERC
       if (!hasTeresa) {
         for (const other of remaining) {
           other.putInto(game.mercDiscard);
-          game.message(`${other.mercName} was not selected and is discarded`);
+          game.message(`${other.combatantName} was not selected and is discarded`);
         }
         clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
       } else {
@@ -289,9 +289,9 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       return {
         success: true,
         message: equipment
-          ? `Hired ${merc.mercName}, equipped ${equipment.equipmentName}`
-          : `Hired ${merc.mercName}`,
-        data: { hiredMerc: merc.mercName },
+          ? `Hired ${merc.combatantName}, equipped ${equipment.equipmentName}`
+          : `Hired ${merc.combatantName}`,
+        data: { hiredMerc: merc.combatantName },
       };
     });
 }
@@ -313,7 +313,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         const player = ctx.player;
         const playerId = `${player.position}`;
         const remaining = getMercsFromCache(game, playerId) || [];
-        const hasTeresa = player.team.some(m => m.mercId === 'teresa');
+        const hasTeresa = player.team.some(m => m.combatantId === 'teresa');
         return player.team.length === 2 && hasTeresa && remaining.length > 0;
       },
     })
@@ -326,10 +326,10 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
 
         // Filter out MERCs incompatible with current team
         const compatible = available.filter(m =>
-          canHireMercWithTeam(m.mercId, player.team)
+          canHireMercWithTeam(m.combatantId, player.team)
         );
 
-        const choices = compatible.map((m) => capitalize(m.mercName));
+        const choices = compatible.map((m) => capitalize(m.combatantName));
         choices.push('Skip (no third hire)');
         return choices;
       },
@@ -338,10 +338,10 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
         const available = getMercsFromCache(game, playerId) || [];
-        const compatible = available.filter(m => canHireMercWithTeam(m.mercId, player.team));
+        const compatible = available.filter(m => canHireMercWithTeam(m.combatantId, player.team));
         if (compatible.length === 0) return 'Skip (no third hire)';
         const pick = compatible[Math.floor(game.random() * compatible.length)];
-        return capitalize(pick.mercName);
+        return capitalize(pick.combatantName);
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -387,19 +387,19 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERC selected' };
       }
 
-      const merc = available.find(m => capitalize(m.mercName) === mercName);
+      const merc = available.find(m => capitalize(m.combatantName) === mercName);
       if (!merc) {
         return { success: false, message: 'Invalid selection' };
       }
 
       // Double-check compatibility (safety check)
-      if (!canHireMercWithTeam(merc.mercId, player.team)) {
-        return { success: false, message: `${merc.mercName} is incompatible with your current team` };
+      if (!canHireMercWithTeam(merc.combatantId, player.team)) {
+        return { success: false, message: `${merc.combatantName} is incompatible with your current team` };
       }
 
       // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
-      game.message(`${player.name} hired ${merc.mercName} (Teresa bonus)`);
+      game.message(`${player.name} hired ${merc.combatantName} (Teresa bonus)`);
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
@@ -415,9 +415,9 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       return {
         success: true,
         message: equipment
-          ? `Hired ${merc.mercName}, equipped ${equipment.equipmentName}`
-          : `Hired ${merc.mercName}`,
-        data: { hiredMerc: merc.mercName },
+          ? `Hired ${merc.combatantName}, equipped ${equipment.equipmentName}`
+          : `Hired ${merc.combatantName}`,
+        data: { hiredMerc: merc.combatantName },
       };
     });
 }
@@ -434,7 +434,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
       const unequippedMerc = player.team.find(m =>
         !m.weaponSlot && !m.armorSlot && !m.accessorySlot
       );
-      return `Equip ${unequippedMerc?.mercName || 'MERC'}`;
+      return `Equip ${unequippedMerc?.combatantName || 'MERC'}`;
     })
     .notUndoable() // Involves randomness (drawing equipment)
     .condition({
@@ -452,7 +452,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
         const unequippedMerc = player.team.find(m =>
           !m.weaponSlot && !m.armorSlot && !m.accessorySlot
         );
-        return `Choose equipment type for ${unequippedMerc?.mercName || 'MERC'}`;
+        return `Choose equipment type for ${unequippedMerc?.combatantName || 'MERC'}`;
       },
       choices: () => ['Weapon', 'Armor', 'Accessory'],
       // AI: Pick random equipment type
@@ -478,7 +478,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
       if (equipment) {
         return {
           success: true,
-          message: `${merc.mercName} equipped ${equipment.equipmentName}`,
+          message: `${merc.combatantName} equipped ${equipment.equipmentName}`,
         };
       }
 
@@ -576,11 +576,11 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
 
       const dictatorCard = setupDictator(game, dictatorData, dictator.id);
 
-      game.message(`You have chosen to play as ${dictatorCard.dictatorName}!`);
+      game.message(`You have chosen to play as ${dictatorCard.combatantName}!`);
 
       return {
         success: true,
-        message: `Selected ${dictatorCard.dictatorName}`,
+        message: `Selected ${dictatorCard.combatantName}`,
       };
     });
 }
@@ -618,7 +618,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       const merc = game.drawMerc();
       if (merc) {
         setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-        game.message(`Dictator drew ${merc.mercName}`);
+        game.message(`Dictator drew ${merc.combatantName}`);
       }
     }
     const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
@@ -637,12 +637,12 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       prompt: 'Hiring MERC',
       choices: () => {
         const merc = getDrawnMerc();
-        return merc ? [merc.mercName] : ['Unknown'];
+        return merc ? [merc.combatantName] : ['Unknown'];
       },
       // Auto-select the only choice
       aiSelect: () => {
         const merc = getDrawnMerc();
-        return merc?.mercName || 'Unknown';
+        return merc?.combatantName || 'Unknown';
       },
       skipIf: () => game.dictatorPlayer?.isAI === true,
     })
@@ -694,7 +694,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       if (targetSector) {
         game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
         game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
-        game.message(`Dictator deployed ${merc.mercName} to ${targetSector.sectorName}`);
+        game.message(`Dictator deployed ${merc.combatantName} to ${targetSector.sectorName}`);
       }
 
       // Give equipment of chosen type
@@ -702,11 +702,11 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       const freeEquipment = game.drawEquipment(equipType);
       if (freeEquipment) {
         merc.equip(freeEquipment);
-        game.message(`${merc.mercName} equipped ${freeEquipment.equipmentName}`);
+        game.message(`${merc.combatantName} equipped ${freeEquipment.equipmentName}`);
       }
 
       clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-      return { success: true, message: `Hired ${merc.mercName}` };
+      return { success: true, message: `Hired ${merc.combatantName}` };
     });
 }
 
@@ -719,7 +719,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
     .prompt("Kim's Ability: Choose your base location")
     .condition({
       'is Day 1': () => game.currentDay === 1,
-      'is Kim': () => game.dictatorPlayer?.dictator?.dictatorId === 'kim',
+      'is Kim': () => game.dictatorPlayer?.dictator?.combatantId === 'kim',
       'is human dictator player': () => !game.dictatorPlayer?.isAI,
       'base not yet set': () => !game.dictatorPlayer?.baseSectorId,
     })
@@ -759,7 +759,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
         const equipment = game.drawEquipment(equipType);
         if (equipment) {
           dictator.equip(equipment);
-          game.message(`${dictator.dictatorName} equipped ${equipment.equipmentName}`);
+          game.message(`${dictator.combatantName} equipped ${equipment.equipmentName}`);
         }
       }
 
@@ -778,7 +778,7 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
       'is Day 1': () => game.currentDay === 1,
       'Kim base set if needed': () => {
         const dictator = game.dictatorPlayer?.dictator;
-        if (dictator?.dictatorId === 'kim' && !game.dictatorPlayer?.isAI && !game.dictatorPlayer?.baseSectorId) {
+        if (dictator?.combatantId === 'kim' && !game.dictatorPlayer?.isAI && !game.dictatorPlayer?.baseSectorId) {
           return false;
         }
         return true;

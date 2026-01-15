@@ -746,7 +746,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
             return combatant.combat - diceUsed > 0;
           })
           .map(({ merc, healingItem }) =>
-            `${capitalize(merc.mercName)} (${healingItem.equipmentName})`
+            `${capitalize(merc.combatantName)} (${healingItem.equipmentName})`
           );
       },
     })
@@ -760,7 +760,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
         return damagedMercs.map(c => {
           const merc = c.sourceElement as MercCard;
           const damage = c.maxHealth - c.health;
-          return `${capitalize(merc.mercName)} (${damage} damage)`;
+          return `${capitalize(merc.combatantName)} (${damage} damage)`;
         });
       },
     })
@@ -777,7 +777,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       // Find the healer
       const mercsWithHealing = getMercsWithHealingItems(rebelCombatants);
       const healerData = mercsWithHealing.find(({ merc, healingItem }) =>
-        `${capitalize(merc.mercName)} (${healingItem.equipmentName})` === healerChoice
+        `${capitalize(merc.combatantName)} (${healingItem.equipmentName})` === healerChoice
       );
 
       if (!healerData) {
@@ -789,7 +789,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       const targetCombatant = damagedMercs.find(c => {
         const merc = c.sourceElement as MercCard;
         const damage = c.maxHealth - c.health;
-        return `${capitalize(merc.mercName)} (${damage} damage)` === targetChoice;
+        return `${capitalize(merc.combatantName)} (${damage} damage)` === targetChoice;
       });
 
       if (!targetCombatant) {
@@ -852,17 +852,17 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
           healingItem.putInto(discard);
         }
 
-        game.message(`${healerMerc.mercName} uses ${healingItem.equipmentName} to heal ${targetMerc.mercName} for ${healAmount} - item exhausted!`);
+        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} - item exhausted!`);
       } else {
-        game.message(`${healerMerc.mercName} uses ${healingItem.equipmentName} to heal ${targetMerc.mercName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
+        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
       }
 
       return {
         success: true,
-        message: `Healed ${targetMerc.mercName} for ${healAmount}`,
+        message: `Healed ${targetMerc.combatantName} for ${healAmount}`,
         data: {
-          healer: healerMerc.mercName,
-          target: targetMerc.mercName,
+          healer: healerMerc.combatantName,
+          target: targetMerc.combatantName,
           healAmount,
           diceDiscarded: healingEffect.dicePerHeal,
         },
@@ -969,11 +969,11 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
           target.currentHealth -= removed;
         } else {
           // Damage MERC
-          const merc = player.team.find(m => m.mercId === targetId);
+          const merc = player.team.find(m => m.combatantId === targetId);
           if (merc) {
             for (let i = 0; i < hits; i++) {
               merc.takeDamage(1);
-              game.message(`${merc.mercName} takes 1 artillery damage`);
+              game.message(`${merc.combatantName} takes 1 artillery damage`);
               totalApplied++;
             }
             target.currentHealth = merc.health - merc.damage;
@@ -1043,7 +1043,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
         const merc = element as unknown as MercCard;
         const pending = game.activeCombat?.pendingEpinephrine;
         if (!pending) return false;
-        return pending.availableSavers.some(s => s.mercId === merc.id);
+        return pending.availableSavers.some(s => s.combatantId === merc.id);
       },
     })
     .execute(({ saverMerc }) => {
@@ -1092,15 +1092,15 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       // Save the dying MERC - set health to 1
       dyingMerc.damage = dyingMerc.maxHealth - 1;
 
-      game.message(`${saverMerc.mercName} uses Epinephrine Shot to save ${dyingMerc.mercName}!`);
+      game.message(`${saverMerc.combatantName} uses Epinephrine Shot to save ${dyingMerc.combatantName}!`);
 
       // Clear pending state
       game.activeCombat!.pendingEpinephrine = undefined;
 
       return {
         success: true,
-        message: `${dyingMerc.mercName} saved by Epinephrine Shot`,
-        data: { savedMerc: dyingMerc.mercName, usedBy: saverMerc.mercName },
+        message: `${dyingMerc.combatantName} saved by Epinephrine Shot`,
+        data: { savedMerc: dyingMerc.combatantName, usedBy: saverMerc.combatantName },
       };
     });
 }
@@ -1154,15 +1154,15 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
         }
       }
 
-      game.message(`${dyingMerc.mercName} has died!`);
+      game.message(`${dyingMerc.combatantName} has died!`);
 
       // Clear pending state
       game.activeCombat!.pendingEpinephrine = undefined;
 
       return {
         success: true,
-        message: `${dyingMerc.mercName} has died`,
-        data: { deadMerc: dyingMerc.mercName },
+        message: `${dyingMerc.combatantName} has died`,
+        data: { deadMerc: dyingMerc.combatantName },
       };
     });
 }

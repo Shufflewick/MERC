@@ -54,7 +54,7 @@ export function hireSelectedMercs(
       // Hire this MERC - add to player's primary squad
       merc.putInto(player.primarySquad);
       hiredMercs.push(merc);
-      game.message(`${player.name} hired ${merc.mercName}`);
+      game.message(`${player.name} hired ${merc.combatantName}`);
     } else {
       // Discard unhired MERC
       merc.putInto(game.mercDiscard);
@@ -135,11 +135,11 @@ export function equipStartingEquipment(
   let equipment = game.drawEquipment(equipmentType);
 
   // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
-  if (merc.mercId === 'apeiron' && equipment && isGrenadeOrMortar(equipment)) {
+  if (merc.combatantId === 'apeiron' && equipment && isGrenadeOrMortar(equipment)) {
     const discard = game.getEquipmentDiscard(equipmentType);
     if (discard) {
       equipment.putInto(discard);
-      game.message(`${merc.mercName} refuses to use ${equipment.equipmentName} - discarding and drawing again`);
+      game.message(`${merc.combatantName} refuses to use ${equipment.equipmentName} - discarding and drawing again`);
     }
     // Redraw (up to 3 attempts to avoid infinite loop if deck is all grenades)
     for (let i = 0; i < 3; i++) {
@@ -147,29 +147,29 @@ export function equipStartingEquipment(
       if (!equipment || !isGrenadeOrMortar(equipment)) break;
       if (discard && equipment) {
         equipment.putInto(discard);
-        game.message(`${merc.mercName} refuses to use ${equipment.equipmentName} - discarding and drawing again`);
+        game.message(`${merc.combatantName} refuses to use ${equipment.equipmentName} - discarding and drawing again`);
       }
     }
     // If still a grenade after 3 attempts, just skip equipping
     if (equipment && isGrenadeOrMortar(equipment)) {
       const disc = game.getEquipmentDiscard(equipmentType);
       if (disc) equipment.putInto(disc);
-      game.message(`${merc.mercName} could not find acceptable equipment`);
+      game.message(`${merc.combatantName} could not find acceptable equipment`);
       return undefined;
     }
   }
 
   if (equipment) {
     merc.equip(equipment);
-    game.message(`${merc.mercName} equipped ${equipment.equipmentName}`);
+    game.message(`${merc.combatantName} equipped ${equipment.equipmentName}`);
   }
 
   // MERC-9mxd: Vrbansk gets a free accessory when hired
-  if (merc.mercId === 'vrbansk') {
+  if (merc.combatantId === 'vrbansk') {
     const bonusAccessory = game.drawEquipment('Accessory');
     if (bonusAccessory) {
       merc.equip(bonusAccessory);
-      game.message(`${merc.mercName} receives bonus accessory: ${bonusAccessory.equipmentName}`);
+      game.message(`${merc.combatantName} receives bonus accessory: ${bonusAccessory.equipmentName}`);
     }
   }
 
@@ -254,10 +254,10 @@ export function hireDictatorMerc(game: MERCGame): MercCard | undefined {
       // Set squad's sectorId - merc inherits via computed getter
       game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
       game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
-      game.message(`Dictator hired ${merc.mercName} (stationed at ${targetSector.sectorName})`);
+      game.message(`Dictator hired ${merc.combatantName} (stationed at ${targetSector.sectorName})`);
     } else {
       // No location available yet
-      game.message(`Dictator hired ${merc.mercName}`);
+      game.message(`Dictator hired ${merc.combatantName}`);
     }
 
     // All hired MERCs get 1 free equipment - prioritize weapon
@@ -417,7 +417,7 @@ export function getDay1Summary(game: MERCGame): string {
   lines.push('Rebels:');
   for (const rebel of game.rebelPlayers) {
     const sector = game.getSector(rebel.primarySquad.sectorId!);
-    const mercs = rebel.team.map(m => m.mercName).join(', ');
+    const mercs = rebel.team.map(m => m.combatantName).join(', ');
     lines.push(`  ${rebel.name}: ${mercs}`);
     lines.push(`    Landing: ${sector?.sectorName ?? 'Unknown'}`);
   }
@@ -426,7 +426,7 @@ export function getDay1Summary(game: MERCGame): string {
 
   // Dictator summary
   lines.push('Dictator:');
-  lines.push(`  Name: ${game.dictatorPlayer.dictator?.dictatorName}`);
+  lines.push(`  Name: ${game.dictatorPlayer.dictator?.combatantName}`);
   lines.push(`  Tactics in hand: ${game.dictatorPlayer.tacticsHand?.count(TacticsCard)}`);
   lines.push(`  Tactics in deck: ${game.dictatorPlayer.tacticsDeck?.count(TacticsCard)}`);
 

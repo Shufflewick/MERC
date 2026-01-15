@@ -25,7 +25,7 @@ import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asMercCard, asR
 // Since we can't access parent directly, search for DictatorCard in the squad
 function isKimInSquad(squad: Squad | null | undefined, dictatorCard: DictatorCard | null | undefined): boolean {
   if (!squad || !dictatorCard) return false;
-  return squad.all(DictatorCard).some(d => d.dictatorId === dictatorCard.dictatorId);
+  return squad.all(DictatorCard).some(d => d.combatantId === dictatorCard.combatantId);
 }
 
 // Helper to get squads that can move for any player type
@@ -185,7 +185,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       let militiaMoved = 0;
       if (isRebel && sourceSector) {
         const player = asRebelPlayer(ctx.player);
-        const hasSonia = mercs.some(m => m.mercId === 'sonia');
+        const hasSonia = mercs.some(m => m.combatantId === 'sonia');
         if (hasSonia) {
           const playerId = `${player.position}`;
           const militiaAvailable = sourceSector.getRebelMilitia(playerId);
@@ -207,7 +207,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         // Check squad membership by searching for DictatorCard in squad
         if (isKimInSquad(squad, dictatorCard) && !dictatorCard.isDead) {
           useAction(dictatorCard, ACTION_COSTS.MOVE);
-          game.message(`${dictatorCard.dictatorName} moves with the squad`);
+          game.message(`${dictatorCard.combatantName} moves with the squad`);
         }
       }
 
@@ -718,11 +718,11 @@ function getValidTargetSquads(
       else if (base && isKimInSquad(base, combatant)) currentSquad = base;
     } else {
       // Check all squads for MercCard
-      if (primary.all(MercCard).some(m => m.mercId === (combatant as MercCard).mercId)) {
+      if (primary.all(MercCard).some(m => m.combatantId === (combatant as MercCard).combatantId)) {
         currentSquad = primary;
-      } else if (secondary.all(MercCard).some(m => m.mercId === (combatant as MercCard).mercId)) {
+      } else if (secondary.all(MercCard).some(m => m.combatantId === (combatant as MercCard).combatantId)) {
         currentSquad = secondary;
-      } else if (base?.all(MercCard).some(m => m.mercId === (combatant as MercCard).mercId)) {
+      } else if (base?.all(MercCard).some(m => m.combatantId === (combatant as MercCard).combatantId)) {
         currentSquad = base;
       }
     }
@@ -788,9 +788,9 @@ function getValidTargetSquads(
  */
 function getCombatantName(combatant: MercCard | DictatorCard): string {
   if (isDictatorCard(combatant)) {
-    return capitalize(combatant.dictatorName);
+    return capitalize(combatant.combatantName);
   }
-  return capitalize(combatant.mercName);
+  return capitalize(combatant.combatantName);
 }
 
 /**
@@ -876,8 +876,8 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         game.updateAllHaargBonuses();
         game.updateAllSargeBonuses();
 
-        game.message(`${player.name} assigned ${merc.mercName} to ${targetType} squad`);
-        return { success: true, message: `Assigned ${merc.mercName} to ${targetType} squad` };
+        game.message(`${player.name} assigned ${merc.combatantName} to ${targetType} squad`);
+        return { success: true, message: `Assigned ${merc.combatantName} to ${targetType} squad` };
       }
 
       if (game.isDictatorPlayer(ctx.player)) {
@@ -912,11 +912,11 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
           if (combatant) {
             // Check primary, secondary, and base squads
             const merc = combatant as MercCard;
-            if (dictator.primarySquad.all(MercCard).some(m => m.mercId === merc.mercId)) {
+            if (dictator.primarySquad.all(MercCard).some(m => m.combatantId === merc.combatantId)) {
               sourceSquad = dictator.primarySquad;
-            } else if (dictator.secondarySquad.all(MercCard).some(m => m.mercId === merc.mercId)) {
+            } else if (dictator.secondarySquad.all(MercCard).some(m => m.combatantId === merc.combatantId)) {
               sourceSquad = dictator.secondarySquad;
-            } else if (baseSquad?.all(MercCard).some(m => m.mercId === merc.mercId)) {
+            } else if (baseSquad?.all(MercCard).some(m => m.combatantId === merc.combatantId)) {
               sourceSquad = baseSquad;
             }
           }

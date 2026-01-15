@@ -77,7 +77,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('actingMerc', {
       prompt: 'Which MERC spends the actions?',
       elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
+      display: (merc) => capitalize(merc.combatantName),
       filter: (element, ctx) => {
         // Safety check - only rebels can hire MERCs
         if (!game.isRebelPlayer(ctx.player)) return false;
@@ -97,7 +97,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         // Only show fire option if player has multiple MERCs
         if (player.teamSize >= 2) {
           for (const merc of player.team) {
-            choices.push({ label: `Fire ${merc.mercName}`, value: merc.mercName });
+            choices.push({ label: `Fire ${merc.combatantName}`, value: merc.combatantName });
           }
         }
         return choices;
@@ -137,9 +137,9 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
         // MERC-s37: Filter out MERCs incompatible with current team
         const compatibleMercs = drawnMercs.filter(m =>
-          canHireMercWithTeam(m.mercId, player.team)
+          canHireMercWithTeam(m.combatantId, player.team)
         );
-        return compatibleMercs.map(m => capitalize(m.mercName));
+        return compatibleMercs.map(m => capitalize(m.combatantName));
       },
     })
     .execute((args, ctx) => {
@@ -162,7 +162,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       // MERC-yi7: Fire a MERC first if requested
       if (fireChoice && fireChoice !== 'none') {
-        const mercToFire = player.team.find(m => m.mercName === fireChoice);
+        const mercToFire = player.team.find(m => m.combatantName === fireChoice);
         if (mercToFire && mercToFire !== actingMerc) {
           // Find current sector for equipment drop
           const firedSquad = player.getSquadContaining(mercToFire);
@@ -195,9 +195,9 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
           // Move to discard - sectorId becomes undefined automatically via computed getter
           mercToFire.putInto(game.mercDiscard);
           if (droppedEquipment.length > 0) {
-            game.message(`Fired ${mercToFire.mercName}, dropped ${droppedEquipment.join(', ')} to stash`);
+            game.message(`Fired ${mercToFire.combatantName}, dropped ${droppedEquipment.join(', ')} to stash`);
           } else {
-            game.message(`Fired ${mercToFire.mercName}`);
+            game.message(`Fired ${mercToFire.combatantName}`);
           }
         }
       }
@@ -212,7 +212,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       let targetSquad = player.getSquadContaining(actingMerc) || player.primarySquad;
 
       for (const merc of drawnMercs) {
-        if (selectedNames.includes(capitalize(merc.mercName)) && currentSize < teamLimit) {
+        if (selectedNames.includes(capitalize(merc.combatantName)) && currentSize < teamLimit) {
           // Merc inherits sectorId from squad via computed getter
           merc.putInto(targetSquad);
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
@@ -236,7 +236,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
           // Uses shared helper for Apeiron/Vrbansk ability handling
           equipNewHire(game, merc, equipType);
 
-          hired.push(merc.mercName);
+          hired.push(merc.combatantName);
           currentSize++;
         } else {
           // Discard unhired MERCs
@@ -523,7 +523,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit?.isMerc && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit?.isMerc && (unit as MercCard).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -641,7 +641,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = findExplorerUnit(ctx);
-        const isApeiron = unit?.isMerc && (unit as MercCard).mercId === 'apeiron';
+        const isApeiron = unit?.isMerc && (unit as MercCard).combatantId === 'apeiron';
 
         const equipmentChoices = sector.stash
           .filter(e => !isApeiron || !isGrenadeOrMortar(e))
@@ -729,7 +729,7 @@ function canUnitTrain(unit: TrainableUnit, player: unknown, game: MERCGame): boo
   }
   if (game.isDictatorPlayer(player)) {
     // Kim's base allows 20 militia instead of 10
-    const isKimBase = game.dictatorPlayer?.dictator?.dictatorId === 'kim' &&
+    const isKimBase = game.dictatorPlayer?.dictator?.combatantId === 'kim' &&
                       sector.sectorId === game.dictatorPlayer?.baseSectorId;
     const maxMilitia = isKimBase
       ? SectorConstants.KIM_BASE_MAX_MILITIA
@@ -878,7 +878,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         }
       } else if (game.isDictatorPlayer(ctx.player)) {
         // Kim's base allows 20 militia instead of 10
-        const isKimBase = game.dictatorPlayer?.dictator?.dictatorId === 'kim' &&
+        const isKimBase = game.dictatorPlayer?.dictator?.combatantId === 'kim' &&
                           sector.sectorId === game.dictatorPlayer?.baseSectorId;
         trained = sector.addDictatorMilitia(actingUnit.training, isKimBase);
         game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
@@ -1129,7 +1129,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out Apeiron if equipment is a grenade/mortar
         const eligibleUnits = playerUnits.filter(u => {
-          if (isMercCard(u) && u.mercId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
+          if (isMercCard(u) && u.combatantId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
             return false;
           }
           return true;

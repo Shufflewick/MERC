@@ -270,7 +270,7 @@ export abstract class CombatantBase extends BaseCard {
   updateComputedStats(): void {
     this.updateEquipmentBonuses();
 
-    const ability = getMercAbility(this.unitId);
+    const ability = getMercAbility(this.combatantId);
     const extraHealth = ability?.passive?.extraHealth || 0;
     this.effectiveMaxHealth = CombatantBase.BASE_HEALTH + extraHealth;
 
@@ -282,8 +282,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       t += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
     }
-    if (this.unitId === 'haarg') t += this.haargTrainingBonus || 0;
-    if (this.unitId === 'sarge') t += this.sargeTrainingBonus || 0;
+    if (this.combatantId === 'haarg') t += this.haargTrainingBonus || 0;
+    if (this.combatantId === 'sarge') t += this.sargeTrainingBonus || 0;
     t += this.snakeSoloTrainingBonus || 0;
     t += this.tavistoWomanTrainingBonus || 0;
     this.effectiveTraining = t;
@@ -299,8 +299,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       c += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
     }
-    if (this.unitId === 'haarg') c += this.haargCombatBonus || 0;
-    if (this.unitId === 'sarge') c += this.sargeCombatBonus || 0;
+    if (this.combatantId === 'haarg') c += this.haargCombatBonus || 0;
+    if (this.combatantId === 'sarge') c += this.sargeCombatBonus || 0;
     c += ability?.passive?.extraCombat || 0;
     c += this.boubaHandgunCombatBonus || 0;
     c += this.mayhemUziCombatBonus || 0;
@@ -317,14 +317,14 @@ export abstract class CombatantBase extends BaseCard {
    * Update Haarg's ability bonuses based on squad mates.
    */
   updateHaargBonus(squadMates: CombatantBase[]): void {
-    if (this.unitId !== 'haarg') return;
+    if (this.combatantId !== 'haarg') return;
 
     this.haargTrainingBonus = 0;
     this.haargInitiativeBonus = 0;
     this.haargCombatBonus = 0;
 
     for (const mate of squadMates) {
-      if (mate.unitId === 'haarg' || mate.isDead) continue;
+      if (mate.combatantId === 'haarg' || mate.isDead) continue;
       if (mate.baseTraining > this.baseTraining) this.haargTrainingBonus = 1;
       if (mate.baseInitiative > this.baseInitiative) this.haargInitiativeBonus = 1;
       if (mate.baseCombat > this.baseCombat) this.haargCombatBonus = 1;
@@ -337,7 +337,7 @@ export abstract class CombatantBase extends BaseCard {
    * Update Sarge's ability bonuses based on squad mates.
    */
   updateSargeBonus(squadMates: CombatantBase[]): void {
-    if (this.unitId !== 'sarge') return;
+    if (this.combatantId !== 'sarge') return;
 
     this.sargeTrainingBonus = 0;
     this.sargeInitiativeBonus = 0;
@@ -345,14 +345,14 @@ export abstract class CombatantBase extends BaseCard {
 
     let hasHighest = true;
     for (const mate of squadMates) {
-      if (mate.unitId === 'sarge' || mate.isDead) continue;
+      if (mate.combatantId === 'sarge' || mate.isDead) continue;
       if (mate.baseInitiative >= this.baseInitiative) {
         hasHighest = false;
         break;
       }
     }
 
-    if (hasHighest && squadMates.filter(m => !m.isDead && m.unitId !== 'sarge').length > 0) {
+    if (hasHighest && squadMates.filter(m => !m.isDead && m.combatantId !== 'sarge').length > 0) {
       this.sargeTrainingBonus = 1;
       this.sargeInitiativeBonus = 1;
       this.sargeCombatBonus = 1;
@@ -367,12 +367,12 @@ export abstract class CombatantBase extends BaseCard {
   updateTackSquadBonus(squadMates: CombatantBase[]): void {
     this.tackSquadInitiativeBonus = 0;
 
-    const tack = squadMates.find(m => m.unitId === 'tack' && !m.isDead);
+    const tack = squadMates.find(m => m.combatantId === 'tack' && !m.isDead);
     if (!tack) return;
 
     let tackHasHighest = true;
     for (const mate of squadMates) {
-      if (mate.unitId === 'tack' || mate.isDead) continue;
+      if (mate.combatantId === 'tack' || mate.isDead) continue;
       if (mate.baseInitiative > tack.baseInitiative) {
         tackHasHighest = false;
         break;
@@ -388,9 +388,9 @@ export abstract class CombatantBase extends BaseCard {
    */
   updateValkyrieSquadBonus(squadMates: CombatantBase[]): void {
     this.valkyrieSquadInitiativeBonus = 0;
-    if (this.unitId === 'valkyrie') return;
+    if (this.combatantId === 'valkyrie') return;
 
-    const valkyrie = squadMates.find(m => m.unitId === 'valkyrie' && !m.isDead);
+    const valkyrie = squadMates.find(m => m.combatantId === 'valkyrie' && !m.isDead);
     if (!valkyrie) return;
 
     this.valkyrieSquadInitiativeBonus = 1;
@@ -416,17 +416,17 @@ export abstract class CombatantBase extends BaseCard {
     const hasArmorEquipped = !!(this.armorSlot?.equipmentId || this.armorSlotData?.equipmentId);
     const weaponTargets = this.weaponSlot?.targets ?? this.weaponSlotData?.targets ?? 0;
 
-    if (this.unitId === 'bouba' && weaponId && isHandgun(weaponId)) this.boubaHandgunCombatBonus = 1;
-    if (this.unitId === 'mayhem' && weaponId && isUzi(weaponId)) this.mayhemUziCombatBonus = 2;
-    if (this.unitId === 'rozeske' && hasArmorEquipped) this.rozeskeArmorCombatBonus = 1;
-    if (this.unitId === 'stumpy' && weaponId && isExplosive(weaponId)) this.stumpyExplosiveCombatBonus = 1;
-    if (this.unitId === 'vandradi' && weaponTargets > 0) this.vandradiMultiTargetCombatBonus = 1;
-    if (this.unitId === 'dutch' && !hasWeaponEquipped) {
+    if (this.combatantId === 'bouba' && weaponId && isHandgun(weaponId)) this.boubaHandgunCombatBonus = 1;
+    if (this.combatantId === 'mayhem' && weaponId && isUzi(weaponId)) this.mayhemUziCombatBonus = 2;
+    if (this.combatantId === 'rozeske' && hasArmorEquipped) this.rozeskeArmorCombatBonus = 1;
+    if (this.combatantId === 'stumpy' && weaponId && isExplosive(weaponId)) this.stumpyExplosiveCombatBonus = 1;
+    if (this.combatantId === 'vandradi' && weaponTargets > 0) this.vandradiMultiTargetCombatBonus = 1;
+    if (this.combatantId === 'dutch' && !hasWeaponEquipped) {
       this.dutchUnarmedCombatBonus = 1;
       this.dutchUnarmedInitiativeBonus = 1;
     }
-    if (this.unitId === 'moe' && weaponId && isSmaw(weaponId)) this.moeSmawTargetBonus = 1;
-    if (this.unitId === 'ra' && hasWeaponEquipped) this.raWeaponTargetBonus = 1;
+    if (this.combatantId === 'moe' && weaponId && isSmaw(weaponId)) this.moeSmawTargetBonus = 1;
+    if (this.combatantId === 'ra' && hasWeaponEquipped) this.raWeaponTargetBonus = 1;
   }
 
   /**
@@ -437,9 +437,9 @@ export abstract class CombatantBase extends BaseCard {
     this.snakeSoloInitiativeBonus = 0;
     this.snakeSoloTrainingBonus = 0;
 
-    if (this.unitId !== 'snake') return;
+    if (this.combatantId !== 'snake') return;
 
-    const livingMates = squadMates.filter(m => !m.isDead && m.unitId !== 'snake').length;
+    const livingMates = squadMates.filter(m => !m.isDead && m.combatantId !== 'snake').length;
     if (livingMates === 0) {
       this.snakeSoloCombatBonus = 1;
       this.snakeSoloInitiativeBonus = 1;
@@ -455,9 +455,9 @@ export abstract class CombatantBase extends BaseCard {
     this.tavistoWomanInitiativeBonus = 0;
     this.tavistoWomanTrainingBonus = 0;
 
-    if (this.unitId !== 'tavisto') return;
+    if (this.combatantId !== 'tavisto') return;
 
-    const hasWoman = squadMates.some(m => !m.isDead && FEMALE_MERCS.includes(m.unitId));
+    const hasWoman = squadMates.some(m => !m.isDead && FEMALE_MERCS.includes(m.combatantId));
     if (hasWoman) {
       this.tavistoWomanCombatBonus = 1;
       this.tavistoWomanInitiativeBonus = 1;
@@ -474,8 +474,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative');
     }
-    if (this.unitId === 'haarg') value += this.haargInitiativeBonus || 0;
-    if (this.unitId === 'sarge') value += this.sargeInitiativeBonus || 0;
+    if (this.combatantId === 'haarg') value += this.haargInitiativeBonus || 0;
+    if (this.combatantId === 'sarge') value += this.sargeInitiativeBonus || 0;
     if (this.tackSquadInitiativeBonus > 0) value += this.tackSquadInitiativeBonus;
     if (this.valkyrieSquadInitiativeBonus > 0) value += this.valkyrieSquadInitiativeBonus;
     value += this.dutchUnarmedInitiativeBonus || 0;
@@ -489,7 +489,7 @@ export abstract class CombatantBase extends BaseCard {
    */
   getEffectiveInitiative(): number {
     let value = this.baseInitiative;
-    const ignoresPenalties = ignoresInitiativePenalties(this.unitId);
+    const ignoresPenalties = ignoresInitiativePenalties(this.combatantId);
 
     const addInitiative = (initValue: number) => {
       if (ignoresPenalties && initValue < 0) return;
@@ -504,8 +504,8 @@ export abstract class CombatantBase extends BaseCard {
       addInitiative(this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative'));
     }
 
-    if (this.unitId === 'haarg') value += this.haargInitiativeBonus || 0;
-    if (this.unitId === 'sarge') value += this.sargeInitiativeBonus || 0;
+    if (this.combatantId === 'haarg') value += this.haargInitiativeBonus || 0;
+    if (this.combatantId === 'sarge') value += this.sargeInitiativeBonus || 0;
     if (this.tackSquadInitiativeBonus > 0) value += this.tackSquadInitiativeBonus;
     if (this.valkyrieSquadInitiativeBonus > 0) value += this.valkyrieSquadInitiativeBonus;
     value += this.dutchUnarmedInitiativeBonus || 0;
@@ -523,8 +523,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
     }
-    if (this.unitId === 'haarg') value += this.haargTrainingBonus || 0;
-    if (this.unitId === 'sarge') value += this.sargeTrainingBonus || 0;
+    if (this.combatantId === 'haarg') value += this.haargTrainingBonus || 0;
+    if (this.combatantId === 'sarge') value += this.sargeTrainingBonus || 0;
     value += this.snakeSoloTrainingBonus || 0;
     value += this.tavistoWomanTrainingBonus || 0;
     return value;
@@ -538,8 +538,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
     }
-    if (this.unitId === 'haarg') value += this.haargCombatBonus || 0;
-    if (this.unitId === 'sarge') value += this.sargeCombatBonus || 0;
+    if (this.combatantId === 'haarg') value += this.haargCombatBonus || 0;
+    if (this.combatantId === 'sarge') value += this.sargeCombatBonus || 0;
     value += this.boubaHandgunCombatBonus || 0;
     value += this.mayhemUziCombatBonus || 0;
     value += this.rozeskeArmorCombatBonus || 0;
@@ -552,7 +552,7 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   get maxHealth(): number {
-    const ability = getMercAbility(this.unitId);
+    const ability = getMercAbility(this.combatantId);
     const extraHealth = ability?.passive?.extraHealth || 0;
     return CombatantBase.BASE_HEALTH + extraHealth;
   }
@@ -612,14 +612,14 @@ export abstract class CombatantBase extends BaseCard {
 
   resetActions(): void {
     // Ewok gets +1 action (3 total instead of 2)
-    if (this.unitId === 'ewok') {
+    if (this.combatantId === 'ewok') {
       this.actionsRemaining = CombatantBase.BASE_ACTIONS + 1;
     } else {
       this.actionsRemaining = CombatantBase.BASE_ACTIONS;
     }
 
     // Faustina gets +1 action for training only
-    if (this.unitId === 'faustina') {
+    if (this.combatantId === 'faustina') {
       this.trainingActionsRemaining = 1;
     } else {
       this.trainingActionsRemaining = 0;
@@ -811,7 +811,7 @@ export class CombatantModel extends CombatantBase {
   // Equipment rules with ID-based checks for special mercs
   override canEquip(equipment: Equipment): boolean {
     // MERC-70a: Apeiron won't use grenades or mortars
-    if (this.unitId === 'apeiron') {
+    if (this.combatantId === 'apeiron') {
       const name = equipment.equipmentName.toLowerCase();
       if (name.includes('grenade') || name.includes('mortar')) {
         return false;
@@ -825,12 +825,12 @@ export class CombatantModel extends CombatantBase {
     }
 
     // MERC-42g: Gunther can use all equipment slots for accessories
-    if (this.unitId === 'gunther' && equipment.equipmentType === 'Accessory') {
+    if (this.combatantId === 'gunther' && equipment.equipmentType === 'Accessory') {
       return !this.accessorySlot || !this.weaponSlot || !this.armorSlot || this.getAvailableBandolierSlots() > 0;
     }
 
     // MERC-vwi: Genesis can carry a weapon in his accessory slot
-    if (this.unitId === 'genesis' && equipment.equipmentType === 'Weapon') {
+    if (this.combatantId === 'genesis' && equipment.equipmentType === 'Weapon') {
       return !this.weaponSlot || !this.accessorySlot;
     }
 
@@ -841,7 +841,7 @@ export class CombatantModel extends CombatantBase {
     let replaced: Equipment | undefined;
 
     // MERC-42g: Gunther can equip accessories in any slot
-    if (this.unitId === 'gunther' && equipment.equipmentType === 'Accessory') {
+    if (this.combatantId === 'gunther' && equipment.equipmentType === 'Accessory') {
       if (!this.accessorySlot) {
         this.equipToSlot(equipment, 'accessory');
       } else if (this.getAvailableBandolierSlots() > 0) {
@@ -861,7 +861,7 @@ export class CombatantModel extends CombatantBase {
     }
 
     // MERC-vwi: Genesis can equip weapons in accessory slot
-    if (this.unitId === 'genesis' && equipment.equipmentType === 'Weapon') {
+    if (this.combatantId === 'genesis' && equipment.equipmentType === 'Weapon') {
       if (!this.weaponSlot) {
         this.equipToSlot(equipment, 'weapon');
       } else if (!this.accessorySlot) {

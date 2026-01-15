@@ -273,7 +273,7 @@ export class MERCPlayer extends Player {
   get teamSize(): number {
     if (this.isRebel()) {
       // MERC-0ue: Teresa doesn't count toward team limit for rebels
-      return this.team.filter(m => m.mercId !== 'teresa').length;
+      return this.team.filter(m => m.combatantId !== 'teresa').length;
     }
     return this.team.length;
   }
@@ -1164,7 +1164,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   updateHaargBonusForSquad(squad: Squad): void {
     if (!squad) return;
     const mercs = squad.getMercs();
-    const haarg = mercs.find(m => m.mercId === 'haarg');
+    const haarg = mercs.find(m => m.combatantId === 'haarg');
     if (haarg) {
       haarg.updateHaargBonus(mercs);
     }
@@ -1212,7 +1212,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const mercs = squad.getMercs();
 
     // Update Sarge's bonus
-    const sarge = mercs.find(m => m.mercId === 'sarge');
+    const sarge = mercs.find(m => m.combatantId === 'sarge');
     if (sarge) {
       sarge.updateSargeBonus(mercs);
     }
@@ -1667,7 +1667,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       for (const merc of rebel.team) {
         merc.resetActions();
         // MERC-4t3: Preaction auto-heals 1 health at the start of each day
-        if (merc.mercId === 'preaction' && merc.damage > 0) {
+        if (merc.combatantId === 'preaction' && merc.damage > 0) {
           const healed = merc.heal(1);
           if (healed > 0) {
             this.message(`Preaction auto-heals 1 health (${merc.health}/${merc.maxHealth})`);
@@ -1680,7 +1680,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     for (const merc of this.dictatorPlayer.hiredMercs) {
       merc.resetActions();
       // MERC-4t3: Preaction auto-heals 1 health at the start of each day
-      if (merc.mercId === 'preaction' && merc.damage > 0) {
+      if (merc.combatantId === 'preaction' && merc.damage > 0) {
         const healed = merc.heal(1);
         if (healed > 0) {
           this.message(`Preaction auto-heals 1 health (${merc.health}/${merc.maxHealth})`);

@@ -253,7 +253,7 @@ function registerDebugData(game: MERCGame): void {
           squad: 'primary',
           sectorId: rebel.primarySquad.sectorId,
           mercs: rebel.primarySquad.getLivingMercs().map(m => ({
-            name: m.mercName,
+            name: m.combatantName,
             actions: m.actionsRemaining,
           })),
         });
@@ -264,7 +264,7 @@ function registerDebugData(game: MERCGame): void {
           squad: 'secondary',
           sectorId: rebel.secondarySquad.sectorId,
           mercs: rebel.secondarySquad.getLivingMercs().map(m => ({
-            name: m.mercName,
+            name: m.combatantName,
             actions: m.actionsRemaining,
           })),
         });
@@ -281,7 +281,7 @@ function registerDebugData(game: MERCGame): void {
             squad: 'primary',
             sectorId: dictator.primarySquad.sectorId,
             mercs: dictator.primarySquad.getLivingMercs().map(m => ({
-              name: m.mercName,
+              name: m.combatantName,
               actions: m.actionsRemaining,
             })),
           });
@@ -294,7 +294,7 @@ function registerDebugData(game: MERCGame): void {
             squad: 'secondary',
             sectorId: dictator.secondarySquad.sectorId,
             mercs: dictator.secondarySquad.getLivingMercs().map(m => ({
-              name: m.mercName,
+              name: m.combatantName,
               actions: m.actionsRemaining,
             })),
           });
@@ -323,7 +323,7 @@ function registerDebugData(game: MERCGame): void {
         sectorId: squad.sectorId,
         mercCount: mercs.length,
         mercs: mercs.map(m => ({
-          name: m.mercName,
+          name: m.combatantName,
           isDead: m.isDead,
           health: m.health,
           damage: m.damage,
@@ -345,7 +345,7 @@ function registerDebugData(game: MERCGame): void {
       baseSectorId: dictator.baseSectorId,
       isDefeated: dictator.isDefeated,
       dictatorCard: dictatorCard ? {
-        name: dictatorCard.dictatorName,
+        name: dictatorCard.combatantName,
         inPlay: dictatorCard.inPlay,
         isDead: dictatorCard.isDead,
         health: dictatorCard.health,
@@ -416,7 +416,7 @@ function registerDebugData(game: MERCGame): void {
           mercCount: primarySquad?.mercCount ?? 0,
           livingMercCount: primarySquad?.livingMercCount ?? 0,
           mercs: primarySquad?.getMercs().map(m => ({
-            name: m.mercName,
+            name: m.combatantName,
             isDead: m.isDead,
             health: m.health,
             actionsRemaining: m.actionsRemaining,
@@ -427,7 +427,7 @@ function registerDebugData(game: MERCGame): void {
           mercCount: secondarySquad?.mercCount ?? 0,
           livingMercCount: secondarySquad?.livingMercCount ?? 0,
           mercs: secondarySquad?.getMercs().map(m => ({
-            name: m.mercName,
+            name: m.combatantName,
             isDead: m.isDead,
             health: m.health,
             actionsRemaining: m.actionsRemaining,

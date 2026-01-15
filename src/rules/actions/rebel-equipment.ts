@@ -181,7 +181,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (!inStash) return false;
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
-        if (unit.isMerc && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit.isMerc && (unit as MercCard).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -332,7 +332,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit?.isMerc && (unit as MercCard).mercId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit?.isMerc && (unit as MercCard).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
           return false;
         }
         return true;
@@ -488,7 +488,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
     })
     .fromElements<MercCard>('actingMerc', {
       prompt: 'Select MERC to drop equipment from',
-      display: (merc) => capitalize(merc.mercName),
+      display: (merc) => capitalize(merc.combatantName),
       elements: (ctx) => {
         const mercs = getPlayerMercsFromCtx(ctx);
         return mercs.filter(m => getMercEquipment(m).length > 0);
@@ -499,7 +499,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       prompt: (ctx) => {
         const merc = getMercFromCtx(ctx);
         return merc
-          ? `Select equipment to drop from ${capitalize(merc.mercName)}`
+          ? `Select equipment to drop from ${capitalize(merc.combatantName)}`
           : 'Select equipment to drop';
       },
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
@@ -596,7 +596,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       // Add to sector stash
       sector.addToStash(droppedItem);
 
-      g.message(`${capitalize(actingMerc.mercName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
+      g.message(`${capitalize(actingMerc.combatantName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
       return { success: true, message: `Dropped ${droppedItem.equipmentName}` };
     });
 }
@@ -620,7 +620,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
         // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
-        const doc = player.team.find(m => m.mercId === 'doc' && !m.isDead);
+        const doc = player.team.find(m => m.combatantId === 'doc' && !m.isDead);
         if (!doc) return false;
         const docSquad = player.getSquadContaining(doc);
         if (!docSquad) return false;
@@ -630,7 +630,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
-      const doc = player.team.find(m => m.mercId === 'doc' && !m.isDead)!;
+      const doc = player.team.find(m => m.combatantId === 'doc' && !m.isDead)!;
 
       // Find Doc's squad using helper method
       const docSquad = player.getSquadContaining(doc);
@@ -642,7 +642,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
         if (merc.damage > 0) {
           const healAmount = merc.damage;
           merc.fullHeal();
-          game.message(`Doc healed ${merc.mercName} for ${healAmount} damage`);
+          game.message(`Doc healed ${merc.combatantName} for ${healAmount} damage`);
           healed++;
         }
       }
@@ -673,7 +673,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
         // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
-        const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead);
+        const feedback = player.team.find(m => m.combatantId === 'feedback' && !m.isDead);
         return feedback != null && feedback.actionsRemaining >= ACTION_COSTS.RE_EQUIP;
       },
       'has equipment in discard piles': () => {
@@ -697,7 +697,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
-      const feedback = player.team.find(m => m.mercId === 'feedback' && !m.isDead)!;
+      const feedback = player.team.find(m => m.combatantId === 'feedback' && !m.isDead)!;
       const selectedEquipment = args.equipment as Equipment;
 
       if (!selectedEquipment) {
@@ -716,9 +716,9 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
         // Put replaced equipment back to discard
         const replaceDiscard = game.getEquipmentDiscard(replaced.equipmentType);
         if (replaceDiscard) replaced.putInto(replaceDiscard);
-        game.message(`${feedback.mercName} swapped ${replaced.equipmentName} for ${selectedEquipment.equipmentName}`);
+        game.message(`${feedback.combatantName} swapped ${replaced.equipmentName} for ${selectedEquipment.equipmentName}`);
       } else {
-        game.message(`${feedback.mercName} retrieved ${selectedEquipment.equipmentName} from discard`);
+        game.message(`${feedback.combatantName} retrieved ${selectedEquipment.equipmentName} from discard`);
       }
 
       feedback.useAction(ACTION_COSTS.RE_EQUIP);
@@ -743,7 +743,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
-        const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
+        const squidhead = player.team.find(m => m.combatantId === 'squidhead' && !m.isDead);
         if (!squidhead) return false;
         const squad = player.getSquadContaining(squidhead);
         if (!squad?.sectorId) return false;
@@ -755,7 +755,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
-      const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead)!;
+      const squidhead = player.team.find(m => m.combatantId === 'squidhead' && !m.isDead)!;
 
       // Get Squidhead's sector
       const squad = player.getSquadContaining(squidhead)!;
@@ -776,11 +776,11 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         if (replaced) {
           sector.addToStash(replaced);
         }
-        game.message(`${squidhead.mercName} disarms and collects the land mine`);
+        game.message(`${squidhead.combatantName} disarms and collects the land mine`);
       } else {
         // Put it back in stash but mark as "disarmed" by removing from dictator's control
         sector.addToStash(mine);
-        game.message(`${squidhead.mercName} disarms the land mine (left in stash)`);
+        game.message(`${squidhead.combatantName} disarms the land mine (left in stash)`);
       }
 
       return { success: true, message: 'Disarmed land mine' };
@@ -804,7 +804,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
         // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
-        const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead);
+        const squidhead = player.team.find(m => m.combatantId === 'squidhead' && !m.isDead);
         if (!squidhead) return false;
         const hasLandMineInSlots = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot].some(
           slot => slot && isLandMine(slot.equipmentId)
@@ -815,7 +815,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
-      const squidhead = player.team.find(m => m.mercId === 'squidhead' && !m.isDead)!;
+      const squidhead = player.team.find(m => m.combatantId === 'squidhead' && !m.isDead)!;
 
       // Get Squidhead's sector
       const squad = player.getSquadContaining(squidhead);
@@ -852,7 +852,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       }
 
       sector.addToStash(mine);
-      game.message(`${squidhead.mercName} arms a land mine at ${sector.sectorName}`);
+      game.message(`${squidhead.combatantName} arms a land mine at ${sector.sectorName}`);
 
       return { success: true, message: 'Armed land mine' };
     });
@@ -906,7 +906,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
-        const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
+        const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
         return hagness != null && hagness.actionsRemaining >= 1;
       },
     })
@@ -1013,7 +1013,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         }
 
         // Get hagness and squad mates
-        const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead);
+        const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
         if (!hagness) {
           return [];
         }
@@ -1028,8 +1028,8 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         // Include equipment name in display so user knows what they're giving
         const equipName = equipmentData?.equipmentName || 'equipment';
         const choices = squadMates.map(m => ({
-          value: capitalize(m.mercName),
-          display: `${capitalize(m.mercName)} ← ${equipName}`,
+          value: capitalize(m.combatantName),
+          display: `${capitalize(m.combatantName)} ← ${equipName}`,
           equipment: equipmentData,
         }));
         return choices;
@@ -1040,7 +1040,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       const playerId = `${player.position}`;
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const cacheKey = getHagnessCacheKey(playerId, equipmentType);
-      const hagness = player.team.find(m => m.mercId === 'hagness' && !m.isDead)!;
+      const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
 
       // Handle recipient - might be string or object {value, display, equipment}
       const recipientArg = args.recipient;
@@ -1065,7 +1065,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Hagness squad not found' };
       }
 
-      const recipient = hagnessSquad.getLivingMercs().find(m => capitalize(m.mercName) === recipientName);
+      const recipient = hagnessSquad.getLivingMercs().find(m => capitalize(m.combatantName) === recipientName);
       if (!recipient) {
         clearHagnessCache(game, playerId);
         for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
@@ -1103,9 +1103,9 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       }
 
       hagness.useAction(1);
-      game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.mercName}`);
+      game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.combatantName}`);
 
-      return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.mercName}` };
+      return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.combatantName}` };
     });
 }
 
@@ -1182,7 +1182,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to use Repair Kit',
       elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
+      display: (merc) => capitalize(merc.combatantName),
       filter: (element, ctx) => {
         if (!isMercCard(element)) return false;
         // Use unified helper - checks ownership, living status, and repair kit
@@ -1262,7 +1262,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
         sector.addToStash(retrievedEquip);
       }
 
-      game.message(`${merc.mercName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
+      game.message(`${merc.combatantName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
 
       return {
         success: true,
@@ -1423,7 +1423,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
           const targets = getMortarTargets(game, sector, ctx.player);
           return targets.length > 0;
         }).map(unit => {
-          const name = unit.isMerc ? (unit as MercCard).mercName : (unit as DictatorCard).dictatorName;
+          const name = unit.isMerc ? (unit as MercCard).combatantName : (unit as DictatorCard).combatantName;
           return capitalize(name);
         });
       },
@@ -1435,7 +1435,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         const unitName = ctx.args?.unitId as string;
         const units = getMercsWithMortars(game, ctx.player);
         const unit = units.find(u => {
-          const name = u.isMerc ? (u as MercCard).mercName : (u as DictatorCard).dictatorName;
+          const name = u.isMerc ? (u as MercCard).combatantName : (u as DictatorCard).combatantName;
           return capitalize(name) === unitName;
         });
         if (!unit) return [];
@@ -1452,7 +1452,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       const unitName = args.unitId as string;
       const units = getMercsWithMortars(game, ctx.player);
       const unit = units.find(u => {
-        const name = u.isMerc ? (u as MercCard).mercName : (u as DictatorCard).dictatorName;
+        const name = u.isMerc ? (u as MercCard).combatantName : (u as DictatorCard).combatantName;
         return capitalize(name) === unitName;
       });
 
@@ -1472,7 +1472,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       // Mortar deals 1 damage per target
       const mortarDamage = 1;
 
-      const unitDisplayName = unit.isMerc ? (unit as MercCard).mercName : (unit as DictatorCard).dictatorName;
+      const unitDisplayName = unit.isMerc ? (unit as MercCard).combatantName : (unit as DictatorCard).combatantName;
       game.message(`${unitDisplayName} fires mortar at ${targetSector.sectorName}!`);
 
       let totalDamage = 0;
@@ -1485,7 +1485,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         for (const target of dictatorMercs) {
           target.takeDamage(mortarDamage);
           totalDamage++;
-          game.message(`Mortar deals ${mortarDamage} damage to ${target.mercName}`);
+          game.message(`Mortar deals ${mortarDamage} damage to ${target.combatantName}`);
         }
 
         // Damage the Dictator
@@ -1515,7 +1515,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
           for (const target of rebelMercs) {
             target.takeDamage(mortarDamage);
             totalDamage++;
-            game.message(`Mortar deals ${mortarDamage} damage to ${target.mercName}`);
+            game.message(`Mortar deals ${mortarDamage} damage to ${target.combatantName}`);
           }
 
           // Damage rebel militia
@@ -1616,7 +1616,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
     .chooseElement<MercCard>('merc', {
       prompt: 'Select MERC to detonate explosives',
       elementClass: MercCard,
-      display: (merc) => capitalize(merc.mercName),
+      display: (merc) => capitalize(merc.combatantName),
       filter: (element, ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
         if (!isMercCard(element)) return false;
@@ -1652,7 +1652,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
       const baseSector = game.getSector(game.dictatorPlayer!.baseSectorId!);
       const sectorName = baseSector?.sectorName ?? 'the palace';
 
-      game.message(`${merc.mercName} detonates the explosives!`);
+      game.message(`${merc.combatantName} detonates the explosives!`);
       game.message(`BOOM! The palace is destroyed!`);
       game.message(`THE DICTATOR'S REGIME HAS FALLEN! REBELS WIN!`);
 

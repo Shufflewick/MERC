@@ -57,7 +57,7 @@ function checkAISpecialAbilities(game: MERCGame): void {
     if (shouldUseSpecialAbility(merc, 'turn-start')) {
       // Log ability consideration - actual activation depends on ability type
       // Some abilities are passive, some are triggered, some are active
-      game.message(`AI considers using ${merc.mercName}'s ability: ${merc.ability}`);
+      game.message(`AI considers using ${merc.combatantName}'s ability: ${merc.ability}`);
     }
   }
 
@@ -91,7 +91,7 @@ function checkAIHealing(game: MERCGame): AIActionSelection | null {
   }
 
   // Log other healing intentions
-  game.message(`AI considers healing ${healingAction.target.mercName} using ${healingAction.type}`);
+  game.message(`AI considers healing ${healingAction.target.combatantName} using ${healingAction.type}`);
 
   // If using an item like Medical Kit, the MERC with the item needs to use it
   if (healingAction.type === 'item' && healingAction.merc) {
@@ -433,7 +433,7 @@ export function executeAIDictatorTurn(game: MERCGame): void {
 
     // Log the action being taken
     const unitName = nextAction.unit.isMerc
-      ? nextAction.unit.mercName
+      ? nextAction.unit.combatantName
       : nextAction.unit.isDictator
         ? 'Dictator'
         : 'Unknown';

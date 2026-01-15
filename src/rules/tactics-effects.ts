@@ -67,8 +67,8 @@ export function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
     const mercs = game.getMercsInSector(sector, rebel);
     for (const merc of mercs) {
       targets.push({
-        id: merc.mercId,
-        name: merc.mercName,
+        id: merc.combatantId,
+        name: merc.combatantName,
         type: 'merc',
         ownerId: playerId,
         currentHealth: merc.health - merc.damage, // Available health
@@ -209,7 +209,7 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     const freeEquipment = game.drawEquipment(equipType);
     if (freeEquipment) {
       dictator.equip(freeEquipment);
-      game.message(`${dictator.dictatorName} equipped ${freeEquipment.equipmentName}`);
+      game.message(`${dictator.combatantName} equipped ${freeEquipment.equipmentName}`);
     }
   }
 
@@ -553,7 +553,7 @@ export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, reb
       const merc = rebelPlayer.team.find(m => !m.isDead);
       if (merc) {
         merc.actionsRemaining += 1;
-        game.message(`Oil Reserves: ${merc.mercName} gains 1 free action`);
+        game.message(`Oil Reserves: ${merc.combatantName} gains 1 free action`);
       }
     }
   } else if (!isRebelTurn) {
@@ -563,7 +563,7 @@ export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, reb
       const merc = game.dictatorPlayer.hiredMercs.find(m => !m.isDead);
       if (merc) {
         merc.actionsRemaining += 1;
-        game.message(`Oil Reserves: ${merc.mercName} gains 1 free action`);
+        game.message(`Oil Reserves: ${merc.combatantName} gains 1 free action`);
       } else if (game.dictatorPlayer.dictator?.inPlay && !game.dictatorPlayer.dictator.isDead) {
         game.dictatorPlayer.dictator.actionsRemaining += 1;
         game.message('Oil Reserves: Dictator gains 1 free action');
@@ -593,7 +593,7 @@ function taintedWater(game: MERCGame): TacticsEffectResult {
     for (const merc of rebel.team) {
       merc.damage += 1; // Direct damage, bypassing armor
       mercsDamaged++;
-      game.message(`${merc.mercName} poisoned by tainted water (1 damage)`);
+      game.message(`${merc.combatantName} poisoned by tainted water (1 damage)`);
     }
   }
 
