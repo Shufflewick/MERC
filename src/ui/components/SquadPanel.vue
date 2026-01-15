@@ -6,8 +6,6 @@ import { UI_COLORS, getPlayerColor } from '../colors';
 interface MercData {
   combatantId?: string;
   combatantName?: string;
-  mercId?: string;
-  mercName?: string;
   image?: string;
   baseTraining?: number;
   baseCombat?: number;
@@ -64,7 +62,7 @@ function isMercAbilityAvailable(merc: MercData): boolean {
 // Get unique key for combatant - never returns empty to prevent Vue warnings
 let mercKeyCounter = 0;
 function getMercKey(merc: MercData, index: number): string {
-  return merc.combatantId || merc.combatantName || merc.mercId || merc.mercName || `merc-${index}-${++mercKeyCounter}`;
+  return merc.combatantId || merc.combatantName || `merc-${index}-${++mercKeyCounter}`;
 }
 
 const borderColor = computed(() => getPlayerColor(props.playerColor));

@@ -42,8 +42,6 @@ const props = defineProps<{
     id?: number;
     combatantId?: string;
     combatantName?: string;
-    dictatorId?: string;
-    dictatorName?: string;
     ability: string;
     bio?: string;
     image?: string;
@@ -99,7 +97,7 @@ function closeTacticsModal() {
 const dictatorImagePath = computed(() => {
   if (props.dictator.image) return props.dictator.image;
   // No fallback - log warning for debugging
-  console.warn('[DictatorPanel] No image for dictator:', props.dictator.dictatorId);
+  console.warn('[DictatorPanel] No image for dictator:', props.dictator.combatantId);
   return ''; // Return empty - broken image will be visible
 });
 
@@ -408,9 +406,9 @@ const hasContentToShow = computed(() => {
     <div class="panel-header">
       <div class="dictator-info">
         <CombatantIconSmall
-          :combatant-id="dictator.combatantId || dictator.dictatorId"
+          :combatant-id="dictator.combatantId"
           :image="dictatorImagePath"
-          :alt="dictator.combatantName || dictator.dictatorName"
+          :alt="dictator.combatantName"
           :player-color="playerColor"
           :size="50"
           is-dictator
@@ -418,7 +416,7 @@ const hasContentToShow = computed(() => {
           @click="showDictatorModal = true"
         />
         <div class="dictator-details">
-          <span class="dictator-name">{{ dictator.combatantName || dictator.dictatorName }}</span>
+          <span class="dictator-name">{{ dictator.combatantName }}</span>
           <span class="dictator-ability">{{ dictator.ability }}</span>
         </div>
       </div>
@@ -497,8 +495,8 @@ const hasContentToShow = computed(() => {
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :combatant-id="dictator?.combatantId || dictator?.dictatorId"
-            :combatant-name="dictator?.combatantName || dictator?.dictatorName"
+            :combatant-id="dictator?.combatantId"
+            :combatant-name="dictator?.combatantName"
             :image="dictator?.image"
             player-color="dictator"
             @select="selectEquipmentType"
@@ -532,15 +530,15 @@ const hasContentToShow = computed(() => {
     <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
       <div class="dictator-modal">
         <CombatantIconSmall
-          :combatant-id="dictator.combatantId || dictator.dictatorId"
+          :combatant-id="dictator.combatantId"
           :image="dictatorImagePath"
-          :alt="dictator.combatantName || dictator.dictatorName"
+          :alt="dictator.combatantName"
           :player-color="playerColor"
           :size="120"
           is-dictator
         />
         <div class="dictator-modal-info">
-          <h2>{{ dictator.combatantName || dictator.dictatorName }}</h2>
+          <h2>{{ dictator.combatantName }}</h2>
           <p class="ability-text">{{ dictator.ability }}</p>
           <p v-if="dictator.bio" class="bio-text">{{ dictator.bio }}</p>
 
