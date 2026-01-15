@@ -772,9 +772,17 @@ export abstract class CombatantBase extends BaseCard {
  * Extended combatant with card type discrimination and special equipment rules.
  * Use isMerc/isDictator for type checks. Subclassed by MercCard and DictatorCard.
  */
-export abstract class CombatantModel extends CombatantBase {
-  // Identity - subclasses must provide combatantId/combatantName via getters
-  // (MercCard returns mercId/mercName, DictatorCard returns dictatorId/dictatorName)
+export class CombatantModel extends CombatantBase {
+  // Identity - unified properties for all combatants
+  // Subclasses can override via getters to delegate to their own properties
+  protected _combatantId: string = '';
+  protected _combatantName: string = '';
+
+  get combatantId(): string { return this._combatantId; }
+  set combatantId(value: string) { this._combatantId = value; }
+
+  get combatantName(): string { return this._combatantName; }
+  set combatantName(value: string) { this._combatantName = value; }
 
   // Card type discriminator
   cardType: 'merc' | 'dictator' = 'merc';
@@ -890,10 +898,13 @@ export class MercCard extends CombatantModel {
   // Card type discriminator
   override cardType: 'merc' | 'dictator' = 'merc';
 
-  // Provide combatantId/combatantName via getters
-  // (unitId/unitName backward-compat handled by CombatantBase)
-  override get combatantId(): string { return this.mercId; }
-  override get combatantName(): string { return this.mercName; }
+  // Provide combatantId/combatantName via getters with backward-compat
+  // Prefer mercId/mercName if set (from JSON), fall back to parent properties
+  override get combatantId(): string { return this.mercId || this._combatantId; }
+  override set combatantId(value: string) { this._combatantId = value; this.mercId = value; }
+
+  override get combatantName(): string { return this.mercName || this._combatantName; }
+  override set combatantName(value: string) { this._combatantName = value; this.mercName = value; }
 }
 
 // =============================================================================
@@ -1174,10 +1185,13 @@ export class DictatorCard extends CombatantModel {
   override cardType: 'merc' | 'dictator' = 'dictator';
   override inPlay: boolean = false;
 
-  // Provide combatantId/combatantName via getters
-  // (unitId/unitName backward-compat handled by CombatantBase)
-  override get combatantId(): string { return this.dictatorId; }
-  override get combatantName(): string { return this.dictatorName; }
+  // Provide combatantId/combatantName via getters with backward-compat
+  // Prefer dictatorId/dictatorName if set (from JSON), fall back to parent properties
+  override get combatantId(): string { return this.dictatorId || this._combatantId; }
+  override set combatantId(value: string) { this._combatantId = value; this.dictatorId = value; }
+
+  override get combatantName(): string { return this.dictatorName || this._combatantName; }
+  override set combatantName(value: string) { this._combatantName = value; this.dictatorName = value; }
 }
 
 // =============================================================================
