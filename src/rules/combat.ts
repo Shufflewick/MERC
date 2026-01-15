@@ -92,7 +92,7 @@ function countHits(rolls: number[]): number {
 /**
  * Get combatantId from a combatant (undefined if militia/other)
  */
-function getCombatantMercId(combatant: Combatant): string | undefined {
+function getCombatantId(combatant: Combatant): string | undefined {
   return combatant.sourceElement?.isMerc
     ? combatant.sourceElement.combatantId
     : undefined;
@@ -109,10 +109,10 @@ function getEffectiveCombatDice(attacker: Combatant, game: MERCGame): number {
 }
 
 /**
- * Check if combatant has a specific mercId
+ * Check if combatant has a specific combatantId
  */
-function isMerc(combatant: Combatant, mercId: string): boolean {
-  return getCombatantMercId(combatant) === mercId;
+function isMerc(combatant: Combatant, combatantId: string): boolean {
+  return getCombatantId(combatant) === combatantId;
 }
 
 /**
@@ -141,7 +141,7 @@ function isBasic(combatant: Combatant): boolean {
  * MERC-7zax: Dictator militia hit on 3+ when Better Weapons is active
  */
 function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MERCGame): number {
-  const mercId = combatant.sourceElement?.isMerc
+  const combatantId = combatant.sourceElement?.isMerc
     ? combatant.sourceElement.combatantId
     : undefined;
 
@@ -150,7 +150,7 @@ function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MER
     return rolls.filter(r => r >= 3).length;
   }
 
-  const threshold = mercId ? getHitThreshold(mercId) : CombatConstants.HIT_THRESHOLD;
+  const threshold = combatantId ? getHitThreshold(combatantId) : CombatConstants.HIT_THRESHOLD;
   return rolls.filter(r => r >= threshold).length;
 }
 
@@ -162,10 +162,10 @@ function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MER
 function shouldUseReroll(combatant: Combatant, rolls: number[], hits: number): boolean {
   if (combatant.hasUsedReroll) return false;
 
-  const mercId = combatant.sourceElement?.isMerc
+  const combatantId = combatant.sourceElement?.isMerc
     ? combatant.sourceElement.combatantId
     : undefined;
-  if (!mercId || !canRerollOnce(mercId)) return false;
+  if (!combatantId || !canRerollOnce(combatantId)) return false;
 
   // Expected hits at 50% hit rate
   const expectedHits = rolls.length * 0.5;
@@ -939,18 +939,18 @@ function executeGolemPreCombat(
  */
 function sortByInitiative(combatants: Combatant[]): Combatant[] {
   return [...combatants].sort((a, b) => {
-    const aMercId = getCombatantMercId(a);
-    const bMercId = getCombatantMercId(b);
+    const aCombatantId = getCombatantId(a);
+    const bCombatantId = getCombatantId(b);
 
     // Check for "always goes first" ability (Kastern)
-    const aFirst = aMercId ? alwaysGoesFirst(aMercId) : false;
-    const bFirst = bMercId ? alwaysGoesFirst(bMercId) : false;
+    const aFirst = aCombatantId ? alwaysGoesFirst(aCombatantId) : false;
+    const bFirst = bCombatantId ? alwaysGoesFirst(bCombatantId) : false;
     if (aFirst && !bFirst) return -1;
     if (bFirst && !aFirst) return 1;
 
     // Check for "always before militia" ability (Badger)
-    const aBeforeMilitia = aMercId ? alwaysBeforesMilitia(aMercId) : false;
-    const bBeforeMilitia = bMercId ? alwaysBeforesMilitia(bMercId) : false;
+    const aBeforeMilitia = aCombatantId ? alwaysBeforesMilitia(aCombatantId) : false;
+    const bBeforeMilitia = bCombatantId ? alwaysBeforesMilitia(bCombatantId) : false;
     if (aBeforeMilitia && b.isMilitia) return -1;
     if (bBeforeMilitia && a.isMilitia) return 1;
 
@@ -1359,8 +1359,8 @@ export function getValidTargetsForPlayer(
 
   // Filter out "targeted last" MERCs (Runde) if other targets exist
   const nonTargetedLast = aliveEnemies.filter(t => {
-    const mercId = getCombatantMercId(t);
-    return !mercId || !isTargetedLast(mercId);
+    const combatantId = getCombatantId(t);
+    return !combatantId || !isTargetedLast(combatantId);
   });
 
   // Only include "targeted last" MERCs if no other targets available
@@ -1432,10 +1432,10 @@ function selectTargets(
 
   // Sort targets so "targeted last" MERCs (Runde) are at the end
   const sortedForTargeting = [...aliveEnemies].sort((a, b) => {
-    const aMercId = getCombatantMercId(a);
-    const bMercId = getCombatantMercId(b);
-    const aLast = aMercId ? isTargetedLast(aMercId) : false;
-    const bLast = bMercId ? isTargetedLast(bMercId) : false;
+    const aCombatantId = getCombatantId(a);
+    const bCombatantId = getCombatantId(b);
+    const aLast = aCombatantId ? isTargetedLast(aCombatantId) : false;
+    const bLast = bCombatantId ? isTargetedLast(bCombatantId) : false;
     if (aLast && !bLast) return 1;  // Targeted-last goes to end
     if (bLast && !aLast) return -1; // Others go first
     return 0;
@@ -1976,19 +1976,19 @@ function executeCombatRound(
       const needsAllocation = validTargets.length > 1 && !allMilitia && !isOverkill;
 
       // Also check if Basic's reroll is available (not yet used)
-      const mercId = getCombatantMercId(attacker);
-      const canUseReroll = mercId && canRerollOnce(mercId) && !attacker.hasUsedReroll;
+      const combatantId = getCombatantId(attacker);
+      const canUseReroll = combatantId && canRerollOnce(combatantId) && !attacker.hasUsedReroll;
 
       // Pause for allocation if meaningful choice exists OR if reroll is available
       if (needsAllocation || canUseReroll) {
         // Get hit threshold for this combatant
-        const hitThreshold = mercId ? getHitThreshold(mercId) : CombatConstants.HIT_THRESHOLD;
+        const hitThreshold = combatantId ? getHitThreshold(combatantId) : CombatConstants.HIT_THRESHOLD;
 
         // Set pending hit allocation state
         game.activeCombat!.pendingHitAllocation = {
           attackerId: attacker.id,
           attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
-          attackerMercId: mercId ?? '',
+          attackerCombatantId: combatantId ?? '',
           diceRolls: rolls,
           hits,
           hitThreshold,
@@ -2114,9 +2114,9 @@ function executeCombatRound(
                   }
                   if (savers.length > 0) {
                     game.activeCombat.pendingEpinephrine = {
-                      dyingMercId: merc.id,
-                      dyingMercName: merc.combatantName,
-                      dyingMercSide: 'dictator',
+                      dyingCombatantId: merc.id,
+                      dyingCombatantName: merc.combatantName,
+                      dyingCombatantSide: 'dictator',
                       availableSavers: savers,
                     };
                     // Don't discard equipment yet - will be done after player choice
@@ -2172,9 +2172,9 @@ function executeCombatRound(
                       }
                       if (savers.length > 0) {
                         game.activeCombat.pendingEpinephrine = {
-                          dyingMercId: merc.id,
-                          dyingMercName: merc.combatantName,
-                          dyingMercSide: 'rebel',
+                          dyingCombatantId: merc.id,
+                          dyingCombatantName: merc.combatantName,
+                          dyingCombatantSide: 'rebel',
                           availableSavers: savers,
                         };
                         // Don't discard equipment yet - will be done after player choice
