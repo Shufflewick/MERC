@@ -40,10 +40,13 @@ Plans:
 **Goal**: Eliminate mercId/mercName, dictatorId/dictatorName, unitId/unitName - only combatantId/combatantName
 **Depends on**: Phase 24
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 4 planned
 
 Plans:
-- [ ] 25-01: TBD
+- [ ] 25-01: Core class changes (elements.ts, game.ts, setup.ts with backward-compat getters)
+- [ ] 25-02: Rules layer updates (324 occurrences across 21 files)
+- [ ] 25-03: UI and Tests updates (155 occurrences across 15 files)
+- [ ] 25-04: Remove backward-compat getters and update documentation
 
 #### Phase 26: Update References
 
