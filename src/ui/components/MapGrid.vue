@@ -16,8 +16,8 @@ interface SectorData {
 }
 
 interface MercData {
-  mercId: string;
-  mercName: string;
+  combatantId: string;
+  combatantName: string;
   image?: string;
   playerColor?: string;
   sectorId?: string;

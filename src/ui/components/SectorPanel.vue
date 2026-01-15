@@ -35,7 +35,9 @@ const props = defineProps<{
   playerColor: string;  // Current player's color name (e.g., 'red', 'blue')
   playerColorMap?: Record<string, string>;  // Maps player position to color name
   allMercsInSector?: Array<{
-    mercId: string;
+    combatantId?: string;
+    combatantName?: string;
+    mercId?: string;
     mercName?: string;
     playerColor: string;
     sectorId: string;

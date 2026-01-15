@@ -18,7 +18,7 @@ interface MercData {
   mercId?: string;
   id?: string | number;
   ref?: string;
-  mercName?: string;
+  combatantName?: string;
   name?: string;
   image?: string;
   baseTraining?: number;
@@ -71,12 +71,12 @@ function getProp<T>(key: string, defaultVal: T): T {
 
 // Helper to get MERC ID
 const mercId = computed(() => {
-  return getProp('mercId', '') || getProp('id', '') || props.merc.ref || 'unknown';
+  return getProp('combatantId', '') || getProp('mercId', '') || getProp('id', '') || props.merc.ref || 'unknown';
 });
 
 // Helper to get MERC name (properly formatted)
 const mercName = computed(() => {
-  const rawName = getProp('mercName', '') || getProp('name', '') || String(mercId.value);
+  const rawName = getProp('combatantName', '') || getProp('mercName', '') || getProp('name', '') || String(mercId.value);
   // Remove "merc-" prefix if present and capitalize
   const cleanName = rawName.replace(/^merc-/i, '');
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);

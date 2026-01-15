@@ -40,8 +40,10 @@ function getEquipmentName(slot: any): string | null {
 const props = defineProps<{
   dictator: {
     id?: number;
-    dictatorId: string;
-    dictatorName: string;
+    combatantId?: string;
+    combatantName?: string;
+    dictatorId?: string;
+    dictatorName?: string;
     ability: string;
     bio?: string;
     image?: string;
