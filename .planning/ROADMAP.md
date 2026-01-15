@@ -48,15 +48,15 @@ Plans:
 - [x] 25-03: UI and Tests updates (155 occurrences across 15 files)
 - [x] 25-04: Remove backward-compat getters and update documentation
 
-#### Phase 26: Update References
+#### Phase 26: Update References ✅
 
 **Goal**: Fix all imports, type annotations, instanceof checks, and tests
 **Depends on**: Phase 25
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 1 complete
 
 Plans:
-- [ ] 26-01: TBD
+- [x] 26-01: Remove backward-compat exports, replace union types with CombatantModel
 
 #### Phase 27: Documentation
 
@@ -128,7 +128,7 @@ Plans:
 | 23. Documentation | v1.4 | 1/1 | Complete | 2026-01-14 |
 | 24. Merge Classes | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 25. Remove ID Aliases | v1.5 | 4/4 | Complete | 2026-01-15 |
-| 26. Update References | v1.5 | 0/? | Not started | - |
+| 26. Update References | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 27. Documentation | v1.5 | 0/? | Not started | - |
 
 <details>
