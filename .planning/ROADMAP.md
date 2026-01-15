@@ -145,7 +145,7 @@ Plans:
 | 26. Update References | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 27. Documentation | v1.5 | 1/1 | Complete | 2026-01-15 |
 | 28. Remove Legacy Comments | v1.6 | 1/1 | Complete | 2026-01-15 |
-| 29. Rules Layer ID Cleanup | v1.6 | 1/2 | In progress | - |
+| 29. Rules Layer ID Cleanup | v1.6 | 2/2 | Complete | 2026-01-15 |
 | 30. UI Layer ID Cleanup | v1.6 | 0/? | Not started | - |
 
 <details>
@@ -193,7 +193,7 @@ Plans:
 
 Plans:
 - [x] 29-01: Update core state types (game.ts) and combat utilities (combat.ts)
-- [ ] 29-02: Update action layer (rebel-economy.ts, rebel-equipment.ts, day-one-actions.ts)
+- [x] 29-02: Update action layer (rebel-economy.ts, rebel-equipment.ts, day-one-actions.ts)
 
 #### Phase 30: UI Layer ID Cleanup
 

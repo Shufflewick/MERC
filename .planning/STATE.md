@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-15)
 ## Current Position
 
 Phase: 29 of 30 (Rules Layer ID Cleanup)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-15 — Completed 29-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-15 — Completed 29-02-PLAN.md
 
-Progress: ██░░░░░░░░ 6% (1.5 of 3 v1.6 phases)
+Progress: ███████░░░ 67% (2 of 3 v1.6 phases)
 
 ## Milestones Completed
 
@@ -56,5 +56,5 @@ None active. (Previous 56 test failures now passing)
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed 29-01-PLAN.md
+Stopped at: Completed Phase 29 (Rules Layer ID Cleanup)
 Resume file: None
