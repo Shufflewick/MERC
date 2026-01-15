@@ -1,7 +1,7 @@
 /**
  * MERC Ability Registry
  *
- * Data-driven ability system that replaces scattered if (mercId === 'xxx') checks.
+ * Data-driven ability system that replaces scattered if (combatantId === 'xxx') checks.
  * All MERC abilities are defined here with their modifiers and conditions.
  */
 
@@ -526,31 +526,31 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 /**
  * Get ability definition for a MERC by ID
  */
-export function getMercAbility(mercId: string): MercAbility | undefined {
-  return MERC_ABILITIES[mercId];
+export function getMercAbility(combatantId: string): MercAbility | undefined {
+  return MERC_ABILITIES[combatantId];
 }
 
 /**
  * Check if a MERC has a specific combat modifier condition
  */
-export function hasCombatCondition(mercId: string, condition: AbilityCondition): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function hasCombatCondition(combatantId: string, condition: AbilityCondition): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatModifiers?.condition === condition;
 }
 
 /**
  * Get the hit threshold for a MERC (default 4)
  */
-export function getHitThreshold(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getHitThreshold(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatModifiers?.hitThreshold ?? 4;
 }
 
 /**
  * Check if a MERC is female (for Tavisto's ability)
  */
-export function isFemale(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function isFemale(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.isFemale ?? false;
 }
 
@@ -564,284 +564,284 @@ export const FEMALE_MERCS = Object.entries(MERC_ABILITIES)
 /**
  * Check if a MERC can reroll dice once per combat
  */
-export function canRerollOnce(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canRerollOnce(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatActions?.mayRerollOnce ?? false;
 }
 
 /**
  * Check if a MERC can sacrifice a die to heal
  */
-export function canSacrificeDieToHeal(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canSacrificeDieToHeal(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatActions?.sacrificeDieToHeal ?? false;
 }
 
 /**
  * Check if a MERC always goes first in combat
  */
-export function alwaysGoesFirst(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function alwaysGoesFirst(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.alwaysFirst ?? false;
 }
 
 /**
  * Check if a MERC always has initiative over militia
  */
-export function alwaysBeforesMilitia(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function alwaysBeforesMilitia(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.alwaysBeforesMilitia ?? false;
 }
 
 /**
  * Check if a MERC rolls for initiative
  */
-export function rollsForInitiative(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function rollsForInitiative(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.rollsInitiative ?? false;
 }
 
 /**
  * Check if a MERC is always targeted last
  */
-export function isTargetedLast(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function isTargetedLast(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.targetedLast ?? false;
 }
 
 /**
  * Check if a MERC ignores initiative penalties
  */
-export function ignoresInitiativePenalties(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function ignoresInitiativePenalties(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.ignoresInitiativePenalties ?? false;
 }
 
 /**
  * Check if a MERC prioritizes attacking MERCs over militia
  */
-export function prioritizesMercs(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function prioritizesMercs(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.prioritizeMercs ?? false;
 }
 
 /**
  * Check if a MERC's hits count as new targets against militia
  */
-export function eachHitNewMilitiaTarget(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function eachHitNewMilitiaTarget(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.eachHitNewMilitiaTarget ?? false;
 }
 
 /**
  * Check if a MERC can retarget 6s
  */
-export function canRetargetSixes(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canRetargetSixes(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.targeting?.sixesCanRetarget ?? false;
 }
 
 /**
  * Check if a MERC can perform a preemptive strike
  */
-export function canPreemptiveStrike(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canPreemptiveStrike(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatActions?.preemptiveStrike ?? false;
 }
 
 /**
  * Check if a MERC fires a second shot
  */
-export function firesSecondShot(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function firesSecondShot(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatActions?.secondShot ?? false;
 }
 
 /**
  * Check if a MERC can convert militia instead of killing
  */
-export function canConvertMilitia(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canConvertMilitia(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.combatActions?.convertsMilitia ?? false;
 }
 
 /**
  * Check if a MERC is immune to attack dogs
  */
-export function isImmuneToAttackDogs(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function isImmuneToAttackDogs(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.immuneToAttackDogs ?? false;
 }
 
 /**
  * Check if a MERC won't harm dogs
  */
-export function willNotHarmDogs(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function willNotHarmDogs(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.willNotHarmDogs ?? false;
 }
 
 /**
  * Check if a MERC won't use explosives
  */
-export function wontUseExplosives(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function wontUseExplosives(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.wontUseExplosives ?? false;
 }
 
 /**
  * Check if a MERC requires an accessory to fight
  */
-export function requiresAccessory(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function requiresAccessory(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.requiresAccessory ?? false;
 }
 
 /**
  * Check if a MERC doesn't count toward team limit
  */
-export function doesntCountTowardLimit(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function doesntCountTowardLimit(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.doesntCountTowardLimit ?? false;
 }
 
 /**
  * Get auto-heal amount per day (0 if none)
  */
-export function getAutoHealPerDay(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getAutoHealPerDay(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.autoHealPerDay ?? 0;
 }
 
 /**
  * Get extra actions for a MERC (0 if none)
  */
-export function getExtraActions(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getExtraActions(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.extraActions ?? 0;
 }
 
 /**
  * Get extra training-only actions (0 if none)
  */
-export function getExtraTrainingActions(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getExtraTrainingActions(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.extraTrainingActions ?? 0;
 }
 
 /**
  * Get extra health for a MERC (0 if none)
  */
-export function getExtraHealth(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getExtraHealth(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.extraHealth ?? 0;
 }
 
 /**
  * Check if a MERC can carry a weapon in accessory slot
  */
-export function canWeaponInAccessorySlot(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canWeaponInAccessorySlot(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.weaponInAccessorySlot ?? false;
 }
 
 /**
  * Check if all slots can be accessories
  */
-export function allSlotsAccessories(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function allSlotsAccessories(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.allSlotsAccessories ?? false;
 }
 
 /**
  * Check if a MERC gets a free accessory on hire
  */
-export function getsFreeAccessoryOnHire(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function getsFreeAccessoryOnHire(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.freeAccessoryOnHire ?? false;
 }
 
 /**
  * Get number of militia a MERC can bring when moving
  */
-export function getMilitiaBringCount(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getMilitiaBringCount(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.bringsMilitia ?? 0;
 }
 
 /**
  * Check if a MERC heals squad outside combat
  */
-export function healsSquadOutsideCombat(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function healsSquadOutsideCombat(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.healsSquadOutsideCombat ?? false;
 }
 
 /**
  * Check if a MERC can retrieve from discard
  */
-export function canRetrieveFromDiscard(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function canRetrieveFromDiscard(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.retrievesFromDiscard ?? false;
 }
 
 /**
  * Check if a MERC handles land mines
  */
-export function handlesLandMines(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function handlesLandMines(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.handlesLandMines ?? false;
 }
 
 /**
  * Check if a MERC draws equipment for squad
  */
-export function drawsEquipmentForSquad(mercId: string): boolean {
-  const ability = MERC_ABILITIES[mercId];
+export function drawsEquipmentForSquad(combatantId: string): boolean {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.drawsEquipmentForSquad ?? false;
 }
 
 /**
  * Get militia initiative bonus provided by a MERC
  */
-export function getMilitiaInitiativeBonus(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getMilitiaInitiativeBonus(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.passive?.militiaInitiativeBonus ?? 0;
 }
 
 /**
  * Get enemy combat debuff applied by a MERC
  */
-export function getEnemyCombatDebuff(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getEnemyCombatDebuff(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.enemyDebuff?.combat ?? 0;
 }
 
 /**
  * Get enemy initiative debuff applied by a MERC
  */
-export function getEnemyInitiativeDebuff(mercId: string): number {
-  const ability = MERC_ABILITIES[mercId];
+export function getEnemyInitiativeDebuff(combatantId: string): number {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.enemyDebuff?.initiative ?? 0;
 }
 
 /**
  * Check if two MERCs are incompatible
  */
-export function areIncompatible(mercId1: string, mercId2: string): boolean {
-  const ability1 = MERC_ABILITIES[mercId1];
-  const ability2 = MERC_ABILITIES[mercId2];
+export function areIncompatible(combatantId1: string, combatantId2: string): boolean {
+  const ability1 = MERC_ABILITIES[combatantId1];
+  const ability2 = MERC_ABILITIES[combatantId2];
 
   return (
-    (ability1?.restrictions?.incompatibleWith?.includes(mercId2) ?? false) ||
-    (ability2?.restrictions?.incompatibleWith?.includes(mercId1) ?? false)
+    (ability1?.restrictions?.incompatibleWith?.includes(combatantId2) ?? false) ||
+    (ability2?.restrictions?.incompatibleWith?.includes(combatantId1) ?? false)
   );
 }
 
 /**
  * Get list of MERCs that a MERC won't work with
  */
-export function getIncompatibleMercs(mercId: string): string[] {
-  const ability = MERC_ABILITIES[mercId];
+export function getIncompatibleMercs(combatantId: string): string[] {
+  const ability = MERC_ABILITIES[combatantId];
   return ability?.restrictions?.incompatibleWith ?? [];
 }
