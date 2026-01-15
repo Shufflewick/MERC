@@ -618,18 +618,17 @@ const allMercs = computed(() => {
 
     if (squad.children) {
       for (const merc of squad.children) {
-        const mercId = getAttr(merc, 'combatantId', '');
+        const id = getAttr(merc, 'combatantId', '');
         // Skip dead MERCs
         if (isMercDead(merc)) continue;
 
-        if (mercId || getAttr(merc, 'cardType', '') === 'merc') {
+        if (id || getAttr(merc, 'cardType', '') === 'merc') {
           // Use squad's sectorId (sectorId is now a computed getter on combatants)
           const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
-          const combatantId = mercId || merc.ref;
+          const combatantId = id || merc.ref;
           mercs.push({
             ...merc,
             combatantId,
-            mercId: combatantId,
             sectorId: mercSectorId,
             playerColor,
             image: getAttr(merc, 'image', ''),
@@ -663,7 +662,6 @@ const allMercs = computed(() => {
           mercs.push({
             ...child,
             combatantId,
-            mercId: combatantId,
             sectorId: squadSectorId,
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
@@ -676,8 +674,8 @@ const allMercs = computed(() => {
         const isDead = getAttr(child, 'damage', 0) >= 10;
         if (!inPlay || isDead) continue;
 
-        const dictatorId = getAttr(child, 'combatantId', '');
-        const dictatorIdWithPrefix = `dictator-${dictatorId}`;
+        const charId = getAttr(child, 'combatantId', '');
+        const dictatorIdWithPrefix = `dictator-${charId}`;
         const exists = mercs.some((m) => m.combatantId === dictatorIdWithPrefix);
         if (!exists) {
           mercs.push({
@@ -850,7 +848,7 @@ function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: an
       if (cardType === 'merc') {
         return !isMercDead(c);
       }
-      // Also check by mercId for serialized cards
+      // Also check by combatantId for serialized cards
       return getAttr(c, 'combatantId', '');
     })
     .map((c: any) => {
@@ -1604,7 +1602,7 @@ const selectedMercName = computed(() => {
 const selectedMercId = computed(() => {
   const merc = selectedMercForEquipment.value;
   if (!merc) return '';
-  return getAttr(merc, 'combatantId', '') || (merc as any).combatantId || (merc as any).mercId || '';
+  return getAttr(merc, 'combatantId', '') || (merc as any).combatantId || '';
 });
 
 // State for showing MERC detail modal during hiring
@@ -1726,8 +1724,8 @@ const hagnessSquadMates = computed(() => {
     return choices.map((choice: any) => {
       const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' ←')[0] || 'Unknown');
       // Try to get combatantId from choice metadata if available
-      const combatantId = choice.combatantId || choice.mercId || displayName.toLowerCase();
-      return { displayName, mercId: combatantId, choice }; // Keep the full choice for when user clicks
+      const combatantId = choice.combatantId || displayName.toLowerCase();
+      return { displayName, combatantId, choice }; // Keep the full choice for when user clicks
     }).sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
@@ -1748,7 +1746,6 @@ const hagnessSquadMates = computed(() => {
     return {
       displayName,
       combatantId,
-      mercId: combatantId,
       choice: { value: displayName }, // Simple choice object for selection
     };
   }).sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -2013,13 +2010,13 @@ const landingSectors = computed(() => {
 
 // Get combatant ID from merc object (handles different data structures)
 // Never returns empty string to prevent Vue duplicate key warnings
-let mercIdCounter = 0;
+let combatantIdCounter = 0;
 function getMercId(merc: any): string {
   const id = merc.attributes?.combatantId || merc.combatantId || merc.id || merc.ref;
   if (id) return id;
   // Generate a unique fallback ID using merc name if available
   const name = merc.attributes?.combatantName || merc.combatantName || '';
-  return name ? `temp-${name}` : `temp-merc-${++mercIdCounter}`;
+  return name ? `temp-${name}` : `temp-combatant-${++combatantIdCounter}`;
 }
 
 // Get capitalized combatant name for action (action expects capitalized names)
@@ -2185,13 +2182,13 @@ const mercAbilitiesAvailable = computed(() => {
 });
 
 // Handle ability activation from MERC card
-async function handleActivateAbility(mercId: string) {
-  if (mercId === 'hagness' && props.availableActions.includes('hagnessDraw')) {
+async function handleActivateAbility(combatantId: string) {
+  if (combatantId === 'hagness' && props.availableActions.includes('hagnessDraw')) {
     // Start the Hagness draw action - this sets actionController.currentAction
     props.actionController.start('hagnessDraw');
     // Scroll to top where the Hagness UI appears
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (mercId === 'doc' && props.availableActions.includes('docHeal')) {
+  } else if (combatantId === 'doc' && props.availableActions.includes('docHeal')) {
     // Execute Doc heal immediately (no selections needed)
     await props.actionController.execute('docHeal', {});
   }
@@ -2199,12 +2196,12 @@ async function handleActivateAbility(mercId: string) {
 }
 
 // Handle dropping equipment from a MERC to sector stash
-async function handleDropEquipment(mercId: number, equipmentId: number) {
+async function handleDropEquipment(combatantElementId: number, equipmentId: number) {
   if (!canDropEquipment.value) return;
 
   // Execute the dropEquipment action directly with the numeric IDs
   await props.actionController.execute('dropEquipment', {
-    actingMerc: mercId,
+    actingMerc: combatantElementId,
     equipment: equipmentId,
   });
 }
@@ -2472,7 +2469,7 @@ const clickableSectors = computed(() => {
             <CombatantIcon
               v-for="mate in hagnessSquadMates"
               :key="mate.displayName"
-              :combatant-id="mate.combatantId || mate.mercId"
+              :combatant-id="mate.combatantId"
               :combatant-name="mate.displayName"
               :player-color="currentPlayerColor"
               size="large"

@@ -290,7 +290,7 @@ async function selectMercToHire(merc: any) {
   const sel = props.actionController.currentSelection.value;
   if (!sel) return;
   // Use _choiceValue if available (from our processing), otherwise fall back
-  const value = merc._choiceValue ?? merc.combatantId ?? merc.mercId ?? merc.value;
+  const value = merc._choiceValue ?? merc.combatantId ?? merc.value;
   await props.actionController.fill(sel.name, value);
 }
 
@@ -469,7 +469,7 @@ const hasContentToShow = computed(() => {
             <div class="merc-choices">
               <div
                 v-for="merc in selectableMercs"
-                :key="merc.combatantId || merc.mercId"
+                :key="merc.combatantId"
                 class="merc-choice"
                 @click="selectMercToHire(merc)"
               >

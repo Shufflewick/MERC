@@ -211,16 +211,16 @@ const selectedMercSquadName = computed(() => {
   if (isEnemy) return null;
   // For my own mercs, determine which squad they're in
   if (mercColor === props.playerColor || !mercColor) {
-    const mercId = selectedMerc.value.combatantId || getAttr(selectedMerc.value, 'combatantId', '');
+    const combatantId = selectedMerc.value.combatantId || getAttr(selectedMerc.value, 'combatantId', '');
     // Check if in primary squad
     if (props.primarySquad?.mercs?.some((m: any) =>
-      getAttr(m, 'combatantId', '') === mercId || m.ref === selectedMerc.value.ref
+      getAttr(m, 'combatantId', '') === combatantId || m.ref === selectedMerc.value.ref
     )) {
       return 'Primary';
     }
     // Check if in secondary squad
     if (props.secondarySquad?.mercs?.some((m: any) =>
-      getAttr(m, 'combatantId', '') === mercId || m.ref === selectedMerc.value.ref
+      getAttr(m, 'combatantId', '') === combatantId || m.ref === selectedMerc.value.ref
     )) {
       return 'Secondary';
     }
@@ -487,13 +487,13 @@ const canDropEquipmentForSelectedMerc = computed(() => {
 });
 
 // Handle drop equipment from CombatantModel
-async function handleDropEquipment(mercId: number, equipmentId: number) {
+async function handleDropEquipment(combatantElementId: number, equipmentId: number) {
   // Close the modal first
   closeMercModal();
 
   // Execute the dropEquipment action directly with pre-selected merc and equipment
   const args = {
-    actingMerc: mercId,
+    actingMerc: combatantElementId,
     equipment: equipmentId,
   };
   await props.actionController.execute('dropEquipment', args);
@@ -731,22 +731,22 @@ const actingMercForEquipment = computed(() => {
   const args = props.actionController.currentArgs.value;
   if (!args) return null;
 
-  // Get mercId from args - different actions use different arg names
-  // collectEquipment/reEquipContinue use mercId (numeric element ID, display names in separate display option)
+  // Get element ID from args - different actions use different arg names
+  // collectEquipment/reEquipContinue use numeric element ID, display names in separate display option
   // reEquip uses actingMerc (from first selection)
-  let mercId: number | undefined;
+  let combatantElementId: number | undefined;
 
-  const mercArg = args.mercId ?? args.actingMerc;
+  const mercArg = args.actingMerc;
   if (typeof mercArg === 'number') {
-    mercId = mercArg;
+    combatantElementId = mercArg;
   } else if (mercArg && typeof mercArg === 'object') {
-    mercId = (mercArg as { id?: number; ref?: number }).id ?? (mercArg as { id?: number; ref?: number }).ref;
+    combatantElementId = (mercArg as { id?: number; ref?: number }).id ?? (mercArg as { id?: number; ref?: number }).ref;
   }
 
-  if (mercId === undefined) return null;
+  if (combatantElementId === undefined) return null;
 
   // Look up full MERC data from gameView
-  const fullMerc = findElementById(mercId);
+  const fullMerc = findElementById(combatantElementId);
   if (!fullMerc) return null;
 
   // Also check squads for additional data
@@ -756,7 +756,7 @@ const actingMercForEquipment = computed(() => {
   ];
 
   const squadMerc = allSquadMercs.find((m: any) =>
-    m.ref === mercId || m.id === mercId
+    m.ref === combatantElementId || m.id === combatantElementId
   );
 
   // Merge data (prefer fullMerc from gameView, add attributes)
@@ -1026,14 +1026,14 @@ const selectableItems = computed(() => {
       const mercMatch = allSquadMercs.find((m: any) => {
         const name = getMercName(m).toLowerCase();
         const ref = m?.ref;  // BoardSmith element ID
-        const mercId = getAttr(m, 'combatantId', null);
+        const combatantId = getAttr(m, 'combatantId', null);
 
-        // Match by ref (element ID), name, or mercId
+        // Match by ref (element ID), name, or combatantId
         return ref === c.value ||
                String(ref) === String(c.value) ||
                name === displayLower ||
-               mercId === c.value ||
-               String(mercId) === String(c.value);
+               combatantId === c.value ||
+               String(combatantId) === String(c.value);
       });
 
       if (mercMatch) {
@@ -1334,7 +1334,7 @@ const hasContentToShow = computed(() => {
             >
               <CombatantIconSmall
                 :image="getMercImagePath(item)"
-                :combatant-id="item.combatantId || item.mercId"
+                :combatant-id="item.combatantId"
                 :alt="item._choiceDisplay || getMercName(item)"
                 :player-color="playerColor"
                 :size="60"
