@@ -186,13 +186,14 @@ Plans:
 
 #### Phase 29: Rules Layer ID Cleanup
 
-**Goal**: Replace mercId/dictatorId with combatantId in src/rules/ (~172 occurrences, 10 files)
+**Goal**: Replace mercId with combatantId in state types, combat utilities, and action args (excluding merc-abilities.ts which uses mercId semantically correctly)
 **Depends on**: Phase 28
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 29-01: TBD
+- [ ] 29-01: Update core state types (game.ts) and combat utilities (combat.ts)
+- [ ] 29-02: Update action layer (rebel-economy.ts, rebel-equipment.ts, day-one-actions.ts)
 
 #### Phase 30: UI Layer ID Cleanup
 
