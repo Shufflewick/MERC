@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-14)
 
 ## Current Position
 
-Phase: 24 of 27 (Merge Classes) — Complete
-Plan: 1 of 1 in phase
-Status: Phase complete
-Last activity: 2026-01-15 — Completed 24-01-PLAN.md
+Phase: 25 of 27 (Remove ID Aliases)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-15 — Completed 25-01-PLAN.md
 
-Progress: █░░░░░░░░░ 25%
+Progress: ██░░░░░░░░ 25%
 
 ## Milestones Completed
 
@@ -29,8 +29,8 @@ Total: 23 phases, 45 plans, 5 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 46
-- Total execution time: ~8.2 hours
+- Total plans completed: 47
+- Total execution time: ~8.3 hours
 - Average duration: 10 min/plan
 
 ## Accumulated Context
@@ -54,5 +54,5 @@ None active. (Previous 56 test failures now passing)
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed Phase 24 (Merge Classes)
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
