@@ -406,14 +406,13 @@ const adjacentSectorIds = computed(() => {
 });
 
 // Check if player's squad is adjacent to this sector
+// Note: baseSquad excluded - it cannot move (units deploy from base, base doesn't move)
 const hasSquadAdjacent = computed(() => {
   const primaryInAdjacent = props.primarySquad?.sectorId &&
     adjacentSectorIds.value.includes(props.primarySquad.sectorId);
   const secondaryInAdjacent = props.secondarySquad?.sectorId &&
     adjacentSectorIds.value.includes(props.secondarySquad.sectorId);
-  const baseInAdjacent = props.baseSquad?.sectorId &&
-    adjacentSectorIds.value.includes(props.baseSquad.sectorId);
-  return primaryInAdjacent || secondaryInAdjacent || baseInAdjacent;
+  return primaryInAdjacent || secondaryInAdjacent;
 });
 
 // Sector type helpers
