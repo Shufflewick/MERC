@@ -1115,25 +1115,32 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
 // =============================================================================
 
 /**
- * Helper to check if a MERC has Repair Kit equipped
+ * Helper to check if a combatant has Repair Kit equipped
  */
-function mercHasRepairKit(merc: CombatantModel): boolean {
-  if (merc.isDead) return false;
+function combatantHasRepairKit(combatant: CombatantModel): boolean {
+  if (combatant.isDead) return false;
   // Check accessory slot
-  if (merc.accessorySlot && isRepairKit(merc.accessorySlot.equipmentId)) return true;
+  if (combatant.accessorySlot && isRepairKit(combatant.accessorySlot.equipmentId)) return true;
   // Check bandolier slots
-  return merc.bandolierSlots.some(e => isRepairKit(e.equipmentId));
+  return combatant.bandolierSlots.some(e => isRepairKit(e.equipmentId));
 }
 
 /**
- * Helper to find MERCs with Repair Kit equipped - works for both rebel and dictator
+ * Helper to find combatants with Repair Kit equipped - works for both rebel and dictator
+ * Returns MERCs for rebels, hired mercs + dictator combatant for dictator player
  */
-function getMercsWithRepairKit(player: unknown, game: MERCGame): CombatantModel[] {
+function getCombatantsWithRepairKit(player: unknown, game: MERCGame): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
-    return player.team.filter(mercHasRepairKit);
+    return player.team.filter(combatantHasRepairKit);
   }
   if (game.isDictatorPlayer(player)) {
-    return game.dictatorPlayer?.hiredMercs.filter(mercHasRepairKit) || [];
+    const units: CombatantModel[] = game.dictatorPlayer?.hiredMercs.filter(combatantHasRepairKit) || [];
+    // Include dictator combatant if in play and has repair kit
+    const dictatorCard = game.dictatorPlayer?.dictator;
+    if (dictatorCard?.inPlay && combatantHasRepairKit(dictatorCard)) {
+      units.push(dictatorCard);
+    }
+    return units;
   }
   return [];
 }
@@ -1177,18 +1184,18 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
     .prompt('Use Repair Kit')
     .condition({
       'not in combat': () => !game.activeCombat,
-      'has merc with repair kit': (ctx) => getMercsWithRepairKit(ctx.player, game).length > 0,
+      'has combatant with repair kit': (ctx) => getCombatantsWithRepairKit(ctx.player, game).length > 0,
       'has equipment in discard piles': () => getDiscardPileEquipment(game).length > 0,
     })
-    .chooseElement<CombatantModel>('merc', {
-      prompt: 'Select MERC to use Repair Kit',
+    .chooseElement<CombatantModel>('combatant', {
+      prompt: 'Select combatant to use Repair Kit',
       elementClass: CombatantModel,
-      display: (merc) => capitalize(merc.combatantName),
+      display: (combatant) => capitalize(combatant.combatantName),
       filter: (element, ctx) => {
-        if (!isCombatantModel(element) || !element.isMerc) return false;
+        if (!isCombatantModel(element)) return false;
         // Use unified helper - checks ownership, living status, and repair kit
-        const mercsWithKit = getMercsWithRepairKit(ctx.player, game);
-        return mercsWithKit.some(m => m.id === element.id);
+        const combatantsWithKit = getCombatantsWithRepairKit(ctx.player, game);
+        return combatantsWithKit.some(m => m.id === element.id);
       },
     })
     .chooseFrom<string>('equipment', {
@@ -1201,28 +1208,28 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const merc = args.merc as CombatantModel;
+      const combatant = args.combatant as CombatantModel;
       const equipmentChoice = args.equipment as string;
 
-      // Find the Repair Kit on the MERC
+      // Find the Repair Kit on the combatant
       let repairKit: Equipment | undefined;
       let repairKitSlot: 'Accessory' | 'bandolier' = 'Accessory';
       let bandolierIndex = -1;
 
-      if (merc.accessorySlot && isRepairKit(merc.accessorySlot.equipmentId)) {
-        repairKit = merc.accessorySlot;
+      if (combatant.accessorySlot && isRepairKit(combatant.accessorySlot.equipmentId)) {
+        repairKit = combatant.accessorySlot;
         repairKitSlot = 'Accessory';
       } else {
-        const idx = merc.bandolierSlots.findIndex(e => isRepairKit(e.equipmentId));
+        const idx = combatant.bandolierSlots.findIndex(e => isRepairKit(e.equipmentId));
         if (idx >= 0) {
-          repairKit = merc.bandolierSlots[idx];
+          repairKit = combatant.bandolierSlots[idx];
           repairKitSlot = 'bandolier';
           bandolierIndex = idx;
         }
       }
 
       if (!repairKit) {
-        return { success: false, message: 'No Repair Kit found on MERC' };
+        return { success: false, message: 'No Repair Kit found on combatant' };
       }
 
       // Find the selected equipment in discard
@@ -1235,11 +1242,11 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Equipment not found in discard' };
       }
 
-      // Remove repair kit from MERC and discard it
+      // Remove repair kit from combatant and discard it
       if (repairKitSlot === 'Accessory') {
-        merc.unequip('Accessory');
+        combatant.unequip('Accessory');
       } else {
-        merc.unequipBandolierSlot(bandolierIndex);
+        combatant.unequipBandolierSlot(bandolierIndex);
       }
       const accessoryDiscard = game.getEquipmentDiscard('Accessory');
       if (accessoryDiscard) {
@@ -1250,10 +1257,10 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       const retrievedEquip = selected.equipment;
       const pileType = selected.pileType;
 
-      // Find the MERC's sector to put equipment in stash (works for both player types)
-      const sector = findUnitSector(merc, ctx.player, game);
+      // Find the combatant's sector to put equipment in stash (works for both player types)
+      const sector = findUnitSector(combatant, ctx.player, game);
       if (!sector) {
-        return { success: false, message: 'MERC not in a valid sector' };
+        return { success: false, message: 'Combatant not in a valid sector' };
       }
 
       // Remove from discard pile and add to sector stash
@@ -1263,7 +1270,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
         sector.addToStash(retrievedEquip);
       }
 
-      game.message(`${merc.combatantName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
+      game.message(`${combatant.combatantName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
 
       return {
         success: true,
