@@ -397,7 +397,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
           return industries.map(s => s.sectorName);
         }
 
-        return sectors.map(s => `${s.sectorName} (${s.dictatorMilitia} militia)`);
+        return sectors.map(s => s.sectorName);
       },
     })
     .execute((args, ctx) => {

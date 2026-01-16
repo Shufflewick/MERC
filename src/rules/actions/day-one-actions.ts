@@ -850,9 +850,9 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
           // Fallback to any industry
           return game.gameMap.getAllSectors()
             .filter(s => s.isIndustry)
-            .map(s => `${s.sectorName} (${s.dictatorMilitia} militia)`);
+            .map(s => s.sectorName);
         }
-        return sectors.map(s => `${s.sectorName} (${s.dictatorMilitia} militia)`);
+        return sectors.map(s => s.sectorName);
       },
     })
     .chooseFrom<string>('amount', {
