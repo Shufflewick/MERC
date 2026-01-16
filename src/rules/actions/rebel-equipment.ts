@@ -416,34 +416,42 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
     return equipment;
   }
 
-  // Helper to get living MERCs for any player type (uses ctx.game to avoid stale refs)
-  function getPlayerMercsFromCtx(ctx: { game: unknown; player: unknown }): CombatantModel[] {
+  // Helper to get living combatants for any player type (uses ctx.game to avoid stale refs)
+  // Returns MERCs for rebels, hired mercs + dictator combatant for dictator player
+  function getPlayerCombatantsFromCtx(ctx: { game: unknown; player: unknown }): CombatantModel[] {
     const g = ctx.game as MERCGame;
     if (g.isRebelPlayer(ctx.player)) {
       return ctx.player.team.filter((m: CombatantModel) => !m.isDead);
     }
     if (g.isDictatorPlayer(ctx.player)) {
-      return g.dictatorPlayer?.hiredMercs.filter((m: CombatantModel) => !m.isDead) || [];
+      const units: CombatantModel[] = g.dictatorPlayer?.hiredMercs.filter((m: CombatantModel) => !m.isDead) || [];
+      // Include dictator combatant if in play
+      const dictatorCard = g.dictatorPlayer?.dictator;
+      if (dictatorCard?.inPlay && !dictatorCard.isDead) {
+        units.push(dictatorCard);
+      }
+      return units;
     }
     return [];
   }
 
-  // Helper to resolve merc from ctx.args using ctx.game
-  function getMercFromCtx(ctx: { game: unknown; args?: Record<string, unknown> }): CombatantModel | undefined {
+  // Helper to resolve combatant from ctx.args using ctx.game
+  // Works for both mercs and dictator combatant
+  function getCombatantFromCtx(ctx: { game: unknown; args?: Record<string, unknown> }): CombatantModel | undefined {
     const g = ctx.game as MERCGame;
-    const mercArg = ctx.args?.actingMerc;
+    const combatantArg = ctx.args?.actingMerc;
     let combatantElementId: number | undefined;
 
-    if (typeof mercArg === 'number') {
-      combatantElementId = mercArg;
-    } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-      const mercObj = mercArg as { id: number };
-      combatantElementId = mercObj.id;
+    if (typeof combatantArg === 'number') {
+      combatantElementId = combatantArg;
+    } else if (combatantArg && typeof combatantArg === 'object' && 'id' in combatantArg) {
+      const combatantObj = combatantArg as { id: number };
+      combatantElementId = combatantObj.id;
     }
 
     if (combatantElementId !== undefined) {
       const el = g.getElementById(combatantElementId);
-      return isCombatantModel(el) && el.isMerc ? el : undefined;
+      return isCombatantModel(el) ? el : undefined;
     }
     return undefined;
   }
@@ -468,53 +476,53 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         return g.isRebelPlayer(ctx.player) || g.isDictatorPlayer(ctx.player);
       },
       'has combatant with equipment': (ctx) => {
-        const livingMercs = getPlayerMercsFromCtx(ctx);
-        return livingMercs.some(m => getMercEquipment(m).length > 0);
+        const combatants = getPlayerCombatantsFromCtx(ctx);
+        return combatants.some(m => getMercEquipment(m).length > 0);
       },
     })
     .fromElements<CombatantModel>('actingMerc', {
-      prompt: 'Select MERC to drop equipment from',
-      display: (merc) => capitalize(merc.combatantName),
+      prompt: 'Select combatant to drop equipment from',
+      display: (combatant) => capitalize(combatant.combatantName),
       elements: (ctx) => {
-        const mercs = getPlayerMercsFromCtx(ctx);
-        return mercs.filter(m => getMercEquipment(m).length > 0);
+        const combatants = getPlayerCombatantsFromCtx(ctx);
+        return combatants.filter(m => getMercEquipment(m).length > 0);
       },
     })
     .fromElements<Equipment>('equipment', {
       dependsOn: 'actingMerc',
       prompt: (ctx) => {
-        const merc = getMercFromCtx(ctx);
-        return merc
-          ? `Select equipment to drop from ${capitalize(merc.combatantName)}`
+        const combatant = getCombatantFromCtx(ctx);
+        return combatant
+          ? `Select equipment to drop from ${capitalize(combatant.combatantName)}`
           : 'Select equipment to drop';
       },
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
       // Use ctx.game throughout to avoid stale closures
       elements: (ctx) => {
         const g = ctx.game as MERCGame;
-        const mercArg = ctx.args?.actingMerc;
+        const combatantArg = ctx.args?.actingMerc;
 
-        if (!mercArg) {
-          // Availability check - return ALL equipment from ALL player mercs
-          const mercs = getPlayerMercsFromCtx(ctx);
+        if (!combatantArg) {
+          // Availability check - return ALL equipment from ALL player combatants
+          const combatants = getPlayerCombatantsFromCtx(ctx);
           const allEquipment: Equipment[] = [];
-          for (const m of mercs) {
+          for (const m of combatants) {
             allEquipment.push(...getMercEquipment(m));
           }
           return allEquipment;
         }
 
-        // Merc is selected - look up by ID to get proper element with getters
+        // Combatant is selected - look up by ID to get proper element with getters
         let combatantElementId: number | undefined;
-        if (typeof mercArg === 'number') {
-          combatantElementId = mercArg;
-        } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-          const mercObj = mercArg as { id: number };
-          combatantElementId = mercObj.id;
+        if (typeof combatantArg === 'number') {
+          combatantElementId = combatantArg;
+        } else if (combatantArg && typeof combatantArg === 'object' && 'id' in combatantArg) {
+          const combatantObj = combatantArg as { id: number };
+          combatantElementId = combatantObj.id;
         }
         if (combatantElementId !== undefined) {
           const el = g.getElementById(combatantElementId);
-          if (isCombatantModel(el) && el.isMerc) {
+          if (isCombatantModel(el)) {
             return getMercEquipment(el);
           }
         }
@@ -526,16 +534,16 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       const g = ctx.game as MERCGame;
 
       // Always resolve by ID to get full element with all properties
-      const mercArg = args.actingMerc;
+      const combatantArg = args.actingMerc;
       let combatantElementId: number | undefined;
-      if (typeof mercArg === 'number') {
-        combatantElementId = mercArg;
-      } else if (mercArg && typeof mercArg === 'object' && 'id' in mercArg) {
-        const mercObj = mercArg as { id: number };
-        combatantElementId = mercObj.id;
+      if (typeof combatantArg === 'number') {
+        combatantElementId = combatantArg;
+      } else if (combatantArg && typeof combatantArg === 'object' && 'id' in combatantArg) {
+        const combatantObj = combatantArg as { id: number };
+        combatantElementId = combatantObj.id;
       }
-      const mercEl = combatantElementId !== undefined ? g.getElementById(combatantElementId) : undefined;
-      const actingMerc = isCombatantModel(mercEl) && mercEl.isMerc ? mercEl : undefined;
+      const combatantEl = combatantElementId !== undefined ? g.getElementById(combatantElementId) : undefined;
+      const actingCombatant = isCombatantModel(combatantEl) ? combatantEl : undefined;
 
       const equipArg = args.equipment;
       let equipId: number | undefined;
@@ -548,35 +556,35 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       const equipEl = equipId !== undefined ? g.getElementById(equipId) : undefined;
       const equipment = equipEl instanceof Equipment ? equipEl : undefined;
 
-      if (!actingMerc || !equipment) {
-        return { success: false, message: 'Could not resolve MERC or equipment' };
+      if (!actingCombatant || !equipment) {
+        return { success: false, message: 'Could not resolve combatant or equipment' };
       }
 
-      const sector = findMercSectorFromCtx(actingMerc, ctx);
+      const sector = findMercSectorFromCtx(actingCombatant, ctx);
       if (!sector) {
-        return { success: false, message: 'MERC is not in a valid sector' };
+        return { success: false, message: 'Combatant is not in a valid sector' };
       }
 
       // Unequip the equipment based on which slot it's in
       let droppedItem: Equipment | undefined;
-      if (actingMerc.weaponSlot?.id === equipment.id) {
-        droppedItem = actingMerc.unequip('Weapon');
-      } else if (actingMerc.armorSlot?.id === equipment.id) {
-        droppedItem = actingMerc.unequip('Armor');
-      } else if (actingMerc.accessorySlot?.id === equipment.id) {
-        droppedItem = actingMerc.unequip('Accessory');
+      if (actingCombatant.weaponSlot?.id === equipment.id) {
+        droppedItem = actingCombatant.unequip('Weapon');
+      } else if (actingCombatant.armorSlot?.id === equipment.id) {
+        droppedItem = actingCombatant.unequip('Armor');
+      } else if (actingCombatant.accessorySlot?.id === equipment.id) {
+        droppedItem = actingCombatant.unequip('Accessory');
         // If dropping a bandolier, also detach all accessories in bandolier slots
         if (droppedItem?.equipmentId === 'bandolier') {
-          const bandolierItems = actingMerc.clearBandolierSlots();
+          const bandolierItems = actingCombatant.clearBandolierSlots();
           for (const item of bandolierItems) {
             sector.addToStash(item);
           }
         }
       } else {
         // Check bandolier slots
-        for (let i = 0; i < actingMerc.bandolierSlots.length; i++) {
-          if (actingMerc.bandolierSlots[i]?.id === equipment.id) {
-            droppedItem = actingMerc.unequipBandolierSlot(i);
+        for (let i = 0; i < actingCombatant.bandolierSlots.length; i++) {
+          if (actingCombatant.bandolierSlots[i]?.id === equipment.id) {
+            droppedItem = actingCombatant.unequipBandolierSlot(i);
             break;
           }
         }
@@ -589,7 +597,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       // Add to sector stash
       sector.addToStash(droppedItem);
 
-      g.message(`${capitalize(actingMerc.combatantName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
+      g.message(`${capitalize(actingCombatant.combatantName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
       return { success: true, message: `Dropped ${droppedItem.equipmentName}` };
     });
 }
