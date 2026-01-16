@@ -368,7 +368,7 @@ export abstract class CombatantBase extends BaseCard {
     let tackHasHighest = true;
     for (const mate of squadMates) {
       if (mate.combatantId === 'tack' || mate.isDead) continue;
-      if (mate.baseInitiative > tack.baseInitiative) {
+      if (mate.baseInitiative >= tack.baseInitiative) {
         tackHasHighest = false;
         break;
       }
