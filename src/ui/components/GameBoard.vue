@@ -324,9 +324,13 @@ const selectedSectorStash = computed(() => {
 
   // Stash is stored as a Space zone named 'stash' containing Equipment children
   // Look for the Space zone in sector's children
-  // Note: Element name from create(Space, 'stash') is stored at top level (c.name), not in attributes
+  // Note: Element name from create(Space, 'stash') may be stored as name, ref, or in attributes
   const stashZone = sectorElement.children?.find((c: any) =>
-    c.className === 'Space' && (c.name === 'stash' || getAttr(c, 'name', '') === 'stash')
+    c.className === 'Space' && (
+      c.name === 'stash' ||
+      c.ref === 'stash' ||
+      getAttr(c, 'name', '') === 'stash'
+    )
   );
 
   if (!stashZone?.children) return [];

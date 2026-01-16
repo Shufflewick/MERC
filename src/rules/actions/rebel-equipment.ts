@@ -449,27 +449,14 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
   }
 
   // Helper to find merc's sector using ctx.game
+  // Uses merc.sectorId getter directly - more reliable than iterating through ctx.player squads
+  // which may not be properly hydrated when passed through the action system
   function findMercSectorFromCtx(merc: CombatantModel, ctx: { game: unknown; player: unknown }): Sector | null {
     const g = ctx.game as MERCGame;
-    if (g.isRebelPlayer(ctx.player)) {
-      for (const squad of [ctx.player.primarySquad, ctx.player.secondarySquad]) {
-        if (!squad?.sectorId) continue;
-        const mercs = squad.getMercs();
-        if (mercs.some((m: CombatantModel) => m.id === merc.id)) {
-          return g.getSector(squad.sectorId) || null;
-        }
-      }
-    }
-    if (g.isDictatorPlayer(ctx.player) && g.dictatorPlayer) {
-      const squad = g.dictatorPlayer.getSquadContaining(merc);
-      if (squad?.sectorId) {
-        return g.getSector(squad.sectorId) || null;
-      }
-      if (merc.sectorId) {
-        return g.getSector(merc.sectorId) || null;
-      }
-    }
-    return null;
+    // CombatantBase has a sectorId getter that returns squad.sectorId
+    const sectorId = merc.sectorId;
+    if (!sectorId) return null;
+    return g.getSector(sectorId) || null;
   }
 
   return Action.create('dropEquipment')
@@ -578,6 +565,13 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         droppedItem = actingMerc.unequip('Armor');
       } else if (actingMerc.accessorySlot?.id === equipment.id) {
         droppedItem = actingMerc.unequip('Accessory');
+        // If dropping a bandolier, also detach all accessories in bandolier slots
+        if (droppedItem?.equipmentId === 'bandolier') {
+          const bandolierItems = actingMerc.clearBandolierSlots();
+          for (const item of bandolierItems) {
+            sector.addToStash(item);
+          }
+        }
       } else {
         // Check bandolier slots
         for (let i = 0; i < actingMerc.bandolierSlots.length; i++) {
