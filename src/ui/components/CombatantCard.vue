@@ -42,6 +42,7 @@ const props = defineProps<{
   merc: MercData;
   playerColor?: string;
   squadName?: string;  // "Primary" or "Secondary" - shown in team color
+  sectorName?: string; // Sector location - shown under name
   showEquipment?: boolean;
   compact?: boolean;
   canDropEquipment?: boolean;
@@ -80,6 +81,9 @@ const displayName = computed(() => {
   const cleanName = rawName.replace(/^merc-/i, '');
   return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
 });
+
+// Sector location for display - prefer prop, fall back to merc data
+const sectorName = computed(() => props.sectorName || getProp('sectorName', ''));
 
 // Equipment slots - defined first so stats can use them
 // Try weaponSlotData first (serialized data), fall back to weaponSlot (legacy)
@@ -564,7 +568,10 @@ function confirmDropEquipment() {
         :size="compact ? 40 : 56"
       />
       <div class="name-section">
-        <span class="merc-name">{{ displayName }}</span>
+        <div class="name-and-location">
+          <span class="merc-name">{{ displayName }}</span>
+          <span v-if="sectorName" class="sector-location">{{ sectorName }}</span>
+        </div>
         <span v-if="squadName" class="squad-badge" :style="{ backgroundColor: borderColor }">{{ squadName }}</span>
       </div>
     </div>
@@ -852,6 +859,11 @@ function confirmDropEquipment() {
   gap: 8px;
 }
 
+.name-and-location {
+  display: flex;
+  flex-direction: column;
+}
+
 .merc-name {
   font-size: 1.1rem;
   font-weight: 600;
@@ -860,6 +872,12 @@ function confirmDropEquipment() {
 
 .compact .merc-name {
   font-size: 0.95rem;
+}
+
+.sector-location {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 2px;
 }
 
 .squad-badge {

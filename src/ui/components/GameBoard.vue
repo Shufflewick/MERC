@@ -123,6 +123,25 @@ function findDictatorCombatant(root?: any): any {
   return null;
 }
 
+// Find dictator combatant and its parent (for getting sectorId from parent Squad)
+function findDictatorCombatantWithParent(root?: any, parent?: any): { node: any; parent: any } | null {
+  if (!root) root = props.gameView;
+  if (!root) return null;
+
+  if (root.className === 'CombatantModel' || root.className === '_CombatantModel') {
+    const cardType = root.cardType || root.attributes?.cardType;
+    if (cardType === 'dictator') return { node: root, parent };
+  }
+
+  if (root.children) {
+    for (const child of root.children) {
+      const found = findDictatorCombatantWithParent(child, root);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // Find element by ref (id)
 function findByRef(ref: string, root?: any): any {
   if (!root) root = props.gameView;
@@ -630,11 +649,13 @@ const allMercs = computed(() => {
         if ((id || cardType === 'merc') && cardType !== 'dictator') {
           // Use squad's sectorId (sectorId is now a computed getter on combatants)
           const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
+          const mercSector = sectors.value.find(s => s.sectorId === mercSectorId);
           const combatantId = id || merc.ref;
           mercs.push({
             ...merc,
             combatantId,
             sectorId: mercSectorId,
+            sectorName: mercSector?.sectorName || '',
             playerColor,
             image: getAttr(merc, 'image', ''),
           });
@@ -664,10 +685,12 @@ const allMercs = computed(() => {
         const combatantId = getAttr(child, 'combatantId', '') || child.ref;
         const exists = mercs.some((m) => m.combatantId === combatantId);
         if (!exists) {
+          const dictatorMercSector = sectors.value.find(s => s.sectorId === squadSectorId);
           mercs.push({
             ...child,
             combatantId,
             sectorId: squadSectorId,
+            sectorName: dictatorMercSector?.sectorName || '',
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
           });
@@ -683,11 +706,13 @@ const allMercs = computed(() => {
         const combatantDisplayId = `dictator-${charId}`;
         const exists = mercs.some((m) => m.combatantId === combatantDisplayId);
         if (!exists) {
+          const dictatorSector = sectors.value.find(s => s.sectorId === squadSectorId);
           mercs.push({
             ...child,
             combatantId: combatantDisplayId,
             combatantName: getAttr(child, 'combatantName', 'The Dictator'),
             sectorId: squadSectorId,
+            sectorName: dictatorSector?.sectorName || '',
             playerColor: 'dictator',
             image: getAttr(child, 'image', ''),
           });
@@ -989,12 +1014,15 @@ const dictatorCard = computed(() => {
     dictatorPlayer = findByClassName('_DictatorPlayer');
   }
 
-  // Find dictator combatant (dictator combatant)
-  let dictatorCardNode = dictatorPlayer ? findDictatorCombatant(dictatorPlayer) : null;
-  if (!dictatorCardNode) {
+  // Find dictator combatant with parent context (for getting sectorId from parent Squad)
+  let result = dictatorPlayer ? findDictatorCombatantWithParent(dictatorPlayer) : null;
+  if (!result) {
     // Search entire gameView
-    dictatorCardNode = findDictatorCombatant();
+    result = findDictatorCombatantWithParent();
   }
+
+  const dictatorCardNode = result?.node;
+  const parentNode = result?.parent;
 
   // If we still can't find it, return a placeholder so panel still shows
   if (!dictatorCardNode) {
@@ -1021,6 +1049,15 @@ const dictatorCard = computed(() => {
   const combatantId = attrs.combatantId || getAttr(dictatorCardNode, 'combatantId', 'unknown');
   const combatantName = attrs.combatantName || getAttr(dictatorCardNode, 'combatantName', 'Unknown Dictator');
 
+  // Get sectorId from parent Squad (CombatantModel.sectorId is a getter, not serialized)
+  let sectorId = '';
+  if (parentNode) {
+    const parentClass = normalizeClassName(parentNode.className);
+    if (parentClass === 'Squad') {
+      sectorId = getAttr(parentNode, 'sectorId', '');
+    }
+  }
+
   return {
     id: dictatorCardNode.ref,
     combatantId,
@@ -1030,7 +1067,7 @@ const dictatorCard = computed(() => {
     image: attrs.image || getAttr(dictatorCardNode, 'image', ''),
     inPlay: attrs.inPlay || getAttr(dictatorCardNode, 'inPlay', false),
     actionsRemaining: attrs.actionsRemaining || getAttr(dictatorCardNode, 'actionsRemaining', 0),
-    sectorId: attrs.sectorId || getAttr(dictatorCardNode, 'sectorId', ''),
+    sectorId,
     // Equipment slots
     weaponSlot: weaponSlotData,
     armorSlot: armorSlotData,

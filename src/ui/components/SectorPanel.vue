@@ -1498,6 +1498,7 @@ const hasContentToShow = computed(() => {
         :merc="selectedMerc"
         :player-color="selectedMercPlayerColor"
         :squad-name="selectedMercSquadName"
+        :sector-name="sector?.sectorName"
         :show-equipment="true"
         :can-drop-equipment="canDropEquipmentForSelectedMerc"
         @drop-equipment="handleDropEquipment"

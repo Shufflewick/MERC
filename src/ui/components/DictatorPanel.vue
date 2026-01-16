@@ -30,12 +30,6 @@ interface SectorData {
   explored?: boolean;
 }
 
-// Helper to get equipment name from slot data
-function getEquipmentName(slot: any): string | null {
-  if (!slot) return null;
-  return slot.equipmentName || slot.name || null;
-}
-
 // Props
 const props = defineProps<{
   dictator: {
@@ -57,6 +51,8 @@ const props = defineProps<{
     baseTraining?: number;
     maxHealth?: number;
     damage?: number;
+    // Location
+    sectorId?: string;
   };
   tacticsHand: Array<{
     id?: number;
@@ -398,6 +394,31 @@ const hasContentToShow = computed(() => {
          dictatorActions.value.length > 0 ||
          !props.isMyTurn;
 });
+
+// Resolve dictator's sector ID to sector name
+const dictatorSectorName = computed(() => {
+  if (!props.dictator.sectorId || !props.allSectors) return '';
+  const sector = props.allSectors.find(s => s.sectorId === props.dictator.sectorId);
+  return sector?.sectorName || '';
+});
+
+// Format dictator data for CombatantCard component
+const dictatorCardData = computed(() => ({
+  combatantId: props.dictator.combatantId,
+  combatantName: props.dictator.combatantName,
+  image: props.dictator.image,
+  ability: props.dictator.ability,
+  bio: props.dictator.bio,
+  baseTraining: props.dictator.baseTraining,
+  baseCombat: props.dictator.baseCombat,
+  baseInitiative: props.dictator.baseInitiative,
+  maxHealth: props.dictator.maxHealth,
+  damage: props.dictator.damage,
+  actionsRemaining: props.dictator.actionsRemaining,
+  weaponSlot: props.dictator.weaponSlot,
+  armorSlot: props.dictator.armorSlot,
+  accessorySlot: props.dictator.accessorySlot,
+}));
 </script>
 
 <template>
@@ -528,49 +549,12 @@ const hasContentToShow = computed(() => {
 
     <!-- Dictator Details Modal -->
     <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
-      <div class="dictator-modal">
-        <CombatantIconSmall
-          :combatant-id="dictator.combatantId"
-          :image="dictatorImagePath"
-          :alt="dictator.combatantName"
-          :player-color="playerColor"
-          :size="120"
-          is-dictator
-        />
-        <div class="dictator-modal-info">
-          <h2>{{ dictator.combatantName }}</h2>
-          <p class="ability-text">{{ dictator.ability }}</p>
-          <p v-if="dictator.bio" class="bio-text">{{ dictator.bio }}</p>
-
-          <!-- Equipment Slots -->
-          <div class="equipment-section" v-if="dictator.inPlay">
-            <div class="section-title">Equipment</div>
-            <div class="equipment-slots">
-              <div class="equipment-slot">
-                <span class="slot-icon">⚔️</span>
-                <span class="slot-name">{{ getEquipmentName(dictator.weaponSlot) || 'No weapon' }}</span>
-              </div>
-              <div class="equipment-slot">
-                <span class="slot-icon">🛡️</span>
-                <span class="slot-name">{{ getEquipmentName(dictator.armorSlot) || 'No armor' }}</span>
-              </div>
-              <div class="equipment-slot">
-                <span class="slot-icon">💍</span>
-                <span class="slot-name">{{ getEquipmentName(dictator.accessorySlot) || 'No accessory' }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Stats -->
-          <div class="stats-section" v-if="dictator.inPlay">
-            <div class="section-title">Stats</div>
-            <div class="stats-row">
-              <span class="stat">Actions: {{ dictator.actionsRemaining ?? 0 }}</span>
-              <span class="stat">Health: {{ (dictator.maxHealth ?? 10) - (dictator.damage ?? 0) }}/{{ dictator.maxHealth ?? 10 }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CombatantCard
+        :merc="dictatorCardData"
+        :player-color="playerColor"
+        :show-equipment="dictator.inPlay"
+        :sector-name="dictatorSectorName"
+      />
     </DetailModal>
 
     <!-- Tactics Card Detail Modal -->
@@ -834,39 +818,6 @@ const hasContentToShow = computed(() => {
 }
 
 /* Modals */
-.dictator-modal {
-  display: flex;
-  gap: 20px;
-  padding: 20px;
-  background: v-bind('UI_COLORS.surface');
-  border: 1px solid v-bind('UI_COLORS.border');
-  border-radius: 12px;
-  max-width: 500px;
-}
-
-.dictator-modal-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.dictator-modal-info h2 {
-  margin: 0;
-  color: #ff6b6b;
-}
-
-.ability-text {
-  color: v-bind('UI_COLORS.accent');
-  font-weight: 500;
-  margin: 0;
-}
-
-.bio-text {
-  color: v-bind('UI_COLORS.textSecondary');
-  font-size: 0.9rem;
-  margin: 0;
-}
-
 .tactics-modal {
   padding: 20px;
   background: v-bind('UI_COLORS.surface');
@@ -889,56 +840,5 @@ const hasContentToShow = computed(() => {
 .tactics-effect {
   color: v-bind('UI_COLORS.textPrimary');
   margin: 0;
-}
-
-/* Equipment and Stats sections in modal */
-.equipment-section,
-.stats-section {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.section-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: v-bind('UI_COLORS.textSecondary');
-  margin-bottom: 8px;
-}
-
-.equipment-slots {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.equipment-slot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-}
-
-.slot-icon {
-  font-size: 1rem;
-}
-
-.slot-name {
-  font-size: 0.9rem;
-  color: v-bind('UI_COLORS.textPrimary');
-}
-
-.stats-row {
-  display: flex;
-  gap: 16px;
-}
-
-.stat {
-  font-size: 0.9rem;
-  color: v-bind('UI_COLORS.textPrimary');
 }
 </style>

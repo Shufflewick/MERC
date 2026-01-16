@@ -11,10 +11,14 @@ import { UI_COLORS } from './colors';
 const showCombatantModal = ref(false);
 const selectedCombatant = ref<any>(null);
 const selectedCombatantColor = ref<string>('');
+const selectedCombatantSquadName = ref<string>('');
+const selectedCombatantSectorName = ref<string>('');
 
-function openCombatantModal(combatant: any, playerColor: string) {
+function openCombatantModal(combatant: any, playerColor: string, squadName: string, sectorName: string) {
   selectedCombatant.value = combatant;
   selectedCombatantColor.value = playerColor;
+  selectedCombatantSquadName.value = squadName;
+  selectedCombatantSectorName.value = sectorName;
   showCombatantModal.value = true;
 }
 
@@ -57,7 +61,7 @@ function closeCombatantModal() {
             :player-color="getPlayerColorName(player)"
             :size="28"
             :clickable="true"
-            @click="openCombatantModal(combatant.attributes, getPlayerColorName(player))"
+            @click="openCombatantModal(combatant.attributes, getPlayerColorName(player), combatant.squadName, combatant.sectorName)"
           />
           <span v-if="getCombatants(player, gameView).length === 0" class="stat-value">0</span>
         </div>
@@ -75,6 +79,8 @@ function closeCombatantModal() {
       v-if="selectedCombatant"
       :merc="selectedCombatant"
       :player-color="selectedCombatantColor"
+      :squad-name="selectedCombatantSquadName"
+      :sector-name="selectedCombatantSectorName"
       :show-equipment="true"
     />
   </DetailModal>
@@ -93,6 +99,9 @@ interface CombatantInfo {
   image: string;
   // Full attributes for CombatantCard modal
   attributes: Record<string, any>;
+  // Squad and sector info for modal display
+  squadName: string;
+  sectorName: string;
 }
 
 // Helper functions for player stats
@@ -109,7 +118,24 @@ function getCombatants(player: any, gameView: any): CombatantInfo[] {
   const combatants: CombatantInfo[] = [];
   const seenIds = new Set<string>();
 
-  function addCombatant(attrs: any) {
+  // Build a map of sectorId -> sectorName for resolving sector locations
+  const sectorNames = new Map<string, string>();
+  function buildSectorMap(node: any) {
+    if (!node) return;
+    const attrs = node.attributes || {};
+    const className = normalizeClassName(node.className);
+    if (className === 'Sector' && attrs.sectorId && attrs.sectorName) {
+      sectorNames.set(attrs.sectorId, attrs.sectorName);
+    }
+    if (node.children) {
+      for (const child of node.children) {
+        buildSectorMap(child);
+      }
+    }
+  }
+  buildSectorMap(gameView);
+
+  function addCombatant(attrs: any, squadName: string, sectorName: string) {
     const id = attrs.combatantId || '';
     if (id && !seenIds.has(id)) {
       seenIds.add(id);
@@ -118,6 +144,8 @@ function getCombatants(player: any, gameView: any): CombatantInfo[] {
         combatantName: attrs.combatantName || id,
         image: attrs.image || '',
         attributes: { ...attrs },
+        squadName,
+        sectorName,
       });
     }
   }
@@ -129,22 +157,29 @@ function getCombatants(player: any, gameView: any): CombatantInfo[] {
 
     // Check if this is the player's dictator card
     if (className === 'CombatantModel' && attrs.name === dictatorRef) {
-      addCombatant(attrs);
+      // For dictator, resolve sector from their sectorId attribute
+      const sectorName = attrs.sectorId ? (sectorNames.get(attrs.sectorId) || '') : '';
+      addCombatant(attrs, '', sectorName);
     }
 
     // Check if this is one of the player's squads
-    const isPlayerSquad = className === 'Squad' && (
-      attrs.name === primaryRef ||
-      attrs.name === secondaryRef ||
-      attrs.name === hiredMercsRef ||
-      attrs.name === baseSquadRef
-    );
+    let squadName = '';
+    if (className === 'Squad') {
+      if (attrs.name === primaryRef) squadName = 'Primary';
+      else if (attrs.name === secondaryRef) squadName = 'Secondary';
+      else if (attrs.name === hiredMercsRef) squadName = 'Hired';
+      else if (attrs.name === baseSquadRef) squadName = 'Base';
+    }
 
-    if (isPlayerSquad && node.children) {
+    if (squadName && node.children) {
+      // Resolve the squad's sector location
+      const squadSectorId = attrs.sectorId || '';
+      const sectorName = squadSectorId ? (sectorNames.get(squadSectorId) || '') : '';
+
       for (const child of node.children) {
         const childAttrs = child.attributes || {};
         if (childAttrs.combatantId) {
-          addCombatant(childAttrs);
+          addCombatant(childAttrs, squadName, sectorName);
         }
       }
     }
