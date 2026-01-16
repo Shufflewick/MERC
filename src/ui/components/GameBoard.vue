@@ -622,7 +622,8 @@ const allMercs = computed(() => {
         // Skip dead MERCs
         if (isMercDead(merc)) continue;
 
-        if (id || getAttr(merc, 'cardType', '') === 'merc') {
+        const cardType = getAttr(merc, 'cardType', '');
+        if ((id || cardType === 'merc') && cardType !== 'dictator') {
           // Use squad's sectorId (sectorId is now a computed getter on combatants)
           const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
           const combatantId = id || merc.ref;

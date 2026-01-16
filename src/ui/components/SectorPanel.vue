@@ -186,7 +186,8 @@ function closeMercModal() {
 // Check if player's squad is in this sector
 const hasSquadInSector = computed(() => {
   return props.primarySquad?.sectorId === props.sector.sectorId ||
-         props.secondarySquad?.sectorId === props.sector.sectorId;
+         props.secondarySquad?.sectorId === props.sector.sectorId ||
+         props.baseSquad?.sectorId === props.sector.sectorId;
 });
 
 // Get the selected merc's player color for modal display
@@ -410,7 +411,9 @@ const hasSquadAdjacent = computed(() => {
     adjacentSectorIds.value.includes(props.primarySquad.sectorId);
   const secondaryInAdjacent = props.secondarySquad?.sectorId &&
     adjacentSectorIds.value.includes(props.secondarySquad.sectorId);
-  return primaryInAdjacent || secondaryInAdjacent;
+  const baseInAdjacent = props.baseSquad?.sectorId &&
+    adjacentSectorIds.value.includes(props.baseSquad.sectorId);
+  return primaryInAdjacent || secondaryInAdjacent || baseInAdjacent;
 });
 
 // Sector type helpers
@@ -541,7 +544,7 @@ const inSectorActions = computed(() => {
 
 // Actions available when ADJACENT to this sector
 const adjacentActions = computed(() => {
-  if (!hasSquadAdjacent.value || hasSquadInSector.value) return [];
+  if (!hasSquadAdjacent.value) return [];
 
   const actions: Array<{ name: string; label: string; icon: string }> = [];
 
@@ -640,7 +643,7 @@ const selectionChoices = computed(() => {
   return props.actionController.getChoices(currentSelection.value);
 });
 
-// Get all available MERCs (from both squads in sector)
+// Get all available MERCs (from all squads in sector)
 const allAvailableMercs = computed(() => {
   const mercs: any[] = [];
   if (props.primarySquad?.sectorId === props.sector.sectorId && props.primarySquad?.mercs) {
@@ -648,6 +651,9 @@ const allAvailableMercs = computed(() => {
   }
   if (props.secondarySquad?.sectorId === props.sector.sectorId && props.secondarySquad?.mercs) {
     mercs.push(...props.secondarySquad.mercs);
+  }
+  if (props.baseSquad?.sectorId === props.sector.sectorId && props.baseSquad?.mercs) {
+    mercs.push(...props.baseSquad.mercs);
   }
   return mercs;
 });
@@ -921,10 +927,11 @@ const selectableItems = computed(() => {
     });
   }
 
-  // Combine all MERCs from both squads for lookups
+  // Combine all MERCs from all squads for lookups
   const allSquadMercs = [
     ...(props.primarySquad?.mercs || []),
     ...(props.secondarySquad?.mercs || []),
+    ...(props.baseSquad?.mercs || []),
   ];
 
   // Helper to find MERC data from squads by element ID
@@ -948,8 +955,19 @@ const selectableItems = computed(() => {
 
   if (sel.type === 'element' && validEls.length > 0) {
     if (isMercSelection) {
+      // Filter to only units in this sector (for in-sector actions started from panel)
+      const mercsInSectorIds = new Set(
+        allAvailableMercs.value.map((m: any) => m.ref || m.id)
+      );
+      const filteredEls = validEls.filter((ve: any) => {
+        const elementId = ve.id || ve.ref?.id;
+        return mercsInSectorIds.has(elementId);
+      });
+      // Use filtered list if any match; fallback to all for edge cases (e.g., action started elsewhere)
+      const elsToUse = filteredEls.length > 0 ? filteredEls : validEls;
+
       // Use automatically enriched element data from BoardSmith
-      return validEls.map((ve: any) => {
+      return elsToUse.map((ve: any) => {
         const elementId = ve.id || ve.ref?.id;
         const attrs = ve.element?.attributes || {};
 
@@ -1019,7 +1037,20 @@ const selectableItems = computed(() => {
 
   // For MERC selections from choices, look up MERC data from squad
   if (isMercSelection && choices.length > 0) {
-    return choices.map(c => {
+    // Filter choices to only units in this sector
+    const mercsInSectorIds = new Set(
+      allAvailableMercs.value.map((m: any) => m.ref || m.id)
+    );
+    const filteredChoices = choices.filter((c: any) => {
+      // Parse ID from train's value format "id:name:isDictator"
+      const idStr = String(c.value).split(':')[0];
+      const id = parseInt(idStr, 10);
+      // If can't parse, keep the choice (fallback); otherwise filter by sector
+      return isNaN(id) || mercsInSectorIds.has(id);
+    });
+    const choicesToUse = filteredChoices.length > 0 ? filteredChoices : choices;
+
+    return choicesToUse.map((c: any) => {
       const displayLower = (c.display || '').toLowerCase();
 
       // Try to find matching MERC using various ID fields
@@ -1081,7 +1112,30 @@ async function handleAction(actionName: string) {
 
   // Start the action and track it
   activeActionFromPanel.value = actionName;
-  props.actionController.start(actionName);
+  await props.actionController.start(actionName);
+
+  // For in-sector actions, auto-fill the unit if there's only one in this sector
+  const sel = props.actionController.currentSelection.value;
+  if (sel && (sel.name === 'actingUnit' || sel.name === 'actingMerc' || sel.name === 'unit')) {
+    const mercsInSector = allAvailableMercs.value;
+    if (mercsInSector.length === 1) {
+      const merc = mercsInSector[0];
+      if (sel.name === 'unit') {
+        // Train uses string format "id:name:isDictator"
+        const id = merc.ref || merc.id;
+        const name = getAttr(merc, 'combatantName', '') || getAttr(merc, 'combatantId', '');
+        const isDictator = merc.isDictator || getAttr(merc, 'isDictator', false);
+        const value = `${id}:${name}:${isDictator}`;
+        await props.actionController.fill(sel.name, value);
+      } else {
+        // Element selection - use ID directly
+        const unitId = merc.ref || merc.id;
+        if (unitId) {
+          await props.actionController.fill(sel.name, unitId);
+        }
+      }
+    }
+  }
 }
 
 // Handle MERC selection
