@@ -467,7 +467,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         const g = ctx.game as MERCGame;
         return g.isRebelPlayer(ctx.player) || g.isDictatorPlayer(ctx.player);
       },
-      'has merc with equipment': (ctx) => {
+      'has combatant with equipment': (ctx) => {
         const livingMercs = getPlayerMercsFromCtx(ctx);
         return livingMercs.some(m => getMercEquipment(m).length > 0);
       },
