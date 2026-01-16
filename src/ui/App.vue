@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { GameShell } from '@boardsmith/ui';
 import GameBoard from './components/GameBoard.vue';
+import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import { UI_COLORS } from './colors';
 </script>
 
@@ -25,11 +26,20 @@ import { UI_COLORS } from './colors';
     </template>
 
     <template #player-stats="{ player, gameView }">
-      <div class="player-stat">
+      <div class="player-stat combatants-row">
         <span class="stat-label">MERCs:</span>
-        <span class="stat-value">
-          {{ getMercCount(player, gameView) }}
-        </span>
+        <div class="combatant-icons">
+          <CombatantIconSmall
+            v-for="combatant in getCombatants(player, gameView)"
+            :key="combatant.combatantId"
+            :combatant-id="combatant.combatantId"
+            :image="combatant.image"
+            :alt="combatant.combatantName"
+            :player-color="getPlayerColorName(player)"
+            :size="28"
+          />
+          <span v-if="getCombatants(player, gameView).length === 0" class="stat-value">0</span>
+        </div>
       </div>
       <div class="player-stat">
         <span class="stat-label">Sectors:</span>
@@ -46,37 +56,62 @@ function normalizeClassName(name: string | undefined): string {
   return name.replace(/^_/, '');
 }
 
-// Helper functions for player stats
-function getMercCount(player: any, gameView: any): number {
-  if (!gameView?.children) return 0;
+interface CombatantInfo {
+  combatantId: string;
+  combatantName: string;
+  image: string;
+}
 
-  // For rebel players, count MERCs in their squads (identified by squadRef names)
+// Helper functions for player stats
+function getCombatants(player: any, gameView: any): CombatantInfo[] {
+  if (!gameView?.children) return [];
+
   const playerAttrs = player.attributes || player;
   const primaryRef = playerAttrs.primarySquadRef;
   const secondaryRef = playerAttrs.secondarySquadRef;
+  const hiredMercsRef = playerAttrs.hiredMercsSquadRef;
+  const baseSquadRef = playerAttrs.baseSquadRef;
+  const dictatorRef = playerAttrs.dictatorRef;
 
-  let count = 0;
+  const combatants: CombatantInfo[] = [];
+  const seenIds = new Set<string>();
+
+  function addCombatant(attrs: any) {
+    const id = attrs.combatantId || '';
+    if (id && !seenIds.has(id)) {
+      seenIds.add(id);
+      combatants.push({
+        combatantId: id,
+        combatantName: attrs.combatantName || id,
+        image: attrs.image || '',
+      });
+    }
+  }
+
   function search(node: any) {
     if (!node) return;
     const attrs = node.attributes || {};
     const className = normalizeClassName(node.className);
 
-    // Check if this is one of the player's squads
-    if (className === 'Squad' && (attrs.name === primaryRef || attrs.name === secondaryRef)) {
-      // Count MERCs in this squad (children with combatantId)
-      if (node.children) {
-        count += node.children.filter((c: any) =>
-          c.attributes?.combatantId || c.attributes?.cardType === 'merc'
-        ).length;
-      }
+    // Check if this is the player's dictator card
+    if (className === 'CombatantModel' && attrs.name === dictatorRef) {
+      addCombatant(attrs);
     }
 
-    // Also check for dictator's hired mercs squad
-    if (className === 'Squad' && attrs.name === playerAttrs.hiredMercsSquadRef) {
-      if (node.children) {
-        count += node.children.filter((c: any) =>
-          c.attributes?.combatantId || c.attributes?.cardType === 'merc'
-        ).length;
+    // Check if this is one of the player's squads
+    const isPlayerSquad = className === 'Squad' && (
+      attrs.name === primaryRef ||
+      attrs.name === secondaryRef ||
+      attrs.name === hiredMercsRef ||
+      attrs.name === baseSquadRef
+    );
+
+    if (isPlayerSquad && node.children) {
+      for (const child of node.children) {
+        const childAttrs = child.attributes || {};
+        if (childAttrs.combatantId) {
+          addCombatant(childAttrs);
+        }
       }
     }
 
@@ -87,7 +122,12 @@ function getMercCount(player: any, gameView: any): number {
     }
   }
   search(gameView);
-  return count;
+  return combatants;
+}
+
+function getPlayerColorName(player: any): string {
+  const playerAttrs = player.attributes || player;
+  return playerAttrs.playerColor || '';
 }
 
 function getControlledSectors(player: any, gameView: any): number {
@@ -156,8 +196,20 @@ function getControlledSectors(player: any, gameView: any): number {
 .player-stat {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.85rem;
   margin-top: 8px;
+}
+
+.player-stat.combatants-row {
+  align-items: flex-start;
+}
+
+.combatant-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
 }
 
 .stat-label {
