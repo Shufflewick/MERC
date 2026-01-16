@@ -1,8 +1,27 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { GameShell } from '@boardsmith/ui';
 import GameBoard from './components/GameBoard.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
+import DetailModal from './components/DetailModal.vue';
+import CombatantCard from './components/CombatantCard.vue';
 import { UI_COLORS } from './colors';
+
+// Modal state for combatant details
+const showCombatantModal = ref(false);
+const selectedCombatant = ref<any>(null);
+const selectedCombatantColor = ref<string>('');
+
+function openCombatantModal(combatant: any, playerColor: string) {
+  selectedCombatant.value = combatant;
+  selectedCombatantColor.value = playerColor;
+  showCombatantModal.value = true;
+}
+
+function closeCombatantModal() {
+  showCombatantModal.value = false;
+  selectedCombatant.value = null;
+}
 </script>
 
 <template>
@@ -37,6 +56,8 @@ import { UI_COLORS } from './colors';
             :alt="combatant.combatantName"
             :player-color="getPlayerColorName(player)"
             :size="28"
+            :clickable="true"
+            @click="openCombatantModal(combatant.attributes, getPlayerColorName(player))"
           />
           <span v-if="getCombatants(player, gameView).length === 0" class="stat-value">0</span>
         </div>
@@ -47,6 +68,16 @@ import { UI_COLORS } from './colors';
       </div>
     </template>
   </GameShell>
+
+  <!-- Combatant detail modal -->
+  <DetailModal :show="showCombatantModal" @close="closeCombatantModal">
+    <CombatantCard
+      v-if="selectedCombatant"
+      :merc="selectedCombatant"
+      :player-color="selectedCombatantColor"
+      :show-equipment="true"
+    />
+  </DetailModal>
 </template>
 
 <script lang="ts">
@@ -60,6 +91,8 @@ interface CombatantInfo {
   combatantId: string;
   combatantName: string;
   image: string;
+  // Full attributes for CombatantCard modal
+  attributes: Record<string, any>;
 }
 
 // Helper functions for player stats
@@ -84,6 +117,7 @@ function getCombatants(player: any, gameView: any): CombatantInfo[] {
         combatantId: id,
         combatantName: attrs.combatantName || id,
         image: attrs.image || '',
+        attributes: { ...attrs },
       });
     }
   }
