@@ -609,6 +609,8 @@ const hasContentToShow = computed(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Header Tactics */
@@ -639,10 +641,19 @@ const hasContentToShow = computed(() => {
   transform: translateY(-1px);
 }
 
+@media (max-width: 900px) {
+  .header-tactics {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+}
+
 .dictator-details {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .dictator-name {
