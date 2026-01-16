@@ -10,17 +10,17 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ## Current State
 
-**Shipped:** v1.5 Final Combatant Unification (2026-01-15)
+**Shipped:** v1.6 Final ID Cleanup (2026-01-15)
 
 - 32,090 lines of TypeScript/Vue (modular structure)
 - Zero `as any` casts in src/rules/
-- Unified class hierarchy: CombatantBase → CombatantModel → MercCard/DictatorCard
-- Canonical identity: combatantId/combatantName properties
-- Property-based type guards (isCombatantModel) with backward-compat aliases
+- Unified class hierarchy: CombatantBase → CombatantModel (concrete class)
+- Canonical identity: combatantId/combatantName (no legacy aliases)
+- Property-based type guards (isCombatantModel)
 - Single combatants.json data file (54 entries)
 - CombatantCard.vue component for rendering any combatant
 - CLAUDE.md architecture guide for AI navigation
-- 81+ tests for error conditions and edge cases
+- 524 tests passing (81+ for error conditions and edge cases)
 
 ## Requirements
 
@@ -54,6 +54,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ CombatantModel concrete class — single unified class with cardType discriminator — v1.5
 - ✓ Removed ID aliases — only combatantId/combatantName identity properties — v1.5
 - ✓ Removed backward-compat exports — clean CombatantModel-based types — v1.5
+- ✓ Final ID cleanup — eradicated all mercId/mercName/dictatorId/dictatorName patterns — v1.6
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -80,8 +81,9 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - Built on @boardsmith/* monorepo packages (engine, session, ui, runtime)
 - 32,090 lines of TypeScript/Vue code
 - Comprehensive test coverage for combat, abilities, equipment, conditions, state persistence, and error handling
-- Clean class hierarchy: CombatantBase → CombatantModel → MercCard/DictatorCard
+- Clean class hierarchy: CombatantBase → CombatantModel (concrete)
 - Architecture documented in CLAUDE.md
+- Zero legacy ID patterns (mercId/mercName/dictatorId/dictatorName eradicated)
 
 **Codebase Map:**
 - `.planning/codebase/CONCERNS.md` - Full list of identified issues
@@ -124,4 +126,4 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | className strings preserved | MercCard/DictatorCard classRegistry keys must match TypeScript class names | ✓ Good |
 
 ---
-*Last updated: 2026-01-15 after v1.5 milestone*
+*Last updated: 2026-01-15 after v1.6 milestone*

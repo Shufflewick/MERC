@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-15)
 
 **Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** v1.6 Final ID Cleanup complete
+**Current focus:** Project complete - all 7 milestones shipped
 
 ## Current Position
 
 Phase: 30 of 30 (UI Layer ID Cleanup)
 Plan: 2 of 2 in current phase
-Status: Milestone complete
-Last activity: 2026-01-15 — Completed 30-02-PLAN.md
+Status: Project complete
+Last activity: 2026-01-15 — v1.6 Final ID Cleanup shipped
 
-Progress: ██████████ 100% (3 of 3 v1.6 phases)
+Progress: ██████████ 100% (30 of 30 phases)
 
 ## Milestones Completed
 
@@ -32,8 +32,8 @@ Total: 30 phases, 57 plans, 7 milestones shipped
 
 **Velocity:**
 - Total plans completed: 57
-- Total execution time: ~9.5 hours
-- Average duration: 10 min/plan
+- Total execution time: ~10 hours
+- Average duration: 10.5 min/plan
 
 ## Accumulated Context
 
@@ -51,10 +51,12 @@ None active.
 
 ### Roadmap Evolution
 
-- Milestone v1.6 completed: Final ID Cleanup, 3 phases (Phase 28-30)
+- MERC Codebase Cleanup project complete
+- All 7 milestones shipped
+- 30 phases, 57 plans executed
 
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed v1.6 milestone (all phases complete)
+Stopped at: Project complete - all milestones shipped
 Resume file: None

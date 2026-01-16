@@ -1,5 +1,33 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.6 Final ID Cleanup (Shipped: 2026-01-15)
+
+**Delivered:** Eradicated all legacy mercId/dictatorId/mercName/dictatorName patterns, leaving only combatantId/combatantName as canonical identity.
+
+**Phases completed:** 28-30 (5 plans total)
+
+**Key accomplishments:**
+
+- Removed 10 deprecated functions and all backward-compat comments from rules layer
+- Updated all state types to use combatantId naming (pendingEpinephrine, pendingHitAllocation, lastExplorer)
+- Renamed getCombatantMercId → getCombatantId in combat utilities
+- Updated all action args to use combatantId consistently
+- Cleaned all UI component interfaces to use combatantName as primary identity
+- Removed all fallback chains from UI layer (mercId||combatantId patterns eliminated)
+
+**Stats:**
+
+- 37 files changed
+- +1,470 / -505 lines changed
+- 3 phases, 5 plans
+- Same day execution (~3 hours)
+
+**Git range:** `refactor(28-01)` → `test(30-01)`
+
+**What's next:** Codebase cleanup complete - all 7 milestones shipped
+
+---
+
 ## v1.5 Final Combatant Unification (Shipped: 2026-01-15)
 
 **Delivered:** Single CombatantModel class with cardType discriminator, eliminated all ID aliases leaving only combatantId/combatantName.

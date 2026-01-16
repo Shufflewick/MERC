@@ -12,7 +12,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ **v1.3 Combatant Unification** — Phases 14-19 (shipped 2026-01-13)
 - ✅ **v1.4 Combatant Naming Unification** — Phases 20-23 (shipped 2026-01-14)
 - ✅ **v1.5 Final Combatant Unification** — Phases 24-27 (shipped 2026-01-15)
-- 🚧 **v1.6 Final ID Cleanup** — Phases 28-30 (in progress)
+- ✅ **v1.6 Final ID Cleanup** — Phases 28-30 (shipped 2026-01-15)
 
 ## Completed Milestones
 
@@ -22,6 +22,7 @@ A systematic cleanup moving from type safety foundations through code quality im
 - ✅ [v1.3 Combatant Unification](milestones/v1.3-ROADMAP.md) (Phases 14-19) — SHIPPED 2026-01-13
 - ✅ [v1.4 Combatant Naming Unification](milestones/v1.4-ROADMAP.md) (Phases 20-23) — SHIPPED 2026-01-14
 - ✅ [v1.5 Final Combatant Unification](milestones/v1.5-ROADMAP.md) (Phases 24-27) — SHIPPED 2026-01-15
+- ✅ [v1.6 Final ID Cleanup](milestones/v1.6-ROADMAP.md) (Phases 28-30) — SHIPPED 2026-01-15
 
 <details>
 <summary>✅ v1.5 Final Combatant Unification (Phases 24-27) — SHIPPED 2026-01-15</summary>
@@ -170,45 +171,20 @@ Plans:
 
 </details>
 
-### ✅ v1.6 Final ID Cleanup (Complete)
+<details>
+<summary>✅ v1.6 Final ID Cleanup (Phases 28-30) — SHIPPED 2026-01-15</summary>
 
 **Milestone Goal:** Eradicate all legacy mercId/dictatorId/mercName/dictatorName patterns from the codebase, leaving only combatantId/combatantName
 
-#### Phase 28: Remove Legacy Comments ✅
+- [x] Phase 28: Remove Legacy Comments (1/1 plan) — completed 2026-01-15
+- [x] Phase 29: Rules Layer ID Cleanup (2/2 plans) — completed 2026-01-15
+- [x] Phase 30: UI Layer ID Cleanup (2/2 plans) — completed 2026-01-15
 
-**Goal**: Clean up backward-compat and legacy comments from recent refactors
-**Depends on**: Previous milestone complete
-**Research**: Unlikely (internal cleanup)
-**Plans**: 1 complete
-
-Plans:
-- [x] 28-01: Remove legacy comments and deprecated functions from rules and UI layers
-
-#### Phase 29: Rules Layer ID Cleanup ✅
-
-**Goal**: Replace mercId with combatantId in state types, combat utilities, and action args (excluding merc-abilities.ts which uses mercId semantically correctly)
-**Depends on**: Phase 28
-**Research**: Unlikely (internal refactoring)
-**Plans**: 2 complete
-
-Plans:
-- [x] 29-01: Update core state types (game.ts) and combat utilities (combat.ts)
-- [x] 29-02: Update action layer (rebel-economy.ts, rebel-equipment.ts, day-one-actions.ts)
-
-#### Phase 30: UI Layer ID Cleanup ✅
-
-**Goal**: Replace mercName/dictatorName with combatantName in src/ui/ (~39 occurrences, 7 files) + tests (~1 occurrence, 1 file)
-**Depends on**: Phase 29
-**Research**: Unlikely (internal refactoring)
-**Plans**: 2 complete
-
-Plans:
-- [x] 30-01: Update UI component interfaces and type definitions
-- [x] 30-02: Remove fallback chains and update data mappings + test fixture
+</details>
 
 ## Status
 
-v1.6 Final ID Cleanup complete (Phases 28-30). 7 milestones shipped.
+All 7 milestones shipped. MERC Codebase Cleanup project complete.
 
 See milestone archives for completed work:
 - [v1.0 Codebase Cleanup](milestones/v1.0-ROADMAP.md) — Type safety and ship confidence
