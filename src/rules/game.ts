@@ -808,7 +808,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.create(Squad, primaryRef, { isPrimary: true });
     this.create(Squad, secondaryRef, { isPrimary: false });
     const area = this.create(PlayerArea, areaRef);
-    area.position = position;
     area.playerColor = player.playerColor;
 
     player.primarySquadRef = primaryRef;

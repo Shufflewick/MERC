@@ -1289,6 +1289,9 @@ export class GameMap extends Grid {
 
 export class PlayerArea extends Space {
   // Contains the player's squads, hired MERCs, etc.
-  position?: number;
+  // NOTE: Do NOT add a `position` property here. The @boardsmith/session code
+  // finds players by looking for game children with numeric `position`, and
+  // adding it here would cause PlayerArea to be incorrectly included in the
+  // players list. The UI parses position from the element name (e.g., "area-1").
   playerColor?: string;
 }
