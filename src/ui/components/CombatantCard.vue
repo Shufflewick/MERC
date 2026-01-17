@@ -48,16 +48,24 @@ const props = defineProps<{
   canDropEquipment?: boolean;
   abilityAvailable?: boolean; // Whether the MERC's ability action can be used
   pendingSlot?: 'Weapon' | 'Armor' | 'Accessory' | null; // Highlight this slot as pending selection
+  canReassign?: boolean; // Whether clicking the squad badge triggers reassignment
 }>();
 
 const emit = defineEmits<{
   dropEquipment: [combatantElementId: number, equipmentId: number];
   activateAbility: [combatantId: string];
+  reassignCombatant: [combatantName: string];
 }>();
 
 // Handle ability button click
 function onAbilityClick() {
   emit('activateAbility', combatantId.value as string);
+}
+
+// Handle squad badge click (for reassignment)
+function onSquadBadgeClick() {
+  if (!props.canReassign) return;
+  emit('reassignCombatant', displayName.value);
 }
 
 // Helper to get a property from either attributes or root level
@@ -557,7 +565,7 @@ function confirmDropEquipment() {
 </script>
 
 <template>
-  <div class="combatant-card" :class="{ compact }">
+  <div class="combatant-card" :class="{ compact }" :data-combatant="displayName">
     <!-- Header: Portrait + Name + Squad Label -->
     <div class="merc-header">
       <CombatantIconSmall
@@ -572,7 +580,13 @@ function confirmDropEquipment() {
           <span class="merc-name">{{ displayName }}</span>
           <span v-if="sectorName" class="sector-location">{{ sectorName }}</span>
         </div>
-        <span v-if="squadName" class="squad-badge" :style="{ backgroundColor: borderColor }">{{ squadName }}</span>
+        <span
+          v-if="squadName"
+          class="squad-badge"
+          :class="{ clickable: canReassign }"
+          :style="{ backgroundColor: borderColor }"
+          @click.stop="onSquadBadgeClick"
+        >{{ squadName }}</span>
       </div>
     </div>
 
@@ -889,6 +903,17 @@ function confirmDropEquipment() {
   letter-spacing: 0.5px;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+
+.squad-badge.clickable {
+  cursor: pointer;
+}
+
+.squad-badge.clickable:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 0 8px rgba(212, 168, 75, 0.6);
+  transform: scale(1.05);
 }
 
 /* Stats Grid */

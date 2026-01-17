@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, inject, reactive } from 'vue';
+import { computed, ref, watch, inject, reactive, nextTick } from 'vue';
 import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
@@ -10,6 +10,7 @@ import SectorPanel from './SectorPanel.vue';
 import DictatorPanel from './DictatorPanel.vue';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
+import AssignToSquadPanel from './AssignToSquadPanel.vue';
 import CombatantIcon from './CombatantIcon.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
@@ -988,9 +989,7 @@ const dictatorBaseSquad = computed(() => {
       return c;
     });
 
-  // Only show base squad if it has combatants
-  if (combatants.length === 0) return undefined;
-
+  // Always show base squad if it has a sector (even if empty - can transfer into it)
   return {
     squadId: 'squad-dictator-base',
     isPrimary: false,
@@ -1660,6 +1659,39 @@ function openHiringMercDetail() {
 // Close MERC detail modal
 function closeHiringMercModal() {
   showHiringMercModal.value = false;
+}
+
+// Show AssignToSquad component when assignToSquad action is active
+// Keep visible briefly after action completes so animation can find destination element
+const assignToSquadDelayedHide = ref(false);
+const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null>(null);
+let assignToSquadHideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const showAssignToSquad = computed(() =>
+  props.actionController.currentAction.value === 'assignToSquad' || assignToSquadDelayedHide.value
+);
+
+watch(() => props.actionController.currentAction.value, (newAction, oldAction) => {
+  if (oldAction === 'assignToSquad' && newAction !== 'assignToSquad') {
+    // Action just completed - keep panel visible for animation
+    assignToSquadDelayedHide.value = true;
+    if (assignToSquadHideTimeout) clearTimeout(assignToSquadHideTimeout);
+    assignToSquadHideTimeout = setTimeout(() => {
+      assignToSquadDelayedHide.value = false;
+      assignToSquadHideTimeout = null;
+    }, 600); // Match animation duration (500ms) + buffer
+  }
+});
+
+// Handle reassign from squad badge click - starts action and scrolls to panel
+function handleReassignCombatant(combatantName: string) {
+  props.actionController.start('assignToSquad', { combatantName });
+  // Wait for panel to render, then scroll to it
+  nextTick(() => {
+    if (assignToSquadPanelRef.value?.$el) {
+      assignToSquadPanelRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 }
 
 // Check if Hagness is selecting equipment type (first step)
@@ -2531,6 +2563,20 @@ const clickableSectors = computed(() => {
         <p v-if="isPlacingLanding" class="action-subtitle">Select an edge sector for your landing</p>
         <h2 v-if="isSelectingRetreatSector" class="action-title">Retreat</h2>
         <p v-if="isSelectingRetreatSector" class="action-subtitle">Select an adjacent sector to retreat to</p>
+
+        <!-- Assign to Squad UI (shown above map when action is active) -->
+        <AssignToSquadPanel
+          ref="assignToSquadPanelRef"
+          v-if="showAssignToSquad"
+          :player-color="currentPlayerIsDictator ? dictatorPlayerColor : currentPlayerColor"
+          :primary-squad="currentPlayerIsDictator ? dictatorPrimarySquad : primarySquad"
+          :secondary-squad="currentPlayerIsDictator ? dictatorSecondarySquad : secondarySquad"
+          :base-squad="currentPlayerIsDictator ? dictatorBaseSquad : undefined"
+          :action-controller="actionController"
+          :action-args="actionArgs"
+          :is-dictator="currentPlayerIsDictator"
+        />
+
         <MapGrid
           :sectors="sectors"
           :mercs="allMercs"
@@ -2554,8 +2600,11 @@ const clickableSectors = computed(() => {
           :player-color="currentPlayerColor"
           :can-drop-equipment="canDropEquipment"
           :merc-abilities-available="mercAbilitiesAvailable"
+          :can-assign-to-squad="availableActions.includes('assignToSquad')"
           @drop-equipment="handleDropEquipment"
           @activate-ability="handleActivateAbility"
+          @assign-to-squad="actionController.start('assignToSquad', {})"
+          @reassign-combatant="handleReassignCombatant"
         />
       </div>
     </div>
@@ -2602,6 +2651,7 @@ const clickableSectors = computed(() => {
         </div>
       </div>
     </DetailModal>
+
   </div>
 </template>
 

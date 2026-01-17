@@ -38,11 +38,14 @@ const props = defineProps<{
   playerColor: string;
   canDropEquipment?: boolean;
   mercAbilitiesAvailable?: string[]; // List of combatantIds that have abilities available
+  canAssignToSquad?: boolean; // Whether the assignToSquad action is available
 }>();
 
 const emit = defineEmits<{
   dropEquipment: [combatantElementId: number, equipmentId: number];
   activateAbility: [combatantId: string];
+  assignToSquad: [];
+  reassignCombatant: [combatantName: string];
 }>();
 
 function handleDropEquipment(combatantElementId: number, equipmentId: number) {
@@ -51,6 +54,14 @@ function handleDropEquipment(combatantElementId: number, equipmentId: number) {
 
 function handleActivateAbility(combatantId: string) {
   emit('activateAbility', combatantId);
+}
+
+function handleAssignToSquad() {
+  emit('assignToSquad');
+}
+
+function handleReassignCombatant(combatantName: string) {
+  emit('reassignCombatant', combatantName);
 }
 
 // Check if a MERC has their ability available
@@ -77,6 +88,15 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
     <div class="panel-header">
       <span class="header-icon">&#128101;</span>
       <span class="header-title">Your Squad</span>
+      <button
+        v-if="canAssignToSquad"
+        class="transfer-btn"
+        @click="handleAssignToSquad"
+        title="Transfer combatants between squads"
+      >
+        <span class="transfer-icon">&#8644;</span>
+        <span class="transfer-label">Transfer</span>
+      </button>
     </div>
 
     <!-- Primary Squad -->
@@ -98,8 +118,10 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
           :ability-available="isMercAbilityAvailable(merc)"
+          :can-reassign="canAssignToSquad"
           @drop-equipment="handleDropEquipment"
           @activate-ability="handleActivateAbility"
+          @reassign-combatant="handleReassignCombatant"
         />
       </div>
       <div class="empty-squad" v-else>
@@ -126,8 +148,10 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
           :ability-available="isMercAbilityAvailable(merc)"
+          :can-reassign="canAssignToSquad"
           @drop-equipment="handleDropEquipment"
           @activate-ability="handleActivateAbility"
+          @reassign-combatant="handleReassignCombatant"
         />
       </div>
       <div class="empty-squad" v-else>
@@ -154,8 +178,10 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
           :show-equipment="true"
           :can-drop-equipment="canDropEquipment"
           :ability-available="isMercAbilityAvailable(merc)"
+          :can-reassign="canAssignToSquad"
           @drop-equipment="handleDropEquipment"
           @activate-ability="handleActivateAbility"
+          @reassign-combatant="handleReassignCombatant"
         />
       </div>
       <div class="empty-squad" v-else>
@@ -266,5 +292,35 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
 .squad-panel::-webkit-scrollbar-thumb {
   background: v-bind('UI_COLORS.border');
   border-radius: 3px;
+}
+
+/* Transfer button in header */
+.transfer-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(30, 35, 30, 0.9);
+  border: 1px solid v-bind('UI_COLORS.border');
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: v-bind('UI_COLORS.text');
+}
+
+.transfer-btn:hover {
+  background: v-bind('UI_COLORS.accent');
+  border-color: v-bind('UI_COLORS.accent');
+  color: #1a1a1a;
+}
+
+.transfer-icon {
+  font-size: 1.1rem;
+}
+
+.transfer-label {
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 </style>

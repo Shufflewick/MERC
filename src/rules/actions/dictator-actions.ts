@@ -478,6 +478,9 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       targetSquad.sectorId = targetSector.sectorId;
       game.message(`Castro deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
 
+      // Update squad-based ability bonuses (Tack, Sarge, Valkyrie, etc.)
+      game.updateAllSargeBonuses();
+
       // Give equipment of chosen type - uses shared helper for Apeiron/Vrbansk ability handling
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, selectedMerc, equipType);

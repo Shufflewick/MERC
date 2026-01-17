@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { GameShell } from '@boardsmith/ui';
+import { ref, watch } from 'vue';
+import { GameShell, useActionAnimations, FlyingCardsOverlay } from '@boardsmith/ui';
+import type { UseActionControllerReturn } from '@boardsmith/ui';
 import GameBoard from './components/GameBoard.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import DetailModal from './components/DetailModal.vue';
@@ -13,6 +14,64 @@ const selectedCombatant = ref<any>(null);
 const selectedCombatantColor = ref<string>('');
 const selectedCombatantSquadName = ref<string>('');
 const selectedCombatantSectorName = ref<string>('');
+
+// Action animations setup
+const gameViewRef = ref<any>(null);
+const animationsRegistered = ref(false);
+
+const actionAnimations = useActionAnimations({
+  gameView: gameViewRef,
+  animations: [
+    {
+      action: 'assignToSquad',
+      elementSelection: 'combatantName',
+      elementSelector: '[data-combatant="{combatantName}"]',
+      // Use function-based selector because targetSquad values are like "Create Primary Squad" or "Primary Squad at X"
+      destinationSelector: (args) => {
+        const targetSquad = args.targetSquad as string;
+        if (!targetSquad) return null;
+        // Match the logic in rebel-movement.ts
+        if (targetSquad.includes('Primary')) {
+          return document.querySelector('[data-squad="Primary"]');
+        } else if (targetSquad.includes('Secondary')) {
+          return document.querySelector('[data-squad="Secondary"]');
+        } else if (targetSquad.includes('Base')) {
+          return document.querySelector('[data-squad="Base"]');
+        }
+        return null;
+      },
+      getElementData: (el) => ({
+        innerHTML: el.innerHTML,
+        className: el.className,
+      }),
+      duration: 500,
+      elementSize: { width: 180, height: 52 },
+    },
+  ],
+});
+
+// Register animations when actionController becomes available
+function setupAnimations(actionController: UseActionControllerReturn, gameView: any) {
+  if (animationsRegistered.value) return;
+  console.log('[App] setupAnimations called, registering hook');
+  gameViewRef.value = gameView;
+  actionController.registerBeforeAutoExecute(async (actionName, args) => {
+    console.log('[App] onBeforeAutoExecute fired:', actionName, args);
+    if (actionName === 'assignToSquad') {
+      const combatantName = args.combatantName as string;
+      const selector = `[data-combatant="${combatantName}"]`;
+      const el = document.querySelector(selector);
+      console.log('[App] Looking for source element:', selector, 'Found:', el);
+    }
+    await actionAnimations.onBeforeAutoExecute(actionName, args);
+  });
+  animationsRegistered.value = true;
+}
+
+// Keep gameViewRef in sync with slot prop
+function syncGameView(gameView: any) {
+  gameViewRef.value = gameView;
+}
 
 function openCombatantModal(combatant: any, playerColor: string, squadName: string, sectorName: string) {
   selectedCombatant.value = combatant;
@@ -45,7 +104,19 @@ function closeCombatantModal() {
         :action-controller="actionController"
         :set-board-prompt="setBoardPrompt"
         :state="state"
+        @vue:mounted="setupAnimations(actionController, gameView)"
+        @vue:updated="syncGameView(gameView)"
       />
+      <FlyingCardsOverlay :flying-cards="actionAnimations.flyingElements.value">
+        <template #card="{ card }">
+          <div
+            v-if="card.cardData?.innerHTML"
+            v-html="card.cardData.innerHTML"
+            :class="card.cardData.className"
+            style="display: flex; align-items: center; gap: 8px; padding: 6px; background: rgba(60, 75, 60, 0.95); border: 2px solid #d4a84b; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);"
+          />
+        </template>
+      </FlyingCardsOverlay>
     </template>
 
     <template #player-stats="{ player, gameView }">
