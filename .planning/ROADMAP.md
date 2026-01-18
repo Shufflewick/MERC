@@ -119,8 +119,10 @@
 **Requirements:**
 - UI-01: HiringPhase
 
+**Status:** In progress (1/2 plans complete)
+
 **Success Criteria:**
-- [ ] HiringPhase.vue created with full hiring flow
+- [x] HiringPhase.vue created with full hiring flow
 - [ ] Merc selection works
 - [ ] Dictator selection works
 - [ ] Equipment type selection works
@@ -131,7 +133,7 @@
 - [ ] Game runs without errors, all hiring paths work
 
 **Deliverables:**
-- `src/ui/components/HiringPhase.vue`
+- `src/ui/components/HiringPhase.vue` (306 lines)
 
 ---
 
@@ -162,7 +164,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | 35 | Pending |
+| UI-01 | 35 | In progress |
 | UI-02 | 34 | Complete |
 | UI-03 | 33 | Complete |
 | UI-04 | 33 | Complete |

@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Phase: 34 of 36 (Hagness UI Component)
-Plan: 2 of 2 in current phase
-Status: Phase 34 COMPLETE
-Last activity: 2026-01-18 — Completed 34-02-PLAN.md (-225 lines from GameBoard.vue)
+Phase: 35 of 36 (Hiring Phase Component)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-18 — Completed 35-01-PLAN.md (HiringPhase.vue created)
 
-Progress: █████████░ 67% (4 phases complete)
+Progress: █████████░ 70% (4 phases + 1 plan complete)
 
 ## Current Milestone
 
@@ -26,7 +26,7 @@ Progress: █████████░ 67% (4 phases complete)
 | 32 | State Composables | STATE-01-04 | COMPLETE (5/5 plans) |
 | 33 | Small UI Components | UI-03, UI-04 | COMPLETE (3/3 plans) |
 | 34 | Hagness UI Component | UI-02 | COMPLETE (2/2 plans) |
-| 35 | Hiring Phase Component | UI-01 | Pending |
+| 35 | Hiring Phase Component | UI-01 | IN PROGRESS (1/2 plans) |
 | 36 | Integration & Cleanup | INT-01-03 | Pending |
 
 ## Milestones Completed
@@ -44,8 +44,8 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 66
-- Average duration: 10.5 min/plan
+- Total plans completed: 67
+- Average duration: 10.3 min/plan
 
 ## Accumulated Context
 
@@ -78,6 +78,10 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Kept styles scoped and extracted only Hagness-specific styles
 - Wired events directly to existing handlers (selectEquipmentType, selectHagnessRecipient)
 
+**Phase 35 Decisions:**
+- Extended SectorChoice with value/label intersection for action filling compatibility
+- Used sectorName for v-for key (stable identifier vs value which has collision)
+
 ### Deferred Issues
 
 - Pre-existing type compatibility issues between composable interfaces and component props
@@ -99,14 +103,14 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Phase 34 complete, Phase 35 pending
+Stopped at: Completed 35-01-PLAN.md
 Resume file: None
 
 ### Recent Plans Completed
 
+- 35-01: Created HiringPhase.vue component (1 commit, +306 lines)
 - 34-02: Integrated HagnessDrawEquipment into GameBoard.vue (3 commits, -225 lines)
 - 34-01: Created HagnessDrawEquipment.vue component (1 commit, +188 lines)
 - 33-03: Integrated components into GameBoard.vue (5 commits, -66 lines)
 - 33-01: Created GameOverOverlay.vue component (1 commit, +108 lines)
 - 33-02: Created LandingZoneSelection.vue component (1 commit, +117 lines)
-- 32-05: Integrated state composables into GameBoard.vue (3 commits, -1,285 lines)
