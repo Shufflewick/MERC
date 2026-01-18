@@ -619,6 +619,7 @@ const allMercs = computed(() => {
 
   // Find rebel squads
   const squads = findAllByClassName('Squad');
+
   for (const squad of squads) {
     const sectorId = getAttr(squad, 'sectorId', '');
 
@@ -1966,8 +1967,21 @@ const hirableMercs = computed(() => {
   const selection = currentSelection.value;
   if (!selection) return [];
 
+  // Don't return MERCs when selection is for sectors (landing zone, Castro placement, retreat)
+  // This is more reliable than checking computed flags which may not evaluate correctly in all phases
+  if (selection.name === 'sector') return [];
+
   // Don't return MERCs when selecting equipment type
   if (isSelectingEquipmentType.value) return [];
+
+  // Don't return MERCs when placing landing zone (choices are sectors, not MERCs)
+  if (isPlacingLanding.value) return [];
+
+  // Don't return MERCs when selecting sector (Castro hire placement)
+  if (isSelectingSector.value) return [];
+
+  // Don't return MERCs when selecting retreat sector
+  if (isSelectingRetreatSector.value) return [];
 
   // Get choices using actionController.getChoices() - all choices are now fetched on-demand
   const choices = props.actionController.getChoices(selection) || [];
