@@ -81,6 +81,127 @@ const {
   gameWinner,
 } = useVictoryCalculations(() => props.gameView);
 
+// ============================================================================
+// STATE COMPOSABLES - Initialize in dependency order
+// ============================================================================
+
+// Player state (independent)
+const {
+  players,
+  currentPlayerColor,
+  playerColorMap,
+  dictatorPlayerColor,
+  currentPlayerIsDictator,
+  positionToColor,
+} = usePlayerState(
+  () => props.gameView,
+  () => props.playerPosition
+);
+
+// Sector state (needs allMercs via lazy getter - allMercs initialized below)
+const {
+  sectors,
+  selectedSectorId,
+  selectedSector,
+  actionContextSectorId,
+  actionContextSector,
+  activeSector,
+  selectedSectorStash,
+  selectedSectorMercs,
+  controlMap,
+  hasDoc,
+  hasSquidhead,
+  hasMortar,
+  hasDamagedMercs,
+  hasLandMinesInStash,
+  squidheadHasLandMine,
+} = useSectorState(
+  () => props.gameView,
+  {
+    getCurrentAction: () => props.actionController.currentAction.value,
+    getCurrentArgs: () => props.actionController.currentArgs.value,
+    isCurrentPlayerDictator: () => currentPlayerIsDictator.value,
+    getAllMercs: () => allMercs.value, // Lazy reference - allMercs initialized below
+    getPrimarySquad: () => primarySquad.value,
+    getSecondarySquad: () => secondarySquad.value,
+    getDictatorPrimarySquad: () => dictatorPrimarySquad.value,
+    getDictatorSecondarySquad: () => dictatorSecondarySquad.value,
+    getDictatorCard: () => dictatorCard.value,
+    positionToColor,
+  }
+);
+
+// Squad state (depends on player state, needs sectors computed ref)
+const {
+  primarySquad,
+  secondarySquad,
+  dictatorPrimarySquad,
+  dictatorSecondarySquad,
+  dictatorBaseSquad,
+  dictatorSquad,
+  allMercs,
+} = useSquadState(
+  () => props.gameView,
+  () => props.playerPosition,
+  currentPlayerIsDictator,
+  sectors,
+  players
+);
+
+// Action state (depends on sectors and squads)
+const {
+  actionChoices,
+  currentActionMetadata,
+  currentSelection,
+  allSelectionsComplete,
+  getCurrentActionName,
+  isHiringMercs,
+  isSelectingDictator,
+  isHagnessDrawActive,
+  isPlacingLanding,
+  isSelectingRetreatSector,
+  isEquipping,
+  isSelectingEquipmentType,
+  isCastroHiring,
+  isSelectingSector,
+  showAssignToSquad,
+  isHagnessSelectingType,
+  isHagnessSelectingRecipient,
+  retreatSectorChoices,
+  sectorChoices,
+  landingZoneMetadata,
+  selectedMercForEquipment,
+  selectedMercImagePath,
+  selectedMercName,
+  selectedMercId,
+  equipmentTypeChoices,
+  hagnessEquipmentTypeChoices,
+  hagnessDrawnEquipment,
+  hagnessSquadMates,
+  deferredChoicesLoading,
+  fetchedDeferredChoices,
+  showHiringMercModal,
+  assignToSquadDelayedHide,
+  findMercByName,
+  getSectorImageFallback,
+} = useActionState(
+  {
+    availableActions: props.availableActions,
+    actionController: props.actionController,
+    actionArgs: props.actionArgs,
+    state: props.state,
+    playerPosition: props.playerPosition,
+    gameView: props.gameView,
+  },
+  sectors,
+  primarySquad,
+  secondarySquad
+);
+
+// ============================================================================
+// REMAINING STATE (not extracted to composables)
+// ============================================================================
+
 // Extract map sectors from gameView
 const sectors = computed(() => {
   // Try to find GameMap element
