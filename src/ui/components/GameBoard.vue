@@ -809,6 +809,12 @@ function handleReassignCombatant(combatantName: string) {
   });
 }
 
+// Handle landing sector selection from LandingZoneSelection component
+async function handleLandingSectorSelected(sectorId: string) {
+  // Delegate to existing handleSectorClick logic for landing
+  await handleSectorClick(sectorId);
+}
+
 // Handle sector clicks for actions
 async function handleSectorClick(sectorId: string) {
   if (isPlacingLanding.value) {
