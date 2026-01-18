@@ -10,9 +10,9 @@ Requirements for v1.7 milestone. Each maps to roadmap phases.
 ### UI Components
 
 - [ ] **UI-01**: Extract HiringPhase.vue — merc selection, equipment type, sector selection, dictator selection, skip option, detail modal
-- [ ] **UI-02**: Extract HagnessDrawEquipment.vue — equipment type selection, drawn equipment display, recipient selection
-- [ ] **UI-03**: Extract LandingZoneSelection.vue — sector picker for landing phase with visual sector cards
-- [ ] **UI-04**: Extract GameOverOverlay.vue — victory/defeat display component
+- [x] **UI-02**: Extract HagnessDrawEquipment.vue — equipment type selection, drawn equipment display, recipient selection
+- [x] **UI-03**: Extract LandingZoneSelection.vue — sector picker for landing phase with visual sector cards
+- [x] **UI-04**: Extract GameOverOverlay.vue — victory/defeat display component
 
 ### Helper Composables
 
@@ -21,10 +21,10 @@ Requirements for v1.7 milestone. Each maps to roadmap phases.
 
 ### State Composables
 
-- [ ] **STATE-01**: Extract usePlayerState — players, currentPlayerColor, playerColorMap, dictatorPlayerColor, currentPlayerIsDictator, positionToColor
-- [ ] **STATE-02**: Extract useSectorState — sectors, selectedSector, activeSector, controlMap, selectedSectorStash, sector ability flags
-- [ ] **STATE-03**: Extract useSquadState — primarySquad, secondarySquad, dictatorPrimarySquad, dictatorSecondarySquad, dictatorBaseSquad, buildDictatorSquad
-- [ ] **STATE-04**: Extract useActionState — actionChoices, currentSelection, currentActionMetadata, action type flags, selection handlers
+- [x] **STATE-01**: Extract usePlayerState — players, currentPlayerColor, playerColorMap, dictatorPlayerColor, currentPlayerIsDictator, positionToColor
+- [x] **STATE-02**: Extract useSectorState — sectors, selectedSector, activeSector, controlMap, selectedSectorStash, sector ability flags
+- [x] **STATE-03**: Extract useSquadState — primarySquad, secondarySquad, dictatorPrimarySquad, dictatorSecondarySquad, dictatorBaseSquad, buildDictatorSquad
+- [x] **STATE-04**: Extract useActionState — actionChoices, currentSelection, currentActionMetadata, action type flags, selection handlers
 
 ### Integration
 
@@ -61,13 +61,13 @@ Which phases cover which requirements.
 |-------------|-------|--------|
 | HELP-01 | Phase 31 | Complete |
 | HELP-02 | Phase 31 | Complete |
-| STATE-01 | Phase 32 | Pending |
-| STATE-02 | Phase 32 | Pending |
-| STATE-03 | Phase 32 | Pending |
-| STATE-04 | Phase 32 | Pending |
-| UI-03 | Phase 33 | Pending |
-| UI-04 | Phase 33 | Pending |
-| UI-02 | Phase 34 | Pending |
+| STATE-01 | Phase 32 | Complete |
+| STATE-02 | Phase 32 | Complete |
+| STATE-03 | Phase 32 | Complete |
+| STATE-04 | Phase 32 | Complete |
+| UI-03 | Phase 33 | Complete |
+| UI-04 | Phase 33 | Complete |
+| UI-02 | Phase 34 | Complete |
 | UI-01 | Phase 35 | Pending |
 | INT-01 | Phase 36 | Pending |
 | INT-02 | Phase 36 | Pending |

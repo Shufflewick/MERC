@@ -97,7 +97,7 @@
 **Requirements:**
 - UI-02: HagnessDrawEquipment
 
-**Status:** Complete (2026-01-18)
+**Status:** ✓ Complete (2026-01-18)
 
 **Success Criteria:**
 - [x] HagnessDrawEquipment.vue created with full flow
