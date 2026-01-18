@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Phase: 33 of 36 (Small UI Components)
-Plan: 2 of 3 in current phase - COMPLETE
-Status: Created LandingZoneSelection.vue component
-Last activity: 2026-01-18 — +117 lines new component
+Phase: 33 of 36 (Small UI Components) - COMPLETE
+Plan: 3 of 3 in current phase - COMPLETE
+Status: Integrated GameOverOverlay and LandingZoneSelection into GameBoard.vue
+Last activity: 2026-01-18 — Plan 03 complete (-66 lines)
 
-Progress: ████████░░ 33% (2 of 6 phases complete)
+Progress: ████████░░ 50% (3 of 6 phases complete)
 
 ## Current Milestone
 
@@ -24,7 +24,7 @@ Progress: ████████░░ 33% (2 of 6 phases complete)
 |-------|------|--------------|--------|
 | 31 | Helper Composables | HELP-01, HELP-02 | COMPLETE (3/3 plans) |
 | 32 | State Composables | STATE-01-04 | COMPLETE (5/5 plans) |
-| 33 | Small UI Components | UI-03, UI-04 | In Progress (2/3 plans) |
+| 33 | Small UI Components | UI-03, UI-04 | COMPLETE (3/3 plans) |
 | 34 | Hagness UI Component | UI-02 | Pending |
 | 35 | Hiring Phase Component | UI-01 | Pending |
 | 36 | Integration & Cleanup | INT-01-03 | Pending |
@@ -44,7 +44,7 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 64
+- Total plans completed: 65
 - Average duration: 10.5 min/plan
 
 ## Accumulated Context
@@ -66,8 +66,11 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Circular dependency between useSectorState↔useSquadState resolved via lazy getter functions
 
 **Phase 33 Decisions:**
+- GameOverOverlay: Uses Teleport to body for proper z-index layering above all content
+- GameOverOverlay: Vue Transition API for enter/leave animations instead of inline CSS animation property
 - LandingZoneSelection: Component receives all sectors and filters to edge sectors internally (encapsulation)
 - Uses SectorCardChoice in compact mode for consistent card display across landing/sector UI
+- Integration: handleLandingSectorSelected delegates to existing handleSectorClick for landing phase logic reuse
 
 ### Deferred Issues
 
@@ -84,17 +87,19 @@ None active.
 - Focus: GameBoard.vue refactor (3,368 → <500 lines)
 - Phase 31 complete: GameBoard.vue now 3,093 lines (275 lines reduced)
 - Phase 32 complete: GameBoard.vue now ~1,808 lines (1,285 lines reduced)
+- Phase 33 complete: GameBoard.vue now ~1,930 lines (new components offset by -66 line reduction)
 
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Phase 33, Plan 02 complete
+Stopped at: Phase 33 COMPLETE, Phase 34 pending
 Resume file: None
 
 ### Recent Plans Completed
 
+- 33-03: Integrated components into GameBoard.vue (5 commits, -66 lines)
+- 33-01: Created GameOverOverlay.vue component (1 commit, +108 lines)
 - 33-02: Created LandingZoneSelection.vue component (1 commit, +117 lines)
 - 32-05: Integrated state composables into GameBoard.vue (3 commits, -1,285 lines)
 - 32-04: Created useActionState composable (1 commit, +639 lines)
 - 32-03: Created useSquadState composable (1 commit, +426 lines)
-- 32-02: Created useSectorState composable (1 commit, +454 lines)

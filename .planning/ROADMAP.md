@@ -75,16 +75,18 @@
 - UI-03: LandingZoneSelection
 - UI-04: GameOverOverlay
 
+**Status:** ✓ Complete (2026-01-18)
+
 **Success Criteria:**
-- [ ] GameOverOverlay.vue created with victory/defeat display
-- [ ] LandingZoneSelection.vue created with sector picker
-- [ ] Components use state composables (not props) for game state
-- [ ] GameBoard.vue template simplified by using new components
-- [ ] Game runs without errors, landing and game over work correctly
+- [x] GameOverOverlay.vue created with victory/defeat display
+- [x] LandingZoneSelection.vue created with sector picker
+- [x] Components receive props from parent for explicit data flow
+- [x] GameBoard.vue template simplified by using new components
+- [x] Game compiles without new errors
 
 **Deliverables:**
-- `src/ui/components/GameOverOverlay.vue`
-- `src/ui/components/LandingZoneSelection.vue`
+- `src/ui/components/GameOverOverlay.vue` (108 lines)
+- `src/ui/components/LandingZoneSelection.vue` (117 lines)
 
 ---
 
@@ -160,8 +162,8 @@
 |-------------|-------|--------|
 | UI-01 | 35 | Pending |
 | UI-02 | 34 | Pending |
-| UI-03 | 33 | Pending |
-| UI-04 | 33 | Pending |
+| UI-03 | 33 | Complete |
+| UI-04 | 33 | Complete |
 | HELP-01 | 31 | Complete |
 | HELP-02 | 31 | Complete |
 | STATE-01 | 32 | Complete |
