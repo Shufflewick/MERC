@@ -1150,52 +1150,18 @@ const clickableSectors = computed(() => {
       </DetailModal>
     </div>
 
-    <!-- Hagness Draw Equipment UI (only when action is actively being executed) -->
-    <div v-if="isHagnessDrawActive" class="hagness-phase">
-      <div class="hagness-header">
-        <div class="hagness-icon">🎒</div>
-        <div class="hagness-content">
-          <h2 class="hagness-title">Hagness: Draw Equipment</h2>
-          <p class="hagness-prompt">{{ isHagnessSelectingType ? 'Choose equipment type to draw' : isHagnessSelectingRecipient ? 'Choose who receives the equipment' : 'Drawing equipment...' }}</p>
-        </div>
-      </div>
-
-      <!-- Step 1: Equipment type selection -->
-      <DrawEquipmentType
-        v-if="isHagnessSelectingType && hagnessEquipmentTypeChoices.length > 0"
-        :choices="hagnessEquipmentTypeChoices"
-        prompt="Choose equipment type:"
-        @select="selectEquipmentType"
-      />
-
-      <!-- Step 2: Show drawn equipment and recipient selection -->
-      <div class="hagness-equipment-display" v-else-if="isHagnessSelectingRecipient">
-        <!-- Show drawn equipment card -->
-        <div class="hagness-drawn-section" v-if="hagnessDrawnEquipment">
-          <EquipmentCard :equipment="hagnessDrawnEquipment" />
-        </div>
-        <div v-else class="no-equipment">
-          <p>No equipment was drawn from the deck.</p>
-        </div>
-
-        <!-- Recipient selection -->
-        <div class="hagness-recipient-section" v-if="hagnessSquadMates.length > 0">
-          <p class="recipient-label">Give to:</p>
-          <div class="recipient-icons">
-            <CombatantIcon
-              v-for="mate in hagnessSquadMates"
-              :key="mate.displayName"
-              :combatant-id="mate.combatantId"
-              :combatant-name="mate.displayName"
-              :player-color="currentPlayerColor"
-              size="large"
-              clickable
-              @click="selectHagnessRecipient(mate.choice)"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Hagness Draw Equipment UI -->
+    <HagnessDrawEquipment
+      v-if="isHagnessDrawActive"
+      :is-selecting-type="isHagnessSelectingType"
+      :is-selecting-recipient="isHagnessSelectingRecipient"
+      :equipment-type-choices="hagnessEquipmentTypeChoices"
+      :drawn-equipment="hagnessDrawnEquipment"
+      :squad-mates="hagnessSquadMates"
+      :player-color="currentPlayerColor"
+      @equipment-type-selected="selectEquipmentType"
+      @recipient-selected="selectHagnessRecipient"
+    />
 
     <!-- Main content: Map + Squad Panel -->
     <div class="board-layout" v-if="sectors.length > 0 || isPlacingLanding">
