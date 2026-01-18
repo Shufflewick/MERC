@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 31 of 36 (Helper Composables)
-Plan: 0 of ? in current phase
-Status: Ready to plan Phase 31
-Last activity: 2026-01-18 — v1.7 milestone initialized
+Plan: 1 of 3 in current phase
+Status: Plan 31-01 complete, ready for 31-02
+Last activity: 2026-01-18 — Created useGameViewHelpers composable
 
-Progress: ░░░░░░░░░░ 0% (0 of 6 phases)
+Progress: ░░░░░░░░░░ 0% (0 of 6 phases complete)
 
 ## Current Milestone
 
@@ -22,7 +22,7 @@ Progress: ░░░░░░░░░░ 0% (0 of 6 phases)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 31 | Helper Composables | HELP-01, HELP-02 | ○ Pending |
+| 31 | Helper Composables | HELP-01, HELP-02 | ◐ In Progress (1/3 plans) |
 | 32 | State Composables | STATE-01-04 | ○ Pending |
 | 33 | Small UI Components | UI-03, UI-04 | ○ Pending |
 | 34 | Hagness UI Component | UI-02 | ○ Pending |
@@ -53,6 +53,10 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 
 All decisions captured in PROJECT.md Key Decisions table.
 
+**Phase 31 Decisions:**
+- Named tree traversal pure exports with `*InTree` suffix to distinguish from composable-bound versions
+- Explicit generic type parameters on `getAttr<T>` calls to avoid TypeScript literal inference issues
+
 ### Deferred Issues
 
 None active.
@@ -69,5 +73,9 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Roadmap created, ready to plan Phase 31
+Stopped at: Plan 31-01 complete, ready for 31-02
 Resume file: None
+
+### Recent Plans Completed
+
+- 31-01: Created useGameViewHelpers composable (1 commit)
