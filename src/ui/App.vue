@@ -7,6 +7,7 @@ import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import DetailModal from './components/DetailModal.vue';
 import CombatantCard from './components/CombatantCard.vue';
 import { UI_COLORS } from './colors';
+import { lastActionWasDragDrop } from './drag-drop-state';
 
 // Modal state for combatant details
 const showCombatantModal = ref(false);
@@ -53,16 +54,15 @@ const actionAnimations = useActionAnimations({
 // Register animations when actionController becomes available
 function setupAnimations(actionController: UseActionControllerReturn, gameView: any) {
   if (animationsRegistered.value) return;
-  console.log('[App] setupAnimations called, registering hook');
   gameViewRef.value = gameView;
   actionController.registerBeforeAutoExecute(async (actionName, args) => {
-    console.log('[App] onBeforeAutoExecute fired:', actionName, args);
-    if (actionName === 'assignToSquad') {
-      const combatantName = args.combatantName as string;
-      const selector = `[data-combatant="${combatantName}"]`;
-      const el = document.querySelector(selector);
-      console.log('[App] Looking for source element:', selector, 'Found:', el);
+    // Skip animation if this action was triggered via drag-and-drop
+    // (the user already moved the element visually)
+    if (lastActionWasDragDrop.value) {
+      lastActionWasDragDrop.value = false;
+      return;
     }
+
     await actionAnimations.onBeforeAutoExecute(actionName, args);
   });
   animationsRegistered.value = true;

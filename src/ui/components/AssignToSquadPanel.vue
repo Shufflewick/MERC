@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { UseActionControllerReturn } from '@boardsmith/ui';
+import { computed, ref } from 'vue';
+import { useDragDrop, type UseActionControllerReturn } from '@boardsmith/ui';
+import '@boardsmith/ui/animation/drag-drop.css';
 import CombatantIconSmall from './CombatantIconSmall.vue';
+import { lastActionWasDragDrop } from '../drag-drop-state';
 
 interface MercData {
   combatantId?: string;
@@ -32,6 +34,15 @@ const props = defineProps<{
   actionArgs: Record<string, unknown>;
   isDictator: boolean;
 }>();
+
+// ============================================================================
+// DRAG AND DROP
+// ============================================================================
+
+const { drag, drop, isOver } = useDragDrop();
+
+// Track which combatant is being dragged (for drop handling)
+const draggedCombatantName = ref<string | null>(null);
 
 // ============================================================================
 // STATE DERIVED FROM ACTION CONTROLLER (not local state)
@@ -181,6 +192,100 @@ function isCombatantSelected(merc: MercData): boolean {
   if (!selectedCombatantName.value) return false;
   return getCombatantName(merc) === selectedCombatantName.value;
 }
+
+// ============================================================================
+// DRAG AND DROP HANDLERS
+// ============================================================================
+
+// Get drag props for a combatant
+function getDragProps(merc: MercData) {
+  const combatantName = getCombatantName(merc);
+  return drag(
+    { name: combatantName },
+    {
+      when: isSelectingCombatant.value,
+      onDragStart: () => {
+        draggedCombatantName.value = combatantName;
+      },
+      onDragEnd: () => {
+        // Defer clearing so drop handler can access the value first
+        setTimeout(() => {
+          draggedCombatantName.value = null;
+        }, 0);
+      },
+    }
+  );
+}
+
+// Get drop props for a squad - we handle drop manually, just use classes
+function getDropProps(squad: SquadData) {
+  const result = drop({ name: squad.squadId });
+  // Return only classes, we'll handle drop events ourselves
+  return { classes: result.classes };
+}
+
+// Handle dragover to allow drop
+function handleDragOver(event: DragEvent, squad: SquadData) {
+  if (!draggedCombatantName.value) return;
+  if (!canDropOnSquad(squad)) return;
+  event.preventDefault();
+  event.dataTransfer!.dropEffect = 'move';
+}
+
+// Check if a squad can accept the currently dragged combatant
+function canDropOnSquad(squad: SquadData): boolean {
+  if (!draggedCombatantName.value) return false;
+
+  // Can't drop on the source squad
+  const draggedCombatant = findCombatantByName(draggedCombatantName.value);
+  if (draggedCombatant) {
+    const sourceSquad = findSquadContaining(draggedCombatant);
+    if (sourceSquad?.squadId === squad.squadId) return false;
+  }
+
+  return true;
+}
+
+// Find combatant by name across all squads
+function findCombatantByName(name: string): MercData | null {
+  const allCombatants: MercData[] = [];
+  if (props.primarySquad) allCombatants.push(...props.primarySquad.mercs);
+  if (props.secondarySquad) allCombatants.push(...props.secondarySquad.mercs);
+  if (props.baseSquad) allCombatants.push(...props.baseSquad.mercs);
+  return allCombatants.find(m => getCombatantName(m) === name) || null;
+}
+
+// Handle drop on a squad - fills both selections to complete the action
+async function handleDrop(targetSquad: SquadData) {
+  if (!draggedCombatantName.value) return;
+  if (!canDropOnSquad(targetSquad)) return;
+
+  const combatantName = draggedCombatantName.value;
+
+  // Mark this as a drag-drop action so animation system can skip redundant animation
+  lastActionWasDragDrop.value = true;
+
+  // Step 1: Fill combatantName (this advances to targetSquad step)
+  await props.actionController.fill('combatantName', combatantName);
+
+  // Step 2: Find the matching target choice and fill it
+  // Need to get fresh choices after filling combatantName
+  const sel = props.actionController.currentSelection.value;
+  if (sel?.name !== 'targetSquad') return;
+
+  const choices = props.actionController.getChoices(sel) || [];
+  const targetLabel = getSquadLabel(targetSquad);
+
+  const match = choices.find((c: any) => {
+    const choiceDisplay = typeof c === 'string' ? c : (c.display || c.value || '');
+    return choiceDisplay.includes(targetLabel.split(' ')[0]);
+  });
+
+  if (match) {
+    const choiceValue = typeof match === 'string' ? match : (match.value ?? match.display);
+    await props.actionController.fill('targetSquad', choiceValue);
+  }
+}
 </script>
 
 <template>
@@ -188,7 +293,7 @@ function isCombatantSelected(merc: MercData): boolean {
     <div class="header">
       <h3 class="title">Assign to Squad</h3>
       <p v-if="isSelectingCombatant" class="subtitle">
-        Select a combatant to reassign
+        Drag a combatant to another squad, or click to select
       </p>
       <p v-else-if="isSelectingTarget && selectedCombatant" class="subtitle highlight">
         Select target squad for {{ getCombatantName(selectedCombatant) }}
@@ -201,11 +306,17 @@ function isCombatantSelected(merc: MercData): boolean {
         v-if="primarySquad"
         class="squad-panel"
         data-squad="Primary"
-        :class="{
-          'valid-target': isSelectingTarget && isValidTarget(primarySquad),
-          'source-squad': selectedCombatantSquad?.squadId === primarySquad.squadId
-        }"
-                @click="handleSquadClick(primarySquad)"
+        :class="[
+          getDropProps(primarySquad).classes,
+          {
+            'valid-target': isSelectingTarget && isValidTarget(primarySquad),
+            'source-squad': selectedCombatantSquad?.squadId === primarySquad.squadId,
+            'can-drop': canDropOnSquad(primarySquad),
+          }
+        ]"
+        @click="handleSquadClick(primarySquad)"
+        @dragover="handleDragOver($event, primarySquad)"
+        @drop.prevent="handleDrop(primarySquad)"
       >
         <div class="squad-header">
           <span class="squad-label">Primary</span>
@@ -218,9 +329,13 @@ function isCombatantSelected(merc: MercData): boolean {
           <div
             v-for="merc in primarySquad.mercs"
             :key="getCombatantKey(merc)"
-                        :data-combatant="getCombatantName(merc)"
+            :data-combatant="getCombatantName(merc)"
             class="combatant-item"
-            :class="{ 'selected': isCombatantSelected(merc) }"
+            :class="[
+              getDragProps(merc).classes,
+              { 'selected': isCombatantSelected(merc) }
+            ]"
+            v-bind="getDragProps(merc).props"
             @click.stop="handleCombatantClick(merc)"
           >
             <CombatantIconSmall
@@ -241,11 +356,17 @@ function isCombatantSelected(merc: MercData): boolean {
         v-if="secondarySquad"
         class="squad-panel"
         data-squad="Secondary"
-        :class="{
-          'valid-target': isSelectingTarget && isValidTarget(secondarySquad),
-          'source-squad': selectedCombatantSquad?.squadId === secondarySquad.squadId
-        }"
-                @click="handleSquadClick(secondarySquad)"
+        :class="[
+          getDropProps(secondarySquad).classes,
+          {
+            'valid-target': isSelectingTarget && isValidTarget(secondarySquad),
+            'source-squad': selectedCombatantSquad?.squadId === secondarySquad.squadId,
+            'can-drop': canDropOnSquad(secondarySquad),
+          }
+        ]"
+        @click="handleSquadClick(secondarySquad)"
+        @dragover="handleDragOver($event, secondarySquad)"
+        @drop.prevent="handleDrop(secondarySquad)"
       >
         <div class="squad-header">
           <span class="squad-label">Secondary</span>
@@ -258,9 +379,13 @@ function isCombatantSelected(merc: MercData): boolean {
           <div
             v-for="merc in secondarySquad.mercs"
             :key="getCombatantKey(merc)"
-                        :data-combatant="getCombatantName(merc)"
+            :data-combatant="getCombatantName(merc)"
             class="combatant-item"
-            :class="{ 'selected': isCombatantSelected(merc) }"
+            :class="[
+              getDragProps(merc).classes,
+              { 'selected': isCombatantSelected(merc) }
+            ]"
+            v-bind="getDragProps(merc).props"
             @click.stop="handleCombatantClick(merc)"
           >
             <CombatantIconSmall
@@ -281,11 +406,17 @@ function isCombatantSelected(merc: MercData): boolean {
         v-if="baseSquad && isDictator"
         class="squad-panel"
         data-squad="Base"
-        :class="{
-          'valid-target': isSelectingTarget && isValidTarget(baseSquad),
-          'source-squad': selectedCombatantSquad?.squadId === baseSquad.squadId
-        }"
-                @click="handleSquadClick(baseSquad)"
+        :class="[
+          getDropProps(baseSquad).classes,
+          {
+            'valid-target': isSelectingTarget && isValidTarget(baseSquad),
+            'source-squad': selectedCombatantSquad?.squadId === baseSquad.squadId,
+            'can-drop': canDropOnSquad(baseSquad),
+          }
+        ]"
+        @click="handleSquadClick(baseSquad)"
+        @dragover="handleDragOver($event, baseSquad)"
+        @drop.prevent="handleDrop(baseSquad)"
       >
         <div class="squad-header">
           <span class="squad-label">Base</span>
@@ -298,9 +429,13 @@ function isCombatantSelected(merc: MercData): boolean {
           <div
             v-for="merc in baseSquad.mercs"
             :key="getCombatantKey(merc)"
-                        :data-combatant="getCombatantName(merc)"
+            :data-combatant="getCombatantName(merc)"
             class="combatant-item"
-            :class="{ 'selected': isCombatantSelected(merc) }"
+            :class="[
+              getDragProps(merc).classes,
+              { 'selected': isCombatantSelected(merc) }
+            ]"
+            v-bind="getDragProps(merc).props"
             @click.stop="handleCombatantClick(merc)"
           >
             <CombatantIconSmall
@@ -327,7 +462,16 @@ function isCombatantSelected(merc: MercData): boolean {
 </template>
 
 <style scoped>
+/* BoardSmith drag-drop CSS variable overrides */
 .assign-to-squad {
+  --bs-dragging-opacity: 0.5;
+  --bs-drop-target-bg: rgba(212, 168, 75, 0.15);
+  --bs-drop-target-border-color: rgba(212, 168, 75, 0.6);
+  --bs-drop-hover-bg: rgba(212, 168, 75, 0.3);
+  --bs-drop-hover-border-color: #d4a84b;
+  --bs-drop-hover-shadow: 0 0 12px rgba(212, 168, 75, 0.5);
+  --bs-drop-hover-scale: 1.02;
+
   background: rgba(30, 35, 30, 0.95);
   border: 2px solid #5a6a5a;
   border-radius: 12px;
@@ -445,6 +589,30 @@ function isCombatantSelected(merc: MercData): boolean {
 
 .combatant-item:hover {
   background: rgba(212, 168, 75, 0.15);
+}
+
+/* Draggable combatant styles */
+.combatant-item.bs-draggable {
+  cursor: grab;
+}
+
+.combatant-item.bs-draggable:active {
+  cursor: grabbing;
+}
+
+.combatant-item.bs-dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+/* Drop target styles for squads while dragging */
+.squad-panel.can-drop {
+  border-color: rgba(212, 168, 75, 0.4);
+  border-style: dashed;
+}
+
+.squad-panel.can-drop:not(.source-squad) {
+  cursor: pointer;
 }
 
 .combatant-item.selected {
