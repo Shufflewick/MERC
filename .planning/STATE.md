@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 32 of 36 (State Composables) - IN PROGRESS
-Plan: 3 of 5 in current phase - COMPLETE
-Status: Created useSquadState composable
-Last activity: 2026-01-18 — Created useSquadState.ts (426 lines)
+Plan: 4 of 5 in current phase - COMPLETE
+Status: Created useActionState composable
+Last activity: 2026-01-18 — Created useActionState.ts (639 lines)
 
 Progress: ████░░░░░░ 17% (1 of 6 phases complete)
 
@@ -23,7 +23,7 @@ Progress: ████░░░░░░ 17% (1 of 6 phases complete)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 31 | Helper Composables | HELP-01, HELP-02 | COMPLETE (3/3 plans) |
-| 32 | State Composables | STATE-01-04 | ◐ In Progress (3/5 plans) |
+| 32 | State Composables | STATE-01-04 | ◐ In Progress (4/5 plans) |
 | 33 | Small UI Components | UI-03, UI-04 | ○ Pending |
 | 34 | Hagness UI Component | UI-02 | ○ Pending |
 | 35 | Hiring Phase Component | UI-01 | ○ Pending |
@@ -61,6 +61,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Dependency injection pattern for composables via interface (SectorStateDependencies)
 - Getter functions for dependencies to allow lazy evaluation and avoid circular refs
 - useSquadState uses direct computed ref parameters rather than getter-based DI (simpler for non-circular deps)
+- useActionState: Watch handlers stay in GameBoard.vue (interact with props/injected functions); composable exports refs
 
 ### Deferred Issues
 
@@ -84,8 +85,8 @@ Resume file: None
 
 ### Recent Plans Completed
 
+- 32-04: Created useActionState composable (1 commit, +639 lines)
 - 32-03: Created useSquadState composable (1 commit, +426 lines)
 - 32-02: Created useSectorState composable (1 commit, +454 lines)
 - 32-01: Created usePlayerState composable (1 commit, +163 lines)
 - 31-03: Integrated composables into GameBoard.vue (4 commits, -275 lines)
-- 31-02: Created useVictoryCalculations composable (1 commit)
