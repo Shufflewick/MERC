@@ -2,11 +2,22 @@
 
 ## What This Is
 
-A focused cleanup effort for the MERC board game codebase that achieved ship confidence through systematic type safety improvements, code quality standardization, and comprehensive test coverage.
+A focused cleanup effort for the MERC board game codebase that achieved ship confidence through systematic type safety improvements, code quality standardization, and comprehensive test coverage. Now refactoring the UI layer for maintainability.
 
 ## Core Value
 
 **Ship Confidence** - tests and debug cleanup so the game can release with confidence that it won't crash or behave unexpectedly.
+
+## Current Milestone: v1.7 GameBoard Component Refactor
+
+**Goal:** Refactor GameBoard.vue (3,368 lines) into focused, testable components with clean boundaries.
+
+**Target features:**
+- Extract distinct UI flows (HiringPhase, HagnessDrawEquipment, LandingZoneSelection, GameOverOverlay) as components
+- Extract helper logic to composables (useGameViewHelpers, useVictoryCalculations)
+- Extract state derivation to composables (useCombatState, usePlayerState, useSectorState)
+- Use shared composables for action state to avoid prop drilling
+- GameBoard.vue becomes thin orchestrator composing focused components
 
 ## Current State
 
@@ -67,7 +78,11 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ### Active
 
-(All cleanup requirements completed. Game ready for release.)
+- [ ] Extract GameBoard.vue UI flows into focused components
+- [ ] Extract helper functions to composables
+- [ ] Extract state derivation to composables
+- [ ] Use shared composables for action state (reduce prop drilling)
+- [ ] GameBoard.vue reduced to thin orchestrator
 
 ### Out of Scope
 
@@ -124,6 +139,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | CombatantModel concrete class | Single class with cardType discriminator; MercCard/DictatorCard as subclasses | ✓ Good |
 | No backward-compat aliases | Clean exports only - migration complete | ✓ Good |
 | className strings preserved | MercCard/DictatorCard classRegistry keys must match TypeScript class names | ✓ Good |
+| Shared composables for action state | Reduce prop drilling, components import state directly | — Pending |
 
 ---
-*Last updated: 2026-01-15 after v1.6 milestone*
+*Last updated: 2026-01-18 after v1.7 milestone start*
