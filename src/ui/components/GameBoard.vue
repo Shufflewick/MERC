@@ -17,6 +17,10 @@ import SectorCardChoice from './SectorCardChoice.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 import { useGameViewHelpers } from '../composables/useGameViewHelpers';
 import { useVictoryCalculations } from '../composables/useVictoryCalculations';
+import { usePlayerState } from '../composables/usePlayerState';
+import { useSectorState } from '../composables/useSectorState';
+import { useSquadState } from '../composables/useSquadState';
+import { useActionState } from '../composables/useActionState';
 
 // Type for deferred choices fetch function (injected from GameShell)
 type FetchDeferredChoicesFn = (
