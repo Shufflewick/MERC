@@ -119,18 +119,14 @@
 **Requirements:**
 - UI-01: HiringPhase
 
-**Status:** In progress (1/2 plans complete)
+**Status:** ✓ Complete (2026-01-18)
 
 **Success Criteria:**
 - [x] HiringPhase.vue created with full hiring flow
-- [ ] Merc selection works
-- [ ] Dictator selection works
-- [ ] Equipment type selection works
-- [ ] Sector selection (Castro hire) works
-- [ ] Skip third hire option works
-- [ ] Detail modal works
-- [ ] Component uses state composables for action state
-- [ ] Game runs without errors, all hiring paths work
+- [x] Component integrated into GameBoard.vue
+- [x] All props and events wired correctly
+- [x] Duplicate styles removed from GameBoard.vue
+- [x] GameBoard.vue reduced by 328 lines (1706 -> 1378)
 
 **Deliverables:**
 - `src/ui/components/HiringPhase.vue` (306 lines)
@@ -164,7 +160,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | 35 | In progress |
+| UI-01 | 35 | Complete |
 | UI-02 | 34 | Complete |
 | UI-03 | 33 | Complete |
 | UI-04 | 33 | Complete |

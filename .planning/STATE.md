@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 35 of 36 (Hiring Phase Component)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-18 — Completed 35-01-PLAN.md (HiringPhase.vue created)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-18 — Completed 35-02-PLAN.md (HiringPhase integration)
 
-Progress: █████████░ 70% (4 phases + 1 plan complete)
+Progress: █████████░ 85% (5 phases complete)
 
 ## Current Milestone
 
@@ -26,7 +26,7 @@ Progress: █████████░ 70% (4 phases + 1 plan complete)
 | 32 | State Composables | STATE-01-04 | COMPLETE (5/5 plans) |
 | 33 | Small UI Components | UI-03, UI-04 | COMPLETE (3/3 plans) |
 | 34 | Hagness UI Component | UI-02 | COMPLETE (2/2 plans) |
-| 35 | Hiring Phase Component | UI-01 | IN PROGRESS (1/2 plans) |
+| 35 | Hiring Phase Component | UI-01 | COMPLETE (2/2 plans) |
 | 36 | Integration & Cleanup | INT-01-03 | Pending |
 
 ## Milestones Completed
@@ -81,6 +81,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 **Phase 35 Decisions:**
 - Extended SectorChoice with value/label intersection for action filling compatibility
 - Used sectorName for v-for key (stable identifier vs value which has collision)
+- Kept .action-title/.action-subtitle styles in GameBoard.vue (used by retreat section)
 
 ### Deferred Issues
 
@@ -99,15 +100,17 @@ None active.
 - Phase 32 complete: GameBoard.vue now ~1,808 lines (1,285 lines reduced)
 - Phase 33 complete: GameBoard.vue now ~1,930 lines (new components offset by -66 line reduction)
 - Phase 34 complete: GameBoard.vue now 1,706 lines (-225 lines from Hagness extraction)
+- Phase 35 complete: GameBoard.vue now 1,378 lines (-328 lines from HiringPhase extraction)
 
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Completed 35-01-PLAN.md
+Stopped at: Completed 35-02-PLAN.md
 Resume file: None
 
 ### Recent Plans Completed
 
+- 35-02: Integrated HiringPhase into GameBoard.vue (3 commits, -328 lines)
 - 35-01: Created HiringPhase.vue component (1 commit, +306 lines)
 - 34-02: Integrated HagnessDrawEquipment into GameBoard.vue (3 commits, -225 lines)
 - 34-01: Created HagnessDrawEquipment.vue component (1 commit, +188 lines)
