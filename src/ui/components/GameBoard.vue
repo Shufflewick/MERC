@@ -17,6 +17,7 @@ import SectorCardChoice from './SectorCardChoice.vue';
 import GameOverOverlay from './GameOverOverlay.vue';
 import LandingZoneSelection from './LandingZoneSelection.vue';
 import HagnessDrawEquipment from './HagnessDrawEquipment.vue';
+import HiringPhase from './HiringPhase.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 import { useGameViewHelpers } from '../composables/useGameViewHelpers';
 import { useVictoryCalculations } from '../composables/useVictoryCalculations';
