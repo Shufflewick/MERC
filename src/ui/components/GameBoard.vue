@@ -988,20 +988,11 @@ const clickableSectors = computed(() => {
 
 <template>
   <div class="game-board">
-    <!-- Game Over Overlay - shown when game ends -->
-    <div v-if="isGameOver" class="game-over-overlay">
-      <div class="game-over-content">
-        <h1 class="game-over-title">Game Over</h1>
-        <div v-if="gameWinner === 'rebels'" class="game-over-winner rebels">
-          <h2>Rebels Victory!</h2>
-          <p>The dictator has been eliminated. Freedom prevails!</p>
-        </div>
-        <div v-else class="game-over-winner dictator">
-          <h2>Dictator Victory!</h2>
-          <p>The rebellion has been crushed. Order is restored.</p>
-        </div>
-      </div>
-    </div>
+    <!-- Game Over Overlay -->
+    <GameOverOverlay
+      :is-visible="isGameOver"
+      :winner="gameWinner"
+    />
 
     <!-- Combat Panel - shown when there's active combat -->
     <CombatPanel
