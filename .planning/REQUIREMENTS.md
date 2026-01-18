@@ -16,8 +16,8 @@ Requirements for v1.7 milestone. Each maps to roadmap phases.
 
 ### Helper Composables
 
-- [ ] **HELP-01**: Extract useGameViewHelpers — findByClassName, findAllByClassName, findByRef, findElementById, getAttr, normalizeClassName
-- [ ] **HELP-02**: Extract useVictoryCalculations — calculateRebelVictoryPoints, calculateDictatorVictoryPoints, isGameOver, gameWinner
+- [x] **HELP-01**: Extract useGameViewHelpers — normalizeClassName, findByClassName, findAllByClassName, findByRef, findElementById, getAttr, findDictatorCombatant, findDictatorCombatantWithParent, isMercDead
+- [x] **HELP-02**: Extract useVictoryCalculations — countTacticsCards, calculateRebelVictoryPoints, calculateDictatorVictoryPoints, isGameOver, gameWinner
 
 ### State Composables
 
@@ -59,8 +59,8 @@ Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HELP-01 | Phase 31 | Pending |
-| HELP-02 | Phase 31 | Pending |
+| HELP-01 | Phase 31 | Complete |
+| HELP-02 | Phase 31 | Complete |
 | STATE-01 | Phase 32 | Pending |
 | STATE-02 | Phase 32 | Pending |
 | STATE-03 | Phase 32 | Pending |

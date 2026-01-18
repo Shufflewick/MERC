@@ -25,12 +25,14 @@
 - HELP-01: useGameViewHelpers
 - HELP-02: useVictoryCalculations
 
+**Status:** ✓ Complete (2026-01-18)
+
 **Success Criteria:**
-- [ ] useGameViewHelpers composable created in src/ui/composables/
-- [ ] useVictoryCalculations composable created in src/ui/composables/
-- [ ] GameBoard.vue imports and uses both composables
-- [ ] All helper functions removed from GameBoard.vue
-- [ ] Game runs without errors
+- [x] useGameViewHelpers composable created in src/ui/composables/
+- [x] useVictoryCalculations composable created in src/ui/composables/
+- [x] GameBoard.vue imports and uses both composables
+- [x] All helper functions removed from GameBoard.vue
+- [x] Game runs without errors
 
 **Deliverables:**
 - `src/ui/composables/useGameViewHelpers.ts`
@@ -158,8 +160,8 @@
 | UI-02 | 34 | Pending |
 | UI-03 | 33 | Pending |
 | UI-04 | 33 | Pending |
-| HELP-01 | 31 | Pending |
-| HELP-02 | 31 | Pending |
+| HELP-01 | 31 | Complete |
+| HELP-02 | 31 | Complete |
 | STATE-01 | 32 | Pending |
 | STATE-02 | 32 | Pending |
 | STATE-03 | 32 | Pending |
