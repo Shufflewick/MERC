@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Phase: 32 of 36 (State Composables) - COMPLETE
-Plan: 5 of 5 in current phase - COMPLETE
-Status: Integrated all state composables into GameBoard.vue
-Last activity: 2026-01-18 — Removed ~1,285 lines from GameBoard.vue
+Phase: 33 of 36 (Small UI Components)
+Plan: 2 of 3 in current phase - COMPLETE
+Status: Created LandingZoneSelection.vue component
+Last activity: 2026-01-18 — +117 lines new component
 
 Progress: ████████░░ 33% (2 of 6 phases complete)
 
@@ -24,7 +24,7 @@ Progress: ████████░░ 33% (2 of 6 phases complete)
 |-------|------|--------------|--------|
 | 31 | Helper Composables | HELP-01, HELP-02 | COMPLETE (3/3 plans) |
 | 32 | State Composables | STATE-01-04 | COMPLETE (5/5 plans) |
-| 33 | Small UI Components | UI-03, UI-04 | Pending |
+| 33 | Small UI Components | UI-03, UI-04 | In Progress (2/3 plans) |
 | 34 | Hagness UI Component | UI-02 | Pending |
 | 35 | Hiring Phase Component | UI-01 | Pending |
 | 36 | Integration & Cleanup | INT-01-03 | Pending |
@@ -44,7 +44,7 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 63
+- Total plans completed: 64
 - Average duration: 10.5 min/plan
 
 ## Accumulated Context
@@ -65,6 +65,10 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Used toRef() for props.playerPosition to create reactive ref for composables expecting Ref<number>
 - Circular dependency between useSectorState↔useSquadState resolved via lazy getter functions
 
+**Phase 33 Decisions:**
+- LandingZoneSelection: Component receives all sectors and filters to edge sectors internally (encapsulation)
+- Uses SectorCardChoice in compact mode for consistent card display across landing/sector UI
+
 ### Deferred Issues
 
 - Pre-existing type compatibility issues between composable interfaces and component props
@@ -84,13 +88,13 @@ None active.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Phase 32 complete, ready for Phase 33
+Stopped at: Phase 33, Plan 02 complete
 Resume file: None
 
 ### Recent Plans Completed
 
+- 33-02: Created LandingZoneSelection.vue component (1 commit, +117 lines)
 - 32-05: Integrated state composables into GameBoard.vue (3 commits, -1,285 lines)
 - 32-04: Created useActionState composable (1 commit, +639 lines)
 - 32-03: Created useSquadState composable (1 commit, +426 lines)
 - 32-02: Created useSectorState composable (1 commit, +454 lines)
-- 32-01: Created usePlayerState composable (1 commit, +163 lines)
