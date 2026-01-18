@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, inject, reactive, nextTick } from 'vue';
+import { computed, ref, watch, inject, reactive, nextTick, toRef } from 'vue';
 import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
@@ -36,15 +36,6 @@ type FetchDeferredChoicesFn = (
 
 // Inject deferred choices fetch function from GameShell
 const fetchDeferredChoicesFn = inject<FetchDeferredChoicesFn | undefined>('fetchDeferredChoicesFn', undefined);
-
-// State for fetched deferred choices
-const fetchedDeferredChoices = reactive<Record<string, Array<{ value: unknown; display: string }>>>({});
-const deferredChoicesLoading = ref(false);
-
-// State for sector panel
-const selectedSectorId = ref<string | null>(null);
-
-// Debug: log available actions when they change
 
 // Get board interaction for checking selectable elements
 const boardInteraction = useBoardInteraction();
@@ -85,6 +76,9 @@ const {
 // STATE COMPOSABLES - Initialize in dependency order
 // ============================================================================
 
+// Create a ref from props for reactive tracking in composables
+const playerPositionRef = toRef(() => props.playerPosition);
+
 // Player state (independent)
 const {
   players,
@@ -95,7 +89,7 @@ const {
   positionToColor,
 } = usePlayerState(
   () => props.gameView,
-  () => props.playerPosition
+  playerPositionRef
 );
 
 // Sector state (needs allMercs via lazy getter - allMercs initialized below)
@@ -126,7 +120,7 @@ const {
     getSecondarySquad: () => secondarySquad.value,
     getDictatorPrimarySquad: () => dictatorPrimarySquad.value,
     getDictatorSecondarySquad: () => dictatorSecondarySquad.value,
-    getDictatorCard: () => dictatorCard.value,
+    getDictatorCard: () => dictatorCard.value as { sectorId: string; inPlay: boolean } | undefined,
     positionToColor,
   }
 );
@@ -142,7 +136,7 @@ const {
   allMercs,
 } = useSquadState(
   () => props.gameView,
-  () => props.playerPosition,
+  playerPositionRef,
   currentPlayerIsDictator,
   sectors,
   players
@@ -198,253 +192,11 @@ const {
   secondarySquad
 );
 
+
 // ============================================================================
-// REMAINING STATE (not extracted to composables)
+// SECTOR-SPECIFIC STATE (not extracted to composables)
 // ============================================================================
 
-// Extract map sectors from gameView
-const sectors = computed(() => {
-  // Try to find GameMap element
-  const map = findByClassName('GameMap') || findByRef('game-map');
-  if (!map?.children) {
-    // Fallback: look for Sector elements directly
-    const sectorElements = findAllByClassName('Sector');
-    if (sectorElements.length > 0) {
-      return sectorElements.map((s: any) => ({
-        id: s.id,  // Numeric BoardSmith element ID (for action controller fill)
-        sectorId: s.ref || getAttr(s, 'sectorId', '') || `sector-${getAttr(s, 'row', 0)}-${getAttr(s, 'col', 0)}`,
-        sectorName: getAttr(s, 'sectorName', ''),
-        sectorType: getAttr(s, 'sectorType', 'Wilderness'),
-        value: getAttr(s, 'value', 0),
-        row: getAttr(s, 'row', 0),
-        col: getAttr(s, 'col', 0),
-        image: getAttr(s, 'image', undefined),
-        weaponLoot: getAttr(s, 'weaponLoot', 0),
-        armorLoot: getAttr(s, 'armorLoot', 0),
-        accessoryLoot: getAttr(s, 'accessoryLoot', 0),
-        explored: getAttr(s, 'explored', false),
-        dictatorMilitia: getAttr(s, 'dictatorMilitia', 0),
-        rebelMilitia: getAttr(s, 'rebelMilitia', {}),
-      }));
-    }
-    return [];
-  }
-
-  return map.children
-    .filter((c: any) => c.className === 'Sector' || getAttr(c, 'sectorId', ''))
-    .map((c: any) => ({
-      id: c.id,  // Numeric BoardSmith element ID (for action controller fill)
-      sectorId: c.ref || getAttr(c, 'sectorId', '') || `sector-${getAttr(c, 'row', 0)}-${getAttr(c, 'col', 0)}`,
-      sectorName: getAttr(c, 'sectorName', ''),
-      sectorType: getAttr(c, 'sectorType', 'Wilderness'),
-      value: getAttr(c, 'value', 0),
-      row: getAttr(c, 'row', 0),
-      col: getAttr(c, 'col', 0),
-      image: getAttr(c, 'image', undefined),
-      weaponLoot: getAttr(c, 'weaponLoot', 0),
-      armorLoot: getAttr(c, 'armorLoot', 0),
-      accessoryLoot: getAttr(c, 'accessoryLoot', 0),
-      explored: getAttr(c, 'explored', false),
-      dictatorMilitia: getAttr(c, 'dictatorMilitia', 0),
-      rebelMilitia: getAttr(c, 'rebelMilitia', {}),
-    }));
-});
-
-// Selected sector for SectorPanel (from clicking on map)
-const selectedSector = computed(() => {
-  if (!selectedSectorId.value) return null;
-  return sectors.value.find(s => s.sectorId === selectedSectorId.value) || null;
-});
-
-// Sector from action context (followUp args) - for actions started from ActionPanel
-const actionContextSectorId = computed(() => {
-  const currentAction = props.actionController.currentAction.value;
-  if (!currentAction) return null;
-
-  // First, check if sectorId is explicitly in args
-  const args = props.actionController.currentArgs.value;
-  if (args?.sectorId) {
-    // Handle both plain ID and {id, name} object formats
-    const sectorId = args.sectorId;
-    if (typeof sectorId === 'object' && sectorId !== null) {
-      return (sectorId as { id: number }).id;
-    }
-    return sectorId as number;
-  }
-
-  // If no explicit sectorId but we're in a sector-relevant action,
-  // infer from player's primary squad location (or dictator's squad for dictator player)
-  const sectorRelevantActions = [
-    'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
-    'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
-  ];
-  if (sectorRelevantActions.includes(currentAction)) {
-    // For dictator player, use dictator's squad location
-    const squadSectorId = currentPlayerIsDictator.value
-      ? (dictatorPrimarySquad.value?.sectorId || dictatorSecondarySquad.value?.sectorId)
-      : primarySquad.value?.sectorId;
-
-    if (squadSectorId) {
-      // Find the sector by sectorId string and return its numeric id
-      const sector = sectors.value.find(s => s.sectorId === squadSectorId);
-      return sector?.id ?? null;
-    }
-  }
-
-  return null;
-});
-
-// Active sector - from either clicking on map OR action context
-const actionContextSector = computed(() => {
-  if (!actionContextSectorId.value) return null;
-  return sectors.value.find(s => s.id === actionContextSectorId.value) || null;
-});
-
-// The sector to show in SectorPanel - prefer clicked sector, fall back to action context
-const activeSector = computed(() => {
-  return selectedSector.value ?? actionContextSector.value;
-});
-
-// Get stash contents for active sector (if player can see it)
-const selectedSectorStash = computed(() => {
-  if (!activeSector.value) return [];
-
-  // Player can see stash if they have a squad or unit in the sector
-  // Check rebel squads
-  const hasRebelSquadInSector =
-    primarySquad.value?.sectorId === activeSector.value.sectorId ||
-    secondarySquad.value?.sectorId === activeSector.value.sectorId;
-
-  // Check dictator squads and dictator combatant location
-  const hasDictatorUnitInSector =
-    dictatorPrimarySquad.value?.sectorId === activeSector.value.sectorId ||
-    dictatorSecondarySquad.value?.sectorId === activeSector.value.sectorId ||
-    (dictatorCard.value?.sectorId === activeSector.value.sectorId && dictatorCard.value?.inPlay);
-
-  if (!hasRebelSquadInSector && !hasDictatorUnitInSector) return [];
-
-  // Find the sector element in gameView to get stash
-  const sectorElement = findByRef(activeSector.value.sectorId) ||
-    findAllByClassName('Sector').find((s: any) =>
-      getAttr(s, 'sectorId', '') === activeSector.value?.sectorId
-    );
-
-  if (!sectorElement) return [];
-
-  // Stash is stored as a Space zone named 'stash' containing Equipment children
-  // Look for the Space zone in sector's children
-  // Note: Element name from create(Space, 'stash') may be stored as name, ref, or in attributes
-  const stashZone = sectorElement.children?.find((c: any) =>
-    c.className === 'Space' && (
-      c.name === 'stash' ||
-      c.ref === 'stash' ||
-      getAttr(c, 'name', '') === 'stash'
-    )
-  );
-
-  if (!stashZone?.children) return [];
-
-  // Get equipment from stash zone children
-  return stashZone.children
-    .filter((e: any) => e.className === 'Equipment')
-    .map((e: any) => ({
-      equipmentName: getAttr(e, 'equipmentName', 'Unknown'),
-      equipmentType: getAttr(e, 'equipmentType', 'Accessory'),
-      equipmentId: getAttr(e, 'equipmentId', ''),
-      description: getAttr(e, 'description', ''),
-      combatBonus: getAttr(e, 'combatBonus', 0),
-      initiative: getAttr(e, 'initiative', 0),
-      training: getAttr(e, 'training', 0),
-      armorBonus: getAttr(e, 'armorBonus', 0),
-      targets: getAttr(e, 'targets', 0),
-      negatesArmor: getAttr(e, 'negatesArmor', false),
-      image: getAttr(e, 'image', ''),
-    }));
-});
-
-// Get all mercs in active sector (for display in SectorPanel)
-const selectedSectorMercs = computed(() => {
-  if (!activeSector.value) return [];
-  return allMercs.value.filter(m => m.sectorId === activeSector.value?.sectorId);
-});
-
-// Check if player has Doc on team
-const hasDoc = computed(() => {
-  const allMercsInSquads = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-  return allMercsInSquads.some((m: any) =>
-    getAttr(m, 'combatantId', '').toLowerCase() === 'doc' ||
-    getAttr(m, 'combatantName', '').toLowerCase() === 'doc'
-  );
-});
-
-// Check if player has Squidhead on team
-const hasSquidhead = computed(() => {
-  const allMercsInSquads = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-  return allMercsInSquads.some((m: any) =>
-    getAttr(m, 'combatantId', '').toLowerCase() === 'squidhead' ||
-    getAttr(m, 'combatantName', '').toLowerCase() === 'squidhead'
-  );
-});
-
-// Check if player has mortar equipped
-const hasMortar = computed(() => {
-  const allMercsInSquads = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-  return allMercsInSquads.some((m: any) => {
-    const weapon = getAttr(m, 'weaponSlot', null);
-    const accessory = getAttr(m, 'accessorySlot', null);
-    const weaponName = weapon?.equipmentName?.toLowerCase() || '';
-    const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
-    return weaponName.includes('mortar') || accessoryName.includes('mortar');
-  });
-});
-
-// Check if player has damaged MERCs
-const hasDamagedMercs = computed(() => {
-  const allMercsInSquads = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-  return allMercsInSquads.some((m: any) => {
-    const damage = getAttr(m, 'damage', 0);
-    return damage > 0;
-  });
-});
-
-// Check if selected sector has land mines in stash
-const hasLandMinesInStash = computed(() => {
-  return selectedSectorStash.value.some(e =>
-    e.equipmentName.toLowerCase().includes('land mine') ||
-    e.equipmentName.toLowerCase().includes('landmine')
-  );
-});
-
-// Check if Squidhead has land mine equipped
-const squidheadHasLandMine = computed(() => {
-  const allMercsInSquads = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-  const squidhead = allMercsInSquads.find((m: any) =>
-    getAttr(m, 'combatantId', '').toLowerCase() === 'squidhead' ||
-    getAttr(m, 'combatantName', '').toLowerCase() === 'squidhead'
-  );
-  if (!squidhead) return false;
-
-  const accessory = getAttr(squidhead, 'accessorySlot', null);
-  const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
-  return accessoryName.includes('land mine') || accessoryName.includes('landmine');
-});
-
-// Check if active sector has dictator forces
 const selectedSectorHasDictatorForces = computed(() => {
   if (!activeSector.value) return false;
   if (activeSector.value.dictatorMilitia > 0) return true;
@@ -490,508 +242,6 @@ const hasExplosivesComponents = computed(() => {
 
   return hasDetonator && hasExplosives;
 });
-
-// Extract all players
-const players = computed(() => {
-  // Try various player element names
-  const rebelPlayers = findAllByClassName('RebelPlayer');
-  const dictatorPlayers = findAllByClassName('DictatorPlayer');
-  const playerAreas = findAllByClassName('PlayerArea');
-
-  const all = [...rebelPlayers, ...dictatorPlayers, ...playerAreas];
-
-  const result = all.map((p: any) => {
-    // Get position from attribute, or parse from name (e.g., "area-2" -> 2)
-    let position = getAttr(p, 'position', undefined);
-    if (position === undefined) {
-      const name = getAttr(p, 'name', '') || p.name || '';
-      const match = name.match(/area-(\d+)/);
-      if (match) {
-        position = parseInt(match[1], 10);
-      }
-    }
-
-    const playerColor = getAttr(p, 'playerColor', '') || getAttr(p, 'color', '');
-
-    return {
-      position,
-      playerColor,
-      isDictator: normalizeClassName(p.className) === 'DictatorPlayer',
-    };
-  });
-
-  // Check if dictator exists in result
-  const hasDictator = result.some(p => p.isDictator);
-
-  // If no dictator found but dictator squads exist, add synthetic dictator entry
-  if (!hasDictator) {
-    const squads = findAllByClassName('Squad');
-    const hasDictatorSquad = squads.some((s: any) => {
-      const name = getAttr(s, 'name', '') || s.ref || '';
-      return name.includes('dictator');
-    });
-
-    if (hasDictatorSquad) {
-      // Dictator position is the last player (position not in playerAreas)
-      // In 2-player game: position 1 is rebel, position 2 is dictator
-      const rebelPositions = result.map(p => p.position).filter(p => p !== undefined);
-      const maxRebelPos = Math.max(...rebelPositions, 0);
-      const dictatorPosition = maxRebelPos + 1;
-
-      result.push({
-        position: dictatorPosition,
-        playerColor: 'black', // Dictator uses 'black' which maps to grey
-        isDictator: true,
-      });
-    }
-  }
-
-  return result;
-});
-
-// Current player's color
-const currentPlayerColor = computed(() => {
-  const player = players.value.find((p) => p.position === props.playerPosition);
-  if (!player) {
-    console.warn('[currentPlayerColor] No player found for position', props.playerPosition, 'in', players.value);
-    return '';
-  }
-  if (!player.playerColor) {
-    console.warn('[currentPlayerColor] Player has no color:', player);
-    return '';
-  }
-  return player.playerColor;
-});
-
-// Map player positions to colors (for militia display in SectorPanel)
-const playerColorMap = computed(() => {
-  const map: Record<string, string> = {};
-  for (const player of players.value) {
-    if (player.playerColor) {
-      map[String(player.position)] = player.playerColor;
-    }
-  }
-  return map;
-});
-
-// Get dictator player's actual color from lobby selection
-const dictatorPlayerColor = computed(() => {
-  const dictator = players.value.find(p => p.isDictator);
-  return dictator?.playerColor || '';
-});
-
-// MERC-rwdv: Check if current player is the dictator
-// Players aren't in game view tree, so check if this player has rebel squads or dictator squad
-const currentPlayerIsDictator = computed(() => {
-  // If player has rebel squads (primary/secondary), they're a rebel
-  const squads = findAllByClassName('Squad');
-  const hasRebelSquad = squads.some((s: any) => {
-    const name = getAttr(s, 'name', '') || s.ref || '';
-    // Rebel squads are named "squad-{position}-primary" or "squad-{position}-secondary"
-    return name.includes(`squad-${props.playerPosition}-`);
-  });
-
-  if (hasRebelSquad) return false;
-
-  // If no rebel squads but dictator squad exists, assume this is the dictator
-  const hasDictatorSquad = squads.some((s: any) => {
-    const name = getAttr(s, 'name', '') || s.ref || '';
-    return name.includes('dictator');
-  });
-
-  return hasDictatorSquad;
-});
-
-// Extract all MERCs with their locations
-const allMercs = computed(() => {
-  const mercs: any[] = [];
-
-  // Find rebel squads
-  const squads = findAllByClassName('Squad');
-
-  for (const squad of squads) {
-    const sectorId = getAttr(squad, 'sectorId', '');
-
-    // Get player color from squad's player position
-    const playerPos = getSquadPlayerPosition(squad);
-    const squadName = getAttr(squad, 'name', '') || squad.ref || '';
-    const isDictatorSquad = squadName.includes('dictator');
-
-    let playerColor = '';
-    if (isDictatorSquad) {
-      playerColor = 'dictator';
-    } else if (playerPos >= 0) {
-      const player = players.value.find(p => p.position === playerPos);
-      if (!player) {
-        console.warn('[allMercs] No player found for squad position', playerPos, 'squad:', squadName);
-      } else if (!player.playerColor) {
-        console.warn('[allMercs] Player has no color for position', playerPos);
-      }
-      playerColor = player?.playerColor || '';
-    }
-
-    if (squad.children) {
-      for (const merc of squad.children) {
-        const id = getAttr(merc, 'combatantId', '');
-        // Skip dead MERCs
-        if (isMercDead(merc)) continue;
-
-        const cardType = getAttr(merc, 'cardType', '');
-        if ((id || cardType === 'merc') && cardType !== 'dictator') {
-          // Use squad's sectorId (sectorId is now a computed getter on combatants)
-          const mercSectorId = getAttr(merc, 'sectorId', '') || sectorId;
-          const mercSector = sectors.value.find(s => s.sectorId === mercSectorId);
-          const combatantId = id || merc.ref;
-          mercs.push({
-            ...merc,
-            combatantId,
-            sectorId: mercSectorId,
-            sectorName: mercSector?.sectorName || '',
-            playerColor,
-            image: getAttr(merc, 'image', ''),
-          });
-        }
-      }
-    }
-  }
-
-  // Find dictator combatants by iterating through dictator squads
-  // This approach gets sectorId from the squad (where it's stored) rather than
-  // trying to backtrack from combatants (sectorId is now a computed getter on combatants)
-  const allSquads = findAllByClassName('Squad');
-  const dictatorSquads = allSquads.filter((s: any) => {
-    const name = getAttr(s, 'name', '') || s.ref || '';
-    return name.includes('dictator');
-  });
-
-  for (const squad of dictatorSquads) {
-    const squadSectorId = getAttr(squad, 'sectorId', '');
-    if (!squadSectorId) continue;
-
-    for (const child of (squad.children || [])) {
-      const cardType = getAttr(child, 'cardType', '');
-
-      if (cardType === 'merc') {
-        if (isMercDead(child)) continue;
-        const combatantId = getAttr(child, 'combatantId', '') || child.ref;
-        const exists = mercs.some((m) => m.combatantId === combatantId);
-        if (!exists) {
-          const dictatorMercSector = sectors.value.find(s => s.sectorId === squadSectorId);
-          mercs.push({
-            ...child,
-            combatantId,
-            sectorId: squadSectorId,
-            sectorName: dictatorMercSector?.sectorName || '',
-            playerColor: 'dictator',
-            image: getAttr(child, 'image', ''),
-          });
-        }
-      }
-
-      if (cardType === 'dictator') {
-        const inPlay = getAttr(child, 'inPlay', false);
-        const isDead = getAttr(child, 'damage', 0) >= 10;
-        if (!inPlay || isDead) continue;
-
-        const charId = getAttr(child, 'combatantId', '');
-        const combatantDisplayId = `dictator-${charId}`;
-        const exists = mercs.some((m) => m.combatantId === combatantDisplayId);
-        if (!exists) {
-          const dictatorSector = sectors.value.find(s => s.sectorId === squadSectorId);
-          mercs.push({
-            ...child,
-            combatantId: combatantDisplayId,
-            combatantName: getAttr(child, 'combatantName', 'The Dictator'),
-            sectorId: squadSectorId,
-            sectorName: dictatorSector?.sectorName || '',
-            playerColor: 'dictator',
-            image: getAttr(child, 'image', ''),
-          });
-        }
-      }
-    }
-  }
-
-  return mercs;
-});
-
-// Helper to convert player position to color name
-function positionToColor(position: string | number): string {
-  const pos = typeof position === 'string' ? parseInt(position, 10) : position;
-  const player = players.value.find(p => p.position === pos);
-  if (player?.playerColor) return player.playerColor;
-  // Fallback to default colors by position
-  const defaultColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
-  return defaultColors[pos] || 'unknown';
-}
-
-// Build control map
-const controlMap = computed(() => {
-  const map: Record<string, string | undefined> = {};
-
-  for (const sector of sectors.value) {
-    let dictatorUnits = sector.dictatorMilitia;
-    const rebelUnits: Record<string, number> = {};
-
-    const dictatorMercsInSector = allMercs.value.filter(
-      (m) => m.sectorId === sector.sectorId && m.playerColor === 'dictator'
-    );
-    dictatorUnits += dictatorMercsInSector.length;
-
-    // Militia uses player position as key - convert to color name
-    for (const [positionKey, count] of Object.entries(sector.rebelMilitia || {})) {
-      const color = positionToColor(positionKey);
-      rebelUnits[color] = (rebelUnits[color] || 0) + (count as number);
-    }
-
-    const rebelMercsInSector = allMercs.value.filter(
-      (m) => m.sectorId === sector.sectorId && m.playerColor !== 'dictator'
-    );
-    for (const merc of rebelMercsInSector) {
-      const color = merc.playerColor || 'unknown';
-      rebelUnits[color] = (rebelUnits[color] || 0) + 1;
-    }
-
-    let maxUnits = 0;
-    let controller: string | undefined;
-
-    if (dictatorUnits > 0) {
-      maxUnits = dictatorUnits;
-      controller = 'dictator';
-    }
-
-    for (const [color, units] of Object.entries(rebelUnits)) {
-      if (units > maxUnits) {
-        maxUnits = units;
-        controller = color;
-      }
-    }
-
-    if (maxUnits > 0) {
-      map[sector.sectorId] = controller;
-    }
-  }
-
-  return map;
-});
-
-// Helper to get player position from squad
-function getSquadPlayerPosition(squad: any): number {
-  // Try various ways to get player position
-  const player = getAttr(squad, 'player', null);
-  if (player?.position !== undefined) return player.position;
-  if (squad.player?.position !== undefined) return squad.player.position;
-  const playerPos = getAttr(squad, 'playerPosition', undefined);
-  if (playerPos !== undefined) return playerPos;
-  // Try checking ref for player number
-  const ref = squad.ref || '';
-  let match = ref.match(/player-?(\d+)/i);
-  if (match) return parseInt(match[1], 10);
-  // Try parsing from name attribute like "squad-0-primary"
-  const name = getAttr(squad, 'name', '');
-  match = name.match(/squad-(\d+)/i);
-  if (match) return parseInt(match[1], 10);
-  return -1;
-}
-
-// Get current player's squads
-const primarySquad = computed(() => {
-  const squads = findAllByClassName('Squad');
-  const squad = squads.find((s: any) => {
-    const playerPos = getSquadPlayerPosition(s);
-    const isPrimary = getAttr(s, 'isPrimary', false);
-    return playerPos === props.playerPosition && isPrimary === true;
-  });
-
-  if (!squad) return undefined;
-
-  const sectorId = getAttr(squad, 'sectorId', '');
-  const sector = sectors.value.find((s) => s.sectorId === sectorId);
-
-  return {
-    squadId: squad.ref || 'primary',
-    isPrimary: true,
-    sectorId,
-    sectorName: sector?.sectorName,
-    mercs: (squad.children || [])
-      .filter((c: any) => {
-        // Skip dead MERCs
-        if (isMercDead(c)) return false;
-        return getAttr(c, 'combatantId', '') || getAttr(c, 'cardType', '') === 'merc';
-      })
-      .map((c: any) => c),
-  };
-});
-
-const secondarySquad = computed(() => {
-  const squads = findAllByClassName('Squad');
-  const squad = squads.find((s: any) => {
-    const playerPos = getSquadPlayerPosition(s);
-    const isPrimary = getAttr(s, 'isPrimary', true); // Default true so we exclude unless explicitly false
-    return playerPos === props.playerPosition && isPrimary === false;
-  });
-
-  if (!squad) return undefined;
-
-  const sectorId = getAttr(squad, 'sectorId', '');
-  const sector = sectors.value.find((s) => s.sectorId === sectorId);
-
-  return {
-    squadId: squad.ref || 'secondary',
-    isPrimary: false,
-    sectorId,
-    sectorName: sector?.sectorName,
-    mercs: (squad.children || [])
-      .filter((c: any) => {
-        // Skip dead MERCs
-        if (isMercDead(c)) return false;
-        return getAttr(c, 'combatantId', '') || getAttr(c, 'cardType', '') === 'merc';
-      })
-      .map((c: any) => c),
-  };
-});
-
-// Helper to build a dictator squad with dictator combatant included when present
-function buildDictatorSquad(squad: any, isPrimary: boolean, dictatorCardNode: any | null) {
-  const sectorId = getAttr(squad, 'sectorId', '');
-  const sector = sectors.value.find((s) => s.sectorId === sectorId);
-
-  // Get all combatants from squad (MERCs and dictator combatant)
-  const combatants = (squad.children || [])
-    .filter((c: any) => {
-      const cardType = getAttr(c, 'cardType', '');
-      if (cardType === 'dictator') {
-        // Include dictator if alive and in play
-        const isDead = getAttr(c, 'damage', 0) >= 10;
-        const inPlay = getAttr(c, 'inPlay', false);
-        return inPlay && !isDead;
-      }
-      if (cardType === 'merc') {
-        return !isMercDead(c);
-      }
-      // Also check by combatantId for serialized cards
-      return getAttr(c, 'combatantId', '');
-    })
-    .map((c: any) => {
-      const cardType = getAttr(c, 'cardType', '');
-      if (cardType === 'dictator') {
-        // Map dictator to merc-like format for SquadPanel
-        return {
-          ...c,
-          combatantId: `dictator-${getAttr(c, 'combatantId', '')}`,
-          combatantName: getAttr(c, 'combatantName', 'The Dictator'),
-          isDictator: true,
-        };
-      }
-      return c;
-    });
-
-  return {
-    squadId: squad.ref || `dictator-squad-${isPrimary ? 'primary' : 'secondary'}`,
-    isPrimary,
-    sectorId,
-    sectorName: sector?.sectorName,
-    mercs: combatants,
-  };
-}
-
-// MERC-rwdv: Get dictator's primary squad (includes dictator card when at this location)
-const dictatorPrimarySquad = computed(() => {
-  if (!currentPlayerIsDictator.value) return undefined;
-
-  const squads = findAllByClassName('Squad');
-  const squad = squads.find((s: any) => {
-    const name = getAttr(s, 'name', '') || s.ref || '';
-    return name === 'squad-dictator-primary' || name.includes('dictator-primary');
-  });
-
-  if (!squad) return undefined;
-
-  // Find dictator combatant to check if it should be included
-  const dictatorCardNode = findDictatorCombatant();
-
-  return buildDictatorSquad(squad, true, dictatorCardNode);
-});
-
-// MERC-rwdv: Get dictator's secondary squad
-const dictatorSecondarySquad = computed(() => {
-  if (!currentPlayerIsDictator.value) return undefined;
-
-  const squads = findAllByClassName('Squad');
-  const squad = squads.find((s: any) => {
-    const name = getAttr(s, 'name', '') || s.ref || '';
-    return name === 'squad-dictator-secondary' || name.includes('dictator-secondary');
-  });
-
-  if (!squad) return undefined;
-
-  // Find dictator combatant to check if it should be included
-  const dictatorCardNode = findDictatorCombatant();
-
-  return buildDictatorSquad(squad, false, dictatorCardNode);
-});
-
-// MERC-base: Get dictator's base squad (third squad) - shows all combatants stationed at base
-// This is a TRUE squad in the game model, not just a UI display helper
-const dictatorBaseSquad = computed(() => {
-  if (!currentPlayerIsDictator.value) return undefined;
-
-  // Find the actual base squad from the game state
-  const squads = findAllByClassName('Squad');
-  const baseSquad = squads.find((s: any) => {
-    const name = getAttr(s, 'name', '') || s.ref || '';
-    return name === 'squad-dictator-base' || name.includes('dictator-base');
-  });
-
-  if (!baseSquad) return undefined;
-
-  const sectorId = getAttr(baseSquad, 'sectorId', '');
-  if (!sectorId) return undefined; // Base squad not yet positioned
-
-  const sector = sectors.value.find((s) => s.sectorId === sectorId);
-
-  // Get all combatants in the base squad (MERCs and dictator combatant)
-  const combatants = (baseSquad.children || [])
-    .filter((c: any) => {
-      const cardType = getAttr(c, 'cardType', '');
-      if (cardType === 'dictator') {
-        // Include dictator if alive and in play
-        const isDead = getAttr(c, 'damage', 0) >= 10;
-        const inPlay = getAttr(c, 'inPlay', false);
-        return inPlay && !isDead;
-      }
-      if (cardType === 'merc') {
-        // Include MERCs if not dead
-        return !isMercDead(c);
-      }
-      return false;
-    })
-    .map((c: any) => {
-      const cardType = getAttr(c, 'cardType', '');
-      if (cardType === 'dictator') {
-        return {
-          ...c,
-          combatantId: `dictator-${getAttr(c, 'combatantId', '')}`,
-          combatantName: getAttr(c, 'combatantName', 'The Dictator'),
-          isDictator: true,
-        };
-      }
-      return c;
-    });
-
-  // Always show base squad if it has a sector (even if empty - can transfer into it)
-  return {
-    squadId: 'squad-dictator-base',
-    isPrimary: false,
-    isBase: true, // Flag to indicate this is the base squad
-    sectorId,
-    sectorName: sector?.sectorName || 'Base',
-    mercs: combatants,
-  };
-});
-
-// Alias for simpler access
-const dictatorSquad = dictatorPrimarySquad;
 
 // MERC-rwdv: Get dictator card data (for DictatorPanel)
 const dictatorCard = computed(() => {
@@ -1170,6 +420,9 @@ const militiaBonuses = computed(() => {
 // State for viewing dictator's played cards modal
 const showPlayedCardsModal = ref(false);
 
+// Ref for AssignToSquadPanel to enable scrolling to it
+const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null>(null);
+
 // ============================================================================
 // COMBAT PANEL - Show dice and hit allocation during combat
 // ============================================================================
@@ -1249,42 +502,13 @@ async function handleAssignAttackDog(targetId: string) {
   await props.actionController.execute('combatAssignAttackDog', { target: targetId });
 }
 
+
 // ============================================================================
-// ACTION HANDLING - Show appropriate UI based on available actions
+// ACTION HANDLING WATCHES
 // ============================================================================
 
-// Get action choices from actionArgs
-const actionChoices = computed(() => {
-  return props.actionArgs || {};
-});
-
-// Check if we're in MERC hiring mode (Day 1 or Castro's ability)
-const isHiringMercs = computed(() => {
-  const currentAction = props.actionController.currentAction.value;
-  return props.availableActions.includes('hireFirstMerc') ||
-         props.availableActions.includes('hireSecondMerc') ||
-         props.availableActions.includes('hireThirdMerc') ||
-         props.availableActions.includes('dictatorHireFirstMerc') ||
-         props.availableActions.includes('selectDictator') ||
-         currentAction === 'hireFirstMerc' ||
-         currentAction === 'hireSecondMerc' ||
-         currentAction === 'hireThirdMerc' ||
-         currentAction === 'dictatorHireFirstMerc' ||
-         currentAction === 'castroBonusHire' ||
-         currentAction === 'selectDictator';
-});
-
-// Check if we're selecting a dictator (Day 1 human dictator)
-const isSelectingDictator = computed(() => {
-  const currentAction = props.actionController.currentAction.value;
-  return props.availableActions.includes('selectDictator') ||
-         currentAction === 'selectDictator';
-});
-
-// Use actionController to detect when hagnessDraw action is active
-const isHagnessDrawActive = computed(() => {
-  return props.actionController.currentAction.value === 'hagnessDraw';
-});
+// Note: actionChoices, isHiringMercs, isSelectingDictator, isHagnessDrawActive,
+// isPlacingLanding, isSelectingRetreatSector, etc. are now provided by useActionState.
 
 // Auto-start hiring actions when they become available (wizard mode)
 watch(() => props.availableActions, (actions) => {
@@ -1319,498 +543,9 @@ watch(() => props.actionArgs['equipmentType'], (val) => {
   }
 });
 
-// Check if we're in landing placement mode
-const isPlacingLanding = computed(() => {
-  return props.availableActions.includes('placeLanding');
-});
-
-// Check if we're selecting a retreat sector (combatRetreat action needs retreatSector)
-const isSelectingRetreatSector = computed(() => {
-  const currentAction = props.actionController.currentAction.value;
-  const currentSel = props.actionController.currentSelection.value;
-  return currentAction === 'combatRetreat' && currentSel?.name === 'retreatSector';
-});
-
-// Get retreat sector choices when selecting retreat destination
-const retreatSectorChoices = computed(() => {
-  if (!isSelectingRetreatSector.value) return [];
-  const currentSel = props.actionController.currentSelection.value;
-  if (!currentSel) return [];
-  const choices = props.actionController.getChoices(currentSel) || [];
-
-  // Choices from getChoices() have { value, display } structure from BoardSmith
-  // Find sector by matching the numeric value and include full sector data for visual display
-  return choices.map((choice: any) => {
-    // choice.value is the numeric BoardSmith element ID (NOT choice.id!)
-    const numericId = choice.value;
-    const sectorData = sectors.value.find(s => s.id === numericId);
-    return {
-      id: numericId,  // Keep numeric ID for fill() - we store value as id for our UI
-      sectorName: sectorData?.sectorName || choice.display || 'Unknown',
-      sectorType: sectorData?.sectorType || 'Wilderness',
-      // Include full sector data for SectorCardChoice display
-      image: sectorData?.image || getSectorImageFallback(sectorData?.sectorType || 'Wilderness'),
-      value: sectorData?.value || 0,
-      weaponLoot: sectorData?.weaponLoot || 0,
-      armorLoot: sectorData?.armorLoot || 0,
-      accessoryLoot: sectorData?.accessoryLoot || 0,
-      dictatorMilitia: sectorData?.dictatorMilitia || 0,
-    };
-  });
-});
-
-// Handle retreat sector selection from CombatPanel
-async function handleSelectRetreatSector(sectorId: string | number) {
-  const currentSel = props.actionController.currentSelection.value;
-  if (!currentSel) return;
-  // Find the sector element to fill - match by numeric value
-  const choices = props.actionController.getChoices(currentSel) || [];
-  const selectedSector = choices.find((c: any) => c.value === sectorId);
-  if (selectedSector) {
-    // Pass just the value (element ID), not the full choice object
-    await props.actionController.fill(currentSel.name, selectedSector.value);
-  }
-}
-
-// Get landing zone action metadata
-const landingZoneMetadata = computed(() => {
-  if (!isPlacingLanding.value) return null;
-  return props.state?.state?.actionMetadata?.placeLanding;
-});
-
-// Check if we're equipping starting equipment
-const isEquipping = computed(() => {
-  return props.availableActions.includes('equipStarting');
-});
-
-// Check if current selection is for equipment type (Day 1 hiring or Castro hire)
-const isSelectingEquipmentType = computed(() => {
-  const selection = currentSelection.value;
-  return selection?.name === 'equipmentType';
-});
-
-// Check if we're in Castro hiring flow (to show equipment selection properly)
-const isCastroHiring = computed(() => {
-  return props.actionController.currentAction.value === 'castroBonusHire';
-});
-
-// Check if current selection is for sector (Castro hire placement)
-const isSelectingSector = computed(() => {
-  const selection = currentSelection.value;
-  return selection?.name === 'targetSector';
-});
-
-// Get sector choices for Castro hire placement - includes full sector data
-const sectorChoices = computed(() => {
-  if (!isSelectingSector.value) return [];
-  const selection = currentSelection.value;
-  if (!selection) return [];
-  const choices = props.actionController.getChoices(selection) || [];
-  return choices.map((choice: any) => {
-    const sectorName = typeof choice === 'string' ? choice : (choice.value || choice.display || String(choice));
-    // Find full sector data by name
-    const sectorData = sectors.value.find(s => s.sectorName === sectorName);
-    return {
-      value: sectorName,
-      label: sectorName,
-      // Include full sector data for visual card display
-      sectorName: sectorData?.sectorName || sectorName,
-      sectorType: sectorData?.sectorType || 'Industry',
-      image: sectorData?.image || getSectorImageFallback(sectorData?.sectorType || 'Industry'),
-      value_points: sectorData?.value || 0,
-      weaponLoot: sectorData?.weaponLoot || 0,
-      armorLoot: sectorData?.armorLoot || 0,
-      accessoryLoot: sectorData?.accessoryLoot || 0,
-      dictatorMilitia: sectorData?.dictatorMilitia || 0,
-      explored: sectorData?.explored || false,
-    };
-  });
-});
-
-// Get fallback image for sector type
-function getSectorImageFallback(sectorType: string): string {
-  const type = sectorType.toLowerCase();
-  if (type === 'wilderness') return '/sectors/wilderness.jpg';
-  if (type === 'city') return '/sectors/town---a.jpg';
-  return '/sectors/industry---coal.jpg';
-}
-
-// Handle sector selection for Castro hire
-function selectSector(sector: { value: string; label: string }) {
-  const selection = currentSelection.value;
-  if (!selection) return;
-  props.actionController.fill(selection.name, sector.value);
-}
-
-// Get equipment type choices when selecting equipment
-// Normalize to array of { value, label } objects
-const equipmentTypeChoices = computed(() => {
-  if (!isSelectingEquipmentType.value) return [];
-  const selection = currentSelection.value;
-  if (!selection) return [];
-  // Use actionController getter (not selection.choices)
-  const choices = props.actionController.getChoices(selection) || [];
-  // Normalize choices to objects with value and label
-  return choices.map((choice: any) => {
-    if (typeof choice === 'string') {
-      return { value: choice, label: choice };
-    }
-    return { value: choice.value || choice, label: choice.display || choice.value || String(choice) };
-  });
-});
-
-// Get the MERC currently being hired (for showing portrait and name during hiring flow)
-const selectedMercForEquipment = computed(() => {
-  // Only active during hiring flow (equipment or sector selection)
-  if (!isSelectingEquipmentType.value && !isSelectingSector.value) return null;
-
-  // Get MERC name from actionArgs (works for both rebel and dictator flows now)
-  const combatantName = props.actionArgs['merc'] as string | undefined;
-  if (!combatantName) return null;
-
-  // Find the MERC in the game tree
-  const merc = findMercByName(combatantName);
-  if (!merc) {
-    console.warn('[GameBoard] selectedMercForEquipment: Could not find MERC in game tree:', combatantName);
-  }
-  return merc;
-});
-
-// Get the image path for the selected MERC
-const selectedMercImagePath = computed(() => {
-  const merc = selectedMercForEquipment.value;
-  if (!merc) return '';
-  return getAttr(merc, 'image', '');
-});
-
-// Get the name for the selected MERC
-const selectedMercName = computed(() => {
-  const merc = selectedMercForEquipment.value;
-  if (!merc) return '';
-  return getAttr(merc, 'combatantName', '') || (merc as any).combatantName || '';
-});
-
-// Get the combatantId for the selected MERC
-const selectedMercId = computed(() => {
-  const merc = selectedMercForEquipment.value;
-  if (!merc) return '';
-  return getAttr(merc, 'combatantId', '') || (merc as any).combatantId || '';
-});
-
-// State for showing MERC detail modal during hiring
-const showHiringMercModal = ref(false);
-
-// Open MERC detail modal during hiring phase
-function openHiringMercDetail() {
-  if (selectedMercForEquipment.value) {
-    showHiringMercModal.value = true;
-  }
-}
-
-// Close MERC detail modal
-function closeHiringMercModal() {
-  showHiringMercModal.value = false;
-}
-
-// Show AssignToSquad component when assignToSquad action is active
-// Keep visible briefly after action completes so animation can find destination element
-const assignToSquadDelayedHide = ref(false);
-const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null>(null);
-let assignToSquadHideTimeout: ReturnType<typeof setTimeout> | null = null;
-
-const showAssignToSquad = computed(() =>
-  props.actionController.currentAction.value === 'assignToSquad' || assignToSquadDelayedHide.value
-);
-
-watch(() => props.actionController.currentAction.value, (newAction, oldAction) => {
-  if (oldAction === 'assignToSquad' && newAction !== 'assignToSquad') {
-    // Action just completed - keep panel visible for animation
-    assignToSquadDelayedHide.value = true;
-    if (assignToSquadHideTimeout) clearTimeout(assignToSquadHideTimeout);
-    assignToSquadHideTimeout = setTimeout(() => {
-      assignToSquadDelayedHide.value = false;
-      assignToSquadHideTimeout = null;
-    }, 600); // Match animation duration (500ms) + buffer
-  }
-});
-
-// Handle reassign from squad badge click - starts action and scrolls to panel
-function handleReassignCombatant(combatantName: string) {
-  props.actionController.start('assignToSquad', { combatantName });
-  // Wait for panel to render, then scroll to it
-  nextTick(() => {
-    if (assignToSquadPanelRef.value?.$el) {
-      assignToSquadPanelRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
-}
-
-// Check if Hagness is selecting equipment type (first step)
-const isHagnessSelectingType = computed(() => {
-  if (!isHagnessDrawActive.value) return false;
-  const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-  if (!metadata?.selections?.length) return false;
-  // Check if equipmentType selection exists and is unfilled
-  const equipmentTypeSelection = metadata.selections.find((s: any) => s.name === 'equipmentType');
-  return equipmentTypeSelection && props.actionArgs['equipmentType'] === undefined;
-});
-
-// Get Hagness equipment type choices
-const hagnessEquipmentTypeChoices = computed(() => {
-  if (!isHagnessSelectingType.value) return [];
-  const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-  const selection = metadata?.selections?.find((s: any) => s.name === 'equipmentType');
-  if (!selection) return [];
-  // Use actionController getter (not selection.choices)
-  const choices = props.actionController.getChoices(selection) || [];
-  return choices.map((choice: any) => {
-    if (typeof choice === 'string') {
-      return { value: choice, label: choice };
-    }
-    return { value: choice.value || choice, label: choice.display || choice.value || String(choice) };
-  });
-});
-
-// Check if Hagness is selecting recipient (second step - after equipment drawn)
-const isHagnessSelectingRecipient = computed(() => {
-  if (!isHagnessDrawActive.value) return false;
-  const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-  if (!metadata?.selections?.length) return false;
-  // Check if recipient selection exists and is unfilled (and equipmentType is filled)
-  const recipientSelection = metadata.selections.find((s: any) => s.name === 'recipient');
-  return recipientSelection &&
-         props.actionArgs['equipmentType'] !== undefined &&
-         props.actionArgs['recipient'] === undefined;
-});
-
-// Get Hagness's drawn equipment from choices or game state
-const hagnessDrawnEquipment = computed(() => {
-  if (!isHagnessDrawActive.value) return null;
-
-  // First, try to get from fetched deferred choices
-  const key = 'hagnessDraw:recipient';
-  let choices: any[] = fetchedDeferredChoices[key] || [];
-
-  // If no fetched choices, try actionController getter
-  if (choices.length === 0) {
-    const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-    const recipientSelection = metadata?.selections?.find((s: any) => s.name === 'recipient');
-    if (recipientSelection) {
-      choices = props.actionController.getChoices(recipientSelection) || [];
-    }
-  }
-
-  if (choices.length > 0) {
-    // Equipment might be nested in choice.value.equipment or choice.equipment
-    const choice = choices[0];
-    const equipment = choice.value?.equipment || choice.equipment;
-    if (equipment) {
-      return equipment;
-    }
-  }
-
-  // Fallback to game state locations
-  const playerKey = `${props.playerPosition}`;
-  const equipmentType = props.actionArgs['equipmentType'] as string | undefined;
-
-  // Try typed key first (playerKey:equipmentType), then plain playerKey for backwards compat
-  const typedKey = equipmentType ? `${playerKey}:${equipmentType}` : playerKey;
-
-  // Try multiple locations where the data might be
-  // 1. Direct on gameView (plain object should serialize here)
-  let data = props.gameView?.hagnessDrawnEquipmentData?.[typedKey] ||
-             props.gameView?.hagnessDrawnEquipmentData?.[playerKey];
-
-  // 2. In attributes (BoardSmith element structure)
-  if (!data) {
-    data = props.gameView?.attributes?.hagnessDrawnEquipmentData?.[typedKey] ||
-           props.gameView?.attributes?.hagnessDrawnEquipmentData?.[playerKey];
-  }
-
-  // 3. In state
-  if (!data) {
-    data = props.state?.state?.hagnessDrawnEquipmentData?.[typedKey] ||
-           props.state?.state?.hagnessDrawnEquipmentData?.[playerKey];
-  }
-
-  return data || null;
-});
-
-// Get Hagness's squad mates from fetched choices or directly from squad data
-const hagnessSquadMates = computed(() => {
-  if (!isHagnessSelectingRecipient.value) return [];
-
-  // Try to get choices from fetchedDeferredChoices (populated by watcher if metadata available)
-  const key = 'hagnessDraw:recipient';
-  const choices = fetchedDeferredChoices[key] || [];
-
-  if (choices.length > 0) {
-    // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName ← Equipment" }
-    return choices.map((choice: any) => {
-      const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' ←')[0] || 'Unknown');
-      // Try to get combatantId from choice metadata if available
-      const combatantId = choice.combatantId || displayName.toLowerCase();
-      return { displayName, combatantId, choice }; // Keep the full choice for when user clicks
-    }).sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }
-
-  // Fallback: Get mercs directly from squad data
-  const allSquadMercs = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-
-  if (allSquadMercs.length === 0) return [];
-
-  // Create choice-like objects from squad mercs
-  return allSquadMercs.map((merc: any) => {
-    const combatantId = getAttr(merc, 'combatantId', '') || '';
-    const combatantName = getAttr(merc, 'combatantName', '') || combatantId || 'Unknown';
-    // Capitalize first letter of each word
-    const displayName = combatantName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-    return {
-      displayName,
-      combatantId,
-      choice: { value: displayName }, // Simple choice object for selection
-    };
-  }).sort((a, b) => a.displayName.localeCompare(b.displayName));
-});
-
-// Use the shared actionArgs from GameShell (props.actionArgs) instead of local state
-// This allows both custom UI and ActionPanel to potentially share state
-
-// Get action metadata for the current action (hiring, hagnessDraw, or explore)
-const currentActionMetadata = computed(() => {
-  const metadata = props.state?.state?.actionMetadata;
-  if (!metadata) return null;
-
-  // Check for hiring actions (Day 1 or Castro's ability)
-  if (isHiringMercs.value) {
-    return metadata.hireFirstMerc ||
-           metadata.hireSecondMerc ||
-           metadata.hireThirdMerc ||
-           metadata.dictatorHireFirstMerc ||
-           metadata.castroBonusHire;
-  }
-
-  // Check for Hagness draw action FIRST (when user is actively interacting with it)
-  // This takes precedence over explore since hagnessDraw requires specific user action
-  if (isHagnessDrawActive.value) {
-    return metadata.hagnessDraw;
-  }
-
-  // Check for explore action
-  if (props.availableActions.includes('explore')) {
-    return metadata.explore;
-  }
-
-  return null;
-});
-
-// Get the current selection (first one that hasn't been filled yet)
-// Prefers actionController.currentSelection when an action is active via actionController
-const currentSelection = computed(() => {
-  // When an action is active via actionController, use its currentSelection
-  if (props.actionController.currentAction.value && props.actionController.currentSelection.value) {
-    return props.actionController.currentSelection.value;
-  }
-
-  // Fall back to flow state metadata approach
-  const metadata = currentActionMetadata.value;
-  if (!metadata?.selections?.length) return null;
-
-  // Find first selection that doesn't have a value in actionArgs
-  for (const sel of metadata.selections) {
-    if (props.actionArgs[sel.name] === undefined) {
-      return sel;
-    }
-  }
-  return null; // All selections filled
-});
-
-// Check if all selections are filled
-const allSelectionsComplete = computed(() => {
-  const metadata = currentActionMetadata.value;
-  if (!metadata?.selections?.length) return false;
-
-  for (const sel of metadata.selections) {
-    if (props.actionArgs[sel.name] === undefined) {
-      return false;
-    }
-  }
-  return true;
-});
-
-// Get current action name that needs custom UI handling (hiring, hagnessDraw, or explore)
-function getCurrentActionName(): string | null {
-  if (props.availableActions.includes('selectDictator')) return 'selectDictator';
-  if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
-  if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
-  if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
-  if (props.actionController.currentAction.value === 'castroBonusHire') return 'castroBonusHire';
-  if (props.actionController.currentAction.value === 'selectDictator') return 'selectDictator';
-  // Check hagnessDraw FIRST (when user is actively interacting with it)
-  if (isHagnessDrawActive.value && props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
-  if (props.availableActions.includes('explore')) return 'explore';
-  if (props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
-  return null;
-}
-
-// Watch for deferred selections and fetch choices when needed
-watch(
-  () => currentSelection.value,
-  async (selection) => {
-    if (!selection?.deferred || !fetchDeferredChoicesFn) return;
-
-    const actionName = getCurrentActionName();
-    if (!actionName) return;
-    const key = `${actionName}:${selection.name}`;
-
-    // Skip if already fetched
-    if (fetchedDeferredChoices[key]?.length > 0) return;
-
-    deferredChoicesLoading.value = true;
-    try {
-      const result = await fetchDeferredChoicesFn(
-        actionName,
-        selection.name,
-        props.playerPosition,
-        props.actionArgs
-      );
-      if (result.success && result.choices) {
-        fetchedDeferredChoices[key] = result.choices;
-      }
-    } catch (err) {
-      console.error('Error fetching deferred choices:', err);
-    } finally {
-      deferredChoicesLoading.value = false;
-    }
-  },
-  { immediate: true }
-);
-
-// Helper to find a MERC by name anywhere in the gameView tree
-function findMercByName(name: string | any, node?: any): any {
-  if (!node) node = props.gameView;
-  if (!node) return null;
-
-  // Ensure name is a string (handle object/undefined cases)
-  const searchName = typeof name === 'string' ? name : (name?.value || name?.label || String(name || ''));
-  if (!searchName) return null;
-
-  const nodeName = getAttr(node, 'combatantName', '');
-  if (nodeName && nodeName.toLowerCase() === searchName.toLowerCase()) {
-    return node;
-  }
-
-  if (node.children) {
-    for (const child of node.children) {
-      const found = findMercByName(searchName, child);
-      if (found) return found;
-    }
-  }
-  return null;
-}
+// ============================================================================
+// HIRING UI STATE (not extracted - uses actionController directly)
+// ============================================================================
 
 // Get MERCs available for hiring from action metadata
 const hirableMercs = computed(() => {
@@ -2027,6 +762,49 @@ async function selectHagnessRecipient(choice: any) {
 
   // Fill the recipient selection - actionController handles auto-execute
   await props.actionController.fill('recipient', recipientValue);
+}
+
+// Handle retreat sector selection from CombatPanel
+async function handleSelectRetreatSector(sectorId: string | number) {
+  const currentSel = props.actionController.currentSelection.value;
+  if (!currentSel) return;
+  // Find the sector element to fill - match by numeric value
+  const choices = props.actionController.getChoices(currentSel) || [];
+  const selectedSector = choices.find((c: any) => c.value === sectorId);
+  if (selectedSector) {
+    // Pass just the value (element ID), not the full choice object
+    await props.actionController.fill(currentSel.name, selectedSector.value);
+  }
+}
+
+// Select sector for Castro hire placement
+function selectSector(sector: { value: string; label: string }) {
+  const selection = currentSelection.value;
+  if (!selection) return;
+  props.actionController.fill(selection.name, sector.value);
+}
+
+// Open MERC detail modal during hiring
+function openHiringMercDetail() {
+  if (selectedMercForEquipment.value) {
+    showHiringMercModal.value = true;
+  }
+}
+
+// Close MERC detail modal
+function closeHiringMercModal() {
+  showHiringMercModal.value = false;
+}
+
+// Handle reassign from squad badge click - starts action and scrolls to panel
+function handleReassignCombatant(combatantName: string) {
+  props.actionController.start('assignToSquad', { combatantName });
+  // Wait for panel to render, then scroll to it
+  nextTick(() => {
+    if (assignToSquadPanelRef.value?.$el) {
+      assignToSquadPanelRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 }
 
 // Handle sector clicks for actions

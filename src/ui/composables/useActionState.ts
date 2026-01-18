@@ -14,8 +14,9 @@ export interface ActionStateProps {
     currentArgs: Ref<Record<string, unknown> | undefined>;
     getChoices: (selection: any) => any[];
     fill: (selectionName: string, value: any) => Promise<void>;
-    start: (actionName: string, args?: Record<string, unknown>) => Promise<void>;
+    start: (actionName: string, args?: Record<string, unknown> & { prefill?: Record<string, unknown> }) => Promise<void>;
     execute: (actionName: string, args?: Record<string, unknown>) => Promise<void>;
+    [key: string]: any; // Allow additional properties from UseActionControllerReturn
   };
   actionArgs: Record<string, unknown>;
   state?: { state?: Record<string, any> };
