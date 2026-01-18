@@ -56,6 +56,27 @@ const props = defineProps<{
   state?: any; // Flow state from GameShell
 }>();
 
+// Initialize composables with gameView getter
+const {
+  normalizeClassName,
+  findByClassName,
+  findAllByClassName,
+  findByRef,
+  findElementById,
+  getAttr,
+  findDictatorCombatant,
+  findDictatorCombatantWithParent,
+  isMercDead,
+} = useGameViewHelpers(() => props.gameView);
+
+const {
+  countTacticsCards,
+  calculateRebelVictoryPoints,
+  calculateDictatorVictoryPoints,
+  isGameOver,
+  gameWinner,
+} = useVictoryCalculations(() => props.gameView);
+
 // Helper to normalize class name (strips underscore prefix)
 function normalizeClassName(className: string): string {
   return className?.replace(/^_/, '') || '';
