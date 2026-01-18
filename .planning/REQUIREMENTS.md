@@ -9,7 +9,7 @@ Requirements for v1.7 milestone. Each maps to roadmap phases.
 
 ### UI Components
 
-- [ ] **UI-01**: Extract HiringPhase.vue — merc selection, equipment type, sector selection, dictator selection, skip option, detail modal
+- [x] **UI-01**: Extract HiringPhase.vue — merc selection, equipment type, sector selection, dictator selection, skip option, detail modal
 - [x] **UI-02**: Extract HagnessDrawEquipment.vue — equipment type selection, drawn equipment display, recipient selection
 - [x] **UI-03**: Extract LandingZoneSelection.vue — sector picker for landing phase with visual sector cards
 - [x] **UI-04**: Extract GameOverOverlay.vue — victory/defeat display component
@@ -68,7 +68,7 @@ Which phases cover which requirements.
 | UI-03 | Phase 33 | Complete |
 | UI-04 | Phase 33 | Complete |
 | UI-02 | Phase 34 | Complete |
-| UI-01 | Phase 35 | Pending |
+| UI-01 | Phase 35 | Complete |
 | INT-01 | Phase 36 | Pending |
 | INT-02 | Phase 36 | Pending |
 | INT-03 | Phase 36 | Pending |
