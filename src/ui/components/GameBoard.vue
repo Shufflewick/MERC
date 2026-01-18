@@ -1066,90 +1066,32 @@ const clickableSectors = computed(() => {
       @close="closeSectorPanel"
     />
 
-    <!-- Hiring phase - show MERCs/Dictators to choose from -->
-    <div v-if="isHiringMercs" class="hiring-phase">
-      <div class="hiring-header">
-        <div class="hiring-icon">👥</div>
-        <div class="hiring-content">
-          <h2 class="hiring-title">{{ isSelectingDictator ? 'Choose Your Dictator' : 'Hiring Phase' }}</h2>
-          <p class="hiring-prompt">{{ currentSelection?.prompt || state?.flowState?.prompt || 'Select your MERCs' }}</p>
-        </div>
-      </div>
-
-      <!-- Equipment type selection -->
-      <DrawEquipmentType
-        v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
-        :choices="equipmentTypeChoices"
-        :combatant-id="selectedMercId"
-        :combatant-name="selectedMercName"
-        :image="selectedMercImagePath"
-        :player-color="currentPlayerColor"
-        @select="selectEquipmentType"
-        @clickMerc="openHiringMercDetail"
-      />
-
-      <!-- Sector selection (Castro hire placement) - Visual Cards -->
-      <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
-        <div class="sector-row">
-          <!-- MERC portrait (clickable to view details) -->
-          <CombatantIconSmall
-            v-if="selectedMercImagePath"
-            :image="selectedMercImagePath"
-            :alt="selectedMercName || 'MERC'"
-            :player-color="currentPlayerColor"
-            :size="80"
-            clickable
-            @click="openHiringMercDetail"
-          />
-          <!-- Sector cards -->
-          <div class="sector-card-choices">
-            <SectorCardChoice
-              v-for="sector in sectorChoices"
-              :key="sector.value"
-              :sector="sector"
-              @click="selectSector(sector)"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- MERC selection -->
-      <div class="merc-choices-container" v-else-if="hirableMercs.length > 0 || hasSkipOption">
-        <div class="merc-choices">
-          <div
-            v-for="merc in hirableMercs"
-            :key="getMercId(merc)"
-            class="merc-choice"
-            @click="selectMercToHire(merc)"
-          >
-            <CombatantCard :merc="merc" :player-color="currentPlayerColor" />
-          </div>
-        </div>
-
-        <!-- Skip button for third hire (optional) -->
-        <div v-if="hasSkipOption" class="skip-hire-section">
-          <button class="skip-hire-button" @click="skipThirdHire">
-            Skip Third Hire
-          </button>
-          <p class="skip-hint">You can hire a third MERC thanks to Teresa, or skip</p>
-        </div>
-      </div>
-
-      <div v-else class="use-action-panel">
-        <p class="action-panel-hint">Loading MERCs...</p>
-      </div>
-
-      <!-- MERC Detail Modal for hiring phase -->
-      <DetailModal :show="showHiringMercModal" @close="closeHiringMercModal">
-        <div class="hiring-merc-modal">
-          <CombatantCard
-            v-if="selectedMercForEquipment"
-            :merc="selectedMercForEquipment"
-            :player-color="currentPlayerColor"
-          />
-        </div>
-      </DetailModal>
-    </div>
+    <!-- Hiring Phase Component -->
+    <HiringPhase
+      v-if="isHiringMercs"
+      :is-hiring-mercs="isHiringMercs"
+      :is-selecting-dictator="isSelectingDictator"
+      :is-selecting-equipment-type="isSelectingEquipmentType"
+      :is-castro-hiring="isCastroHiring"
+      :is-selecting-sector="isSelectingSector"
+      :hirable-mercs="hirableMercs"
+      :has-skip-option="hasSkipOption"
+      :equipment-type-choices="equipmentTypeChoices"
+      :sector-choices="sectorChoices"
+      :selected-merc-for-equipment="selectedMercForEquipment"
+      :selected-merc-image-path="selectedMercImagePath"
+      :selected-merc-name="selectedMercName"
+      :selected-merc-id="selectedMercId"
+      :show-hiring-merc-modal="showHiringMercModal"
+      :prompt="currentSelection?.prompt || state?.flowState?.prompt || 'Select your MERCs'"
+      :player-color="currentPlayerColor"
+      @select-merc="selectMercToHire"
+      @select-equipment-type="selectEquipmentType"
+      @select-sector="selectSector"
+      @skip-hire="skipThirdHire"
+      @open-detail-modal="openHiringMercDetail"
+      @close-detail-modal="closeHiringMercModal"
+    />
 
     <!-- Hagness Draw Equipment UI -->
     <HagnessDrawEquipment
