@@ -15,6 +15,8 @@ import CombatantIcon from './CombatantIcon.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
+import { useGameViewHelpers } from '../composables/useGameViewHelpers';
+import { useVictoryCalculations } from '../composables/useVictoryCalculations';
 
 // Type for deferred choices fetch function (injected from GameShell)
 type FetchDeferredChoicesFn = (
