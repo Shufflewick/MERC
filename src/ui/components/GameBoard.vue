@@ -14,6 +14,8 @@ import AssignToSquadPanel from './AssignToSquadPanel.vue';
 import CombatantIcon from './CombatantIcon.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
+import GameOverOverlay from './GameOverOverlay.vue';
+import LandingZoneSelection from './LandingZoneSelection.vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 import { useGameViewHelpers } from '../composables/useGameViewHelpers';
 import { useVictoryCalculations } from '../composables/useVictoryCalculations';
