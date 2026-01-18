@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Phase: 32 of 36 (State Composables) - IN PROGRESS
-Plan: 4 of 5 in current phase - COMPLETE
-Status: Created useActionState composable
-Last activity: 2026-01-18 — Created useActionState.ts (639 lines)
+Phase: 32 of 36 (State Composables) - COMPLETE
+Plan: 5 of 5 in current phase - COMPLETE
+Status: Integrated all state composables into GameBoard.vue
+Last activity: 2026-01-18 — Removed ~1,285 lines from GameBoard.vue
 
 Progress: ████░░░░░░ 17% (1 of 6 phases complete)
 
@@ -23,11 +23,11 @@ Progress: ████░░░░░░ 17% (1 of 6 phases complete)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 31 | Helper Composables | HELP-01, HELP-02 | COMPLETE (3/3 plans) |
-| 32 | State Composables | STATE-01-04 | ◐ In Progress (4/5 plans) |
-| 33 | Small UI Components | UI-03, UI-04 | ○ Pending |
-| 34 | Hagness UI Component | UI-02 | ○ Pending |
-| 35 | Hiring Phase Component | UI-01 | ○ Pending |
-| 36 | Integration & Cleanup | INT-01-03 | ○ Pending |
+| 32 | State Composables | STATE-01-04 | COMPLETE (5/5 plans) |
+| 33 | Small UI Components | UI-03, UI-04 | Pending |
+| 34 | Hagness UI Component | UI-02 | Pending |
+| 35 | Hiring Phase Component | UI-01 | Pending |
+| 36 | Integration & Cleanup | INT-01-03 | Pending |
 
 ## Milestones Completed
 
@@ -44,7 +44,7 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 62
+- Total plans completed: 63
 - Average duration: 10.5 min/plan
 
 ## Accumulated Context
@@ -62,10 +62,13 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Getter functions for dependencies to allow lazy evaluation and avoid circular refs
 - useSquadState uses direct computed ref parameters rather than getter-based DI (simpler for non-circular deps)
 - useActionState: Watch handlers stay in GameBoard.vue (interact with props/injected functions); composable exports refs
+- Used toRef() for props.playerPosition to create reactive ref for composables expecting Ref<number>
+- Circular dependency between useSectorState↔useSquadState resolved via lazy getter functions
 
 ### Deferred Issues
 
-None active.
+- Pre-existing type compatibility issues between composable interfaces and component props
+- Pre-existing `@boardsmith/session` package configuration issue blocks browser testing
 
 ### Blockers/Concerns
 
@@ -76,17 +79,18 @@ None active.
 - v1.7 milestone initialized with 6 phases
 - Focus: GameBoard.vue refactor (3,368 → <500 lines)
 - Phase 31 complete: GameBoard.vue now 3,093 lines (275 lines reduced)
+- Phase 32 complete: GameBoard.vue now ~1,808 lines (1,285 lines reduced)
 
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Phase 31 complete, ready for Phase 32
+Stopped at: Phase 32 complete, ready for Phase 33
 Resume file: None
 
 ### Recent Plans Completed
 
+- 32-05: Integrated state composables into GameBoard.vue (3 commits, -1,285 lines)
 - 32-04: Created useActionState composable (1 commit, +639 lines)
 - 32-03: Created useSquadState composable (1 commit, +426 lines)
 - 32-02: Created useSectorState composable (1 commit, +454 lines)
 - 32-01: Created usePlayerState composable (1 commit, +163 lines)
-- 31-03: Integrated composables into GameBoard.vue (4 commits, -275 lines)
