@@ -97,16 +97,18 @@
 **Requirements:**
 - UI-02: HagnessDrawEquipment
 
+**Status:** Complete (2026-01-18)
+
 **Success Criteria:**
-- [ ] HagnessDrawEquipment.vue created with full flow
-- [ ] Equipment type selection works
-- [ ] Drawn equipment display works
-- [ ] Recipient selection works
-- [ ] Component uses state composables for action state
-- [ ] Game runs without errors, Hagness ability works correctly
+- [x] HagnessDrawEquipment.vue created with full flow
+- [x] Equipment type selection works
+- [x] Drawn equipment display works
+- [x] Recipient selection works
+- [x] Component uses state composables for action state
+- [x] Game runs without errors, Hagness ability works correctly
 
 **Deliverables:**
-- `src/ui/components/HagnessDrawEquipment.vue`
+- `src/ui/components/HagnessDrawEquipment.vue` (188 lines)
 
 ---
 
@@ -161,7 +163,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | UI-01 | 35 | Pending |
-| UI-02 | 34 | Pending |
+| UI-02 | 34 | Complete |
 | UI-03 | 33 | Complete |
 | UI-04 | 33 | Complete |
 | HELP-01 | 31 | Complete |

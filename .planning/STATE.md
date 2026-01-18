@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 34 of 36 (Hagness UI Component)
-Plan: 1 of 2 in current phase
-Status: In progress - created HagnessDrawEquipment.vue component
-Last activity: 2026-01-18 — Completed 34-01-PLAN.md (+188 lines)
+Plan: 2 of 2 in current phase
+Status: Phase 34 COMPLETE
+Last activity: 2026-01-18 — Completed 34-02-PLAN.md (-225 lines from GameBoard.vue)
 
-Progress: ████████░░ 58% (3 phases + 1 plan complete)
+Progress: █████████░ 67% (4 phases complete)
 
 ## Current Milestone
 
@@ -25,7 +25,7 @@ Progress: ████████░░ 58% (3 phases + 1 plan complete)
 | 31 | Helper Composables | HELP-01, HELP-02 | COMPLETE (3/3 plans) |
 | 32 | State Composables | STATE-01-04 | COMPLETE (5/5 plans) |
 | 33 | Small UI Components | UI-03, UI-04 | COMPLETE (3/3 plans) |
-| 34 | Hagness UI Component | UI-02 | In progress (1/2 plans) |
+| 34 | Hagness UI Component | UI-02 | COMPLETE (2/2 plans) |
 | 35 | Hiring Phase Component | UI-01 | Pending |
 | 36 | Integration & Cleanup | INT-01-03 | Pending |
 
@@ -44,7 +44,7 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 65
+- Total plans completed: 66
 - Average duration: 10.5 min/plan
 
 ## Accumulated Context
@@ -72,10 +72,11 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Uses SectorCardChoice in compact mode for consistent card display across landing/sector UI
 - Integration: handleLandingSectorSelected delegates to existing handleSectorClick for landing phase logic reuse
 
-**Phase 34 Decisions (Plan 01):**
+**Phase 34 Decisions:**
 - Defined HagnessSquadMate interface locally rather than importing from useActionState (self-contained component)
 - Used type-safe emit syntax with tuple parameter types
 - Kept styles scoped and extracted only Hagness-specific styles
+- Wired events directly to existing handlers (selectEquipmentType, selectHagnessRecipient)
 
 ### Deferred Issues
 
@@ -93,18 +94,19 @@ None active.
 - Phase 31 complete: GameBoard.vue now 3,093 lines (275 lines reduced)
 - Phase 32 complete: GameBoard.vue now ~1,808 lines (1,285 lines reduced)
 - Phase 33 complete: GameBoard.vue now ~1,930 lines (new components offset by -66 line reduction)
+- Phase 34 complete: GameBoard.vue now 1,706 lines (-225 lines from Hagness extraction)
 
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Phase 34 Plan 01 complete, Plan 02 pending
+Stopped at: Phase 34 complete, Phase 35 pending
 Resume file: None
 
 ### Recent Plans Completed
 
+- 34-02: Integrated HagnessDrawEquipment into GameBoard.vue (3 commits, -225 lines)
 - 34-01: Created HagnessDrawEquipment.vue component (1 commit, +188 lines)
 - 33-03: Integrated components into GameBoard.vue (5 commits, -66 lines)
 - 33-01: Created GameOverOverlay.vue component (1 commit, +108 lines)
 - 33-02: Created LandingZoneSelection.vue component (1 commit, +117 lines)
 - 32-05: Integrated state composables into GameBoard.vue (3 commits, -1,285 lines)
-- 32-04: Created useActionState composable (1 commit, +639 lines)
