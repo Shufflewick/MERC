@@ -55,29 +55,29 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
-| HELP-01 | TBD | Pending |
-| HELP-02 | TBD | Pending |
-| STATE-01 | TBD | Pending |
-| STATE-02 | TBD | Pending |
-| STATE-03 | TBD | Pending |
-| STATE-04 | TBD | Pending |
-| INT-01 | TBD | Pending |
-| INT-02 | TBD | Pending |
-| INT-03 | TBD | Pending |
+| HELP-01 | Phase 31 | Pending |
+| HELP-02 | Phase 31 | Pending |
+| STATE-01 | Phase 32 | Pending |
+| STATE-02 | Phase 32 | Pending |
+| STATE-03 | Phase 32 | Pending |
+| STATE-04 | Phase 32 | Pending |
+| UI-03 | Phase 33 | Pending |
+| UI-04 | Phase 33 | Pending |
+| UI-02 | Phase 34 | Pending |
+| UI-01 | Phase 35 | Pending |
+| INT-01 | Phase 36 | Pending |
+| INT-02 | Phase 36 | Pending |
+| INT-03 | Phase 36 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-01-18*
-*Last updated: 2026-01-18 after initial definition*
+*Last updated: 2026-01-18 after roadmap creation*

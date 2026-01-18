@@ -2,19 +2,32 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-15)
+See: .planning/PROJECT.md (updated 2026-01-18)
 
-**Core value:** MERC board game - strategic combat with dictators, mercs, and rebels
-**Current focus:** Project complete - all 7 milestones shipped
+**Core value:** Ship Confidence - maintainable, testable UI components
+**Current focus:** v1.7 GameBoard Component Refactor
 
 ## Current Position
 
-Phase: 30 of 30 (UI Layer ID Cleanup)
-Plan: 2 of 2 in current phase
-Status: Project complete
-Last activity: 2026-01-15 — v1.6 Final ID Cleanup shipped
+Phase: 31 of 36 (Helper Composables)
+Plan: 0 of ? in current phase
+Status: Ready to plan Phase 31
+Last activity: 2026-01-18 — v1.7 milestone initialized
 
-Progress: ██████████ 100% (30 of 30 phases)
+Progress: ░░░░░░░░░░ 0% (0 of 6 phases)
+
+## Current Milestone
+
+**v1.7 GameBoard Component Refactor**
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 31 | Helper Composables | HELP-01, HELP-02 | ○ Pending |
+| 32 | State Composables | STATE-01-04 | ○ Pending |
+| 33 | Small UI Components | UI-03, UI-04 | ○ Pending |
+| 34 | Hagness UI Component | UI-02 | ○ Pending |
+| 35 | Hiring Phase Component | UI-01 | ○ Pending |
+| 36 | Integration & Cleanup | INT-01-03 | ○ Pending |
 
 ## Milestones Completed
 
@@ -26,13 +39,12 @@ Progress: ██████████ 100% (30 of 30 phases)
 - v1.5 Final Combatant Unification (Phases 24-27) — 7 plans
 - v1.6 Final ID Cleanup (Phases 28-30) — 5 plans
 
-Total: 30 phases, 57 plans, 7 milestones shipped
+Total previous: 30 phases, 57 plans, 7 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
 - Total plans completed: 57
-- Total execution time: ~10 hours
 - Average duration: 10.5 min/plan
 
 ## Accumulated Context
@@ -51,12 +63,11 @@ None active.
 
 ### Roadmap Evolution
 
-- MERC Codebase Cleanup project complete
-- All 7 milestones shipped
-- 30 phases, 57 plans executed
+- v1.7 milestone initialized with 6 phases
+- Focus: GameBoard.vue refactor (3,368 → <500 lines)
 
 ## Session Continuity
 
-Last session: 2026-01-15
-Stopped at: Project complete - all milestones shipped
+Last session: 2026-01-18
+Stopped at: Roadmap created, ready to plan Phase 31
 Resume file: None
