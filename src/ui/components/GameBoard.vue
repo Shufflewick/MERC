@@ -1194,8 +1194,13 @@ const clickableSectors = computed(() => {
     <div class="board-layout" v-if="sectors.length > 0 || isPlacingLanding">
       <!-- Map Section -->
       <div class="map-section">
-        <h2 v-if="isPlacingLanding" class="action-title">Choose Landing Zone</h2>
-        <p v-if="isPlacingLanding" class="action-subtitle">Select an edge sector for your landing</p>
+        <!-- Landing Zone Selection - shown above map during landing phase -->
+        <LandingZoneSelection
+          v-if="isPlacingLanding"
+          :sectors="sectors"
+          @sector-selected="handleLandingSectorSelected"
+        />
+
         <h2 v-if="isSelectingRetreatSector" class="action-title">Retreat</h2>
         <p v-if="isSelectingRetreatSector" class="action-subtitle">Select an adjacent sector to retreat to</p>
 
