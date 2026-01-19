@@ -10,15 +10,15 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Phase: 36 of 36 (Integration & Cleanup)
-Plan: 2 of 3 in current phase
-Status: Plan complete
-Last activity: 2026-01-18 — Completed 36-02-PLAN.md (TypeScript Audit)
+Plan: 3 of 3 in current phase
+Status: Plan complete (verification)
+Last activity: 2026-01-18 — Completed 36-03-PLAN.md (Verification & Test Suite)
 
-Progress: █████████░ 93% (5 phases complete, 2 plans in phase 36)
+Progress: ██████████ 100% (6 phases complete, 3 plans in phase 36)
 
 ## Current Milestone
 
-**v1.7 GameBoard Component Refactor**
+**v1.7 GameBoard Component Refactor** - COMPLETE
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
@@ -27,7 +27,12 @@ Progress: █████████░ 93% (5 phases complete, 2 plans in phas
 | 33 | Small UI Components | UI-03, UI-04 | COMPLETE (3/3 plans) |
 | 34 | Hagness UI Component | UI-02 | COMPLETE (2/2 plans) |
 | 35 | Hiring Phase Component | UI-01 | COMPLETE (2/2 plans) |
-| 36 | Integration & Cleanup | INT-01-03 | IN PROGRESS (2/3 plans) |
+| 36 | Integration & Cleanup | INT-01-03 | COMPLETE (3/3 plans) |
+
+**Final Metrics:**
+- GameBoard.vue: 3,368 → 1,368 lines (59.4% reduction)
+- Extracted: 6 composables (2,146 lines), 4 components (719 lines)
+- Total extracted: 2,865 lines
 
 ## Milestones Completed
 
@@ -38,13 +43,14 @@ Progress: █████████░ 93% (5 phases complete, 2 plans in phas
 - v1.4 Combatant Naming Unification (Phases 20-23) — 6 plans
 - v1.5 Final Combatant Unification (Phases 24-27) — 7 plans
 - v1.6 Final ID Cleanup (Phases 28-30) — 5 plans
+- v1.7 GameBoard Component Refactor (Phases 31-36) — 18 plans
 
-Total previous: 30 phases, 57 plans, 7 milestones shipped
+Total: 36 phases, 75 plans, 8 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 69
+- Total plans completed: 75
 - Average duration: 10.2 min/plan
 
 ## Accumulated Context
@@ -86,15 +92,21 @@ All decisions captured in PROJECT.md Key Decisions table.
 **Phase 36 Decisions:**
 - Import organization groups: Vue core, External packages, Components (alphabetical), Composables (alphabetical), Utilities
 - TypeScript cast audit: Document necessary casts, remove redundant ones, replace unsafe casts with type guards
+- Verification: 137/137 unit tests pass; integration tests blocked by vendor packaging issue
 
 ### Deferred Issues
 
 - Pre-existing type compatibility issues between composable interfaces and component props
 - Pre-existing `@boardsmith/session` package configuration issue blocks browser testing
+- Vendor tarballs missing compiled `dist` folders - blocks build and integration tests
 
 ### Blockers/Concerns
 
-None active.
+**Active blocker:** Vendor tarballs in `vendor/` directory contain only TypeScript source files, not compiled JavaScript. This blocks:
+- `npm run build` command
+- 11 test files that depend on @boardsmith/testing
+
+**Recommendation:** Regenerate vendor tarballs to include compiled `dist` folders.
 
 ### Roadmap Evolution
 
@@ -107,15 +119,19 @@ None active.
 - Phase 35 complete: GameBoard.vue now 1,378 lines (-328 lines from HiringPhase extraction)
 - Plan 36-01 complete: GameBoard.vue now 1,363 lines (-15 lines from dead code removal)
 - Plan 36-02 complete: GameBoard.vue now 1,368 lines (+5 lines from cast documentation/type guards)
+- Plan 36-03 complete: Verification passed (composables/components integrated, unit tests pass)
+
+**v1.7 Milestone Complete:** GameBoard.vue reduced from 3,368 to 1,368 lines (59.4% reduction)
 
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Completed 36-02-PLAN.md
+Stopped at: Completed 36-03-PLAN.md (Verification)
 Resume file: None
 
 ### Recent Plans Completed
 
+- 36-03: Verification & Test Suite (0 commits, verification only)
 - 36-02: TypeScript cast audit (1 commit, +5 lines from documentation and type guards)
 - 36-01: Dead code removal and import organization (5 commits, -15 lines)
 - 35-02: Integrated HiringPhase into GameBoard.vue (3 commits, -328 lines)
