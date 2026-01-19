@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, inject, reactive, nextTick, toRef } from 'vue';
+import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
 import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
 import MapGrid from './MapGrid.vue';
 import SquadPanel from './SquadPanel.vue';
