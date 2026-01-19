@@ -679,24 +679,6 @@ const landingSectors = computed(() => {
   });
 });
 
-// Get combatant ID from merc object (handles different data structures)
-// Never returns empty string to prevent Vue duplicate key warnings
-let combatantIdCounter = 0;
-function getMercId(merc: any): string {
-  const id = merc.attributes?.combatantId || merc.combatantId || merc.id || merc.ref;
-  if (id) return id;
-  // Generate a unique fallback ID using merc name if available
-  const name = merc.attributes?.combatantName || merc.combatantName || '';
-  return name ? `temp-${name}` : `temp-combatant-${++combatantIdCounter}`;
-}
-
-// Get capitalized combatant name for action (action expects capitalized names)
-function getMercDisplayName(merc: any): string {
-  const name = merc.attributes?.combatantName || merc.combatantName || getMercId(merc);
-  // Capitalize first letter
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
 // Handle clicking a MERC to hire - uses unified actionArgs with ActionPanel
 async function selectMercToHire(merc: any) {
   const selection = currentSelection.value;
