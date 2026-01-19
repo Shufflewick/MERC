@@ -8,20 +8,9 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 **Ship Confidence** - tests and debug cleanup so the game can release with confidence that it won't crash or behave unexpectedly.
 
-## Current Milestone: v1.7 GameBoard Component Refactor
-
-**Goal:** Refactor GameBoard.vue (3,368 lines) into focused, testable components with clean boundaries.
-
-**Target features:**
-- Extract distinct UI flows (HiringPhase, HagnessDrawEquipment, LandingZoneSelection, GameOverOverlay) as components
-- Extract helper logic to composables (useGameViewHelpers, useVictoryCalculations)
-- Extract state derivation to composables (useCombatState, usePlayerState, useSectorState)
-- Use shared composables for action state to avoid prop drilling
-- GameBoard.vue becomes thin orchestrator composing focused components
-
 ## Current State
 
-**Shipped:** v1.6 Final ID Cleanup (2026-01-15)
+**Shipped:** v1.7 GameBoard Component Refactor (2026-01-19)
 
 - 32,090 lines of TypeScript/Vue (modular structure)
 - Zero `as any` casts in src/rules/
@@ -66,6 +55,10 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Removed ID aliases — only combatantId/combatantName identity properties — v1.5
 - ✓ Removed backward-compat exports — clean CombatantModel-based types — v1.5
 - ✓ Final ID cleanup — eradicated all mercId/mercName/dictatorId/dictatorName patterns — v1.6
+- ✓ Extract GameBoard.vue UI flows into focused components (HiringPhase, HagnessDrawEquipment, LandingZoneSelection, GameOverOverlay) — v1.7
+- ✓ Extract helper functions to composables (useGameViewHelpers, useVictoryCalculations) — v1.7
+- ✓ Extract state derivation to composables (usePlayerState, useSectorState, useSquadState, useActionState) — v1.7
+- ✓ GameBoard.vue reduced to thin orchestrator (3,368 → 1,393 lines, 59% reduction) — v1.7
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -75,14 +68,6 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Data layer with JSON configuration for MERCs, equipment, sectors, tactics — existing
 - ✓ Test suite covering combat, abilities, equipment (3,933 lines across 8 files) — existing
 - ✓ BoardSmith framework integration (engine, session, ui, runtime) — existing
-
-### Active
-
-- [ ] Extract GameBoard.vue UI flows into focused components
-- [ ] Extract helper functions to composables
-- [ ] Extract state derivation to composables
-- [ ] Use shared composables for action state (reduce prop drilling)
-- [ ] GameBoard.vue reduced to thin orchestrator
 
 ### Out of Scope
 
@@ -139,7 +124,9 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | CombatantModel concrete class | Single class with cardType discriminator; MercCard/DictatorCard as subclasses | ✓ Good |
 | No backward-compat aliases | Clean exports only - migration complete | ✓ Good |
 | className strings preserved | MercCard/DictatorCard classRegistry keys must match TypeScript class names | ✓ Good |
-| Shared composables for action state | Reduce prop drilling, components import state directly | — Pending |
+| Shared composables for action state | Reduce prop drilling, components import state directly | ✓ Good |
+| Watch both availableActions AND currentAction | Auto-start watcher needs to fire when previous action completes | ✓ Good |
+| Match choices by display name, fill with element ID | ActionPanel pattern - choices have display/value structure | ✓ Good |
 
 ---
-*Last updated: 2026-01-18 after v1.7 milestone start*
+*Last updated: 2026-01-19 after v1.7 milestone shipped*

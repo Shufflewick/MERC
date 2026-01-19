@@ -5,19 +5,15 @@
   "scripts": {
     "dev": "boardsmith dev",
     "build": "boardsmith build",
-    "test": "vitest",
+    "test": "vitest --run",
     "validate": "boardsmith validate"
   },
   "dependencies": {
-    "@boardsmith/engine": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/engine",
-    "@boardsmith/session": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/session",
-    "@boardsmith/ui": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/ui",
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260119204206.tgz",
+    "three": "^0.182.0",
     "vue": "^3.4.0"
   },
   "devDependencies": {
-    "@boardsmith/cli": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/cli",
-    "@boardsmith/runtime": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/runtime",
-    "@boardsmith/testing": "file:/Users/jtsmith/board_game_service/BoardSmith/packages/testing",
     "@vitejs/plugin-vue": "^5.0.0",
     "puppeteer": "^24.34.0",
     "typescript": "^5.7.0",

@@ -6,7 +6,7 @@
  * MERC-t5k: Player target selection during combat
  */
 
-import { Action, type ActionDefinition } from '@boardsmith/engine';
+import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, type Combatant } from '../combat.js';

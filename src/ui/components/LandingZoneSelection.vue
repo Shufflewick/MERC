@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 import { UI_COLORS } from '../colors';
 
@@ -25,17 +24,8 @@ const emit = defineEmits<{
   'sector-selected': [sectorId: string];
 }>();
 
-// Calculate edge sectors (landing zones)
-const edgeSectors = computed(() => {
-  if (props.sectors.length === 0) return [];
-
-  const rows = Math.max(...props.sectors.map(s => s.row)) + 1;
-  const cols = Math.max(...props.sectors.map(s => s.col)) + 1;
-
-  return props.sectors.filter(s =>
-    s.row === 0 || s.row === rows - 1 || s.col === 0 || s.col === cols - 1
-  );
-});
+// Landing sectors are passed in already filtered by action metadata
+// No need to compute edge sectors here
 
 function handleSectorClick(sector: LandingSector) {
   emit('sector-selected', sector.sectorId);
@@ -51,7 +41,7 @@ function handleSectorClick(sector: LandingSector) {
 
     <div class="landing-sectors-grid">
       <SectorCardChoice
-        v-for="sector in edgeSectors"
+        v-for="sector in sectors"
         :key="sector.sectorId"
         :sector="{
           sectorName: sector.sectorName,
@@ -68,7 +58,7 @@ function handleSectorClick(sector: LandingSector) {
       />
     </div>
 
-    <p class="landing-hint" v-if="edgeSectors.length === 0">
+    <p class="landing-hint" v-if="sectors.length === 0">
       No valid landing zones available
     </p>
   </div>

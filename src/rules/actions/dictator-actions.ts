@@ -4,7 +4,7 @@
  * All actions available to the dictator player: tactics, militia movement, and MERC actions.
  */
 
-import { Action, type ActionDefinition } from '@boardsmith/engine';
+import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { executeCombat, hasEnemies } from '../combat.js';

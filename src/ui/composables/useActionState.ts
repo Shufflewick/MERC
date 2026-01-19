@@ -233,26 +233,23 @@ export function useActionState(
   // ============================================================================
 
   // Check if we're in MERC hiring mode (Day 1 or Castro's ability)
+  // Simplified: check availableActions OR currentAction (no selection state check)
   const isHiringMercs = computed(() => {
     const currentAction = props.actionController.currentAction.value;
-    return props.availableActions.includes('hireFirstMerc') ||
-           props.availableActions.includes('hireSecondMerc') ||
-           props.availableActions.includes('hireThirdMerc') ||
-           props.availableActions.includes('dictatorHireFirstMerc') ||
-           props.availableActions.includes('selectDictator') ||
-           currentAction === 'hireFirstMerc' ||
-           currentAction === 'hireSecondMerc' ||
-           currentAction === 'hireThirdMerc' ||
-           currentAction === 'dictatorHireFirstMerc' ||
-           currentAction === 'castroBonusHire' ||
-           currentAction === 'selectDictator';
+    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire', 'selectDictator'];
+    return props.availableActions.some(a => hiringActions.includes(a)) ||
+           (currentAction !== null && hiringActions.includes(currentAction));
   });
 
   // Check if we're selecting a dictator (Day 1 human dictator)
+  // Also verify there's still a pending selection (action not yet filled)
   const isSelectingDictator = computed(() => {
     const currentAction = props.actionController.currentAction.value;
-    return props.availableActions.includes('selectDictator') ||
-           currentAction === 'selectDictator';
+    if (props.availableActions.includes('selectDictator')) return true;
+    if (currentAction === 'selectDictator') {
+      return props.actionController.currentSelection.value !== null;
+    }
+    return false;
   });
 
   // Use actionController to detect when hagnessDraw action is active
@@ -261,8 +258,10 @@ export function useActionState(
   });
 
   // Check if we're in landing placement mode
+  // Simplified: check availableActions OR currentAction (no selection state check)
   const isPlacingLanding = computed(() => {
-    return props.availableActions.includes('placeLanding');
+    return props.availableActions.includes('placeLanding') ||
+           props.actionController.currentAction.value === 'placeLanding';
   });
 
   // Check if we're selecting a retreat sector (combatRetreat action needs retreatSector)

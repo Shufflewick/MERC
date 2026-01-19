@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestGame, simulateAction } from '@boardsmith/testing';
+import { createTestGame, simulateAction } from 'boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import { CombatantModel, Sector, Equipment, Squad, isGrenadeOrMortar } from '../src/rules/elements.js';
 import {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestGame } from '@boardsmith/testing';
+import { createTestGame } from 'boardsmith/testing';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 
 describe('MERCGame', () => {

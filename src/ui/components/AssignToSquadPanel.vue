@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useDragDrop, type UseActionControllerReturn } from '@boardsmith/ui';
-import '@boardsmith/ui/animation/drag-drop.css';
+import { useDragDrop, type UseActionControllerReturn } from 'boardsmith/ui';
+import 'boardsmith/ui/animation/drag-drop.css';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import { lastActionWasDragDrop } from '../drag-drop-state';
 

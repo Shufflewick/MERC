@@ -1,4 +1,4 @@
-import { Game, Player, type GameOptions, type ElementClass } from '@boardsmith/engine';
+import { Game, Player, type GameOptions, type ElementClass } from 'boardsmith';
 import {
   CombatantModel,
   Equipment,

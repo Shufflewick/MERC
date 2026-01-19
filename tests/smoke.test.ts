@@ -8,7 +8,7 @@ import {
   traceAction,
   logAvailableActions,
   diffSnapshots,
-} from '@boardsmith/testing';
+} from 'boardsmith/testing';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 import { CombatantModel, Sector, Equipment } from '../src/rules/elements.js';
 

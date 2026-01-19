@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
-import type { UseActionControllerReturn } from '@boardsmith/ui';
+import type { UseActionControllerReturn } from 'boardsmith/ui';
 import DetailModal from './DetailModal.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantCard from './CombatantCard.vue';

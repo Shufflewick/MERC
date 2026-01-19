@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Die3D } from '@boardsmith/ui';
+import { Die3D } from 'boardsmith/ui';
 import { UI_COLORS } from '../colors';
 import CombatantIcon from './CombatantIcon.vue';
 import SectorCardChoice from './SectorCardChoice.vue';

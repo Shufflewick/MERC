@@ -6,7 +6,7 @@ import {
   execute,
   phase,
   type FlowDefinition,
-} from '@boardsmith/engine';
+} from 'boardsmith';
 import type { MERCGame, RebelPlayer } from './game.js';
 import { TacticsCard } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';

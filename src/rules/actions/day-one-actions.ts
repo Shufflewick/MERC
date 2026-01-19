@@ -4,7 +4,7 @@
  * Actions specific to Day 1 setup for both Rebel and Dictator players.
  */
 
-import { Action, type ActionDefinition } from '@boardsmith/engine';
+import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, CombatantModel } from '../elements.js';
 import {

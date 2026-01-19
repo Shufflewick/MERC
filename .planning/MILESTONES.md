@@ -1,5 +1,33 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.7 GameBoard Component Refactor (Shipped: 2026-01-19)
+
+**Delivered:** Refactored GameBoard.vue (3,368 lines) into focused, testable components with clean boundaries. Extracted state derivation to composables, UI flows to components, and reduced GameBoard to thin orchestrator role.
+
+**Phases completed:** 31-36 (18 plans total)
+
+**Key accomplishments:**
+
+- Extracted 6 composables: useGameViewHelpers, useVictoryCalculations, usePlayerState, useSectorState, useSquadState, useActionState
+- Extracted 4 UI components: GameOverOverlay, LandingZoneSelection, HagnessDrawEquipment, HiringPhase
+- Reduced GameBoard.vue from 3,368 to 1,393 lines (59% reduction)
+- Fixed landing zone selection flow (choice matching by display name, fill with element ID)
+- Fixed hiring phase auto-start (watch both availableActions AND currentAction)
+- Removed dead code and organized imports
+
+**Stats:**
+
+- 30+ files created/modified
+- 6 phases, 18 plans
+- GameBoard.vue: 3,368 → 1,393 lines
+- 524 tests passing
+
+**Git range:** `feat(31-01)` → `docs(36-03)`
+
+**What's next:** Clean architecture ready for new features
+
+---
+
 ## v1.6 Final ID Cleanup (Shipped: 2026-01-15)
 
 **Delivered:** Eradicated all legacy mercId/dictatorId/mercName/dictatorName patterns, leaving only combatantId/combatantName as canonical identity.

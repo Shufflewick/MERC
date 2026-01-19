@@ -11,7 +11,7 @@
  * - assignToSquad: Assign a combatant to a different squad (replaces splitSquad/mergeSquads)
  */
 
-import { Action, type ActionDefinition, dependentFilter } from '@boardsmith/engine';
+import { Action, type ActionDefinition, dependentFilter } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Squad, CombatantModel } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';

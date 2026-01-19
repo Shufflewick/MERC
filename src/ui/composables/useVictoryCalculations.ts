@@ -120,14 +120,17 @@ export function useVictoryCalculations(getGameView: () => any) {
     }
 
     // 2. Check for tactics deck AND hand both empty
+    // Only check if both nodes were actually found (prevents false positive during game load)
     const tacticsDeckNode =
       findByClassName('TacticsDeck') || findByClassName('_TacticsDeck');
     const tacticsHandNode =
       findByClassName('TacticsHand') || findByClassName('_TacticsHand');
-    const deckCount = countTacticsCards(tacticsDeckNode);
-    const handCount = countTacticsCards(tacticsHandNode);
-    if (deckCount === 0 && handCount === 0) {
-      return true;
+    if (tacticsDeckNode && tacticsHandNode) {
+      const deckCount = countTacticsCards(tacticsDeckNode);
+      const handCount = countTacticsCards(tacticsHandNode);
+      if (deckCount === 0 && handCount === 0) {
+        return true;
+      }
     }
 
     // 3. Check for explosives victory (stored as game attribute)

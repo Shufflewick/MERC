@@ -231,6 +231,11 @@ function handleCloseDetailModal() {
   box-shadow: 0 0 0 3px v-bind('UI_COLORS.accent'), 0 8px 24px rgba(212, 168, 75, 0.4);
 }
 
+/* Disable pointer events on all nested elements so clicks reach the wrapper div */
+.merc-choice :deep(*) {
+  pointer-events: none;
+}
+
 /* Sector selection for Castro hire */
 .sector-selection {
   display: flex;

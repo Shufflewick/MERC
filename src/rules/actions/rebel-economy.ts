@@ -4,7 +4,7 @@
  * MERC economy-related actions: hiring, exploring, training, trading, and facilities.
  */
 
-import { Action, type ActionDefinition } from '@boardsmith/engine';
+import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 import { SectorConstants } from '../constants.js';

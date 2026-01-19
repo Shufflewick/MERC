@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { GameShell, useActionAnimations, FlyingCardsOverlay } from '@boardsmith/ui';
-import type { UseActionControllerReturn } from '@boardsmith/ui';
+import { GameShell, useActionAnimations, FlyingCardsOverlay } from 'boardsmith/ui';
+import type { UseActionControllerReturn } from 'boardsmith/ui';
 import GameBoard from './components/GameBoard.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import DetailModal from './components/DetailModal.vue';

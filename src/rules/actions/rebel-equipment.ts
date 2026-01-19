@@ -4,7 +4,7 @@
  * Equipment management and MERC special abilities related to equipment.
  */
 
-import { Action, type ActionDefinition } from '@boardsmith/engine';
+import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer, MERCPlayer } from '../game.js';
 import { Sector, Equipment, isGrenadeOrMortar, CombatantModel } from '../elements.js';
 import {

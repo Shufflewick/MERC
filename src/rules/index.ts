@@ -183,7 +183,7 @@ export {
 
 // Game definition for BoardSmith
 import { MERCGame } from './game.js';
-import { createColorOption } from '@boardsmith/session';
+import { createColorOption } from 'boardsmith/session';
 
 export const gameDefinition = {
   gameClass: MERCGame,

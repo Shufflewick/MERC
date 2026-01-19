@@ -3,7 +3,7 @@
 import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
 
 // External packages
-import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
+import { useBoardInteraction, type UseActionControllerReturn } from 'boardsmith/ui';
 
 // Components (alphabetical)
 import AssignToSquadPanel from './AssignToSquadPanel.vue';
@@ -520,19 +520,24 @@ async function handleAssignAttackDog(targetId: string) {
 // isPlacingLanding, isSelectingRetreatSector, etc. are now provided by useActionState.
 
 // Auto-start hiring actions when they become available (wizard mode)
-watch(() => props.availableActions, (actions) => {
-  // Only auto-start if no action is currently active
-  if (props.actionController.currentAction.value) return;
+// Watch both availableActions AND currentAction - need to start when previous action completes
+watch(
+  [() => props.availableActions, () => props.actionController.currentAction.value],
+  ([actions, currentAction]) => {
+    // Only auto-start if no action is currently active
+    if (currentAction) return;
 
-  // Check for hiring/selection actions and start them (Day 1 + Castro + Dictator selection)
-  const hiringActions = ['selectDictator', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'castroBonusHire'];
-  for (const action of hiringActions) {
-    if (actions.includes(action)) {
-      props.actionController.start(action);
-      break;
+    // Check for hiring/selection actions and start them (Landing + Day 1 + Castro + Dictator selection)
+    const hiringActions = ['placeLanding', 'selectDictator', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'castroBonusHire'];
+    for (const action of hiringActions) {
+      if (actions.includes(action)) {
+        props.actionController.start(action);
+        break;
+      }
     }
-  }
-}, { immediate: true });
+  },
+  { immediate: true }
+);
 
 // When equipmentType is selected, load the recipient choices from metadata
 watch(() => props.actionArgs['equipmentType'], (val) => {
@@ -639,7 +644,35 @@ const hirableMercs = computed(() => {
       const choiceDisplay = choice.display || choice.value || choice;
       // Use value for the actual selection (element ID)
       const choiceValue = choice.value ?? choice;
-      const merc = findMercByName(choiceDisplay);
+
+      // First try to find merc in game tree
+      let merc = findMercByName(choiceDisplay);
+
+      // If not found, lookup from combatantData (mercs in deck during hiring)
+      if (!merc) {
+        const combatantData = props.gameView?.attributes?.settings?.combatantData ||
+                              props.state?.state?.settings?.combatantData ||
+                              props.gameView?.settings?.combatantData || [];
+        const mercInfo = combatantData.find((d: any) =>
+          d.cardType === 'merc' && d.name.toLowerCase() === choiceDisplay.toLowerCase()
+        );
+        if (mercInfo) {
+          merc = {
+            combatantName: mercInfo.name,
+            attributes: {
+              combatantName: mercInfo.name,
+              combatantId: mercInfo.id,
+              image: mercInfo.image || '',
+              baseInitiative: mercInfo.initiative || 0,
+              baseCombat: mercInfo.combat || 0,
+              baseTraining: mercInfo.training || 0,
+              ability: mercInfo.ability || '',
+              bio: mercInfo.bio || '',
+            },
+          };
+        }
+      }
+
       // Attach the original choice value so we can use it when clicking
       const result = merc ? { ...merc, _choiceValue: choiceValue } : { combatantName: choiceDisplay, attributes: { combatantName: choiceDisplay }, _choiceValue: choiceValue };
       return result;
@@ -682,48 +715,57 @@ function skipThirdHire() {
   }
 }
 
-// Get available landing sectors (edge sectors)
+// Get available landing sectors from action metadata (valid choices only)
 const landingSectors = computed(() => {
   if (!isPlacingLanding.value) return [];
-  // Return edge sectors
-  return sectors.value.filter((s) => {
-    const rows = Math.max(...sectors.value.map((sec) => sec.row)) + 1;
-    const cols = Math.max(...sectors.value.map((sec) => sec.col)) + 1;
-    return s.row === 0 || s.row === rows - 1 || s.col === 0 || s.col === cols - 1;
-  });
+
+  // Get the selection - use currentSelection when action is active, otherwise from metadata
+  const isActionActive = props.actionController.currentAction.value === 'placeLanding';
+  const selection = isActionActive
+    ? props.actionController.currentSelection.value
+    : landingZoneMetadata.value?.selections?.[0];
+  if (!selection) return [];
+
+  const choices = props.actionController.getChoices(selection) || [];
+
+  // Map choices to sector data format
+  return choices.map((choice: any) => {
+    const choiceDisplay = choice.display || choice.value || choice;
+    const choiceValue = choice.value ?? choice;
+    // Find matching sector by name
+    const sector = sectors.value.find(s =>
+      s.sectorName === choiceDisplay ||
+      s.sectorId === choiceValue
+    );
+    if (sector) {
+      return sector;
+    }
+    // Fallback if sector not found in tree
+    return {
+      sectorId: choiceValue,
+      sectorName: choiceDisplay,
+      sectorType: 'Industry',
+      image: '',
+      value: 0,
+      row: 0,
+      col: 0,
+      weaponLoot: 0,
+      armorLoot: 0,
+      accessoryLoot: 0,
+      dictatorMilitia: 0,
+    };
+  }).filter(Boolean);
 });
 
-// Handle clicking a MERC to hire - uses unified actionArgs with ActionPanel
+// Handle clicking a MERC to hire - simplified since watcher auto-starts action
 async function selectMercToHire(merc: any) {
-  const selection = currentSelection.value;
-  if (!selection) {
-    return;
-  }
+  const selection = props.actionController.currentSelection.value;
+  if (!selection) return;
 
-  // Use the original choice value (attached during lookup)
   const choiceValue = merc._choiceValue;
-  if (!choiceValue) {
-    return;
-  }
+  if (!choiceValue) return;
 
-  // Determine which action is available
-  const actionName = getCurrentActionName();
-  if (!actionName) {
-    return;
-  }
-
-  // Check if the action is already active using actionController.currentAction
-  // BoardSmith auto-starts actions when they become available, so we should NOT
-  // call start if the action is already active (that would reset it)
-  const isActionActive = props.actionController.currentAction.value === actionName;
-
-  if (!isActionActive) {
-    // Action not yet started - start it with initial args
-    props.actionController.start(actionName, { [selection.name]: choiceValue });
-  } else {
-    // Action already started - fill the selection
-    await props.actionController.fill(selection.name, choiceValue);
-  }
+  await props.actionController.fill(selection.name, choiceValue);
 }
 
 // Handle selecting equipment type
@@ -772,10 +814,10 @@ async function handleSelectRetreatSector(sectorId: string | number) {
 }
 
 // Select sector for Castro hire placement
-function selectSector(sector: { value: string; label: string }) {
+async function selectSector(sector: { value: string; label: string }) {
   const selection = currentSelection.value;
   if (!selection) return;
-  props.actionController.fill(selection.name, sector.value);
+  await props.actionController.fill(selection.name, sector.value);
 }
 
 // Open MERC detail modal during hiring
@@ -810,44 +852,27 @@ async function handleLandingSectorSelected(sectorId: string) {
 // Handle sector clicks for actions
 async function handleSectorClick(sectorId: string) {
   if (isPlacingLanding.value) {
-    // Get the selection from metadata
-    const metadata = landingZoneMetadata.value;
-    const selection = metadata?.selections?.[0];
-    const selectionName = selection?.name || 'sector';
-    const selectionType = selection?.type;
+    // Action is auto-started by watcher, just fill the selection
+    const selection = props.actionController.currentSelection.value;
+    if (!selection) return;
 
-    // Find the sector
+    // Get the matching choice value
+    const choices = props.actionController.getChoices(selection) || [];
     const sector = sectors.value.find(s => s.sectorId === sectorId);
 
-    // Determine the value to send based on selection type
-    let actionValue: any;
+    const matchingChoice = choices.find((c: any) => {
+      // For element selections, display is the sector name, value is the element ID
+      const displayName = c.display || c;
+      return displayName === sector?.sectorName;
+    });
 
-    if (selectionType === 'element') {
-      // Element selections expect element IDs - find the sector element ID
-      // Use actionController getter (not selection.validElements)
-      const validElements = selection ? props.actionController.getValidElements(selection) || [] : [];
-      const matchingElement = validElements.find((e: any) =>
-        e.ref?.name === sectorId ||
-        e.ref?.notation === sectorId ||
-        e.display === sector?.sectorName
-      );
-      actionValue = matchingElement?.id || sectorId;
-    } else {
-      // Choice selections - use sector name
-      // Use actionController getter (not selection.choices)
-      const choices = selection ? props.actionController.getChoices(selection) || [] : [];
-      const matchingChoice = choices.find((c: any) => {
-        const choiceValue = c.value || c.display || c;
-        return choiceValue === sector?.sectorName ||
-               choiceValue === sectorId ||
-               choiceValue.includes(sector?.sectorName);
-      });
-      actionValue = matchingChoice?.value || matchingChoice?.display || sector?.sectorName || sectorId;
+    if (matchingChoice) {
+      await props.actionController.fill(selection.name, matchingChoice.value ?? matchingChoice);
     }
+    return;
+  }
 
-    // Execute the action
-    await props.actionController.execute('placeLanding', { [selectionName]: actionValue });
-  } else if (isSelectingRetreatSector.value) {
+  if (isSelectingRetreatSector.value) {
     // Handle retreat sector selection
     const selection = props.actionController.currentSelection.value;
     if (!selection) return;
@@ -1103,7 +1128,7 @@ const clickableSectors = computed(() => {
         <!-- Landing Zone Selection - shown above map during landing phase -->
         <LandingZoneSelection
           v-if="isPlacingLanding"
-          :sectors="sectors"
+          :sectors="landingSectors"
           @sector-selected="handleLandingSectorSelected"
         />
 

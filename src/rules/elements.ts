@@ -1,4 +1,4 @@
-import { Card as BaseCard, Piece as BasePiece, Space, Deck as BaseDeck, Hand as BaseHand, Grid, GridCell } from '@boardsmith/engine';
+import { Card as BaseCard, Piece as BasePiece, Space, Deck as BaseDeck, Hand as BaseHand, Grid, GridCell } from 'boardsmith';
 import {
   MercConstants,
   CombatConstants,
