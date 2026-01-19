@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Phase: 35 of 36 (Hiring Phase Component)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-18 — Completed 35-02-PLAN.md (HiringPhase integration)
+Phase: 36 of 36 (Integration & Cleanup)
+Plan: 1 of 3 in current phase
+Status: Plan complete
+Last activity: 2026-01-18 — Completed 36-01-PLAN.md (Dead Code Removal)
 
-Progress: █████████░ 85% (5 phases complete)
+Progress: █████████░ 90% (5 phases complete, 1 plan in phase 36)
 
 ## Current Milestone
 
@@ -27,7 +27,7 @@ Progress: █████████░ 85% (5 phases complete)
 | 33 | Small UI Components | UI-03, UI-04 | COMPLETE (3/3 plans) |
 | 34 | Hagness UI Component | UI-02 | COMPLETE (2/2 plans) |
 | 35 | Hiring Phase Component | UI-01 | COMPLETE (2/2 plans) |
-| 36 | Integration & Cleanup | INT-01-03 | Pending |
+| 36 | Integration & Cleanup | INT-01-03 | IN PROGRESS (1/3 plans) |
 
 ## Milestones Completed
 
@@ -44,7 +44,7 @@ Total previous: 30 phases, 57 plans, 7 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 67
+- Total plans completed: 68
 - Average duration: 10.3 min/plan
 
 ## Accumulated Context
@@ -83,6 +83,9 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Used sectorName for v-for key (stable identifier vs value which has collision)
 - Kept .action-title/.action-subtitle styles in GameBoard.vue (used by retreat section)
 
+**Phase 36 Decisions:**
+- Import organization groups: Vue core, External packages, Components (alphabetical), Composables (alphabetical), Utilities
+
 ### Deferred Issues
 
 - Pre-existing type compatibility issues between composable interfaces and component props
@@ -101,15 +104,17 @@ None active.
 - Phase 33 complete: GameBoard.vue now ~1,930 lines (new components offset by -66 line reduction)
 - Phase 34 complete: GameBoard.vue now 1,706 lines (-225 lines from Hagness extraction)
 - Phase 35 complete: GameBoard.vue now 1,378 lines (-328 lines from HiringPhase extraction)
+- Plan 36-01 complete: GameBoard.vue now 1,363 lines (-15 lines from dead code removal)
 
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Completed 35-02-PLAN.md
+Stopped at: Completed 36-01-PLAN.md
 Resume file: None
 
 ### Recent Plans Completed
 
+- 36-01: Dead code removal and import organization (5 commits, -15 lines)
 - 35-02: Integrated HiringPhase into GameBoard.vue (3 commits, -328 lines)
 - 35-01: Created HiringPhase.vue component (1 commit, +306 lines)
 - 34-02: Integrated HagnessDrawEquipment into GameBoard.vue (3 commits, -225 lines)
