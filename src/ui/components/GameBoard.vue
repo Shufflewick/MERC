@@ -1,24 +1,33 @@
 <script setup lang="ts">
+// Vue core
 import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
+
+// External packages
 import { useBoardInteraction, type UseActionControllerReturn } from '@boardsmith/ui';
-import MapGrid from './MapGrid.vue';
-import SquadPanel from './SquadPanel.vue';
-import CombatPanel from './CombatPanel.vue';
-import SectorPanel from './SectorPanel.vue';
-import DictatorPanel from './DictatorPanel.vue';
-import DetailModal from './DetailModal.vue';
+
+// Components (alphabetical)
 import AssignToSquadPanel from './AssignToSquadPanel.vue';
+import CombatPanel from './CombatPanel.vue';
+import DetailModal from './DetailModal.vue';
+import DictatorPanel from './DictatorPanel.vue';
 import GameOverOverlay from './GameOverOverlay.vue';
-import LandingZoneSelection from './LandingZoneSelection.vue';
 import HagnessDrawEquipment from './HagnessDrawEquipment.vue';
 import HiringPhase from './HiringPhase.vue';
-import { UI_COLORS } from '../colors';
+import LandingZoneSelection from './LandingZoneSelection.vue';
+import MapGrid from './MapGrid.vue';
+import SectorPanel from './SectorPanel.vue';
+import SquadPanel from './SquadPanel.vue';
+
+// Composables (alphabetical)
+import { useActionState } from '../composables/useActionState';
 import { useGameViewHelpers } from '../composables/useGameViewHelpers';
-import { useVictoryCalculations } from '../composables/useVictoryCalculations';
 import { usePlayerState } from '../composables/usePlayerState';
 import { useSectorState } from '../composables/useSectorState';
 import { useSquadState } from '../composables/useSquadState';
-import { useActionState } from '../composables/useActionState';
+import { useVictoryCalculations } from '../composables/useVictoryCalculations';
+
+// Utilities
+import { UI_COLORS } from '../colors';
 
 // Type for deferred choices fetch function (injected from GameShell)
 type FetchDeferredChoicesFn = (
