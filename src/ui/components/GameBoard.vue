@@ -12,7 +12,7 @@ import GameOverOverlay from './GameOverOverlay.vue';
 import LandingZoneSelection from './LandingZoneSelection.vue';
 import HagnessDrawEquipment from './HagnessDrawEquipment.vue';
 import HiringPhase from './HiringPhase.vue';
-import { UI_COLORS, getPlayerColor } from '../colors';
+import { UI_COLORS } from '../colors';
 import { useGameViewHelpers } from '../composables/useGameViewHelpers';
 import { useVictoryCalculations } from '../composables/useVictoryCalculations';
 import { usePlayerState } from '../composables/usePlayerState';
