@@ -127,6 +127,8 @@ const {
     getSecondarySquad: () => secondarySquad.value,
     getDictatorPrimarySquad: () => dictatorPrimarySquad.value,
     getDictatorSecondarySquad: () => dictatorSecondarySquad.value,
+    // Cast required: dictatorCard returns full dictator data, but SectorStateDependencies
+    // only needs { sectorId, inPlay } subset. The cast is safe as these properties exist.
     getDictatorCard: () => dictatorCard.value as { sectorId: string; inPlay: boolean } | undefined,
     positionToColor,
   }
@@ -342,7 +344,7 @@ const dictatorBaseSectorId = computed(() => {
 
   // If dictator card is in play and has a base sector, show base at that location
   if (inPlay && baseSectorId) {
-    return baseSectorId as string;
+    return baseSectorId;
   }
   return undefined;
 });
@@ -581,7 +583,10 @@ const hirableMercs = computed(() => {
   if (choices.length === 0) return [];
 
   // Get already-selected merc names from shared actionArgs to filter them out
-  const selectedMercs = Object.values(props.actionArgs || {}) as string[];
+  // Filter to strings only since actionArgs may contain non-string values
+  const selectedMercs = Object.values(props.actionArgs || {}).filter(
+    (v): v is string => typeof v === 'string'
+  );
 
   // For dictator selection, convert to CombatantModel-compatible format
   if (isSelectingDictator.value) {
