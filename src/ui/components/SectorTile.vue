@@ -48,6 +48,7 @@ const props = defineProps<{
   canDropEquipment?: boolean;
   isDictatorBase?: boolean; // Show house icon for dictator's base
   dictatorColor?: string; // Dictator player color for base icon styling
+  hiddenCombatantIds?: Set<string>; // Combatants to hide (e.g., during entry animation)
 }>();
 
 const emit = defineEmits<{
@@ -102,10 +103,16 @@ const imagePath = computed(() => {
   return '/sectors/industry---coal.jpg';
 });
 
+// Filter out hidden combatants (e.g., those animating into the sector)
+const visibleMercs = computed(() => {
+  if (!props.hiddenCombatantIds?.size) return props.mercsInSector;
+  return props.mercsInSector.filter(m => !props.hiddenCombatantIds!.has(m.combatantId));
+});
+
 // Group MERCs by player color for display
 const mercsByPlayer = computed(() => {
   const grouped: Record<string, MercInSector[]> = {};
-  for (const merc of props.mercsInSector) {
+  for (const merc of visibleMercs.value) {
     const color = merc.playerColor || 'unknown';
     if (!grouped[color]) grouped[color] = [];
     grouped[color].push(merc);
@@ -201,7 +208,7 @@ function closeMercModal() {
           🏠
         </div>
         <CombatantIconSmall
-          v-for="(merc, index) in mercsInSector.slice(0, isDictatorBase ? 3 : 4)"
+          v-for="(merc, index) in visibleMercs.slice(0, isDictatorBase ? 3 : 4)"
           :key="getMercKey(merc, index)"
           :combatant-id="merc.combatantId"
           :image="getMercImagePath(merc)"
@@ -211,8 +218,8 @@ function closeMercModal() {
           clickable
           @click="showMercDetails(merc, $event)"
         />
-        <div v-if="mercsInSector.length > (isDictatorBase ? 3 : 4)" class="more-mercs">
-          +{{ mercsInSector.length - (isDictatorBase ? 3 : 4) }}
+        <div v-if="visibleMercs.length > (isDictatorBase ? 3 : 4)" class="more-mercs">
+          +{{ visibleMercs.length - (isDictatorBase ? 3 : 4) }}
         </div>
       </div>
 
@@ -234,9 +241,9 @@ function closeMercModal() {
     </div>
 
     <!-- Tooltip for MERCs -->
-    <div v-if="showTooltip && mercsInSector.length > 0" class="merc-tooltip">
+    <div v-if="showTooltip && visibleMercs.length > 0" class="merc-tooltip">
       <div
-        v-for="(merc, index) in mercsInSector"
+        v-for="(merc, index) in visibleMercs"
         :key="getMercKey(merc, 100 + index)"
         class="tooltip-merc clickable"
         @click="showMercDetails(merc, $event)"

@@ -2,6 +2,7 @@
 import { computed, ref, watch, nextTick } from 'vue';
 import SectorTile from './SectorTile.vue';
 import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
+import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
 
 interface SectorData {
   sectorId: string;
@@ -18,7 +19,7 @@ interface SectorData {
 
 interface MercData {
   combatantId: string;
-  combatantName: string;
+  combatantName?: string;
   image?: string;
   playerColor?: string;
   sectorId?: string;
@@ -41,6 +42,16 @@ interface MilitiaAnimation {
   rect: { x: number; y: number; width: number; height: number };
   startValue: number; // The count BEFORE training
   currentDisplayValue: number; // Increments with each animation cycle
+}
+
+// Combatant entry animation queue entry
+interface CombatantAnimation {
+  id: string;
+  combatantId: string;
+  combatantName: string;
+  image?: string;
+  playerColor?: string;
+  sectorId: string;
 }
 
 const props = defineProps<{
@@ -78,8 +89,8 @@ const activeAnimations = ref<MilitiaAnimation[]>([]);
 
 // Get a unique ID for animations
 let animationIdCounter = 0;
-function getAnimationId(): string {
-  return `militia-anim-${++animationIdCounter}`;
+function getAnimationId(prefix: string = 'anim'): string {
+  return `${prefix}-${++animationIdCounter}`;
 }
 
 // Get the bounding rect of a sector element relative to the grid
@@ -263,6 +274,85 @@ function getSectorWithDisplayMilitia(sector: SectorData): SectorData {
   };
 }
 
+// ============================================================================
+// COMBATANT ENTRY ANIMATION
+// ============================================================================
+
+// Active combatant entry animations
+const activeCombatantAnimations = ref<CombatantAnimation[]>([]);
+
+// Set of combatant IDs currently animating (for hiding in SectorTile)
+const animatingCombatantIds = computed(() =>
+  new Set(activeCombatantAnimations.value.map(a => a.combatantId))
+);
+
+// Track previous mercs to detect new arrivals
+const previousMercIds = ref<Set<string>>(new Set());
+
+// Get the viewport rect of a sector's mercs-area element
+function getSectorMercsAreaRect(sectorId: string): { x: number; y: number; width: number; height: number } | null {
+  if (!mapGridRef.value) return null;
+
+  const sectorEl = mapGridRef.value.querySelector(`[data-sector-id="${sectorId}"]`);
+  if (!sectorEl) return null;
+
+  const mercsArea = sectorEl.querySelector('.mercs-area');
+  if (!mercsArea) return null;
+
+  const rect = mercsArea.getBoundingClientRect();
+  return {
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+// Queue a combatant entry animation
+function queueCombatantAnimation(merc: MercData) {
+  if (!merc.sectorId) return;
+
+  nextTick(() => {
+    activeCombatantAnimations.value.push({
+      id: getAnimationId('combatant'),
+      combatantId: merc.combatantId,
+      combatantName: merc.combatantName || merc.combatantId,
+      image: merc.image,
+      playerColor: merc.playerColor,
+      sectorId: merc.sectorId!,
+    });
+  });
+}
+
+// Handle combatant animation complete
+function handleCombatantAnimationComplete(animationId: string) {
+  activeCombatantAnimations.value = activeCombatantAnimations.value.filter(a => a.id !== animationId);
+}
+
+// Watch for new mercs appearing in sectors
+watch(
+  () => props.mercs,
+  (newMercs, oldMercs) => {
+    // Skip on first load (oldMercs is undefined)
+    if (!oldMercs) {
+      // Initialize tracking
+      previousMercIds.value = new Set(newMercs.map(m => m.combatantId));
+      return;
+    }
+
+    // Find mercs that are new (not in previous set) and have a sectorId
+    for (const merc of newMercs) {
+      if (merc.sectorId && !previousMercIds.value.has(merc.combatantId)) {
+        queueCombatantAnimation(merc);
+      }
+    }
+
+    // Update tracking
+    previousMercIds.value = new Set(newMercs.map(m => m.combatantId));
+  },
+  { deep: true }
+);
+
 // Calculate grid dimensions
 const gridDimensions = computed(() => {
   let maxRow = 0;
@@ -330,6 +420,7 @@ function handleSectorClick(sectorId: string) {
       :can-drop-equipment="canDropEquipment"
       :is-dictator-base="sector.sectorId === dictatorBaseSectorId"
       :dictator-color="dictatorColor"
+      :hidden-combatant-ids="animatingCombatantIds"
       @click="handleSectorClick"
       @drop-equipment="handleDropEquipment"
     />
@@ -344,6 +435,18 @@ function handleSectorClick(sectorId: string) {
       :is-dictator="anim.isDictator"
       @increment="handleAnimationIncrement(anim.id)"
       @complete="handleAnimationComplete(anim.id)"
+    />
+
+    <!-- Combatant Entry Animations -->
+    <CombatantEntryAnimation
+      v-for="anim in activeCombatantAnimations"
+      :key="anim.id"
+      :combatant-id="anim.combatantId"
+      :combatant-name="anim.combatantName"
+      :image="anim.image"
+      :player-color="anim.playerColor"
+      :sector-id="anim.sectorId"
+      @complete="handleCombatantAnimationComplete(anim.id)"
     />
   </div>
 </template>
