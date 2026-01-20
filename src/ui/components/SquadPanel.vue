@@ -39,7 +39,16 @@ const props = defineProps<{
   canDropEquipment?: boolean;
   mercAbilitiesAvailable?: string[]; // List of combatantIds that have abilities available
   canAssignToSquad?: boolean; // Whether the assignToSquad action is available
+  flyingCombatantName?: string | null; // Name of combatant currently animating (hide during animation)
 }>();
+
+// Check if a merc should be hidden (currently animating)
+function isMercFlying(merc: MercData): boolean {
+  if (!props.flyingCombatantName) return false;
+  const mercName = merc.combatantName || (merc as any).attributes?.combatantName || '';
+  // Compare case-insensitively since displayName is capitalized but combatantName may not be
+  return mercName.toLowerCase() === props.flyingCombatantName.toLowerCase();
+}
 
 const emit = defineEmits<{
   dropEquipment: [combatantElementId: number, equipmentId: number];
@@ -100,7 +109,7 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
     </div>
 
     <!-- Primary Squad -->
-    <div class="squad-section" v-if="primarySquad">
+    <div class="squad-section" v-if="primarySquad" data-squad="Primary">
       <div class="squad-header">
         <span class="squad-label">Primary Squad</span>
         <span class="squad-location" v-if="primarySquad.sectorName">
@@ -108,21 +117,25 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
         </span>
       </div>
       <div class="mercs-list" v-if="hasPrimaryMercs">
-        <CombatantCard
+        <div
           v-for="(merc, index) in primarySquad.mercs"
           :key="getMercKey(merc, index)"
-          :merc="merc"
-          :player-color="playerColor"
-          :squad-name="'Primary'"
-          :sector-name="primarySquad.sectorName"
-          :show-equipment="true"
-          :can-drop-equipment="canDropEquipment"
-          :ability-available="isMercAbilityAvailable(merc)"
-          :can-reassign="canAssignToSquad"
-          @drop-equipment="handleDropEquipment"
-          @activate-ability="handleActivateAbility"
-          @reassign-combatant="handleReassignCombatant"
-        />
+          :class="{ 'merc-flying': isMercFlying(merc) }"
+        >
+          <CombatantCard
+            :merc="merc"
+            :player-color="playerColor"
+            :squad-name="'Primary'"
+            :sector-name="primarySquad.sectorName"
+            :show-equipment="true"
+            :can-drop-equipment="canDropEquipment"
+            :ability-available="isMercAbilityAvailable(merc)"
+            :can-reassign="canAssignToSquad"
+            @drop-equipment="handleDropEquipment"
+            @activate-ability="handleActivateAbility"
+            @reassign-combatant="handleReassignCombatant"
+          />
+        </div>
       </div>
       <div class="empty-squad" v-else>
         No MERCs in primary squad
@@ -130,7 +143,7 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
     </div>
 
     <!-- Secondary Squad -->
-    <div class="squad-section secondary" v-if="secondarySquad">
+    <div class="squad-section secondary" v-if="secondarySquad" data-squad="Secondary">
       <div class="squad-header">
         <span class="squad-label">Secondary Squad</span>
         <span class="squad-location" v-if="secondarySquad.sectorName">
@@ -138,21 +151,25 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
         </span>
       </div>
       <div class="mercs-list" v-if="hasSecondaryMercs">
-        <CombatantCard
+        <div
           v-for="(merc, index) in secondarySquad.mercs"
           :key="getMercKey(merc, 100 + index)"
-          :merc="merc"
-          :player-color="playerColor"
-          :squad-name="'Secondary'"
-          :sector-name="secondarySquad.sectorName"
-          :show-equipment="true"
-          :can-drop-equipment="canDropEquipment"
-          :ability-available="isMercAbilityAvailable(merc)"
-          :can-reassign="canAssignToSquad"
-          @drop-equipment="handleDropEquipment"
-          @activate-ability="handleActivateAbility"
-          @reassign-combatant="handleReassignCombatant"
-        />
+          :class="{ 'merc-flying': isMercFlying(merc) }"
+        >
+          <CombatantCard
+            :merc="merc"
+            :player-color="playerColor"
+            :squad-name="'Secondary'"
+            :sector-name="secondarySquad.sectorName"
+            :show-equipment="true"
+            :can-drop-equipment="canDropEquipment"
+            :ability-available="isMercAbilityAvailable(merc)"
+            :can-reassign="canAssignToSquad"
+            @drop-equipment="handleDropEquipment"
+            @activate-ability="handleActivateAbility"
+            @reassign-combatant="handleReassignCombatant"
+          />
+        </div>
       </div>
       <div class="empty-squad" v-else>
         No MERCs in secondary squad
@@ -160,7 +177,7 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
     </div>
 
     <!-- Base Squad (Dictator's home location) -->
-    <div class="squad-section base" v-if="baseSquad">
+    <div class="squad-section base" v-if="baseSquad" data-squad="Base">
       <div class="squad-header">
         <span class="squad-label">🏠 Base</span>
         <span class="squad-location" v-if="baseSquad.sectorName">
@@ -168,21 +185,25 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
         </span>
       </div>
       <div class="mercs-list" v-if="hasBaseMercs">
-        <CombatantCard
+        <div
           v-for="(merc, index) in baseSquad.mercs"
           :key="getMercKey(merc, 200 + index)"
-          :merc="merc"
-          :player-color="playerColor"
-          :squad-name="'Base'"
-          :sector-name="baseSquad.sectorName"
-          :show-equipment="true"
-          :can-drop-equipment="canDropEquipment"
-          :ability-available="isMercAbilityAvailable(merc)"
-          :can-reassign="canAssignToSquad"
-          @drop-equipment="handleDropEquipment"
-          @activate-ability="handleActivateAbility"
-          @reassign-combatant="handleReassignCombatant"
-        />
+          :class="{ 'merc-flying': isMercFlying(merc) }"
+        >
+          <CombatantCard
+            :merc="merc"
+            :player-color="playerColor"
+            :squad-name="'Base'"
+            :sector-name="baseSquad.sectorName"
+            :show-equipment="true"
+            :can-drop-equipment="canDropEquipment"
+            :ability-available="isMercAbilityAvailable(merc)"
+            :can-reassign="canAssignToSquad"
+            @drop-equipment="handleDropEquipment"
+            @activate-ability="handleActivateAbility"
+            @reassign-combatant="handleReassignCombatant"
+          />
+        </div>
       </div>
       <div class="empty-squad" v-else>
         Dictator is away from base
@@ -197,6 +218,15 @@ const hasBaseMercs = computed(() => (props.baseSquad?.mercs?.length || 0) > 0);
 </template>
 
 <style scoped>
+/* Hide merc card while it's being animated */
+.merc-flying {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
 .squad-panel {
   background: v-bind('UI_COLORS.cardBg');
   border-radius: 12px;

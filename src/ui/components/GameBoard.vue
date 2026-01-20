@@ -28,6 +28,7 @@ import { useVictoryCalculations } from '../composables/useVictoryCalculations';
 
 // Utilities
 import { UI_COLORS } from '../colors';
+import { quickReassignInProgress } from '../drag-drop-state';
 
 // Type for deferred choices fetch function (injected from GameShell)
 type FetchDeferredChoicesFn = (
@@ -56,6 +57,7 @@ const props = defineProps<{
   actionController: UseActionControllerReturn;
   setBoardPrompt: (prompt: string | null) => void;
   state?: any; // Flow state from GameShell
+  flyingCombatantName?: string | null; // Name of combatant currently animating (hide at destination)
 }>();
 
 // Initialize composables with gameView getter
@@ -833,14 +835,25 @@ function closeHiringMercModal() {
 }
 
 // Handle reassign from squad badge click - starts action and scrolls to panel
-function handleReassignCombatant(combatantName: string) {
-  props.actionController.start('assignToSquad', { combatantName });
-  // Wait for panel to render, then scroll to it
-  nextTick(() => {
-    if (assignToSquadPanelRef.value?.$el) {
-      assignToSquadPanelRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
+async function handleReassignCombatant(combatantName: string) {
+  // Mark this as a quick reassign from squad badge click
+  // This prevents showing the AssignToSquadPanel when auto-completing
+  quickReassignInProgress.value = true;
+
+  await props.actionController.start('assignToSquad', { combatantName });
+
+  // After action starts, check if we're still on a selection (not auto-completed)
+  // If so, the panel should be shown and we should scroll to it
+  if (props.actionController.currentSelection.value) {
+    // Action didn't auto-complete - clear the flag and show panel normally
+    quickReassignInProgress.value = false;
+    nextTick(() => {
+      if (assignToSquadPanelRef.value?.$el) {
+        assignToSquadPanelRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+  // If auto-completed, the flag stays true and gets cleared after animation
 }
 
 // Handle landing sector selection from LandingZoneSelection component
@@ -1172,6 +1185,7 @@ const clickableSectors = computed(() => {
           :can-drop-equipment="canDropEquipment"
           :merc-abilities-available="mercAbilitiesAvailable"
           :can-assign-to-squad="availableActions.includes('assignToSquad')"
+          :flying-combatant-name="flyingCombatantName"
           @drop-equipment="handleDropEquipment"
           @activate-ability="handleActivateAbility"
           @assign-to-squad="actionController.start('assignToSquad', {})"

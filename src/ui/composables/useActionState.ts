@@ -2,6 +2,7 @@ import { computed, ref, reactive, type ComputedRef, type Ref } from 'vue';
 import { useGameViewHelpers } from './useGameViewHelpers';
 import type { Sector } from './useSectorState';
 import type { SquadState } from './useSquadState';
+import { quickReassignInProgress } from '../drag-drop-state';
 
 /**
  * Props required for useActionState composable.
@@ -295,8 +296,10 @@ export function useActionState(
 
   // Show AssignToSquad component when assignToSquad action is active
   // Keep visible briefly after action completes so animation can find destination element
+  // BUT: Don't show when quickReassignInProgress (action auto-completed from squad badge click)
   const showAssignToSquad = computed(() =>
-    props.actionController.currentAction.value === 'assignToSquad' || assignToSquadDelayedHide.value
+    (props.actionController.currentAction.value === 'assignToSquad' || assignToSquadDelayedHide.value) &&
+    !quickReassignInProgress.value
   );
 
   // Check if Hagness is selecting equipment type (first step)
