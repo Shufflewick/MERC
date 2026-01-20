@@ -297,6 +297,11 @@ export function drawTacticsHand(game: MERCGame): TacticsCard[] {
   const tacticsHand = game.dictatorPlayer.tacticsHand;
   const tacticsDeck = game.dictatorPlayer.tacticsDeck;
 
+  if (!tacticsHand || !tacticsDeck) {
+    game.message('Error: Tactics deck not initialized');
+    return drawnCards;
+  }
+
   while (tacticsHand.count(TacticsCard) < targetHandSize) {
     const card = tacticsDeck.first(TacticsCard);
     if (!card) break;

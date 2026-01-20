@@ -1,13 +1,28 @@
 import {
   loop,
   eachPlayer,
-  actionStep,
+  actionStep as boardsmithActionStep,
   sequence,
   execute,
   phase,
   type FlowDefinition,
+  type ActionStepConfig,
+  type Game,
+  type Player,
 } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from './game.js';
+
+// Extended ActionStepConfig with prompt support (MERC extension)
+type MERCActionStepConfig = ActionStepConfig & {
+  prompt?: string;
+};
+
+// Wrapper that accepts prompt property and strips it before passing to boardsmith
+function actionStep(config: MERCActionStepConfig) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { prompt, ...rest } = config;
+  return boardsmithActionStep(rest);
+}
 import { TacticsCard } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
@@ -104,8 +119,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: (ctx) => {
                   // Skip if Teresa is not on the team
                   const player = ctx.player;
-                  if (!game.isRebelPlayer(player)) return true;
-                  const hasTeresa = player.team?.some((m: any) => m.combatantId === 'teresa');
+                  if (!player || !game.isRebelPlayer(player)) return true;
+                  const hasTeresa = player.team?.some((m: { combatantId: string }) => m.combatantId === 'teresa');
                   return !hasTeresa;
                 },
               }),
@@ -554,7 +569,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   const dictator = game.dictatorPlayer?.dictator;
                   const hasActionsLeft = dictatorMercs.some(m => m.actionsRemaining > 0) ||
                     (dictator?.inPlay && dictator.actionsRemaining > 0);
-                  return hasActionsLeft;
+                  return hasActionsLeft ?? false;
                 },
                 maxIterations: 50, // Safety limit per turn
                 do: sequence(

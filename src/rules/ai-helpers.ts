@@ -52,6 +52,11 @@ export {
 } from './ai-action-helpers.js';
 export type { AIActionType, AIActionDecision } from './ai-action-helpers.js';
 
+// Import types for internal use
+import type { AIActionType } from './ai-action-helpers.js';
+import type { CombatTarget } from './ai-combat-helpers.js';
+import { sortTargetsByAIPriority } from './ai-combat-helpers.js';
+
 // =============================================================================
 // Distance Calculations
 // =============================================================================
@@ -144,7 +149,7 @@ export function getPrivacyPlayer(game: MERCGame): { name: string; position: numb
 
   const rebel = game.rebelPlayers.find(r => r.position.toString() === privacyId);
   if (rebel) {
-    return { name: rebel.name, position: rebel.position };
+    return { name: rebel.name ?? '', position: rebel.position };
   }
   return null;
 }
@@ -225,11 +230,11 @@ export function selectAIBaseLocation(game: MERCGame): Sector | null {
   }
 
   // Find the highest industry value
-  const maxValue = Math.max(...controlledIndustries.map(s => s.industryValue || 0));
+  const maxValue = Math.max(...controlledIndustries.map(s => s.value || 0));
 
   // Get all industries with the highest value
   const highestValueIndustries = controlledIndustries.filter(
-    s => (s.industryValue || 0) === maxValue
+    s => (s.value || 0) === maxValue
   );
 
   // If only one, return it; otherwise pick randomly
@@ -288,7 +293,7 @@ export function distributeExtraMilitiaEvenly(
 
   // Sort industries by value (highest first) for distributing remainder
   const sortedIndustries = [...dictatorIndustries].sort((a, b) =>
-    (b.industryValue || 0) - (a.industryValue || 0)
+    (b.value || 0) - (a.value || 0)
   );
 
   for (const sector of sortedIndustries) {
@@ -353,7 +358,7 @@ export function selectMilitiaPlacementSector(
         if (distA !== distB) return distA - distB;
 
         // Highest value
-        return (b.industryValue || 0) - (a.industryValue || 0);
+        return (b.value || 0) - (a.value || 0);
       })[0];
 
     case 'dictator':
@@ -518,8 +523,8 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
       // Skip if already removed from stash
       if (!sector.getStashContents().some(e => e.id === equipment.id)) continue;
 
-      // Check if unit can equip this type
-      if (!unit.canEquip(equipment.equipmentType)) continue;
+      // Check if unit can equip this item
+      if (!unit.canEquip(equipment)) continue;
 
       // Check if unit already has this type
       const current = unit.getEquipmentOfType(equipment.equipmentType);

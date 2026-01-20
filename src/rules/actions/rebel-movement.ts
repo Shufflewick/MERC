@@ -11,7 +11,7 @@
  * - assignToSquad: Assign a combatant to a different squad (replaces splitSquad/mergeSquads)
  */
 
-import { Action, type ActionDefinition, dependentFilter } from 'boardsmith';
+import { Action, type ActionDefinition, type GameElement, type ActionContext, dependentFilter } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Squad, CombatantModel } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';
@@ -136,7 +136,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
           const adjacent = game.getAdjacentSectors(currentSector);
           return adjacent.some(s => s.sectorId === sector.sectorId);
         },
-      }),
+      }) as (element: GameElement, context: ActionContext) => boolean,
       boardRef: (element) => ({ id: asSector(element).id }),
     })
     .chooseElement<Squad>('squad', {
@@ -146,14 +146,12 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       filter: dependentFilter<Squad, Sector>({
         dependsOn: 'destination',
         // When destination NOT selected: show all movable squads
-        whenUndefined: (element, ctx) => {
-          const squad = asSquad(element);
+        whenUndefined: (squad, ctx) => {
           if (!isSquadOwnedByPlayer(squad, ctx.player, game)) return false;
           return canSquadMove(squad, ctx.player, game);
         },
         // When destination IS selected: only show squads that can reach it
-        whenSelected: (element, selectedDestination, ctx) => {
-          const squad = asSquad(element);
+        whenSelected: (squad, selectedDestination, ctx) => {
           if (!isSquadOwnedByPlayer(squad, ctx.player, game)) return false;
           if (!canSquadMove(squad, ctx.player, game)) return false;
           // Check if squad is adjacent to destination
@@ -163,7 +161,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
           const adjacent = game.getAdjacentSectors(squadSector);
           return adjacent.some(s => s.sectorId === selectedDestination.sectorId);
         },
-      }),
+      }) as (element: GameElement, context: ActionContext) => boolean,
     })
     .execute((args, ctx) => {
       const squad = asSquad(args.squad);
@@ -460,17 +458,16 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
     .chooseFrom<string>('targetAttack', {
       prompt: 'Select coordinated attack to join',
       choices: () => {
-        const choices: { label: string; value: string }[] = [];
-        for (const [targetId, participants] of game.pendingCoordinatedAttacks) {
-          const sector = game.getSector(targetId);
-          if (sector) {
-            choices.push({
-              label: `Attack on ${sector.sectorName} (${participants.length} squad(s) ready)`,
-              value: targetId,
-            });
-          }
+        const choices: string[] = [];
+        for (const [targetId] of game.pendingCoordinatedAttacks) {
+          choices.push(targetId);
         }
         return choices;
+      },
+      display: (targetId) => {
+        const sector = game.getSector(targetId);
+        const participants = game.pendingCoordinatedAttacks.get(targetId) || [];
+        return sector ? `Attack on ${sector.sectorName} (${participants.length} squad(s) ready)` : targetId;
       },
     })
     .chooseElement<Squad>('squad', {
@@ -481,7 +478,7 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
         if (!game.isRebelPlayer(ctx.player)) return false;
         const squad = asSquad(element);
         const player = asRebelPlayer(ctx.player);
-        const targetId = ctx.data?.targetAttack as string;
+        const targetId = ctx.args?.targetAttack as string;
         // Use name comparison instead of object reference
         const isPlayerSquad = squad.name === player.primarySquadRef || squad.name === player.secondarySquadRef;
         if (!isPlayerSquad) return false;
@@ -533,17 +530,16 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
     .chooseFrom<string>('targetAttack', {
       prompt: 'Select coordinated attack to execute',
       choices: () => {
-        const choices: { label: string; value: string }[] = [];
-        for (const [targetId, participants] of game.pendingCoordinatedAttacks) {
-          const sector = game.getSector(targetId);
-          if (sector) {
-            choices.push({
-              label: `Execute attack on ${sector.sectorName} (${participants.length} squad(s))`,
-              value: targetId,
-            });
-          }
+        const choices: string[] = [];
+        for (const [targetId] of game.pendingCoordinatedAttacks) {
+          choices.push(targetId);
         }
         return choices;
+      },
+      display: (targetId) => {
+        const sector = game.getSector(targetId);
+        const participants = game.pendingCoordinatedAttacks.get(targetId) || [];
+        return sector ? `Execute attack on ${sector.sectorName} (${participants.length} squad(s))` : targetId;
       },
     })
     .execute((args, ctx) => {
@@ -577,7 +573,7 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
       }
 
       // Clear pending attack
-      game.clearPendingCoordinatedAttack(targetId);
+      game.clearCoordinatedAttack(targetId);
 
       game.message(`Coordinated attack launched on ${target.sectorName} with ${totalMercs} MERC(s)!`);
 

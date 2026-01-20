@@ -15,7 +15,8 @@
  */
 
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
-import { Sector, Militia, CombatantModel } from './elements.js';
+import { Sector, Militia, CombatantModel, Equipment } from './elements.js';
+import { isEpinephrine } from './equipment-effects.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
   sortTargetsByAIPriority,
@@ -717,7 +718,7 @@ function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
           // Apply +2 initiative to all squad mates (including Tack)
           for (const combatant of combatants) {
             if (combatant.sourceElement?.isMerc &&
-                squadMates.some(m => m.id === combatant.sourceElement.id) &&
+                squadMates.some(m => m.id === combatant.sourceElement!.id) &&
                 combatant.health > 0) {
               combatant.initiative += 2;
             }
@@ -755,8 +756,8 @@ function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
         // Apply +1 initiative to all squad mates (except Valkyrie herself)
         for (const combatant of combatants) {
           if (combatant.sourceElement?.isMerc &&
-              squadMates.some(m => m.id === combatant.sourceElement.id) &&
-              combatant.sourceElement.id !== valkyrieMerc.id &&
+              squadMates.some(m => m.id === combatant.sourceElement!.id) &&
+              combatant.sourceElement!.id !== valkyrieMerc.id &&
               combatant.health > 0) {
             combatant.initiative += 1;
           }
@@ -2545,7 +2546,7 @@ export function executeCombat(
     const hasPartialRoundData = (game.activeCombat.roundResults?.length ?? 0) > 0 ||
                                  (game.activeCombat.roundCasualties?.length ?? 0) > 0 ||
                                  (game.activeCombat.currentAttackerIndex ?? 0) > 0 ||
-                                 game.activeCombat.selectedTargets?.size > 0;
+                                 (game.activeCombat.selectedTargets?.size ?? 0) > 0;
     startRound = hasPartialRoundData ? game.activeCombat.round : game.activeCombat.round + 1;
 
     // MERC-l09: Restore dog state
@@ -2588,7 +2589,7 @@ export function executeCombat(
     game.message(`Initiative order: ${initiativeOrder}`);
 
     // MERC-b65: AI detonates land mines before combat begins
-    detonateLandMines(game, sector, attackingPlayer);
+    detonateLandMines(game, sector, { name: attackingPlayer.name ?? 'Unknown' });
   }
 
   let retreatSector: Sector | undefined;
@@ -2674,7 +2675,7 @@ export function executeCombat(
             isMilitia: t.isMilitia,
             health: t.health,
             maxHealth: t.maxHealth,
-          })),
+          })) as unknown as Combatant[],
           maxTargets: pause.maxTargets,
         },
       };
@@ -2769,7 +2770,7 @@ export function executeCombat(
             isMilitia: t.isMilitia,
             health: t.health,
             maxHealth: t.maxHealth,
-          })),
+          })) as unknown as Combatant[],
         },
       };
 

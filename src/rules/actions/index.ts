@@ -35,7 +35,7 @@ export * from './day-one-actions.js';
 
 // Import for registration function
 import type { MERCGame } from '../game.js';
-import { TacticsCard, Squad } from '../elements.js';
+import { TacticsCard, Squad, Equipment } from '../elements.js';
 import type { RebelPlayer } from '../game.js';
 
 // Import all action creators
@@ -224,15 +224,15 @@ function registerDebugData(game: MERCGame): void {
   game.registerDebug('Equipment Decks', () => ({
     weapons: {
       remaining: game.weaponsDeck?.children?.length ?? 0,
-      topCard: game.weaponsDeck?.children?.[0]?.equipmentName ?? 'empty',
+      topCard: (game.weaponsDeck?.children?.[0] as Equipment | undefined)?.equipmentName ?? 'empty',
     },
     armor: {
       remaining: game.armorDeck?.children?.length ?? 0,
-      topCard: game.armorDeck?.children?.[0]?.equipmentName ?? 'empty',
+      topCard: (game.armorDeck?.children?.[0] as Equipment | undefined)?.equipmentName ?? 'empty',
     },
     accessories: {
       remaining: game.accessoriesDeck?.children?.length ?? 0,
-      topCard: game.accessoriesDeck?.children?.[0]?.equipmentName ?? 'empty',
+      topCard: (game.accessoriesDeck?.children?.[0] as Equipment | undefined)?.equipmentName ?? 'empty',
     },
   }));
 

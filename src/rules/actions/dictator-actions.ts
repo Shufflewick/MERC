@@ -4,7 +4,7 @@
  * All actions available to the dictator player: tactics, militia movement, and MERC actions.
  */
 
-import { Action, type ActionDefinition } from 'boardsmith';
+import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { executeCombat, hasEnemies } from '../combat.js';
@@ -84,8 +84,8 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
     .chooseElement<TacticsCard>('card', {
       prompt: 'Select a tactics card to play',
       elementClass: TacticsCard,
-      display: (card) => card.tacticsName,
-      filter: (element) => {
+      display: (card: TacticsCard) => card.tacticsName,
+      filter: (element: TacticsCard) => {
         const card = asTacticsCard(element);
         // MERC-5j2: AI auto-selects top card from deck
         if (game.dictatorPlayer?.isAI) {
@@ -101,12 +101,12 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (!game.dictatorPlayer?.isAI) return undefined;
         return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
       },
-    })
+    } as any)
     // Human players choose base location when playing a base-reveal card
     .chooseFrom<string>('baseLocation', {
       prompt: 'Choose the location for your base',
       dependsOn: 'card', // This step depends on the card selection
-      skipIf: (ctx) => {
+      skipIf: (ctx: ActionContext) => {
         // Skip if AI, base already revealed, or card doesn't reveal base
         if (game.dictatorPlayer?.isAI) return true;
         if (game.dictatorPlayer?.baseRevealed) return true;
@@ -115,7 +115,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (!card || !card.revealsBase) return true;
         return false;
       },
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         // If base is already revealed, return placeholder (selection will be skipped)
         // This ensures the action is available even when this selection isn't needed
         if (game.dictatorPlayer?.baseRevealed) {
@@ -138,12 +138,12 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         }
         return industries.map(s => s.sectorName);
       },
-    })
+    } as any)
     // Human dictator chooses starting equipment when base is revealed
     .chooseFrom<string>('dictatorEquipment', {
       prompt: 'Choose starting equipment for the Dictator',
       dependsOn: 'baseLocation', // This step depends on baseLocation (which depends on card)
-      skipIf: (ctx) => {
+      skipIf: (ctx: ActionContext) => {
         // Skip if AI, base already revealed, or card doesn't reveal base
         if (game.dictatorPlayer?.isAI) return true;
         if (game.dictatorPlayer?.baseRevealed) return true;
@@ -151,7 +151,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (!card || !card.revealsBase) return true;
         return false;
       },
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         // If base is already revealed, return placeholder (selection will be skipped)
         if (game.dictatorPlayer?.baseRevealed) return ['(skipped)'];
         // Check if we should show choices at all
@@ -159,13 +159,13 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (!card || !card.revealsBase) return ['(skipped)'];
         return ['Weapon', 'Armor', 'Accessory'];
       },
-    })
+    } as any)
     .execute((args) => {
       const card = asTacticsCard(args.card);
       game.message(`Dictator plays: ${card.tacticsName}`);
 
       // Move card to discard
-      card.putInto(game.dictatorPlayer.tacticsDiscard);
+      card.putInto(game.dictatorPlayer.tacticsDiscard!);
 
       // For human players playing base-reveal cards, set base location first
       if (!game.dictatorPlayer?.isAI &&
@@ -227,8 +227,8 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
     .chooseElement<TacticsCard>('card', {
       prompt: 'Discard a tactics card to reinforce',
       elementClass: TacticsCard,
-      display: (card) => card.tacticsName,
-      filter: (element) => {
+      display: (card: TacticsCard) => card.tacticsName,
+      filter: (element: TacticsCard) => {
         const card = asTacticsCard(element);
         // MERC-5j2: AI auto-selects top card from deck
         if (game.dictatorPlayer?.isAI) {
@@ -244,11 +244,11 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         if (!game.dictatorPlayer?.isAI) return undefined;
         return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
       },
-    })
+    } as any)
     .chooseElement<Sector>('sector', {
       prompt: 'Place reinforcement militia where?',
       elementClass: Sector,
-      filter: (element) => {
+      filter: (element: Sector) => {
         const sector = asSector(element);
         // Per rules: "Sector must be Dictator-controlled"
         // Dictator controls if militia >= total rebel militia (ties go to dictator)
@@ -258,7 +258,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         const isBase = game.dictatorPlayer.baseSectorId === sector.sectorId;
         return isControlled || isBase;
       },
-      boardRef: (element) => ({ id: asSector(element).id }),
+      boardRef: (element: Sector) => ({ id: asSector(element).id }),
       // MERC-0m0: AI auto-select per rule 4.4.3 - closest to rebel-controlled sector
       aiSelect: () => {
         if (!game.dictatorPlayer?.isAI) return undefined;
@@ -273,7 +273,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         // Use rule 4.4.3: closest to rebel-controlled sector
         return selectMilitiaPlacementSector(game, controlled, 'dictator') ?? undefined;
       },
-    })
+    } as any)
     .execute((args) => {
       const card = asTacticsCard(args.card);
       const sector = asSector(args.sector);
@@ -282,7 +282,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       const reinforcements = game.getReinforcementAmount();
 
       // Discard the card
-      card.putInto(game.dictatorPlayer.tacticsDiscard);
+      card.putInto(game.dictatorPlayer.tacticsDiscard!);
 
       // Place militia
       const placed = sector.addDictatorMilitia(reinforcements);
@@ -378,7 +378,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         // Return just capitalized names (UI finds MERC data via findMercByName)
         return mercs.map(m => capitalize(m.combatantName));
       },
-    })
+    } as any)
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
@@ -517,14 +517,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
     .chooseFrom<string>('targetSector', {
-      prompt: (ctx) => {
-        // Count rebel-controlled sectors
-        let rebelSectorCount = 0;
-        for (const rebel of game.rebelPlayers) {
-          rebelSectorCount += game.getControlledSectors(rebel).length;
-        }
-        return `Place ${rebelSectorCount} militia (rebels control ${rebelSectorCount} sectors)`;
-      },
+      prompt: 'Choose sector to place militia (based on rebel-controlled sectors)',
       choices: () => {
         // Get sectors where dictator can place militia
         const sectors = game.gameMap.getAllSectors()

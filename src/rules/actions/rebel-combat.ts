@@ -124,11 +124,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
  */
 export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition {
   return Action.create('combatSelectTarget')
-    .prompt(() => {
-      const pending = game.activeCombat?.pendingTargetSelection;
-      if (!pending) return 'Select target';
-      return `${pending.attackerName}: Select target${pending.maxTargets > 1 ? ` (up to ${pending.maxTargets})` : ''}`;
-    })
+    .prompt('Select target')
     .condition({
       'player can select targets for this attacker': (ctx) => {
         // Must have active combat with pending target selection
@@ -156,31 +152,26 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       },
     })
     .chooseFrom<string>('targets', {
-      prompt: () => {
-        const pending = game.activeCombat?.pendingTargetSelection;
-        if (!pending) return 'Select target';
-        const name = pending.attackerName.charAt(0).toUpperCase() + pending.attackerName.slice(1);
-        return `${name}: Select target`;
-      },
+      prompt: 'Select target',
       choices: () => {
         const pending = game.activeCombat?.pendingTargetSelection;
         if (!pending) return [];
-
-        // Use string ID as value, display name for UI
+        return pending.validTargets.map((t: Combatant) => t.id);
+      },
+      display: (id: string) => {
+        const pending = game.activeCombat?.pendingTargetSelection;
+        if (!pending) return id;
+        const target = pending.validTargets.find((t: Combatant) => t.id === id);
+        if (!target) return id;
         // Add #N suffix for duplicate names in display
-        return pending.validTargets.map((t: Combatant, index: number) => {
-          const baseName = t.name;
-          const duplicateCount = pending.validTargets.filter((x: Combatant) => x.name === baseName).length;
-          let displayName = baseName;
-          if (duplicateCount > 1) {
-            const countBefore = pending.validTargets.slice(0, index + 1).filter((x: Combatant) => x.name === baseName).length;
-            displayName = `${baseName} #${countBefore}`;
-          }
-          return {
-            value: t.id,        // String ID - what gets sent to execute
-            display: displayName, // Human-readable name for UI
-          };
-        });
+        const baseName = target.name;
+        const duplicateCount = pending.validTargets.filter((x: Combatant) => x.name === baseName).length;
+        if (duplicateCount > 1) {
+          const targetIndex = pending.validTargets.findIndex((t: Combatant) => t.id === id);
+          const countBefore = pending.validTargets.slice(0, targetIndex + 1).filter((x: Combatant) => x.name === baseName).length;
+          return `${baseName} #${countBefore}`;
+        }
+        return baseName;
       },
       // Use multi-select when MERC can target multiple enemies
       multiSelect: () => {
@@ -272,11 +263,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
  */
 export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinition {
   return Action.create('combatAssignAttackDog')
-    .prompt(() => {
-      const pending = game.activeCombat?.pendingAttackDogSelection;
-      if (!pending) return 'Assign Attack Dog';
-      return `${pending.attackerName}: Assign Attack Dog to`;
-    })
+    .prompt('Assign Attack Dog')
     .condition({
       'player can assign attack dog for this attacker': (ctx) => {
         // Must have active combat with pending dog selection
@@ -300,29 +287,26 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
       },
     })
     .chooseFrom<string>('target', {
-      prompt: () => {
-        const pending = game.activeCombat?.pendingAttackDogSelection;
-        if (!pending) return 'Assign Attack Dog to';
-        return `${pending.attackerName}: Release Attack Dog on`;
-      },
+      prompt: 'Assign Attack Dog to',
       choices: () => {
         const pending = game.activeCombat?.pendingAttackDogSelection;
         if (!pending) return [];
-
-        // Use string ID as value, display name for UI
-        return pending.validTargets.map((t: Combatant, index: number) => {
-          const baseName = t.name;
-          const duplicateCount = pending.validTargets.filter((x: Combatant) => x.name === baseName).length;
-          let displayName = baseName;
-          if (duplicateCount > 1) {
-            const countBefore = pending.validTargets.slice(0, index + 1).filter((x: Combatant) => x.name === baseName).length;
-            displayName = `${baseName} #${countBefore}`;
-          }
-          return {
-            value: t.id,
-            display: displayName,
-          };
-        });
+        return pending.validTargets.map((t: Combatant) => t.id);
+      },
+      display: (id: string) => {
+        const pending = game.activeCombat?.pendingAttackDogSelection;
+        if (!pending) return id;
+        const target = pending.validTargets.find((t: Combatant) => t.id === id);
+        if (!target) return id;
+        // Add #N suffix for duplicate names
+        const baseName = target.name;
+        const duplicateCount = pending.validTargets.filter((x: Combatant) => x.name === baseName).length;
+        if (duplicateCount > 1) {
+          const targetIndex = pending.validTargets.findIndex((t: Combatant) => t.id === id);
+          const countBefore = pending.validTargets.slice(0, targetIndex + 1).filter((x: Combatant) => x.name === baseName).length;
+          return `${baseName} #${countBefore}`;
+        }
+        return baseName;
       },
     })
     .execute((args) => {
@@ -469,20 +453,23 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return [];
         // Build choices - each target can be selected multiple times up to their health
-        // Use {value, display} format for clean UI display
-        const choices: Array<{value: string, display: string}> = [];
+        const choices: string[] = [];
         for (const target of pending.validTargets) {
-          // Capitalize target name for display
-          const displayName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
           // Allow targeting up to their current health times
           for (let i = 0; i < target.currentHealth; i++) {
-            choices.push({
-              value: `${target.id}::${i}`,
-              display: displayName,
-            });
+            choices.push(`${target.id}::${i}`);
           }
         }
         return choices;
+      },
+      display: (choice: string) => {
+        const pending = game.activeCombat?.pendingHitAllocation;
+        if (!pending) return choice;
+        const targetId = choice.split('::')[0];
+        const target = pending.validTargets.find(t => t.id === targetId);
+        if (!target) return choice;
+        // Capitalize target name for display
+        return target.name.charAt(0).toUpperCase() + target.name.slice(1);
       },
     })
     .execute((args, _ctx) => {
@@ -573,7 +560,7 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
       'has pending hit allocation': () => game.activeCombat?.pendingHitAllocation != null,
       'can reroll and has not already': () => {
         const pending = game.activeCombat?.pendingHitAllocation;
-        return pending?.canReroll && !pending?.hasRerolled;
+        return (pending?.canReroll && !pending?.hasRerolled) ?? false;
       },
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
     })
@@ -907,7 +894,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         if (!pending) return [];
 
         const playerId = `${ctx.player.position}`;
-        const choices: Array<{ value: string; display: string }> = [];
+        const choices: string[] = [];
 
         // Build choices for this player's targets only
         for (const target of pending.validTargets) {
@@ -915,15 +902,21 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
 
           // Allow selecting up to currentHealth times
           for (let i = 0; i < target.currentHealth; i++) {
-            choices.push({
-              value: `${target.id}::${i}`,
-              display: target.type === 'militia'
-                ? `Militia (${target.currentHealth - i} remaining)`
-                : target.name,
-            });
+            choices.push(`${target.id}::${i}`);
           }
         }
         return choices;
+      },
+      display: (choice: string) => {
+        const pending = game.pendingArtilleryAllocation;
+        if (!pending) return choice;
+        const [targetId, indexStr] = choice.split('::');
+        const index = parseInt(indexStr, 10);
+        const target = pending.validTargets.find(t => t.id === targetId);
+        if (!target) return choice;
+        return target.type === 'militia'
+          ? `Militia (${target.currentHealth - index} remaining)`
+          : target.name;
       },
     })
     .execute((args, ctx) => {
@@ -1033,12 +1026,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
     })
     .chooseElement<CombatantModel>('saverMerc', {
-      prompt: () => {
-        const pending = game.activeCombat?.pendingEpinephrine;
-        return pending
-          ? `Choose who uses Epinephrine Shot to save ${pending.dyingCombatantName}`
-          : 'Choose merc to use Epinephrine Shot';
-      },
+      prompt: 'Choose merc to use Epinephrine Shot',
       elementClass: CombatantModel,
       filter: (element) => {
         const merc = element as CombatantModel;
@@ -1048,7 +1036,8 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
         return pending.availableSavers.some(s => s.combatantId === merc.id);
       },
     })
-    .execute(({ saverMerc }) => {
+    .execute((args) => {
+      const saverMerc = args.saverMerc as CombatantModel;
       const pending = game.activeCombat?.pendingEpinephrine;
       if (!pending) {
         return { success: false, message: 'No pending epinephrine choice' };
@@ -1076,7 +1065,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       if (saverMerc.accessorySlot && isEpinephrine(saverMerc.accessorySlot.equipmentId)) {
         epiShot = saverMerc.unequip('Accessory');
       } else {
-        const epiIndex = saverMerc.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+        const epiIndex = saverMerc.bandolierSlots.findIndex((e: Equipment) => isEpinephrine(e.equipmentId));
         if (epiIndex >= 0) {
           epiShot = saverMerc.unequipBandolierSlot(epiIndex);
         }

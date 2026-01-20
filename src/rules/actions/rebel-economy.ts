@@ -4,7 +4,7 @@
  * MERC economy-related actions: hiring, exploring, training, trading, and facilities.
  */
 
-import { Action, type ActionDefinition } from 'boardsmith';
+import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 import { SectorConstants } from '../constants.js';
@@ -88,41 +88,32 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     // MERC-yi7: Optional fire a MERC during hire action
     .chooseFrom<string>('fireFirst', {
       prompt: 'Fire a MERC first? (frees team slot)',
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const choices: { label: string; value: string }[] = [
-          { label: 'No, continue hiring', value: 'none' },
-        ];
+        const choices: string[] = ['none'];
         // Only show fire option if player has multiple MERCs
         if (player.teamSize >= 2) {
           for (const merc of player.team) {
-            choices.push({ label: `Fire ${merc.combatantName}`, value: merc.combatantName });
+            choices.push(merc.combatantName);
           }
         }
         return choices;
       },
+      display: (value: string) => value === 'none' ? 'No, continue hiring' : `Fire ${value}`,
     })
     // Draw 3 MERCs and let player select which to hire
     .chooseFrom<string>('selectedMercs', {
-      prompt: (ctx) => {
+      prompt: 'Select MERCs to hire',
+      multiSelect: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const fireChoice = ctx.data?.fireFirst as string;
-        const willFire = fireChoice && fireChoice !== 'none';
-        const teamLimit = player.getTeamLimit(game);
-        const currentSize = player.teamSize - (willFire ? 1 : 0);
-        const canHire = Math.max(0, teamLimit - currentSize);
-        return `Select MERCs to hire (up to ${canHire})`;
-      },
-      multiSelect: (ctx) => {
-        const player = asRebelPlayer(ctx.player);
-        const fireChoice = ctx.data?.fireFirst as string;
+        const fireChoice = ctx.args?.fireFirst as string;
         const willFire = fireChoice && fireChoice !== 'none';
         const teamLimit = player.getTeamLimit(game);
         const currentSize = player.teamSize - (willFire ? 1 : 0);
         const canHire = Math.max(1, teamLimit - currentSize);
         return { min: 1, max: canHire };
       },
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
         const playerId = `${player.position}`;
 
@@ -480,16 +471,9 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       'triggered via followUp from explore': (ctx) => ctx.args?.sectorId != null,
     })
     .chooseElement<Equipment>('equipment', {
-      prompt: (ctx) => {
-        const unit = getUnit(ctx);
-        const sector = getSector(ctx);
-        const remaining = sector?.stashCount || 0;
-        return unit
-          ? `What should ${capitalize(getUnitName(unit))} take? (${remaining} item${remaining !== 1 ? 's' : ''} left, or skip)`
-          : 'Select equipment';
-      },
+      prompt: 'Select equipment to take (or skip)',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
-      optional: 'Done collecting',
+      optional: true,
       elementClass: Equipment,
       filter: (element, ctx) => {
         if (!(element instanceof Equipment)) return false;
@@ -606,12 +590,8 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
       },
     })
     .chooseFrom<string>('equipment', {
-      prompt: (ctx) => {
-        // Find the explorer's name
-        const unit = findExplorerUnit(ctx);
-        return unit ? `What should ${capitalize(getUnitName(unit))} take?` : 'Select equipment to take';
-      },
-      choices: (ctx) => {
+      prompt: 'Select equipment to take',
+      choices: (ctx: ActionContext) => {
         if (!game.lastExplorer) return ['Done'];
         const sector = game.getSector(game.lastExplorer.sectorId);
         if (!sector || sector.stash.length === 0) return ['Done'];
@@ -753,17 +733,15 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('unit', {
       prompt: 'Select unit to train militia',
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         const units = getPlayerUnitsForTrain(ctx.player, game);
         return units
           .filter(u => canUnitTrain(u, ctx.player, game))
-          .map(u => {
-            const isDictator = u.isDictator;
-            return {
-              value: `${u.id}:${getUnitName(u)}:${isDictator}`,
-              label: capitalize(getUnitName(u)),
-            };
-          });
+          .map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
+      },
+      display: (value: string) => {
+        const [, name] = value.split(':');
+        return capitalize(name);
       },
     })
     .execute((args, ctx) => {
@@ -930,14 +908,15 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('actingUnit', {
       prompt: 'Select unit to heal',
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         const units = getPlayerUnitsForCity(ctx.player, game);
         return units
           .filter(u => u.damage > 0 && u.actionsRemaining >= ACTION_COSTS.HOSPITAL)
-          .map(u => ({
-            value: `${u.id}:${getUnitName(u)}:${u.isDictator}`,
-            label: capitalize(getUnitName(u)),
-          }));
+          .map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
+      },
+      display: (value: string) => {
+        const [, name] = value.split(':');
+        return capitalize(name);
       },
     })
     .execute((args) => {
@@ -1015,14 +994,15 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('actingUnit', {
       prompt: 'Which unit visits the dealer?',
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         const units = getPlayerUnitsForCity(ctx.player, game);
         return units
           .filter(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER)
-          .map(u => ({
-            value: `${u.id}:${getUnitName(u)}:${u.isDictator}`,
-            label: capitalize(getUnitName(u)),
-          }));
+          .map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
+      },
+      display: (value: string) => {
+        const [, name] = value.split(':');
+        return capitalize(name);
       },
     })
     .chooseFrom<string>('equipmentType', {
@@ -1032,7 +1012,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     // MERC-dh5: Free re-equip - choose unit to equip the purchased item
     .chooseFrom<string>('equipUnit', {
       prompt: 'Free Re-Equip: Which unit should equip this item? (or skip)',
-      choices: (ctx) => {
+      choices: (ctx: ActionContext) => {
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
         const playerId = getArmsDealerPlayerId(ctx.player, game);
 
@@ -1061,12 +1041,14 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
           return true;
         });
 
-        const choices = eligibleUnits.map(u => ({
-          label: capitalize(getUnitName(u)),
-          value: `${u.id}:${getUnitName(u)}:${u.isDictator}`,
-        }));
-        choices.push({ label: 'Skip (add to stash)', value: 'skip' });
+        const choices = eligibleUnits.map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
+        choices.push('skip');
         return choices;
+      },
+      display: (value: string) => {
+        if (value === 'skip') return 'Skip (add to stash)';
+        const [, name] = value.split(':');
+        return capitalize(name);
       },
     })
     .execute((args, ctx) => {

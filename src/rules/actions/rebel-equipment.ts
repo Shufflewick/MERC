@@ -4,7 +4,7 @@
  * Equipment management and MERC special abilities related to equipment.
  */
 
-import { Action, type ActionDefinition } from 'boardsmith';
+import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer, MERCPlayer } from '../game.js';
 import { Sector, Equipment, isGrenadeOrMortar, CombatantModel } from '../elements.js';
 import {
@@ -146,29 +146,26 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         const units = getPlayerUnitsWithActions(ctx.player, game);
         return units
           .filter(u => canUnitReEquip(u, ctx.player, game))
-          .map(u => {
-            // Use string format: "id:name:isDictator" (like explore/train actions)
-            return {
-              value: `${u.id}:${getUnitName(u)}:${u.isDictator}`,
-              label: capitalize(getUnitName(u)),
-            };
-          });
+          .map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
+      },
+      display: (value) => {
+        // Parse "id:name:isDictator" format to extract name
+        const parts = value.split(':');
+        if (parts.length >= 2) {
+          // Name is everything between id and isDictator (handles names with colons)
+          const name = parts.slice(1, -1).join(':');
+          return capitalize(name);
+        }
+        return value;
       },
     })
     .chooseElement<Equipment>('equipment', {
       dependsOn: 'actingUnit', // Equipment selection depends on unit selection
-      prompt: (ctx) => {
-        const unit = getUnit(ctx);
-        const sector = unit ? findUnitSector(unit, ctx.player, game) : null;
-        const remaining = sector?.stashCount || 0;
-        return unit
-          ? `What should ${capitalize(getUnitName(unit))} equip? (${remaining} item${remaining !== 1 ? 's' : ''} in stash)`
-          : 'Select equipment';
-      },
+      prompt: 'Select equipment to equip (or skip to finish)',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
-      optional: 'Done equipping',
+      optional: true,
       elementClass: Equipment,
-      filter: (element, ctx) => {
+      filter: (element, ctx: ActionContext) => {
         const unit = getUnit(ctx);
         if (!unit) return false;
 
@@ -180,7 +177,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (!inStash) return false;
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
-        if (unit.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
           return false;
         }
         return true;
@@ -306,18 +303,11 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
       },
     })
     .chooseElement<Equipment>('equipment', {
-      prompt: (ctx) => {
-        const unit = getUnit(ctx);
-        const sector = getSector(ctx);
-        const remaining = sector?.stashCount || 0;
-        return unit
-          ? `What else should ${getUnitDisplayName(unit)} equip? (${remaining} item${remaining !== 1 ? 's' : ''} left)`
-          : 'Select equipment';
-      },
+      prompt: 'Select equipment to equip (or skip to finish)',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
-      optional: 'Done equipping',
+      optional: true,
       elementClass: Equipment,
-      filter: (element, ctx) => {
+      filter: (element, ctx: ActionContext) => {
         const sector = getSector(ctx);
         if (!sector) return false;
         const inStash = sector.stash.some(e => e.id === element.id);
@@ -331,7 +321,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
         // MERC-70a: Filter out grenades/mortars if Apeiron
         const unit = getUnit(ctx);
-        if (unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
+        if (unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
           return false;
         }
         return true;
@@ -490,12 +480,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
     })
     .fromElements<Equipment>('equipment', {
       dependsOn: 'actingMerc',
-      prompt: (ctx) => {
-        const combatant = getCombatantFromCtx(ctx);
-        return combatant
-          ? `Select equipment to drop from ${capitalize(combatant.combatantName)}`
-          : 'Select equipment to drop';
-      },
+      prompt: 'Select equipment to drop',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
       // Use ctx.game throughout to avoid stale closures
       elements: (ctx) => {
@@ -684,7 +669,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
         const hasWeapons = weaponDiscard && weaponDiscard.count(Equipment) > 0;
         const hasArmor = armorDiscard && armorDiscard.count(Equipment) > 0;
         const hasAccessories = accessoryDiscard && accessoryDiscard.count(Equipment) > 0;
-        return hasWeapons || hasArmor || hasAccessories;
+        return (hasWeapons || hasArmor || hasAccessories) ?? false;
       },
     })
     .chooseElement<Equipment>('equipment', {
@@ -916,21 +901,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     .chooseFrom<string>('recipient', {
-      prompt: (ctx) => {
-        const player = ctx.player as MERCPlayer;
-        const playerId = `${player.position}`;
-        const equipmentType = ctx.args?.equipmentType as string | undefined;
-
-        // Try to find cached equipment for any type (we may not know which type was selected)
-        if (equipmentType) {
-          const equipment = getHagnessEquipment(game, playerId, equipmentType);
-          if (equipment) {
-            return `Drew ${equipment.equipmentName}! Give to which squad member?`;
-          }
-        }
-
-        return 'Give to:';
-      },
+      prompt: 'Give to which squad member?',
       dependsOn: 'equipmentType', // Wait for equipmentType to be selected before showing choices
       // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
       choices: (ctx) => {
@@ -1026,14 +997,8 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
 
         const squadMates = hagnessSquad.getLivingMercs();
 
-        // Include equipment name in display so user knows what they're giving
-        const equipName = equipmentData?.equipmentName || 'equipment';
-        const choices = squadMates.map(m => ({
-          value: capitalize(m.combatantName),
-          display: `${capitalize(m.combatantName)} ← ${equipName}`,
-          equipment: equipmentData,
-        }));
-        return choices;
+        // Return just the names
+        return squadMates.map(m => capitalize(m.combatantName));
       },
     })
     .execute((args, ctx) => {
@@ -1151,9 +1116,9 @@ function getCombatantsWithRepairKit(player: unknown, game: MERCGame): CombatantM
 function getDiscardPileEquipment(game: MERCGame): Array<{ equipment: Equipment; pileType: 'Weapon' | 'Armor' | 'Accessory' }> {
   const result: Array<{ equipment: Equipment; pileType: 'Weapon' | 'Armor' | 'Accessory' }> = [];
 
-  const weaponDiscard = game.weaponsDiscard?.children as Equipment[] | undefined;
-  const armorDiscard = game.armorDiscard?.children as Equipment[] | undefined;
-  const accessoryDiscard = game.accessoriesDiscard?.children as Equipment[] | undefined;
+  const weaponDiscard = game.weaponsDiscard?.children as unknown as Equipment[] | undefined;
+  const armorDiscard = game.armorDiscard?.children as unknown as Equipment[] | undefined;
+  const accessoryDiscard = game.accessoriesDiscard?.children as unknown as Equipment[] | undefined;
 
   if (weaponDiscard) {
     for (const e of weaponDiscard) {

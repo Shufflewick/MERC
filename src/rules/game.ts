@@ -440,7 +440,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Get all rebel players
   get rebelPlayers(): MERCPlayer[] {
-    return [...this.all(MERCPlayer)].filter(p => p.isRebel());
+    return this.players.filter(p => p.isRebel());
   }
 
   // Get all players in the game
@@ -598,39 +598,40 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Static reference data loaded from JSON - stored in settings to survive HMR
   // These are loaded once during initializeGame() and don't change during gameplay
+  // Type assertions needed because boardsmith's settings is typed as {}
   get combatantData(): CombatantData[] {
-    return this.settings.combatantData || [];
+    return (this.settings as Record<string, unknown>).combatantData as CombatantData[] ?? [];
   }
   set combatantData(data: CombatantData[]) {
-    this.settings.combatantData = data;
+    (this.settings as Record<string, unknown>).combatantData = data;
   }
 
   get equipmentData(): EquipmentData[] {
-    return this.settings.equipmentData || [];
+    return (this.settings as Record<string, unknown>).equipmentData as EquipmentData[] ?? [];
   }
   set equipmentData(data: EquipmentData[]) {
-    this.settings.equipmentData = data;
+    (this.settings as Record<string, unknown>).equipmentData = data;
   }
 
   get sectorData(): SectorData[] {
-    return this.settings.sectorData || [];
+    return (this.settings as Record<string, unknown>).sectorData as SectorData[] ?? [];
   }
   set sectorData(data: SectorData[]) {
-    this.settings.sectorData = data;
+    (this.settings as Record<string, unknown>).sectorData = data;
   }
 
   get tacticsData(): TacticsData[] {
-    return this.settings.tacticsData || [];
+    return (this.settings as Record<string, unknown>).tacticsData as TacticsData[] ?? [];
   }
   set tacticsData(data: TacticsData[]) {
-    this.settings.tacticsData = data;
+    (this.settings as Record<string, unknown>).tacticsData = data;
   }
 
   get setupConfigurations(): SetupConfiguration[] {
-    return this.settings.setupConfigurations || [];
+    return (this.settings as Record<string, unknown>).setupConfigurations as SetupConfiguration[] ?? [];
   }
   set setupConfigurations(data: SetupConfiguration[]) {
-    this.settings.setupConfigurations = data;
+    (this.settings as Record<string, unknown>).setupConfigurations = data;
   }
 
   constructor(options: MERCOptions) {
@@ -696,7 +697,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       ? MERCGame._pendingDictatorPosition + 1  // Convert 0-indexed to 1-indexed
       : playerCount;  // Default: last player
 
-    for (const player of this.all(MERCPlayer)) {
+    for (const player of this.players) {
       if (player.position === dictatorPosition) {
         this.configureAsDictator(player);
       } else {

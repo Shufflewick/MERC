@@ -486,7 +486,7 @@ export function performSetup(game: MERCGame, options: SetupOptions): void {
   } else {
     game.message('Dictator: Will be selected on Day 1');
   }
-  game.message(`Tactics: ${game.dictatorPlayer.tacticsDeck.count(TacticsCard)} cards in deck`);
+  game.message(`Tactics: ${game.dictatorPlayer.tacticsDeck?.count(TacticsCard) ?? 0} cards in deck`);
   game.message('Equipment: 3 decks ready');
   game.message('MERCs: Deck ready');
   game.message('Pawns: Not yet on map');

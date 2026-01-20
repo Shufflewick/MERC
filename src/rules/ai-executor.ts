@@ -205,7 +205,7 @@ function getDictatorAction(
       // Check if dictator can use any equipment
       const sorted = sortEquipmentByAIPriority(usableEquipment);
       for (const equip of sorted) {
-        if (dictator.canEquip && dictator.canEquip(equip.equipmentType)) {
+        if (dictator.canEquip && dictator.canEquip(equip)) {
           const current = dictator.getEquipmentOfType?.(equip.equipmentType);
           if (!current || (equip.serial || 0) > (current.serial || 0)) {
             return {
@@ -262,7 +262,7 @@ function convertDecisionToAction(
       if (usableEquipment.length > 0) {
         const sorted = sortEquipmentByAIPriority(usableEquipment);
         for (const equip of sorted) {
-          if (merc.canEquip(equip.equipmentType)) {
+          if (merc.canEquip(equip)) {
             const current = merc.getEquipmentOfType(equip.equipmentType);
             if (!current || (equip.serial || 0) > (current.serial || 0)) {
               return {
@@ -378,7 +378,7 @@ export function getAIEquipmentSelection(
   const sorted = sortEquipmentByAIPriority(usableEquipment);
 
   for (const equip of sorted) {
-    if (unit.canEquip(equip.equipmentType)) {
+    if (unit.canEquip(equip)) {
       const current = unit.getEquipmentOfType(equip.equipmentType);
       if (!current || (equip.serial || 0) > (current.serial || 0)) {
         return equip;
@@ -429,6 +429,9 @@ export function executeAIDictatorTurn(game: MERCGame): void {
     }
 
     // Log the action being taken
+    if (!nextAction.unit) {
+      break;
+    }
     const unitName = nextAction.unit.isMerc
       ? nextAction.unit.combatantName
       : nextAction.unit.isDictator

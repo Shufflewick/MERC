@@ -212,7 +212,7 @@ export function getDictatorCombatantsWithActions(game: MERCGame, cost: number): 
       combatantName: dictatorCombatant.combatantName,
       actionsRemaining: dictatorCombatant.actionsRemaining,
       isDead: dictatorCombatant.isDead,
-      sectorId: dictatorCombatant.sectorId,
+      sectorId: dictatorCombatant.sectorId ?? '',
       isDictatorCombatant: true,
     });
   }
