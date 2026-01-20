@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import SectorTile from './SectorTile.vue';
+import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
 
 interface SectorData {
   sectorId: string;
@@ -29,6 +30,19 @@ interface PlayerData {
   isDictator?: boolean;
 }
 
+// Animation queue entry
+interface MilitiaAnimation {
+  id: string;
+  sectorId: string;
+  count: number; // Total militia being trained
+  playerColor?: string;
+  isDictator: boolean;
+  playerId?: string; // For rebel militia, tracks which player
+  rect: { x: number; y: number; width: number; height: number };
+  startValue: number; // The count BEFORE training
+  currentDisplayValue: number; // Increments with each animation cycle
+}
+
 const props = defineProps<{
   sectors: SectorData[];
   mercs: MercData[];
@@ -47,6 +61,206 @@ const emit = defineEmits<{
 
 function handleDropEquipment(combatantElementId: number, equipmentId: number) {
   emit('dropEquipment', combatantElementId, equipmentId);
+}
+
+// ============================================================================
+// MILITIA TRAINING ANIMATION
+// ============================================================================
+
+// Ref for the grid container to calculate positions
+const mapGridRef = ref<HTMLElement | null>(null);
+
+// Track previous militia counts to detect changes
+const previousMilitia = ref<Record<string, { dictator: number; rebel: Record<string, number> }>>({});
+
+// Active animations queue
+const activeAnimations = ref<MilitiaAnimation[]>([]);
+
+// Get a unique ID for animations
+let animationIdCounter = 0;
+function getAnimationId(): string {
+  return `militia-anim-${++animationIdCounter}`;
+}
+
+// Get the bounding rect of a sector element relative to the grid
+function getSectorRect(sectorId: string): { x: number; y: number; width: number; height: number } | null {
+  if (!mapGridRef.value) return null;
+
+  const sectorEl = mapGridRef.value.querySelector(`[data-sector-id="${sectorId}"]`);
+  if (!sectorEl) return null;
+
+  const gridRect = mapGridRef.value.getBoundingClientRect();
+  const sectorRect = sectorEl.getBoundingClientRect();
+
+  return {
+    x: sectorRect.left - gridRect.left,
+    y: sectorRect.top - gridRect.top,
+    width: sectorRect.width,
+    height: sectorRect.height,
+  };
+}
+
+// Watch for militia changes and trigger animations
+watch(
+  () => props.sectors.map(s => ({
+    id: s.sectorId,
+    dictator: s.dictatorMilitia,
+    rebel: { ...s.rebelMilitia },
+  })),
+  (newSectors, oldSectors) => {
+    // Skip on first load (oldSectors is undefined)
+    if (!oldSectors) {
+      // Initialize previous militia tracking
+      for (const sector of newSectors) {
+        previousMilitia.value[sector.id] = {
+          dictator: sector.dictator,
+          rebel: { ...sector.rebel },
+        };
+      }
+      return;
+    }
+
+    // Build lookup for old values
+    const oldLookup: Record<string, { dictator: number; rebel: Record<string, number> }> = {};
+    for (const sector of oldSectors) {
+      oldLookup[sector.id] = {
+        dictator: sector.dictator,
+        rebel: sector.rebel || {},
+      };
+    }
+
+    // Check each sector for militia increases
+    for (const sector of newSectors) {
+      const old = oldLookup[sector.id];
+      if (!old) continue;
+
+      // Check dictator militia increase
+      const dictatorIncrease = sector.dictator - old.dictator;
+      if (dictatorIncrease > 0) {
+        queueAnimation(sector.id, dictatorIncrease, props.dictatorColor, true, undefined, old.dictator);
+      }
+
+      // Check rebel militia increases (per player)
+      for (const [playerId, count] of Object.entries(sector.rebel || {})) {
+        const oldCount = old.rebel[playerId] || 0;
+        const increase = count - oldCount;
+        if (increase > 0) {
+          // Find player color
+          const player = props.players.find(p => String(p.position) === playerId);
+          queueAnimation(sector.id, increase, player?.playerColor, false, playerId, oldCount);
+        }
+      }
+    }
+
+    // Update previous values
+    for (const sector of newSectors) {
+      previousMilitia.value[sector.id] = {
+        dictator: sector.dictator,
+        rebel: { ...sector.rebel },
+      };
+    }
+  },
+  { deep: true }
+);
+
+// Queue an animation for a sector
+function queueAnimation(
+  sectorId: string,
+  count: number,
+  playerColor?: string,
+  isDictator: boolean = false,
+  playerId?: string,
+  startValue: number = 0
+) {
+  // Wait for next tick to ensure DOM is updated, then get position
+  nextTick(() => {
+    const rect = getSectorRect(sectorId);
+    if (!rect) return;
+
+    activeAnimations.value.push({
+      id: getAnimationId(),
+      sectorId,
+      count,
+      playerColor,
+      isDictator,
+      playerId,
+      rect,
+      startValue,
+      currentDisplayValue: startValue, // Start at old value
+    });
+  });
+}
+
+// Handle animation increment - bump the display value
+function handleAnimationIncrement(animationId: string) {
+  const anim = activeAnimations.value.find(a => a.id === animationId);
+  if (anim) {
+    anim.currentDisplayValue++;
+  }
+}
+
+// Handle animation complete - remove from queue
+function handleAnimationComplete(animationId: string) {
+  activeAnimations.value = activeAnimations.value.filter(a => a.id !== animationId);
+}
+
+// Compute display overrides for sectors with active animations
+// Returns: { sectorId: { dictator?: number, rebel?: { playerId: number } } }
+const militiaDisplayOverrides = computed(() => {
+  const overrides: Record<string, { dictator?: number; rebel?: Record<string, number> }> = {};
+
+  for (const anim of activeAnimations.value) {
+    if (!overrides[anim.sectorId]) {
+      overrides[anim.sectorId] = {};
+    }
+
+    if (anim.isDictator) {
+      overrides[anim.sectorId].dictator = anim.currentDisplayValue;
+    } else if (anim.playerId) {
+      if (!overrides[anim.sectorId].rebel) {
+        overrides[anim.sectorId].rebel = {};
+      }
+      overrides[anim.sectorId].rebel![anim.playerId] = anim.currentDisplayValue;
+    }
+  }
+
+  return overrides;
+});
+
+// Get the display militia counts for a sector (applying any animation overrides)
+function getDisplayMilitia(sector: SectorData): { dictatorMilitia: number; rebelMilitia?: Record<string, number> } {
+  const override = militiaDisplayOverrides.value[sector.sectorId];
+  if (!override) {
+    return {
+      dictatorMilitia: sector.dictatorMilitia,
+      rebelMilitia: sector.rebelMilitia,
+    };
+  }
+
+  // Apply overrides
+  const result: { dictatorMilitia: number; rebelMilitia?: Record<string, number> } = {
+    dictatorMilitia: override.dictator !== undefined ? override.dictator : sector.dictatorMilitia,
+    rebelMilitia: sector.rebelMilitia ? { ...sector.rebelMilitia } : undefined,
+  };
+
+  // Apply rebel militia overrides
+  if (override.rebel && result.rebelMilitia) {
+    for (const [playerId, count] of Object.entries(override.rebel)) {
+      result.rebelMilitia[playerId] = count;
+    }
+  }
+
+  return result;
+}
+
+// Get a sector with display militia values (for template binding)
+function getSectorWithDisplayMilitia(sector: SectorData): SectorData {
+  const displayMilitia = getDisplayMilitia(sector);
+  return {
+    ...sector,
+    dictatorMilitia: displayMilitia.dictatorMilitia,
+    rebelMilitia: displayMilitia.rebelMilitia,
+  };
 }
 
 // Calculate grid dimensions
@@ -97,6 +311,7 @@ function handleSectorClick(sectorId: string) {
 
 <template>
   <div
+    ref="mapGridRef"
     class="map-grid"
     :style="{
       gridTemplateColumns: `repeat(${gridDimensions.cols}, 1fr)`,
@@ -106,7 +321,8 @@ function handleSectorClick(sectorId: string) {
     <SectorTile
       v-for="sector in sortedSectors"
       :key="sector.sectorId"
-      :sector="sector"
+      :data-sector-id="sector.sectorId"
+      :sector="getSectorWithDisplayMilitia(sector)"
       :controlling-player-color="controlMap[sector.sectorId]"
       :mercs-in-sector="getMercsInSector(sector.sectorId)"
       :player-color-map="playerColorMap"
@@ -117,6 +333,18 @@ function handleSectorClick(sectorId: string) {
       @click="handleSectorClick"
       @drop-equipment="handleDropEquipment"
     />
+
+    <!-- Militia Training Animations -->
+    <MilitiaTrainAnimation
+      v-for="anim in activeAnimations"
+      :key="anim.id"
+      :sector-rect="anim.rect"
+      :count="anim.count"
+      :player-color="anim.playerColor"
+      :is-dictator="anim.isDictator"
+      @increment="handleAnimationIncrement(anim.id)"
+      @complete="handleAnimationComplete(anim.id)"
+    />
   </div>
 </template>
 
@@ -125,5 +353,6 @@ function handleSectorClick(sectorId: string) {
   display: grid;
   gap: 8px;
   width: 100%;
+  position: relative; /* Positioning context for animation overlays */
 }
 </style>
