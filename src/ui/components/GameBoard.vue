@@ -197,6 +197,7 @@ const {
     state: props.state,
     playerPosition: props.playerPosition,
     gameView: props.gameView,
+    isCurrentPlayerDictator: () => currentPlayerIsDictator.value,
   },
   sectors,
   primarySquad,

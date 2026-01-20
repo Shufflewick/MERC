@@ -29,14 +29,42 @@ export function usePlayerState(
 ): PlayerState {
   const { findAllByClassName, getAttr } = useGameViewHelpers(getGameView);
 
+  // Get dictator position from game settings (set from lobby configuration)
+  // This is the authoritative source for who is the dictator
+  const dictatorPosition = computed(() => {
+    const gameView = getGameView();
+    const settings = gameView?.attributes?.settings || gameView?.settings || {};
+    const playerConfigs: any[] = settings.playerConfigs || [];
+
+    // Check playerConfigs for isDictator flag (from exclusive player option in lobby)
+    const dictatorConfigIndex = playerConfigs.findIndex(
+      (config: any) => config.isDictator === true
+    );
+
+    if (dictatorConfigIndex >= 0) {
+      // playerConfigs is 0-indexed, but player positions are 1-indexed
+      return dictatorConfigIndex + 1;
+    }
+
+    // Fallback: dictatorPlayerPosition from settings (legacy)
+    if (settings.dictatorPlayerPosition !== undefined) {
+      // dictatorPlayerPosition is 0-indexed, convert to 1-indexed
+      return settings.dictatorPlayerPosition + 1;
+    }
+
+    // Default: last player (position = playerCount)
+    const playerCount = settings.playerCount || playerConfigs.length || 2;
+    return playerCount;
+  });
+
   // Extract all players from game view tree
   const players = computed(() => {
-    // Try various player element names
+    const mercPlayers = findAllByClassName('MERCPlayer');
     const rebelPlayers = findAllByClassName('RebelPlayer');
     const dictatorPlayers = findAllByClassName('DictatorPlayer');
     const playerAreas = findAllByClassName('PlayerArea');
 
-    const all = [...rebelPlayers, ...dictatorPlayers, ...playerAreas];
+    const all = [...mercPlayers, ...rebelPlayers, ...dictatorPlayers, ...playerAreas];
 
     const result = all.map((p: any) => {
       // Get position from attribute, or parse from name (e.g., "area-2" -> 2)
@@ -51,38 +79,15 @@ export function usePlayerState(
 
       const playerColor = getAttr<string>(p, 'playerColor', '') || getAttr<string>(p, 'color', '');
 
+      // Check if this player is the dictator based on lobby configuration
+      const isDictator = position === dictatorPosition.value;
+
       return {
         position: position as number,
         playerColor,
-        isDictator: normalizeClassName(p.className) === 'DictatorPlayer',
+        isDictator,
       };
     });
-
-    // Check if dictator exists in result
-    const hasDictator = result.some(p => p.isDictator);
-
-    // If no dictator found but dictator squads exist, add synthetic dictator entry
-    if (!hasDictator) {
-      const squads = findAllByClassName('Squad');
-      const hasDictatorSquad = squads.some((s: any) => {
-        const name = getAttr<string>(s, 'name', '') || s.ref || '';
-        return name.includes('dictator');
-      });
-
-      if (hasDictatorSquad) {
-        // Dictator position is the last player (position not in playerAreas)
-        // In 2-player game: position 1 is rebel, position 2 is dictator
-        const rebelPositions = result.map(p => p.position).filter(p => p !== undefined);
-        const maxRebelPos = Math.max(...rebelPositions, 0);
-        const dictatorPosition = maxRebelPos + 1;
-
-        result.push({
-          position: dictatorPosition,
-          playerColor: 'black', // Dictator uses 'black' which maps to grey
-          isDictator: true,
-        });
-      }
-    }
 
     return result;
   });
@@ -120,26 +125,10 @@ export function usePlayerState(
   });
 
   // Check if current player is the dictator
-  // Players aren't in game view tree, so check if this player has rebel squads or dictator squad
+  // Uses dictatorPosition from game settings (set from lobby configuration)
   const currentPlayerIsDictator = computed(() => {
     const pos = unref(playerPosition);
-    // If player has rebel squads (primary/secondary), they're a rebel
-    const squads = findAllByClassName('Squad');
-    const hasRebelSquad = squads.some((s: any) => {
-      const name = getAttr<string>(s, 'name', '') || s.ref || '';
-      // Rebel squads are named "squad-{position}-primary" or "squad-{position}-secondary"
-      return name.includes(`squad-${pos}-`);
-    });
-
-    if (hasRebelSquad) return false;
-
-    // If no rebel squads but dictator squad exists, assume this is the dictator
-    const hasDictatorSquad = squads.some((s: any) => {
-      const name = getAttr<string>(s, 'name', '') || s.ref || '';
-      return name.includes('dictator');
-    });
-
-    return hasDictatorSquad;
+    return pos === dictatorPosition.value;
   });
 
   // Helper to convert player position to color name

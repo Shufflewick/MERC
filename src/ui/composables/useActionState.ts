@@ -23,6 +23,7 @@ export interface ActionStateProps {
   state?: { state?: Record<string, any> };
   playerPosition: number;
   gameView?: any;
+  isCurrentPlayerDictator?: () => boolean;
 }
 
 /**
@@ -238,13 +239,33 @@ export function useActionState(
   const isHiringMercs = computed(() => {
     const currentAction = props.actionController.currentAction.value;
     const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire', 'selectDictator'];
-    return props.availableActions.some(a => hiringActions.includes(a)) ||
-           (currentAction !== null && hiringActions.includes(currentAction));
+
+    // Check if any hiring action is available
+    const hasHiringAction = props.availableActions.some(a => hiringActions.includes(a));
+    if (hasHiringAction) return true;
+
+    // Check if current action is a hiring action
+    if (currentAction !== null && hiringActions.includes(currentAction)) {
+      // Special case: selectDictator is only a hiring action for the dictator player
+      // currentAction is shared across all players, so rebels might see it
+      if (currentAction === 'selectDictator') {
+        const isDictator = props.isCurrentPlayerDictator?.() ?? false;
+        return isDictator;
+      }
+      return true;
+    }
+
+    return false;
   });
 
   // Check if we're selecting a dictator (Day 1 human dictator)
-  // Also verify there's still a pending selection (action not yet filled)
+  // Only show for the actual dictator player based on lobby role assignment
   const isSelectingDictator = computed(() => {
+    // Only the dictator player should see the dictator selection UI
+    if (props.isCurrentPlayerDictator && !props.isCurrentPlayerDictator()) {
+      return false;
+    }
+
     const currentAction = props.actionController.currentAction.value;
     if (props.availableActions.includes('selectDictator')) return true;
     if (currentAction === 'selectDictator') {
@@ -449,11 +470,34 @@ export function useActionState(
                           (props.actionArgs['merc'] as string | undefined);
     if (!combatantName) return null;
 
-    // Find the MERC in the game tree
-    const merc = findMercByName(combatantName);
+    // First try to find the MERC in the game tree
+    let merc = findMercByName(combatantName);
+
+    // If not found, fall back to combatantData (mercs in deck during hiring aren't in tree)
     if (!merc) {
-      console.warn('[useActionState] selectedMercForEquipment: Could not find MERC in game tree:', combatantName);
+      const combatantData = props.gameView?.attributes?.settings?.combatantData ||
+                            props.state?.state?.settings?.combatantData ||
+                            props.gameView?.settings?.combatantData || [];
+      const mercInfo = combatantData.find((d: any) =>
+        d.cardType === 'merc' && d.name.toLowerCase() === combatantName.toLowerCase()
+      );
+      if (mercInfo) {
+        merc = {
+          combatantName: mercInfo.name,
+          attributes: {
+            combatantName: mercInfo.name,
+            combatantId: mercInfo.id,
+            image: mercInfo.image || '',
+            baseInitiative: mercInfo.initiative || 0,
+            baseCombat: mercInfo.combat || 0,
+            baseTraining: mercInfo.training || 0,
+            ability: mercInfo.ability || '',
+            bio: mercInfo.bio || '',
+          },
+        };
+      }
     }
+
     return merc;
   });
 
