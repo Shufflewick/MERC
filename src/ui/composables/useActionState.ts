@@ -439,8 +439,11 @@ export function useActionState(
     // Only active during hiring flow (equipment or sector selection)
     if (!isSelectingEquipmentType.value && !isSelectingSector.value) return null;
 
-    // Get MERC name from actionArgs (works for both rebel and dictator flows now)
-    const combatantName = props.actionArgs['merc'] as string | undefined;
+    // Get MERC name from actionController.currentArgs (active action) or actionArgs (fallback)
+    // During multi-step actions, currentArgs contains the filled values
+    const currentArgs = props.actionController.currentArgs?.value || {};
+    const combatantName = (currentArgs['merc'] as string | undefined) ||
+                          (props.actionArgs['merc'] as string | undefined);
     if (!combatantName) return null;
 
     // Find the MERC in the game tree
