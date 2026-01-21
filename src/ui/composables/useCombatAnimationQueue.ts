@@ -123,18 +123,10 @@ export function useCombatAnimationQueue(): CombatAnimationQueueReturn {
    * Only queues events that haven't been queued before (by eventId).
    */
   function queueEventsFromState(events: CombatAnimationEvent[] | undefined): void {
-    if (!events || events.length === 0) {
-      return;
-    }
-
-    console.debug(`[AnimQueue] queueEventsFromState: ${events.length} events received`);
-    console.debug(`[AnimQueue]   queuedEventIds before: [${Array.from(queuedEventIds.value).join(', ')}]`);
-    console.debug(`[AnimQueue]   incoming eventIds: [${events.map(e => e.eventId).join(', ')}]`);
+    if (!events || events.length === 0) return;
 
     // Filter to only new events (not already queued) - use eventId for uniqueness
     const newEvents = events.filter(e => !queuedEventIds.value.has(e.eventId));
-
-    console.debug(`[AnimQueue]   filtered to ${newEvents.length} new events (eventIds: [${newEvents.map(e => e.eventId).join(', ')}])`);
 
     if (newEvents.length > 0) {
       // Mark these event IDs as queued
@@ -143,9 +135,6 @@ export function useCombatAnimationQueue(): CombatAnimationQueueReturn {
       }
       // Add to queue
       eventQueue.value = [...eventQueue.value, ...newEvents];
-      console.debug(`[AnimQueue]   queue now has ${eventQueue.value.length} events, position=${queuePosition.value}`);
-    } else {
-      console.debug(`[AnimQueue]   NO new events to queue!`);
     }
   }
 
@@ -336,7 +325,6 @@ export function useCombatAnimationQueue(): CombatAnimationQueueReturn {
    * Reset the animation queue (call when combat ends or new combat starts).
    */
   function reset(): void {
-    console.debug(`[AnimQueue] reset() called. Clearing queue (had ${eventQueue.value.length} events), queuedEventIds (had ${queuedEventIds.value.size} ids)`);
     eventQueue.value = [];
     queuePosition.value = 0;
     currentEvent.value = null;

@@ -1,0 +1,315 @@
+<script setup lang="ts">
+import CombatantIcon from './CombatantIcon.vue';
+
+const props = defineProps<{
+  // Combatant data
+  combatantId: string;
+  name: string;
+  image?: string | null;
+  playerColor?: string;
+  isMerc: boolean;
+  isMilitia?: boolean;
+  isAttackDog?: boolean;
+  health: number;
+  maxHealth: number;
+  isDead: boolean;
+
+  // Interaction state
+  isAttacking?: boolean;
+  isTargetable?: boolean;
+  isSelected?: boolean;
+  isTargetSelected?: boolean;
+  isAnimatingAttacker?: boolean;
+  isAnimatingTarget?: boolean;
+  attackMissed?: boolean;
+  isAnimating?: boolean;
+
+  // Display data
+  allocatedHits?: number;
+  targetHits?: number;
+  dogTargetName?: string;
+
+  // Bullet hole positioning function
+  getBulletHolePosition?: (combatantId: string, hitIndex: number) => { top: string; left: string };
+}>();
+
+const emit = defineEmits<{
+  (e: 'click'): void;
+}>();
+
+function handleClick() {
+  emit('click');
+}
+
+// Default bullet hole position if not provided
+function getDefaultBulletHolePosition(combatantId: string, hitIndex: number): { top: string; left: string } {
+  // Simple deterministic positioning
+  const offset = hitIndex * 20;
+  return {
+    top: `${20 + (offset % 60)}%`,
+    left: `${20 + ((offset * 3) % 60)}%`,
+  };
+}
+
+function getBulletPosition(hitIndex: number): { top: string; left: string } {
+  if (props.getBulletHolePosition) {
+    return props.getBulletHolePosition(props.combatantId, hitIndex);
+  }
+  return getDefaultBulletHolePosition(props.combatantId, hitIndex);
+}
+</script>
+
+<template>
+  <div
+    class="combatant"
+    :class="{
+      merc: isMerc,
+      militia: !isMerc && !isAttackDog,
+      'attack-dog': isAttackDog,
+      attacking: isAttacking,
+      targetable: isTargetable,
+      selected: isSelected,
+      'target-selected': isTargetSelected,
+      'death-flash': isDead && isAnimating,
+      'is-attacking': isAnimatingAttacker,
+      'is-targeted': isAnimatingTarget,
+      'attack-missed': attackMissed,
+    }"
+    @click="handleClick"
+  >
+    <CombatantIcon
+      :image="image ?? undefined"
+      :combatant-id="combatantId"
+      :combatant-name="name"
+      :player-color="playerColor"
+      :is-militia="isMilitia"
+      :is-attack-dog="isAttackDog"
+      size="small"
+    />
+    <div class="health-bar">
+      <div
+        class="health-fill"
+        :style="{ width: `${(health / maxHealth) * 100}%` }"
+      ></div>
+      <span class="health-text">
+        {{ health }}/{{ maxHealth }}
+      </span>
+    </div>
+    <!-- Attack dog target info -->
+    <div v-if="isAttackDog && dogTargetName" class="dog-target-info">
+      Targeting: {{ dogTargetName }}
+    </div>
+    <!-- Show allocated hits during allocation phase -->
+    <div v-if="allocatedHits && allocatedHits > 0" class="allocated-hits">
+      +{{ allocatedHits }} hit(s)
+    </div>
+    <!-- Bullet holes for targeted combatants during animation -->
+    <div v-if="targetHits && targetHits > 0" class="bullet-holes">
+      <span
+        v-for="n in targetHits"
+        :key="n"
+        class="bullet-hole"
+        :style="getBulletPosition(n)"
+      >◎</span>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.combatant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  min-width: 80px;
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out;
+  position: relative;
+}
+
+/* Allow clicks to pass through CombatantIcon to parent combatant div */
+.combatant :deep(.combatant-icon) {
+  pointer-events: none;
+}
+
+.combatant.merc {
+  border: 2px solid rgba(100, 181, 246, 0.5);
+}
+
+.combatant.militia {
+  border: 2px solid rgba(158, 158, 158, 0.3);
+}
+
+.combatant.attack-dog {
+  border: 2px solid rgba(139, 90, 43, 0.5);
+  background: rgba(139, 90, 43, 0.1);
+}
+
+.combatant.attacking {
+  border-color: #D4A84B;
+  box-shadow: 0 0 12px rgba(212, 168, 75, 0.4);
+}
+
+.combatant.targetable {
+  cursor: pointer;
+  border-color: #ff6b6b;
+}
+
+.combatant.targetable:hover {
+  background: rgba(255, 107, 107, 0.2);
+  transform: scale(1.05);
+}
+
+.combatant.selected {
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.6);
+}
+
+/* Selected target in target selection mode */
+.combatant.target-selected {
+  border-color: #4CAF50 !important;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.6), inset 0 0 8px rgba(76, 175, 80, 0.3);
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.combatant.target-selected::after {
+  content: '✓';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #4CAF50;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+/* Attacker during animation - scaled up with gold glow */
+.combatant.is-attacking {
+  transform: scale(1.2);
+  z-index: 10;
+  box-shadow: 0 0 20px rgba(212, 168, 75, 0.8);
+  border-color: #D4A84B !important;
+}
+
+/* Target during animation - scaled up with red glow */
+.combatant.is-targeted {
+  transform: scale(1.15);
+  z-index: 9;
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+  border-color: #ff6b6b !important;
+}
+
+/* Death flash effect */
+.combatant.death-flash {
+  animation: death-flash 0.8s ease-out forwards;
+}
+
+@keyframes death-flash {
+  0% {
+    filter: brightness(1);
+  }
+  20% {
+    filter: brightness(2) sepia(1) hue-rotate(-30deg);
+    background: rgba(255, 50, 50, 0.4);
+  }
+  100% {
+    filter: brightness(0.5) sepia(0.5) hue-rotate(-30deg);
+    background: rgba(139, 0, 0, 0.3);
+  }
+}
+
+/* Shake animation for misses */
+.combatant.attack-missed {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: scale(1.2) translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: scale(1.2) translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: scale(1.2) translateX(4px); }
+}
+
+.health-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  margin-top: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+
+.health-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.allocated-hits {
+  font-size: 0.7rem;
+  color: #ff6b6b;
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+.dog-target-info {
+  font-size: 0.65rem;
+  color: #D2691E;
+  font-weight: bold;
+  margin-top: 2px;
+  background: rgba(139, 69, 19, 0.2);
+  padding: 2px 4px;
+  border-radius: 3px;
+  width: 100%;
+  text-align: center;
+}
+
+.bullet-holes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bullet-hole {
+  position: absolute;
+  font-size: 20px;
+  color: #ff3333;
+  text-shadow:
+    0 0 4px rgba(255, 0, 0, 0.8),
+    0 0 8px rgba(255, 0, 0, 0.5);
+  animation: bullet-impact 0.3s ease-out;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes bullet-impact {
+  0% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+</style>
