@@ -3,6 +3,10 @@ import { computed, ref, watch, nextTick } from 'vue';
 import SectorTile from './SectorTile.vue';
 import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
 import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
+import CombatantDeathAnimation from './CombatantDeathAnimation.vue';
+import CombatantMoveAnimation from './CombatantMoveAnimation.vue';
+import EquipmentDropAnimation from './EquipmentDropAnimation.vue';
+import { useDeathAnimationCoordinator } from '../composables/useDeathAnimationCoordinator';
 
 interface SectorData {
   sectorId: string;
@@ -17,12 +21,30 @@ interface SectorData {
   rebelMilitia?: Record<string, number>;
 }
 
+interface EquipmentData {
+  equipmentId?: string;
+  equipmentName?: string;
+  equipmentType?: string;
+  image?: string;
+}
+
 interface MercData {
   combatantId: string;
   combatantName?: string;
   image?: string;
   playerColor?: string;
   sectorId?: string;
+  // Equipment slots - may come from attributes or direct props
+  weaponSlot?: EquipmentData;
+  armorSlot?: EquipmentData;
+  accessorySlot?: EquipmentData;
+  // Also check attributes for equipment data
+  attributes?: {
+    weaponSlotData?: EquipmentData;
+    armorSlotData?: EquipmentData;
+    accessorySlotData?: EquipmentData;
+    [key: string]: unknown;
+  };
 }
 
 interface PlayerData {
@@ -44,7 +66,7 @@ interface MilitiaAnimation {
   currentDisplayValue: number; // Increments with each animation cycle
 }
 
-// Combatant entry animation queue entry
+// Combatant entry/death animation queue entry
 interface CombatantAnimation {
   id: string;
   combatantId: string;
@@ -52,6 +74,28 @@ interface CombatantAnimation {
   image?: string;
   playerColor?: string;
   sectorId: string;
+}
+
+// Combatant move animation queue entry
+interface CombatantMoveAnimationData {
+  id: string;
+  combatantId: string;
+  combatantName: string;
+  image?: string;
+  playerColor?: string;
+  fromSectorId: string;
+  toSectorId: string;
+}
+
+// Equipment drop animation queue entry
+interface EquipmentAnimationData {
+  id: string;
+  equipmentName: string;
+  equipmentType: string;
+  image?: string;
+  sectorId: string;
+  combatantId?: string; // If provided, animate to/from combatant; otherwise animate to/from sector center
+  direction: 'incoming' | 'outgoing'; // incoming = center->target, outgoing = combatant->sector
 }
 
 const props = defineProps<{
@@ -281,13 +325,35 @@ function getSectorWithDisplayMilitia(sector: SectorData): SectorData {
 // Active combatant entry animations
 const activeCombatantAnimations = ref<CombatantAnimation[]>([]);
 
-// Set of combatant IDs currently animating (for hiding in SectorTile)
-const animatingCombatantIds = computed(() =>
-  new Set(activeCombatantAnimations.value.map(a => a.combatantId))
-);
+// Death animation coordinator - coordinates with CombatPanel
+const {
+  pendingDeaths,
+  isCombatAnimating,
+  queueDeath,
+  removePendingDeath,
+} = useDeathAnimationCoordinator();
 
-// Track previous mercs to detect new arrivals
+// Active combatant move animations
+const activeMoveAnimations = ref<CombatantMoveAnimationData[]>([]);
+
+// Active equipment drop animations
+const activeEquipmentAnimations = ref<EquipmentAnimationData[]>([]);
+
+// Set of combatant IDs currently animating (for hiding in SectorTile)
+const animatingCombatantIds = computed(() => {
+  const ids = new Set<string>();
+  for (const a of activeCombatantAnimations.value) ids.add(a.combatantId);
+  for (const a of activeMoveAnimations.value) ids.add(a.combatantId);
+  return ids;
+});
+
+// Track previous mercs to detect new arrivals and deaths
 const previousMercIds = ref<Set<string>>(new Set());
+// Store previous merc data so we can animate deaths
+const previousMercData = ref<Map<string, MercData>>(new Map());
+// Store previous equipment per merc to detect equipment changes
+// Key: combatantId, Value: Map of slotType -> equipmentId
+const previousMercEquipment = ref<Map<string, Map<string, string>>>(new Map());
 
 // Get the viewport rect of a sector's mercs-area element
 function getSectorMercsAreaRect(sectorId: string): { x: number; y: number; width: number; height: number } | null {
@@ -324,12 +390,115 @@ function queueCombatantAnimation(merc: MercData) {
   });
 }
 
-// Handle combatant animation complete
+// Handle combatant entry animation complete
 function handleCombatantAnimationComplete(animationId: string) {
   activeCombatantAnimations.value = activeCombatantAnimations.value.filter(a => a.id !== animationId);
 }
 
-// Watch for new mercs appearing in sectors
+// Queue a combatant death animation through the coordinator
+// If combat is active, the death will be suppressed until CombatPanel triggers it
+function queueDeathAnimation(merc: MercData, source: 'combat' | 'tactics' | 'mortar' | 'mine' | 'other' = 'combat') {
+  if (!merc.sectorId) return;
+
+  nextTick(() => {
+    queueDeath({
+      combatantId: merc.combatantId,
+      combatantName: merc.combatantName || merc.combatantId,
+      image: merc.image,
+      playerColor: merc.playerColor,
+      sectorId: merc.sectorId!,
+    }, source);
+  });
+}
+
+// Handle combatant death animation complete
+function handleDeathAnimationComplete(deathId: string) {
+  removePendingDeath(deathId);
+}
+
+// Queue a combatant move animation
+function queueMoveAnimation(merc: MercData, fromSectorId: string, toSectorId: string) {
+  nextTick(() => {
+    activeMoveAnimations.value.push({
+      id: getAnimationId('move'),
+      combatantId: merc.combatantId,
+      combatantName: merc.combatantName || merc.combatantId,
+      image: merc.image,
+      playerColor: merc.playerColor,
+      fromSectorId,
+      toSectorId,
+    });
+  });
+}
+
+// Handle combatant move animation complete
+function handleMoveAnimationComplete(animationId: string) {
+  activeMoveAnimations.value = activeMoveAnimations.value.filter(a => a.id !== animationId);
+}
+
+// ============================================================================
+// EQUIPMENT DROP ANIMATION
+// ============================================================================
+
+// Helper to extract equipment from merc data (handles both direct props and attributes)
+function getMercEquipment(merc: MercData): Map<string, EquipmentData | undefined> {
+  const equipment = new Map<string, EquipmentData | undefined>();
+
+  // Check direct props first, then fall back to attributes
+  const weapon = merc.weaponSlot || merc.attributes?.weaponSlotData;
+  const armor = merc.armorSlot || merc.attributes?.armorSlotData;
+  const accessory = merc.accessorySlot || merc.attributes?.accessorySlotData;
+
+  if (weapon) equipment.set('weapon', weapon);
+  if (armor) equipment.set('armor', armor);
+  if (accessory) equipment.set('accessory', accessory);
+
+  return equipment;
+}
+
+// Queue an equipment drop animation
+function queueEquipmentAnimation(
+  equipment: EquipmentData,
+  sectorId: string,
+  combatantId?: string,
+  direction: 'incoming' | 'outgoing' = 'incoming'
+) {
+  nextTick(() => {
+    activeEquipmentAnimations.value.push({
+      id: getAnimationId('equipment'),
+      equipmentName: equipment.equipmentName || 'Equipment',
+      equipmentType: equipment.equipmentType || 'Accessory',
+      image: equipment.image,
+      sectorId,
+      combatantId,
+      direction,
+    });
+  });
+}
+
+// Handle equipment animation complete
+function handleEquipmentAnimationComplete(animationId: string) {
+  activeEquipmentAnimations.value = activeEquipmentAnimations.value.filter(a => a.id !== animationId);
+}
+
+// Helper to build equipment ID map for a merc
+function buildEquipmentIdMap(merc: MercData): Map<string, string> {
+  const idMap = new Map<string, string>();
+  const equipment = getMercEquipment(merc);
+
+  for (const [slot, equip] of equipment) {
+    if (equip?.equipmentId) {
+      idMap.set(slot, equip.equipmentId);
+    } else if (equip?.equipmentName) {
+      // Fall back to name if no ID
+      idMap.set(slot, equip.equipmentName);
+    }
+  }
+
+  return idMap;
+}
+
+// Watch for new mercs appearing in sectors, deaths, moves, and equipment changes
 watch(
   () => props.mercs,
   (newMercs, oldMercs) => {
@@ -337,8 +506,15 @@ watch(
     if (!oldMercs) {
       // Initialize tracking
       previousMercIds.value = new Set(newMercs.map(m => m.combatantId));
+      for (const merc of newMercs) {
+        previousMercData.value.set(merc.combatantId, merc);
+        // Initialize equipment tracking
+        previousMercEquipment.value.set(merc.combatantId, buildEquipmentIdMap(merc));
+      }
       return;
     }
+
+    const newMercIds = new Set(newMercs.map(m => m.combatantId));
 
     // Find mercs that are new (not in previous set) and have a sectorId
     for (const merc of newMercs) {
@@ -347,8 +523,75 @@ watch(
       }
     }
 
+    // Find mercs that moved sectors (exist in both but different sectorId)
+    for (const merc of newMercs) {
+      if (!merc.sectorId) continue;
+      const prevMerc = previousMercData.value.get(merc.combatantId);
+      if (prevMerc && prevMerc.sectorId && prevMerc.sectorId !== merc.sectorId) {
+        queueMoveAnimation(merc, prevMerc.sectorId, merc.sectorId);
+      }
+    }
+
+    // Find mercs that were removed (in previous set but not in new set)
+    for (const prevId of previousMercIds.value) {
+      if (!newMercIds.has(prevId)) {
+        const prevMerc = previousMercData.value.get(prevId);
+        if (prevMerc) {
+          queueDeathAnimation(prevMerc);
+        }
+      }
+    }
+
+    // Check for equipment changes on existing mercs (skip newly added mercs)
+    for (const merc of newMercs) {
+      if (!merc.sectorId) continue;
+      // Skip mercs that just entered - they already have entry animation
+      if (!previousMercIds.value.has(merc.combatantId)) continue;
+
+      const prevEquipment = previousMercEquipment.value.get(merc.combatantId);
+      if (!prevEquipment) continue; // No previous data to compare
+
+      const currentEquipment = getMercEquipment(merc);
+      const currentEquipmentIds = buildEquipmentIdMap(merc);
+      const prevMerc = previousMercData.value.get(merc.combatantId);
+      const prevMercEquipmentData = prevMerc ? getMercEquipment(prevMerc) : new Map();
+
+      // Check each slot for newly added equipment
+      for (const [slot, equip] of currentEquipment) {
+        if (!equip) continue;
+
+        const equipId = equip.equipmentId || equip.equipmentName || '';
+        const prevEquipId = prevEquipment.get(slot);
+
+        // Equipment was added to this slot (wasn't there before, or different item)
+        if (equipId && equipId !== prevEquipId) {
+          queueEquipmentAnimation(equip, merc.sectorId, merc.combatantId, 'incoming');
+        }
+      }
+
+      // Check for removed or replaced equipment (was in prev but gone or different in current)
+      for (const [slot, prevEquipId] of prevEquipment) {
+        const currentEquipId = currentEquipmentIds.get(slot);
+
+        // Equipment was removed or replaced in this slot
+        if (prevEquipId && prevEquipId !== currentEquipId) {
+          // Get the equipment data from previous merc data
+          const removedEquip = prevMercEquipmentData.get(slot);
+          if (removedEquip) {
+            queueEquipmentAnimation(removedEquip, merc.sectorId, merc.combatantId, 'outgoing');
+          }
+        }
+      }
+    }
+
     // Update tracking
-    previousMercIds.value = new Set(newMercs.map(m => m.combatantId));
+    previousMercIds.value = newMercIds;
+    previousMercData.value.clear();
+    previousMercEquipment.value.clear();
+    for (const merc of newMercs) {
+      previousMercData.value.set(merc.combatantId, merc);
+      previousMercEquipment.value.set(merc.combatantId, buildEquipmentIdMap(merc));
+    }
   },
   { deep: true }
 );
@@ -447,6 +690,44 @@ function handleSectorClick(sectorId: string) {
       :player-color="anim.playerColor"
       :sector-id="anim.sectorId"
       @complete="handleCombatantAnimationComplete(anim.id)"
+    />
+
+    <!-- Combatant Death Animations (coordinated with CombatPanel) -->
+    <CombatantDeathAnimation
+      v-for="death in pendingDeaths"
+      :key="death.id"
+      :combatant-id="death.combatantId"
+      :combatant-name="death.combatantName"
+      :image="death.image"
+      :player-color="death.playerColor"
+      :sector-id="death.sectorId"
+      @complete="handleDeathAnimationComplete(death.id)"
+    />
+
+    <!-- Combatant Move Animations -->
+    <CombatantMoveAnimation
+      v-for="anim in activeMoveAnimations"
+      :key="anim.id"
+      :combatant-id="anim.combatantId"
+      :combatant-name="anim.combatantName"
+      :image="anim.image"
+      :player-color="anim.playerColor"
+      :from-sector-id="anim.fromSectorId"
+      :to-sector-id="anim.toSectorId"
+      @complete="handleMoveAnimationComplete(anim.id)"
+    />
+
+    <!-- Equipment Drop Animations -->
+    <EquipmentDropAnimation
+      v-for="anim in activeEquipmentAnimations"
+      :key="anim.id"
+      :equipment-name="anim.equipmentName"
+      :equipment-type="anim.equipmentType"
+      :image="anim.image"
+      :sector-id="anim.sectorId"
+      :combatant-id="anim.combatantId"
+      :direction="anim.direction"
+      @complete="handleEquipmentAnimationComplete(anim.id)"
     />
   </div>
 </template>

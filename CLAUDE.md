@@ -2,6 +2,9 @@
 
 Quick reference for navigating the MERC board game codebase.
 
+## Hard Rules
+- Do not ever start a server unless I tell you to. And if you do start a server, kill it before coming back to me. Don't leave it running for me, I do not want it.
+
 ## Overview
 
 MERC is a strategic combat board game built on the @boardsmith/engine framework. Players control mercenary squads fighting against (or as) a dictator on a hex grid map.

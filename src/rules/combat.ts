@@ -66,6 +66,86 @@ export { getValidRetreatSectors, canRetreat, executeRetreat } from './combat-ret
 import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetreat } from './combat-retreat.js';
 
 // =============================================================================
+// Combat Animation Events - UI-only animation system
+// =============================================================================
+
+/**
+ * Combat animation event types for the UI animation queue.
+ * These events are emitted during combat execution for the UI to animate.
+ */
+export interface CombatAnimationEvent {
+  type: 'roll' | 'damage' | 'death' | 'round-start' | 'combat-end';
+  eventId: number;  // Unique ID for deduplication (timestamp alone can collide)
+  timestamp: number;
+  attackerName?: string;
+  attackerId?: string;
+  attackerImage?: string;
+  targetName?: string;
+  targetId?: string;
+  targetImage?: string;
+  // For roll events: all declared targets (used for highlighting even on miss)
+  targetNames?: string[];
+  targetIds?: string[];
+  diceRolls?: number[];
+  hits?: number;
+  hitThreshold?: number;
+  damage?: number;
+  round?: number;
+  rebelVictory?: boolean;
+  dictatorVictory?: boolean;
+}
+
+// Counter for unique event IDs (prevents deduplication issues when events have same timestamp)
+let nextEventId = 1;
+
+/**
+ * Emit a combat animation event for the UI to process.
+ * Events are stored on game.activeCombat.animationEvents to ensure they're
+ * accessible via the shared game state (not module-level state which isn't shared).
+ */
+function emitCombatEventToGame(game: MERCGame, event: Omit<CombatAnimationEvent, 'timestamp' | 'eventId'>): void {
+  const fullEvent = {
+    ...event,
+    eventId: nextEventId++,
+    timestamp: Date.now(),
+  };
+
+  // Always store in the game-level buffer (survives activeCombat recreation)
+  game._combatAnimationEventsBuffer.push(fullEvent);
+
+  // Also copy to activeCombat if it exists
+  if (game.activeCombat) {
+    if (!game.activeCombat.animationEvents) {
+      game.activeCombat.animationEvents = [];
+    }
+    game.activeCombat.animationEvents.push(fullEvent);
+  }
+}
+
+/**
+ * Set activeCombat state, copying animation events from the buffer.
+ * This ensures events emitted before activeCombat existed are preserved.
+ */
+function setActiveCombat(game: MERCGame, combat: NonNullable<MERCGame['activeCombat']>): void {
+  // Copy events from buffer to the new activeCombat
+  const bufferedEvents = [...game._combatAnimationEventsBuffer];
+
+  game.activeCombat = {
+    ...combat,
+    animationEvents: bufferedEvents,
+  };
+}
+
+/**
+ * Clear activeCombat and the animation events buffer.
+ */
+export function clearActiveCombat(game: MERCGame): void {
+  console.log('[DEBUG clearActiveCombat] Clearing activeCombat and event buffer');
+  game.activeCombat = null;
+  game._combatAnimationEventsBuffer = [];
+}
+
+// =============================================================================
 // Combat Helpers
 // =============================================================================
 
@@ -1680,6 +1760,7 @@ function executeCombatRound(
     interactive = true,
     attackingPlayerIsRebel = true, // Default to rebel (most common case)
   } = options || {};
+
   // MERC-l09: Initialize dog state if not provided
   const activeDogState: AttackDogState = dogState || {
     assignments: new Map(),
@@ -1929,6 +2010,22 @@ function executeCombatRound(
     let hits = countHitsForCombatant(rolls, attacker, game);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
+    // Emit roll event for UI animation
+    // Include target info so UI can highlight targets even on miss
+    const attackerCombatantId = getCombatantId(attacker);
+    const hitThreshold = attackerCombatantId ? getHitThreshold(attackerCombatantId) : CombatConstants.HIT_THRESHOLD;
+    emitCombatEventToGame(game, {
+      type: 'roll',
+      attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+      attackerId: attacker.id,
+      attackerImage: attacker.image,
+      targetNames: targets.map(t => t.name.charAt(0).toUpperCase() + t.name.slice(1)),
+      targetIds: targets.map(t => t.id),
+      diceRolls: rolls,
+      hits,
+      hitThreshold,
+    });
+
     // MERC-5l3: Basic may reroll all dice once per combat (uses registry)
     if (shouldUseReroll(attacker, rolls, hits)) {
       game.message(`${attacker.name} uses reroll ability!`);
@@ -1936,6 +2033,19 @@ function executeCombatRound(
       rolls = rollDice(effectiveDice, game);
       hits = countHitsForCombatant(rolls, attacker, game);
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
+
+      // Emit reroll event for UI animation (same targets as original roll)
+      emitCombatEventToGame(game, {
+        type: 'roll',
+        attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+        attackerId: attacker.id,
+        attackerImage: attacker.image,
+        targetNames: targets.map(t => t.name.charAt(0).toUpperCase() + t.name.slice(1)),
+        targetIds: targets.map(t => t.id),
+        diceRolls: rolls,
+        hits,
+        hitThreshold,
+      });
     }
 
     // MERC-9mpr: Wolverine's 6s can hit additional targets
@@ -2056,6 +2166,19 @@ function executeCombatRound(
       const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
       damageDealt.set(target.id, damage);
 
+      // Emit damage event for UI animation
+      if (damage > 0) {
+        emitCombatEventToGame(game, {
+          type: 'damage',
+          attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+          attackerId: attacker.id,
+          targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+          targetId: target.id,
+          targetImage: target.image,
+          damage,
+        });
+      }
+
       // Sync damage to source merc immediately (so UI shows correct state during combat)
       if (target.sourceElement?.isMerc) {
         const merc = target.sourceElement;
@@ -2084,10 +2207,24 @@ function executeCombatRound(
           } else {
             casualties.push(target);
             game.message(`${attacker.name} kills ${target.name}!`);
+            // Emit death event
+            emitCombatEventToGame(game, {
+              type: 'death',
+              targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+              targetId: target.id,
+              targetImage: target.image,
+            });
           }
         } else {
           casualties.push(target);
           game.message(`${attacker.name} kills ${target.name}!`);
+          // Emit death event
+          emitCombatEventToGame(game, {
+            type: 'death',
+            targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+            targetId: target.id,
+            targetImage: target.image,
+          });
 
           // MERC-4ib: Handle MERC death immediately (so UI shows correct state during combat)
           if (target.sourceElement?.isMerc) {
@@ -2627,6 +2764,11 @@ export function executeCombat(
     // MERC-t5k: Only show round message if starting fresh (not resuming mid-round)
     if (currentAttackerIndex === 0) {
       game.message(`--- Round ${round} ---`);
+      // Emit round-start event for UI animation
+      emitCombatEventToGame(game, {
+        type: 'round-start',
+        round,
+      });
       // Reset healing dice used for the new round
       if (game.activeCombat?.healingDiceUsed) {
         game.activeCombat.healingDiceUsed.clear();
@@ -2650,7 +2792,7 @@ export function executeCombat(
       const pause = roundResult.pausedForTargetSelection;
 
       // Save state for resuming
-      game.activeCombat = {
+      setActiveCombat(game, {
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
         attackingPlayerIsRebel,
@@ -2678,7 +2820,7 @@ export function executeCombat(
           })) as unknown as Combatant[],
           maxTargets: pause.maxTargets,
         },
-      };
+      });
 
       // MERC-t5k: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -2703,7 +2845,8 @@ export function executeCombat(
       // Just save the rest of the combat state for resuming
 
       // Save state for resuming (pendingHitAllocation already set)
-      game.activeCombat = {
+      // Use setActiveCombat to preserve buffered animation events
+      setActiveCombat(game, {
         ...game.activeCombat!,
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
@@ -2719,7 +2862,7 @@ export function executeCombat(
         currentAttackerIndex: roundResult.currentAttackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
-      };
+      });
 
       // MERC-dice: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -2744,7 +2887,7 @@ export function executeCombat(
       const pause = roundResult.pausedForAttackDogSelection;
 
       // Save state for resuming
-      game.activeCombat = {
+      setActiveCombat(game, {
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
         attackingPlayerIsRebel,
@@ -2772,7 +2915,7 @@ export function executeCombat(
             maxHealth: t.maxHealth,
           })) as unknown as Combatant[],
         },
-      };
+      });
 
       // Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -2832,7 +2975,7 @@ export function executeCombat(
       syncMilitiaCasualties(game, sector, rebels, dictator);
 
       // Save combat state and pause for player decision
-      game.activeCombat = {
+      setActiveCombat(game, {
         sectorId: sector.sectorId,
         attackingPlayerId: `${attackingPlayer.position}`,
         attackingPlayerIsRebel,
@@ -2843,7 +2986,7 @@ export function executeCombat(
         dictatorCasualties: allDictatorCasualties,
         dogAssignments: Array.from(dogState.assignments.entries()),
         dogs: dogState.dogs,
-      };
+      });
       combatPending = true;
       game.message(`Round ${round} complete. You may retreat or continue fighting.`);
       break;
@@ -2863,9 +3006,6 @@ export function executeCombat(
       canRetreat: retreatAvailable,
     };
   }
-
-  // Clear any saved combat state
-  game.activeCombat = null;
 
   // Apply results to game state
   applyCombatResults(game, sector, rebels, dictator, attackingPlayer);
@@ -2894,6 +3034,30 @@ export function executeCombat(
   }
 
   game.message(`=== Combat Complete ===`);
+
+  // Emit combat-end event for UI animation
+  emitCombatEventToGame(game, {
+    type: 'combat-end',
+    rebelVictory: outcome.rebelVictory,
+    dictatorVictory: outcome.dictatorVictory,
+  });
+
+  // Instead of clearing activeCombat, set combatComplete flag
+  // This preserves animation events so the UI can play them
+  // The UI will clear activeCombat after animations complete
+  setActiveCombat(game, {
+    sectorId: sector.sectorId,
+    attackingPlayerId: `${attackingPlayer.position}`,
+    attackingPlayerIsRebel,
+    round: rounds.length > 0 ? rounds.length : 1,
+    rebelCombatants: rebels,
+    dictatorCombatants: dictator,
+    rebelCasualties: allRebelCasualties,
+    dictatorCasualties: allDictatorCasualties,
+    dogAssignments: Array.from(dogState.assignments.entries()),
+    dogs: dogState.dogs,
+    combatComplete: true,
+  });
 
   return outcome;
 }
@@ -2933,10 +3097,10 @@ export function executeCombatRetreat(
     applyCombatResults(game, combatSector, rebels, dictator, attackingPlayer);
   }
 
-  // Clear combat state
+  // Clear combat state and animation events buffer
   const rebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
   const dictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
-  game.activeCombat = null;
+  clearActiveCombat(game);
 
   game.message(`=== Combat Complete (Retreated) ===`);
 

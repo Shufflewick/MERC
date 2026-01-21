@@ -100,48 +100,11 @@ export function useVictoryCalculations(getGameView: () => any) {
 
   /**
    * Computed: Check if the game is over.
-   * Game ends when:
-   * 1. Dictator is dead (base revealed + damage >= maxHealth)
-   * 2. TacticsDeck AND TacticsHand both empty
-   * 3. explosivesVictory flag is true
+   * Uses the engine's isFinished property for game-over detection.
    */
   const isGameOver: ComputedRef<boolean> = computed(() => {
-    // 1. Check for dictator defeat (base revealed + dictator dead)
-    const dictatorCardNode = findDictatorCombatant();
-    if (dictatorCardNode) {
-      const baseRevealed = getAttr<boolean>(dictatorCardNode, 'inPlay', false);
-      const damage = getAttr<number>(dictatorCardNode, 'damage', 0);
-      const maxHealth = getAttr<number>(dictatorCardNode, 'maxHealth', 3);
-      const dictatorDead = damage >= maxHealth;
-
-      if (baseRevealed && dictatorDead) {
-        return true;
-      }
-    }
-
-    // 2. Check for tactics deck AND hand both empty
-    // Only check if both nodes were actually found (prevents false positive during game load)
-    const tacticsDeckNode =
-      findByClassName('TacticsDeck') || findByClassName('_TacticsDeck');
-    const tacticsHandNode =
-      findByClassName('TacticsHand') || findByClassName('_TacticsHand');
-    if (tacticsDeckNode && tacticsHandNode) {
-      const deckCount = countTacticsCards(tacticsDeckNode);
-      const handCount = countTacticsCards(tacticsHandNode);
-      if (deckCount === 0 && handCount === 0) {
-        return true;
-      }
-    }
-
-    // 3. Check for explosives victory (stored as game attribute)
     const gameView = getGameView();
-    const explosivesVictory =
-      gameView?.explosivesVictory || gameView?.attributes?.explosivesVictory || false;
-    if (explosivesVictory) {
-      return true;
-    }
-
-    return false;
+    return gameView?.isFinished ?? false;
   });
 
   /**

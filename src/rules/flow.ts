@@ -27,7 +27,7 @@ import { TacticsCard } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
-import { executeCombat } from './combat.js';
+import { executeCombat, clearActiveCombat } from './combat.js';
 import { getGlobalCachedValue } from './actions/helpers.js';
 
 /**
@@ -272,7 +272,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               while: (ctx) => {
                 if (game.isFinished()) return false;
                 // MERC-t5k: Keep player in loop while combat is active or pending
-                if (game.activeCombat !== null) return true;
+                // BUT exit if combatComplete is true (UI is animating, player can continue)
+                if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
                 if (game.pendingCombat !== null) return true; // Combat about to start
                 // Check if current player has any MERCs with actions remaining
                 const player = ctx?.player as RebelPlayer | undefined;
@@ -360,9 +361,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
 
                 // MERC-n1f: Combat continue/retreat - only when no target selection or hit allocation pending
+                // Also skip when combatComplete (UI is animating)
                 loop({
                   name: 'combat-decision',
                   while: () => game.activeCombat !== null &&
+                              !game.activeCombat.combatComplete &&
                               game.activeCombat.pendingTargetSelection == null &&
                               game.activeCombat.pendingHitAllocation == null &&
                               game.activeCombat.pendingWolverineSixes == null &&
@@ -373,6 +376,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     name: 'continue-or-retreat',
                     actions: ['combatContinue', 'combatRetreat'],
                     skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                  game.activeCombat.combatComplete ||
                                   game.activeCombat.pendingTargetSelection != null ||
                                   game.activeCombat.pendingHitAllocation != null ||
                                   game.activeCombat.pendingWolverineSixes != null ||
@@ -409,7 +413,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'assignToSquad', // Free action available anytime
                     'endTurn',
                   ],
-                  skipIf: () => game.isFinished() || game.activeCombat !== null,
+                  // Allow regular actions if combat is complete (UI animating)
+                  skipIf: () => game.isFinished() || (game.activeCombat !== null && !game.activeCombat.combatComplete),
                 }),
               ),
             }),
@@ -431,7 +436,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // Safety: Clear any stale rebel combat state (shouldn't happen but defensive)
                 if (game.activeCombat) {
                   game.message('Warning: Clearing stale combat state');
-                  game.activeCombat = null;
+                  clearActiveCombat(game);
                 }
                 if (game.pendingCombat) {
                   game.pendingCombat = null;
@@ -534,9 +539,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Combat continue/retreat decision
+              // Skip when combatComplete (UI is animating)
               loop({
                 name: 'tactics-combat-decision',
                 while: () => game.activeCombat !== null &&
+                            !game.activeCombat.combatComplete &&
                             game.activeCombat.pendingTargetSelection == null &&
                             game.activeCombat.pendingHitAllocation == null &&
                             game.activeCombat.pendingWolverineSixes == null &&
@@ -547,6 +554,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   name: 'continue-or-retreat',
                   actions: ['combatContinue', 'combatRetreat'],
                   skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                game.activeCombat.combatComplete ||
                                 game.activeCombat.pendingTargetSelection != null ||
                                 game.activeCombat.pendingHitAllocation != null ||
                                 game.activeCombat.pendingWolverineSixes != null ||
@@ -561,8 +569,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 while: () => {
                   if (game.isFinished()) return false;
                   // MERC-combat-flow: Keep loop active while combat is active or pending
-                  // Must resolve combat before exiting loop (even if no actions remain)
-                  if (game.activeCombat !== null) return true;
+                  // But exit if combatComplete (UI is animating)
+                  if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
                   if (game.pendingCombat !== null) return true;
                   // Continue while any dictator MERC has actions
                   const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
@@ -648,9 +656,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }),
 
                   // Combat continue/retreat decision
+                  // Skip when combatComplete (UI is animating)
                   loop({
                     name: 'dictator-combat-decision',
                     while: () => game.activeCombat !== null &&
+                                !game.activeCombat.combatComplete &&
                                 game.activeCombat.pendingTargetSelection == null &&
                                 game.activeCombat.pendingHitAllocation == null &&
                                 game.activeCombat.pendingWolverineSixes == null &&
@@ -661,6 +671,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       name: 'continue-or-retreat',
                       actions: ['combatContinue', 'combatRetreat'],
                       skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                    game.activeCombat.combatComplete ||
                                     game.activeCombat.pendingTargetSelection != null ||
                                     game.activeCombat.pendingHitAllocation != null ||
                                     game.activeCombat.pendingWolverineSixes != null ||
@@ -779,9 +790,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Combat continue/retreat decision
+              // Skip when combatComplete (UI is animating)
               loop({
                 name: 'kim-militia-combat-decision',
                 while: () => game.activeCombat !== null &&
+                            !game.activeCombat.combatComplete &&
                             game.activeCombat.pendingTargetSelection == null &&
                             game.activeCombat.pendingHitAllocation == null &&
                             game.activeCombat.pendingWolverineSixes == null &&
@@ -792,6 +805,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   name: 'continue-or-retreat',
                   actions: ['combatContinue', 'combatRetreat'],
                   skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                game.activeCombat.combatComplete ||
                                 game.activeCombat.pendingTargetSelection != null ||
                                 game.activeCombat.pendingHitAllocation != null ||
                                 game.activeCombat.pendingWolverineSixes != null ||

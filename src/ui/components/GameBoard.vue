@@ -447,10 +447,29 @@ const activeCombat = computed(() => {
   return combat;
 });
 
+// Track if CombatPanel is still animating (keeps panel visible after activeCombat clears)
+const isCombatAnimating = ref(false);
+
 // Check if there's active combat to show the panel
+// Keep panel mounted while animations are playing even if activeCombat is null
 const hasActiveCombat = computed(() => {
-  return activeCombat.value !== null;
+  return activeCombat.value !== null || isCombatAnimating.value;
 });
+
+// Handler for CombatPanel animation state changes
+function handleCombatAnimating(animating: boolean) {
+  isCombatAnimating.value = animating;
+}
+
+// Handler for when combat is truly finished (animations done AND combat marked complete)
+// This is emitted by CombatPanel after a small delay to handle race conditions
+async function handleCombatFinished() {
+  try {
+    await props.actionController.execute('clearCombatAnimations', {});
+  } catch {
+    // Silently ignore errors clearing combat animations
+  }
+}
 
 // Get sector name for the combat
 const combatSectorName = computed(() => {
@@ -512,6 +531,12 @@ async function handleRetreatCombat() {
 async function handleAssignAttackDog(targetId: string) {
   if (!props.availableActions.includes('combatAssignAttackDog')) return;
   await props.actionController.execute('combatAssignAttackDog', { target: targetId });
+}
+
+// Handle display phase completion (automated combat animation finished)
+async function handleDisplayComplete() {
+  if (!props.availableActions.includes('combatDisplayContinue')) return;
+  await props.actionController.execute('combatDisplayContinue', {});
 }
 
 
@@ -1049,6 +1074,9 @@ const clickableSectors = computed(() => {
       @retreat-combat="handleRetreatCombat"
       @select-retreat-sector="handleSelectRetreatSector"
       @assign-attack-dog="handleAssignAttackDog"
+      @display-complete="handleDisplayComplete"
+      @animating="handleCombatAnimating"
+      @combat-finished="handleCombatFinished"
     />
 
     <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->

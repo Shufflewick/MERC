@@ -59,6 +59,7 @@ function handleClick() {
     class="combatant-icon-small"
     :class="{ clickable }"
     :style="sizeStyle"
+    :data-combatant-id="combatantId"
     @click="handleClick"
   >
     <img

@@ -527,6 +527,31 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       dyingCombatantSide: 'rebel' | 'dictator';
       availableSavers: Array<{ combatantId: number; combatantName: string }>;
     };
+    // Combat animation events for UI to display
+    animationEvents?: Array<{
+      type: 'roll' | 'damage' | 'death' | 'round-start' | 'combat-end';
+      timestamp: number;
+      attackerName?: string;
+      attackerId?: string;
+      attackerImage?: string;
+      targetName?: string;
+      targetId?: string;
+      targetImage?: string;
+      // For roll events: all declared targets (used for highlighting even on miss)
+      targetNames?: string[];
+      targetIds?: string[];
+      diceRolls?: number[];
+      hits?: number;
+      hitThreshold?: number;
+      damage?: number;
+      round?: number;
+      rebelVictory?: boolean;
+      dictatorVictory?: boolean;
+    }>;
+    // Flag indicating combat is complete but UI is still animating
+    // Flow system exits combat loop when this is true
+    // UI clears activeCombat after animations complete
+    combatComplete?: boolean;
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow
@@ -535,6 +560,29 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     sectorId: string;
     playerId: string;
   } | null = null;
+
+  // Combat animation events buffer - stored at game level so they survive activeCombat recreation
+  // Events are copied to activeCombat.animationEvents when activeCombat is set
+  _combatAnimationEventsBuffer: Array<{
+    type: 'roll' | 'damage' | 'death' | 'round-start' | 'combat-end';
+    timestamp: number;
+    attackerName?: string;
+    attackerId?: string;
+    attackerImage?: string;
+    targetName?: string;
+    targetId?: string;
+    targetImage?: string;
+    // For roll events: all declared targets (used for highlighting even on miss)
+    targetNames?: string[];
+    targetIds?: string[];
+    diceRolls?: number[];
+    hits?: number;
+    hitThreshold?: number;
+    damage?: number;
+    round?: number;
+    rebelVictory?: boolean;
+    dictatorVictory?: boolean;
+  }> = [];
 
   // Explosives victory - set when rebels detonate explosives in palace
   explosivesVictory: boolean = false;

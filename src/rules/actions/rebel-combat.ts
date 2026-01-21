@@ -9,7 +9,7 @@
 import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
-import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, type Combatant } from '../combat.js';
+import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
@@ -1157,3 +1157,24 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
       };
     });
 }
+
+/**
+ * Clear combat state after animations complete
+ * Called by UI when combat animations finish playing
+ * Only works when combatComplete is true (combat has ended, animations played)
+ */
+export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinition {
+  return Action.create('clearCombatAnimations')
+    .prompt('Clear combat animations')
+    .condition({
+      'has completed combat': () => game.activeCombat !== null && game.activeCombat.combatComplete === true,
+    })
+    .execute(() => {
+      clearActiveCombat(game);
+      return {
+        success: true,
+        message: 'Combat animations cleared',
+      };
+    });
+}
+

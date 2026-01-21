@@ -60,6 +60,7 @@ import {
   createArtilleryAllocateHitsAction,
   createCombatUseEpinephrineAction,
   createCombatDeclineEpinephrineAction,
+  createClearCombatAnimationsAction,
 } from './rebel-combat.js';
 
 import {
@@ -160,6 +161,9 @@ export function registerAllActions(game: MERCGame): void {
   // MERC-4.9: Epinephrine Shot player choice
   game.registerAction(createCombatUseEpinephrineAction(game));
   game.registerAction(createCombatDeclineEpinephrineAction(game));
+
+  // Clear combat state after UI animations complete
+  game.registerAction(createClearCombatAnimationsAction(game));
 
   // MERC-lw9r: Artillery Barrage hit allocation (stub until Plan 04)
   game.registerAction(createArtilleryAllocateHitsAction(game));
