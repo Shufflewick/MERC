@@ -2607,7 +2607,8 @@ export function executeCombat(
     const hasPartialRoundData = (game.activeCombat.roundResults?.length ?? 0) > 0 ||
                                  (game.activeCombat.roundCasualties?.length ?? 0) > 0 ||
                                  (game.activeCombat.currentAttackerIndex ?? 0) > 0 ||
-                                 (game.activeCombat.selectedTargets?.size ?? 0) > 0;
+                                 (game.activeCombat.selectedTargets?.size ?? 0) > 0 ||
+                                 (game.activeCombat.selectedDogTargets?.size ?? 0) > 0;
     startRound = hasPartialRoundData ? game.activeCombat.round : game.activeCombat.round + 1;
 
     // MERC-l09: Restore dog state
