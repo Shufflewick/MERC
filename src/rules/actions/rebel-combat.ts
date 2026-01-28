@@ -288,6 +288,9 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
     })
     .chooseFrom<string>('target', {
       prompt: 'Assign Attack Dog to',
+      // MERC-l09: Make optional to prevent auto-fill when there's only one target
+      // This ensures the player always sees the UI and explicitly chooses
+      optional: 'Skip Attack Dog',
       choices: () => {
         const pending = game.activeCombat?.pendingAttackDogSelection;
         if (!pending) return [];
@@ -315,27 +318,32 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
       }
 
       const pending = game.activeCombat.pendingAttackDogSelection;
-      const targetId = args.target as string;
+      const targetId = args.target as string | undefined;
 
+      // Look up target name (may be undefined if skipping)
+      const targetName = targetId
+        ? pending.validTargets.find(t => t.id === targetId)?.name
+        : undefined;
+
+      // MERC-l09: Handle skipping the Attack Dog assignment
       if (!targetId) {
-        return { success: false, message: 'No target selected' };
+        // Clear pending and continue combat without dog assignment
+        game.activeCombat.pendingAttackDogSelection = undefined;
+        game.message(`${pending.attackerName} chose not to release Attack Dog.`);
+      } else {
+        // Initialize selectedDogTargets map if needed
+        if (!game.activeCombat.selectedDogTargets) {
+          game.activeCombat.selectedDogTargets = new Map();
+        }
+
+        // Store the selection for this attacker
+        game.activeCombat.selectedDogTargets.set(pending.attackerId, targetId);
+
+        // Clear pending and continue combat
+        game.activeCombat.pendingAttackDogSelection = undefined;
+
+        game.message(`${pending.attackerName} will release Attack Dog on ${targetName}.`);
       }
-
-      // Look up target name for the message
-      const targetName = pending.validTargets.find(t => t.id === targetId)?.name;
-
-      // Initialize selectedDogTargets map if needed
-      if (!game.activeCombat.selectedDogTargets) {
-        game.activeCombat.selectedDogTargets = new Map();
-      }
-
-      // Store the selection for this attacker
-      game.activeCombat.selectedDogTargets.set(pending.attackerId, targetId);
-
-      // Clear pending and continue combat
-      game.activeCombat.pendingAttackDogSelection = undefined;
-
-      game.message(`${pending.attackerName} will release Attack Dog on ${targetName}.`);
 
       // Continue combat to execute the dog assignment and round
       const sector = game.getSector(game.activeCombat.sectorId);
