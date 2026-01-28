@@ -132,6 +132,11 @@ const isFastForward = ref(false);
 // Use BoardSmith's animation events (injected by GameTable)
 const animationEvents = useAnimationEvents();
 const isAnimating = computed(() => animationEvents?.isAnimating.value ?? false);
+// Combined flag: true while animating OR while there are pending events to process
+// This prevents UI from showing final state before all animations complete
+const isProcessingAnimations = computed(() =>
+  isAnimating.value || (animationEvents?.pendingCount.value ?? 0) > 0
+);
 
 // Helper to get timing based on fast-forward state
 function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end' | 'attack-dog'): number {
@@ -455,7 +460,8 @@ function getCombatantDisplay(combatant: any) {
   const maxHealth = combatant.maxHealth ?? defaultMaxHealth;
 
   const combatantId = combatant.id || combatant.sourceElement?.id;
-  const health = getDisplayHealth(combatantId, actualHealth, isAnimating.value);
+  // Use isProcessingAnimations to keep showing theatre health until ALL events are processed
+  const health = getDisplayHealth(combatantId, actualHealth, isProcessingAnimations.value);
 
   return {
     id: combatant.id,
@@ -611,11 +617,16 @@ function transitionState() {
 }
 
 // Coordinate with death animation system
-watch(isAnimating, (animating) => {
-  setCombatAnimationActive(animating);
-  emit('animating', animating);
+// Watch both isAnimating and pendingCount to properly track all animation activity
+watch([isAnimating, () => animationEvents?.pendingCount.value ?? 0], ([animating, pendingCount]) => {
+  // Combat animation is active while animating OR while there are pending events
+  const isActive = animating || pendingCount > 0;
+  setCombatAnimationActive(isActive);
+  emit('animating', isActive);
 
-  if (!animating) {
+  // Only reset displayHealthInitialized when BOTH not animating AND no pending events
+  // This prevents UI from showing final state before all animations complete
+  if (!animating && pendingCount === 0) {
     // Reset displayHealthInitialized so the next round's events will trigger initializeDisplayHealth
     displayHealthInitialized.value = false;
   }
