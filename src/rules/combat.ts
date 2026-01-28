@@ -1425,11 +1425,19 @@ function selectTargets(
 ): Combatant[] {
   const aliveEnemies = enemies.filter(e => e.health > 0);
 
+  // Filter out "targeted last" MERCs (Runde) if other targets exist
+  // This must be applied before any special targeting logic
+  const nonTargetedLast = aliveEnemies.filter(t => {
+    const combatantId = getCombatantId(t);
+    return !combatantId || !isTargetedLast(combatantId);
+  });
+  const validEnemies = nonTargetedLast.length > 0 ? nonTargetedLast : aliveEnemies;
+
   // MERC-dz0: Rizen can target ALL militia with his attack
   // Per rules: "each hit counts as a new target when attacking militia"
   if (isRizen(attacker)) {
-    const militia = aliveEnemies.filter(e => e.isMilitia);
-    const nonMilitia = aliveEnemies.filter(e => !e.isMilitia);
+    const militia = validEnemies.filter(e => e.isMilitia);
+    const nonMilitia = validEnemies.filter(e => !e.isMilitia);
     // Rizen targets all militia plus normal targets for non-militia
     const rizenTargets = [...militia, ...nonMilitia.slice(0, maxTargets)];
     return rizenTargets;
@@ -1437,30 +1445,19 @@ function selectTargets(
 
   // MERC-2se: Buzzkill always attacks enemy MERCs instead of militia when possible
   if (isBuzzkill(attacker)) {
-    const mercs = aliveEnemies.filter(e => !e.isMilitia && !e.isAttackDog);
-    const militia = aliveEnemies.filter(e => e.isMilitia || e.isAttackDog);
+    const mercs = validEnemies.filter(e => !e.isMilitia && !e.isAttackDog);
+    const militia = validEnemies.filter(e => e.isMilitia || e.isAttackDog);
     // Prioritize MERCs, then militia
     const buzzkillTargets = [...mercs, ...militia].slice(0, maxTargets);
     return buzzkillTargets;
   }
 
-  // Sort targets so "targeted last" MERCs (Runde) are at the end
-  const sortedForTargeting = [...aliveEnemies].sort((a, b) => {
-    const aCombatantId = getCombatantId(a);
-    const bCombatantId = getCombatantId(b);
-    const aLast = aCombatantId ? isTargetedLast(aCombatantId) : false;
-    const bLast = bCombatantId ? isTargetedLast(bCombatantId) : false;
-    if (aLast && !bLast) return 1;  // Targeted-last goes to end
-    if (bLast && !aLast) return -1; // Others go first
-    return 0;
-  });
-
   // If attacker is rebel and dictator is present, check protection rule
   if (!attacker.isDictatorSide) {
-    const canHitDictator = canTargetDictator(sortedForTargeting);
+    const canHitDictator = canTargetDictator(validEnemies);
     const validTargets = canHitDictator
-      ? sortedForTargeting
-      : sortedForTargeting.filter(e => !e.isDictator);
+      ? validEnemies
+      : validEnemies.filter(e => !e.isDictator);
 
     // MERC-fix: AI rebels also use priority targeting (lowest health+armor first)
     const prioritized = sortTargetsByAIPriority(validTargets, game.random);
@@ -1468,8 +1465,7 @@ function selectTargets(
   }
 
   // MERC-0q8: Dictator AI uses priority targeting
-  // "Targeted last" MERCs already sorted to end
-  const prioritized = sortTargetsByAIPriority(sortedForTargeting, game.random);
+  const prioritized = sortTargetsByAIPriority(validEnemies, game.random);
   return prioritized.slice(0, maxTargets);
 }
 

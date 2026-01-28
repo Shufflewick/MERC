@@ -481,6 +481,18 @@ const hasActiveCombat = computed(() => {
          (animationEvents?.isAnimating.value ?? false);
 });
 
+// Delayed game over - waits for animations to complete before showing victory overlay
+const showGameOverOverlay = computed(() => {
+  if (!isGameOver.value) return false;
+
+  // Don't show while combat animations are playing
+  if (isCombatAnimating.value) return false;
+  if (animationEvents?.isAnimating.value) return false;
+  if ((animationEvents?.pendingCount.value ?? 0) > 0) return false;
+
+  return true;
+});
+
 // Watch for activeCombat becoming null - game logic may clear it before animations finish
 // The CombatPanel's state machine will detect this and transition to COMPLETE
 watch(activeCombat, (newCombat, oldCombat) => {
@@ -1094,7 +1106,7 @@ const clickableSectors = computed(() => {
   <div class="game-board">
     <!-- Game Over Overlay -->
     <GameOverOverlay
-      :is-visible="isGameOver"
+      :is-visible="showGameOverOverlay"
       :winner="gameWinner"
     />
 

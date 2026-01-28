@@ -5,6 +5,7 @@ import { CombatantModel, Sector, Equipment, Squad } from '../src/rules/elements.
 import {
   getCombatants,
   executeCombat,
+  getValidTargetsForPlayer,
   type Combatant,
   type CombatOutcome,
 } from '../src/rules/combat.js';
@@ -503,6 +504,171 @@ describe('Combat Execution Tests', () => {
       };
 
       expect(retreatOutcome.retreated).toBe(true);
+    });
+  });
+
+  // =========================================================================
+  // Runde "Targeted Last" Ability Tests
+  // =========================================================================
+  describe('Runde Targeted Last Ability', () => {
+    let game: MERCGame;
+
+    beforeEach(() => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'runde-test',
+      });
+      game = testGame.game;
+    });
+
+    it('should exclude Runde from valid targets when other targets exist', () => {
+      // Find Runde and another MERC
+      const runde = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'runde');
+      const otherMerc = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId !== 'runde');
+
+      if (!runde || !otherMerc) {
+        console.log('Runde or other MERC not in deck, skipping test');
+        return;
+      }
+
+      // Create mock combatants (simulating what getCombatants produces)
+      const rundeCombatant: Combatant = {
+        id: 'runde-1',
+        name: 'Runde',
+        health: 3,
+        armor: 0,
+        combat: 2,
+        targets: 1,
+        initiative: 2,
+        image: runde.image,
+        isDictatorSide: false,
+        isMilitia: false,
+        isDictator: false,
+        isAttackDog: false,
+        hasAttackDog: false,
+        isImmuneToAttackDogs: false,
+        willNotHarmDogs: false,
+        armorPiercing: false,
+        sourceElement: runde,
+      };
+
+      const otherCombatant: Combatant = {
+        id: 'other-1',
+        name: otherMerc.combatantName,
+        health: 3,
+        armor: 0,
+        combat: 2,
+        targets: 1,
+        initiative: 2,
+        image: otherMerc.image,
+        isDictatorSide: false,
+        isMilitia: false,
+        isDictator: false,
+        isAttackDog: false,
+        hasAttackDog: false,
+        isImmuneToAttackDogs: false,
+        willNotHarmDogs: false,
+        armorPiercing: false,
+        sourceElement: otherMerc,
+      };
+
+      // Create attacker (dictator militia)
+      const attacker: Combatant = {
+        id: 'militia-1',
+        name: 'Militia',
+        health: 1,
+        armor: 0,
+        combat: 1,
+        targets: 1,
+        initiative: 2,
+        image: '',
+        isDictatorSide: true,
+        isMilitia: true,
+        isDictator: false,
+        isAttackDog: false,
+        hasAttackDog: false,
+        isImmuneToAttackDogs: false,
+        willNotHarmDogs: false,
+        armorPiercing: false,
+        sourceElement: null,
+      };
+
+      const enemies = [rundeCombatant, otherCombatant];
+
+      // Get valid targets for the attacker
+      const validTargets = getValidTargetsForPlayer(attacker, enemies);
+
+      // Runde should NOT be in valid targets when another target exists
+      const rundeInTargets = validTargets.some(t => t.sourceElement?.combatantId === 'runde');
+      expect(rundeInTargets).toBe(false);
+
+      // The other MERC should be a valid target
+      const otherInTargets = validTargets.some(t => t.id === 'other-1');
+      expect(otherInTargets).toBe(true);
+    });
+
+    it('should include Runde as valid target when no other targets exist', () => {
+      // Find Runde
+      const runde = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'runde');
+
+      if (!runde) {
+        console.log('Runde not in deck, skipping test');
+        return;
+      }
+
+      // Create mock combatant for Runde only
+      const rundeCombatant: Combatant = {
+        id: 'runde-1',
+        name: 'Runde',
+        health: 3,
+        armor: 0,
+        combat: 2,
+        targets: 1,
+        initiative: 2,
+        image: runde.image,
+        isDictatorSide: false,
+        isMilitia: false,
+        isDictator: false,
+        isAttackDog: false,
+        hasAttackDog: false,
+        isImmuneToAttackDogs: false,
+        willNotHarmDogs: false,
+        armorPiercing: false,
+        sourceElement: runde,
+      };
+
+      // Create attacker
+      const attacker: Combatant = {
+        id: 'militia-1',
+        name: 'Militia',
+        health: 1,
+        armor: 0,
+        combat: 1,
+        targets: 1,
+        initiative: 2,
+        image: '',
+        isDictatorSide: true,
+        isMilitia: true,
+        isDictator: false,
+        isAttackDog: false,
+        hasAttackDog: false,
+        isImmuneToAttackDogs: false,
+        willNotHarmDogs: false,
+        armorPiercing: false,
+        sourceElement: null,
+      };
+
+      // Only Runde as enemy
+      const enemies = [rundeCombatant];
+
+      // Get valid targets
+      const validTargets = getValidTargetsForPlayer(attacker, enemies);
+
+      // Runde SHOULD be a valid target when no others exist
+      const rundeInTargets = validTargets.some(t => t.sourceElement?.combatantId === 'runde');
+      expect(rundeInTargets).toBe(true);
+      expect(validTargets.length).toBe(1);
     });
   });
 });
