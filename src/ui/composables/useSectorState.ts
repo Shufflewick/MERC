@@ -83,8 +83,8 @@ export interface SectorStateDependencies {
   getDictatorSecondarySquad: () => { sectorId: string } | undefined;
   /** Get dictator card (for checking if in sector) */
   getDictatorCard: () => { sectorId: string; inPlay: boolean } | undefined;
-  /** Convert position to color name */
-  positionToColor: (position: string | number) => string;
+  /** Convert seat to color name */
+  seatToColor: (seat: string | number) => string;
 }
 
 /**
@@ -320,11 +320,11 @@ export function useSectorState(
       );
       dictatorUnits += dictatorMercsInSector.length;
 
-      // Militia uses player position as key - convert to color name
-      for (const [positionKey, count] of Object.entries(
+      // Militia uses player seat as key - convert to color name
+      for (const [seatKey, count] of Object.entries(
         sector.rebelMilitia || {}
       )) {
-        const color = deps.positionToColor(positionKey);
+        const color = deps.seatToColor(seatKey);
         rebelUnits[color] = (rebelUnits[color] || 0) + (count as number);
       }
 

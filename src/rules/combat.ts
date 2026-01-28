@@ -66,83 +66,16 @@ export { getValidRetreatSectors, canRetreat, executeRetreat } from './combat-ret
 import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetreat } from './combat-retreat.js';
 
 // =============================================================================
-// Combat Animation Events - UI-only animation system
+// Combat Animation Events - Uses BoardSmith v2.4 Animation Event System
 // =============================================================================
 
 /**
- * Combat animation event types for the UI animation queue.
- * These events are emitted during combat execution for the UI to animate.
- */
-export interface CombatAnimationEvent {
-  type: 'roll' | 'damage' | 'death' | 'round-start' | 'combat-end';
-  eventId: number;  // Unique ID for deduplication (timestamp alone can collide)
-  timestamp: number;
-  attackerName?: string;
-  attackerId?: string;
-  attackerImage?: string;
-  targetName?: string;
-  targetId?: string;
-  targetImage?: string;
-  // For roll events: all declared targets (used for highlighting even on miss)
-  targetNames?: string[];
-  targetIds?: string[];
-  diceRolls?: number[];
-  hits?: number;
-  hitThreshold?: number;
-  damage?: number;
-  round?: number;
-  rebelVictory?: boolean;
-  dictatorVictory?: boolean;
-}
-
-// Counter for unique event IDs (prevents deduplication issues when events have same timestamp)
-let nextEventId = 1;
-
-/**
- * Emit a combat animation event for the UI to process.
- * Events are stored on game.activeCombat.animationEvents to ensure they're
- * accessible via the shared game state (not module-level state which isn't shared).
- */
-function emitCombatEventToGame(game: MERCGame, event: Omit<CombatAnimationEvent, 'timestamp' | 'eventId'>): void {
-  const fullEvent = {
-    ...event,
-    eventId: nextEventId++,
-    timestamp: Date.now(),
-  };
-
-  // Always store in the game-level buffer (survives activeCombat recreation)
-  game._combatAnimationEventsBuffer.push(fullEvent);
-
-  // Also copy to activeCombat if it exists
-  if (game.activeCombat) {
-    if (!game.activeCombat.animationEvents) {
-      game.activeCombat.animationEvents = [];
-    }
-    game.activeCombat.animationEvents.push(fullEvent);
-  }
-}
-
-/**
- * Set activeCombat state, copying animation events from the buffer.
- * This ensures events emitted before activeCombat existed are preserved.
- */
-function setActiveCombat(game: MERCGame, combat: NonNullable<MERCGame['activeCombat']>): void {
-  // Copy events from buffer to the new activeCombat
-  const bufferedEvents = [...game._combatAnimationEventsBuffer];
-
-  game.activeCombat = {
-    ...combat,
-    animationEvents: bufferedEvents,
-  };
-}
-
-/**
- * Clear activeCombat and the animation events buffer.
+ * Clear activeCombat state.
+ * Animation events are handled by BoardSmith's game.emitAnimationEvent() system.
  */
 export function clearActiveCombat(game: MERCGame): void {
-  console.log('[DEBUG clearActiveCombat] Clearing activeCombat and event buffer');
+  console.log('[DEBUG clearActiveCombat] Clearing activeCombat');
   game.activeCombat = null;
-  game._combatAnimationEventsBuffer = [];
 }
 
 // =============================================================================
@@ -933,7 +866,7 @@ function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
   let walterOwnerId: string | undefined;
   for (const rebel of game.rebelPlayers) {
     if (rebel.team.some(m => m.id === walterMerc.id)) {
-      walterOwnerId = `${rebel.position}`;
+      walterOwnerId = `${rebel.seat}`;
       break;
     }
   }
@@ -1384,8 +1317,8 @@ export function getCombatants(
     }
 
     // Add this rebel's militia
-    const rebelMilitia = sector.getRebelMilitia(`${rebel.position}`);
-    rebels.push(...militiaToCombatants(rebelMilitia, false, `${rebel.position}`, game, rebelColor));
+    const rebelMilitia = sector.getRebelMilitia(`${rebel.seat}`);
+    rebels.push(...militiaToCombatants(rebelMilitia, false, `${rebel.seat}`, game, rebelColor));
   }
 
   // Add dictator's militia
@@ -2010,12 +1943,11 @@ function executeCombatRound(
     let hits = countHitsForCombatant(rolls, attacker, game);
     game.message(`${attacker.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
-    // Emit roll event for UI animation
+    // Emit roll event for UI animation (BoardSmith v2.4 Animation Event System)
     // Include target info so UI can highlight targets even on miss
     const attackerCombatantId = getCombatantId(attacker);
     const hitThreshold = attackerCombatantId ? getHitThreshold(attackerCombatantId) : CombatConstants.HIT_THRESHOLD;
-    emitCombatEventToGame(game, {
-      type: 'roll',
+    game.emitAnimationEvent('combat-roll', {
       attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
       attackerId: attacker.id,
       attackerImage: attacker.image,
@@ -2035,8 +1967,7 @@ function executeCombatRound(
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
       // Emit reroll event for UI animation (same targets as original roll)
-      emitCombatEventToGame(game, {
-        type: 'roll',
+      game.emitAnimationEvent('combat-roll', {
         attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
         attackerId: attacker.id,
         attackerImage: attacker.image,
@@ -2168,8 +2099,7 @@ function executeCombatRound(
 
       // Emit damage event for UI animation
       if (damage > 0) {
-        emitCombatEventToGame(game, {
-          type: 'damage',
+        game.emitAnimationEvent('combat-damage', {
           attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
           attackerId: attacker.id,
           targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
@@ -2201,15 +2131,14 @@ function executeCombatRound(
             // Remove dictator militia
             combatSector.dictatorMilitia--;
             // Add to rebel militia
-            combatSector.addRebelMilitia(`${ownerPlayer.position}`, 1);
+            combatSector.addRebelMilitia(`${ownerPlayer.seat}`, 1);
             game.message(`${attacker.name} converts ${target.name} to her side!`);
             // Don't add to casualties - militia is converted, not killed
           } else {
             casualties.push(target);
             game.message(`${attacker.name} kills ${target.name}!`);
             // Emit death event
-            emitCombatEventToGame(game, {
-              type: 'death',
+            game.emitAnimationEvent('combat-death', {
               targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
               targetId: target.id,
               targetImage: target.image,
@@ -2219,8 +2148,7 @@ function executeCombatRound(
           casualties.push(target);
           game.message(`${attacker.name} kills ${target.name}!`);
           // Emit death event
-          emitCombatEventToGame(game, {
-            type: 'death',
+          game.emitAnimationEvent('combat-death', {
             targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
             targetId: target.id,
             targetImage: target.image,
@@ -2636,7 +2564,7 @@ function syncMilitiaCasualties(
 
   // Update militia for ALL rebel players who had militia in combat (coordinated attacks)
   for (const rebel of game.rebelPlayers) {
-    const playerId = `${rebel.position}`;
+    const playerId = `${rebel.seat}`;
     const survivingMilitia = rebels.filter(
       c => c.isMilitia && c.health > 0 && c.ownerId === playerId
     ).length;
@@ -2655,6 +2583,11 @@ export function executeCombat(
   options: { maxRounds?: number; interactive?: boolean; attackingPlayerIsRebel?: boolean } = {}
 ): CombatOutcome {
   const { maxRounds = 10, interactive = true, attackingPlayerIsRebel: optionAttackingPlayerIsRebel = true } = options;
+
+  console.log('[executeCombat] START', {
+    hasActiveCombat: !!game.activeCombat,
+    combatComplete: game.activeCombat?.combatComplete,
+  });
 
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
@@ -2698,6 +2631,7 @@ export function executeCombat(
   } else {
     // Start new combat
     game.message(`=== Combat at ${sector.sectorName} ===`);
+
     const combatants = getCombatants(game, sector, attackingPlayer);
     rebels = combatants.rebels;
     dictator = combatants.dictator;
@@ -2765,8 +2699,7 @@ export function executeCombat(
     if (currentAttackerIndex === 0) {
       game.message(`--- Round ${round} ---`);
       // Emit round-start event for UI animation
-      emitCombatEventToGame(game, {
-        type: 'round-start',
+      game.emitAnimationEvent('combat-round-start', {
         round,
       });
       // Reset healing dice used for the new round
@@ -2792,9 +2725,9 @@ export function executeCombat(
       const pause = roundResult.pausedForTargetSelection;
 
       // Save state for resuming
-      setActiveCombat(game, {
+      game.activeCombat = {
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerId: `${attackingPlayer.seat}`,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -2820,7 +2753,7 @@ export function executeCombat(
           })) as unknown as Combatant[],
           maxTargets: pause.maxTargets,
         },
-      });
+      };
 
       // MERC-t5k: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -2845,11 +2778,10 @@ export function executeCombat(
       // Just save the rest of the combat state for resuming
 
       // Save state for resuming (pendingHitAllocation already set)
-      // Use setActiveCombat to preserve buffered animation events
-      setActiveCombat(game, {
+      game.activeCombat = {
         ...game.activeCombat!,
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerId: `${attackingPlayer.seat}`,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -2862,7 +2794,7 @@ export function executeCombat(
         currentAttackerIndex: roundResult.currentAttackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
-      });
+      };
 
       // MERC-dice: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -2887,9 +2819,9 @@ export function executeCombat(
       const pause = roundResult.pausedForAttackDogSelection;
 
       // Save state for resuming
-      setActiveCombat(game, {
+      game.activeCombat = {
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerId: `${attackingPlayer.seat}`,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -2915,7 +2847,7 @@ export function executeCombat(
             maxHealth: t.maxHealth,
           })) as unknown as Combatant[],
         },
-      });
+      };
 
       // Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -2958,6 +2890,10 @@ export function executeCombat(
     const aliveDictator = dictator.filter(c => c.health > 0);
 
     if (aliveRebels.length === 0 || aliveDictator.length === 0) {
+      console.log('[executeCombat] One side eliminated, breaking loop', {
+        aliveRebels: aliveRebels.length,
+        aliveDictator: aliveDictator.length,
+      });
       break;
     }
 
@@ -2975,9 +2911,9 @@ export function executeCombat(
       syncMilitiaCasualties(game, sector, rebels, dictator);
 
       // Save combat state and pause for player decision
-      setActiveCombat(game, {
+      game.activeCombat = {
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.position}`,
+        attackingPlayerId: `${attackingPlayer.seat}`,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -2986,7 +2922,7 @@ export function executeCombat(
         dictatorCasualties: allDictatorCasualties,
         dogAssignments: Array.from(dogState.assignments.entries()),
         dogs: dogState.dogs,
-      });
+      };
       combatPending = true;
       game.message(`Round ${round} complete. You may retreat or continue fighting.`);
       break;
@@ -2995,6 +2931,8 @@ export function executeCombat(
 
   // If combat is pending, don't apply final results yet
   if (combatPending) {
+    console.log('[executeCombat] Combat pending, returning early');
+    game.message(`[DEBUG] Combat pending - returning early`);
     return {
       rounds,
       rebelVictory: false,
@@ -3006,6 +2944,8 @@ export function executeCombat(
       canRetreat: retreatAvailable,
     };
   }
+
+  console.log('[executeCombat] Combat complete, applying results');
 
   // Apply results to game state
   applyCombatResults(game, sector, rebels, dictator, attackingPlayer);
@@ -3035,19 +2975,16 @@ export function executeCombat(
 
   game.message(`=== Combat Complete ===`);
 
-  // Emit combat-end event for UI animation
-  emitCombatEventToGame(game, {
-    type: 'combat-end',
+  // Emit combat-end event for UI animation (BoardSmith v2.4 Animation Event System)
+  game.emitAnimationEvent('combat-end', {
     rebelVictory: outcome.rebelVictory,
     dictatorVictory: outcome.dictatorVictory,
   });
 
-  // Instead of clearing activeCombat, set combatComplete flag
-  // This preserves animation events so the UI can play them
-  // The UI will clear activeCombat after animations complete
-  setActiveCombat(game, {
+  // Set combatComplete flag - animation events are handled by BoardSmith's event system
+  game.activeCombat = {
     sectorId: sector.sectorId,
-    attackingPlayerId: `${attackingPlayer.position}`,
+    attackingPlayerId: `${attackingPlayer.seat}`,
     attackingPlayerIsRebel,
     round: rounds.length > 0 ? rounds.length : 1,
     rebelCombatants: rebels,
@@ -3057,6 +2994,12 @@ export function executeCombat(
     dogAssignments: Array.from(dogState.assignments.entries()),
     dogs: dogState.dogs,
     combatComplete: true,
+  };
+
+  console.log('[executeCombat] END - returning outcome', {
+    rebelVictory: outcome.rebelVictory,
+    dictatorVictory: outcome.dictatorVictory,
+    activeCombatComplete: game.activeCombat?.combatComplete,
   });
 
   return outcome;
@@ -3086,7 +3029,7 @@ export function executeCombatRetreat(
   // For combat results, we need the attacking rebel player
   // (the one who initiated combat - used for casualty cleanup)
   const attackingPlayer = game.rebelPlayers.find(
-    p => `${p.position}` === game.activeCombat!.attackingPlayerId
+    p => `${p.seat}` === game.activeCombat!.attackingPlayerId
   );
 
   // Apply combat results (casualties, etc.)

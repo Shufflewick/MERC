@@ -201,7 +201,7 @@ watch(
         const increase = count - oldCount;
         if (increase > 0) {
           // Find player color
-          const player = props.players.find(p => String(p.position) === playerId);
+          const player = props.players.find(p => String(p.seat) === playerId);
           queueAnimation(sector.id, increase, player?.playerColor, false, playerId, oldCount);
         }
       }
@@ -620,12 +620,12 @@ function getMercsInSector(sectorId: string) {
   return props.mercs.filter((m) => m.sectorId === sectorId);
 }
 
-// Map player positions to colors (for rebel militia display)
+// Map player seats to colors (for rebel militia display)
 const playerColorMap = computed(() => {
   const map: Record<string, string> = {};
   for (const player of props.players) {
     if (player.playerColor && !player.isDictator) {
-      map[String(player.position)] = player.playerColor;
+      map[String(player.seat)] = player.playerColor;
     }
   }
   return map;

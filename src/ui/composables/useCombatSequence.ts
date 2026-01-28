@@ -1,6 +1,15 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue';
-import type { CombatAnimationEvent, AnimationDisplayState } from './useCombatAnimationQueue';
-import type { TheatreCombatData } from './useTheatreHealth';
+
+/**
+ * Roll event data for attack sequence.
+ */
+export interface RollEventData {
+  attackerId?: string;
+  attackerName?: string;
+  targetIds?: string[];
+  targetNames?: string[];
+  hits?: number;
+}
 
 /**
  * Target info for attack sequence.
@@ -25,7 +34,7 @@ export interface CombatSequenceReturn {
   attackMissed: ComputedRef<boolean>;
 
   // Methods
-  startAttackSequence: (rollEvent: AnimationDisplayState, queue: CombatAnimationEvent[], startPos: number, findCombatantId: (name: string) => string | null) => void;
+  startAttackSequence: (rollEvent: RollEventData, findCombatantId: (name: string) => string | null) => void;
   clearAttackSequence: () => void;
   isCurrentAttacker: (combatantId: string) => boolean;
   isCurrentTarget: (combatantId: string) => boolean;
@@ -68,11 +77,11 @@ export function useCombatSequence(): CombatSequenceReturn {
    * When a roll event starts, capture the attacker and targets.
    * Uses targetIds from the roll event (declared targets) so we can highlight
    * targets even when the attack misses (no damage events).
+   *
+   * Note: Death events are handled separately via markTargetDead() when they play.
    */
   function startAttackSequence(
-    rollEvent: AnimationDisplayState,
-    queue: CombatAnimationEvent[],
-    startPos: number,
+    rollEvent: RollEventData,
     findCombatantId: (name: string) => string | null
   ): void {
     // Find attacker ID - prefer ID from event, fallback to name lookup
@@ -103,30 +112,6 @@ export function useCombatSequence(): CombatSequenceReturn {
         const targetId = findCombatantId(targetName);
         if (targetId) {
           targets.set(targetId, { isTarget: true, isDead: false });
-        }
-      }
-    }
-
-    // ALSO look ahead for death events to mark targets as dead
-    if (queue && Array.isArray(queue)) {
-      for (let i = startPos; i < queue.length; i++) {
-        const e = queue[i];
-        if (!e) continue;
-
-        // Stop if we hit a different attacker's roll
-        if (e.type === 'roll' && i > startPos) {
-          break;
-        }
-
-        if (e.type === 'death' && e.targetName) {
-          const targetId = e.targetId || findCombatantId(e.targetName);
-          if (targetId) {
-            const existing = targets.get(targetId);
-            targets.set(targetId, {
-              isTarget: existing?.isTarget || true,
-              isDead: true,
-            });
-          }
         }
       }
     }

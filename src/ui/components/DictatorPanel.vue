@@ -126,7 +126,7 @@ const isInActionFlow = computed(() => {
 });
 
 // Check if we're in Castro's hire action
-// Note: Castro hire now uses the main hiring phase UI in GameBoard.vue
+// Note: Castro hire now uses the main hiring phase UI in GameTable.vue
 const isCastroHiring = computed(() => {
   return props.actionController.currentAction.value === 'castroBonusHire';
 });
@@ -141,7 +141,7 @@ const isSelectingMerc = computed(() => {
 // Check if we're selecting a sector (Castro hire, Kim militia, base location, or reinforce)
 const isSelectingSector = computed(() => {
   const currentAction = props.actionController.currentAction.value;
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
   if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia') {
@@ -161,7 +161,7 @@ const isSelectingSector = computed(() => {
 // Check if we're selecting equipment type for the dictator
 const isSelectingEquipmentType = computed(() => {
   const currentAction = props.actionController.currentAction.value;
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Equipment selection happens in both playTactics (base reveal via tactics) and chooseKimBase (Day 1 setup)
   return (currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'dictatorEquipment';
@@ -170,7 +170,7 @@ const isSelectingEquipmentType = computed(() => {
 // Get equipment type choices
 const equipmentTypeChoices = computed(() => {
   if (!isSelectingEquipmentType.value) return [];
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return [];
   const choices = props.actionController.getChoices(sel) || [];
   return choices.map((c: any) => ({
@@ -179,7 +179,7 @@ const equipmentTypeChoices = computed(() => {
   }));
 });
 
-// Note: Castro's hire is now handled by the main hiring UI in GameBoard.vue
+// Note: Castro's hire is now handled by the main hiring UI in GameTable.vue
 // This panel only handles Kim's militia placement
 const selectableMercs = computed(() => {
   // Castro's hire uses the main hiring UI - return empty
@@ -197,7 +197,7 @@ function getSectorImageFallback(sectorType: string): string {
 // Get selectable sectors for placement - includes full sector data
 const selectableSectors = computed(() => {
   if (!isSelectingSector.value) return [];
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return [];
 
   // Use validElements for element-based selections (like reinforce sector)
@@ -276,14 +276,14 @@ const selectableSectors = computed(() => {
 
 // Handle equipment type selection (receives value string from DrawEquipmentType)
 async function selectEquipmentType(value: string) {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return;
   await props.actionController.fill(sel.name, value);
 }
 
 // Handle MERC selection for Castro hire
 async function selectMercToHire(merc: any) {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return;
   // Use _choiceValue if available (from our processing), otherwise fall back
   const value = merc._choiceValue ?? merc.combatantId ?? merc.value;
@@ -292,7 +292,7 @@ async function selectMercToHire(merc: any) {
 
 // Handle sector selection for placement
 async function selectSector(sector: any) {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return;
   // Use _choiceValue if available (element ID), then fallback to sectorName for base location, sectorId for others
   const value = sector._choiceValue ?? (sel.name === 'baseLocation' ? sector.sectorName : sector.sectorId);
@@ -300,14 +300,14 @@ async function selectSector(sector: any) {
 }
 
 // Get current selection from action controller
-const currentSelection = computed(() => {
+const currentPick = computed(() => {
   if (!isInActionFlow.value) return null;
-  return props.actionController.currentSelection.value;
+  return props.actionController.currentPick.value;
 });
 
 // Check if current selection is for tactics card
 const isSelectingTacticsCard = computed(() => {
-  const sel = currentSelection.value;
+  const sel = currentPick.value;
   if (!sel) return false;
   const selName = (sel.name || '').toLowerCase();
   const selPrompt = (sel.prompt || '').toLowerCase();
@@ -366,7 +366,7 @@ async function handleAction(actionName: string) {
 
 // Handle tactics card selection
 async function selectTacticsCard(card: any) {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return;
 
   const value = card._choiceValue !== undefined ? card._choiceValue : card.id;
@@ -390,7 +390,7 @@ watch(() => props.actionController.currentAction.value, (newAction) => {
 
 // Determine if panel-content has anything to show
 const hasContentToShow = computed(() => {
-  return (isInActionFlow.value && currentSelection.value) ||
+  return (isInActionFlow.value && currentPick.value) ||
          dictatorActions.value.length > 0 ||
          !props.isMyTurn;
 });
@@ -458,10 +458,10 @@ const dictatorCardData = computed(() => ({
     <!-- Main content area (hidden when empty) -->
     <div v-if="hasContentToShow" class="panel-content">
       <!-- Action Flow: Show selection UI when in action -->
-      <template v-if="isInActionFlow && currentSelection">
+      <template v-if="isInActionFlow && currentPick">
         <div class="action-flow">
           <div class="action-flow-header">
-            <span class="action-flow-title">{{ currentSelection.prompt || 'Select' }}</span>
+            <span class="action-flow-title">{{ currentPick.prompt || 'Select' }}</span>
             <button class="cancel-btn" @click="cancelAction">Cancel</button>
           </div>
 

@@ -294,7 +294,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       for (const rebel of game.rebelPlayers) {
         const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
           rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.position}`) > 0;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
 
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
@@ -553,7 +553,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       for (const rebel of game.rebelPlayers) {
         const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
           rebel.secondarySquad.sectorId === targetSector.sectorId;
-        const hasMilitia = targetSector.getRebelMilitia(`${rebel.position}`) > 0;
+        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
 
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);

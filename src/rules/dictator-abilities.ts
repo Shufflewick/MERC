@@ -219,7 +219,7 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
   for (const rebel of game.rebelPlayers) {
     const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
       rebel.secondarySquad.sectorId === targetSector.sectorId;
-    const hasMilitia = targetSector.getRebelMilitia(`${rebel.position}`) > 0;
+    const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
 
     if (hasSquad || hasMilitia) {
       game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);

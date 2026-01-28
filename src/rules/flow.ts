@@ -291,7 +291,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   if (game.pendingCombat && !game.activeCombat) {
                     const sector = game.getSector(game.pendingCombat.sectorId);
                     const player = game.rebelPlayers.find(
-                      p => `${p.position}` === game.pendingCombat!.playerId
+                      p => `${p.seat}` === game.pendingCombat!.playerId
                     );
                     if (sector && player) {
                       executeCombat(game, sector, player);
@@ -434,6 +434,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             do: sequence(
               execute(() => {
                 // Safety: Clear any stale rebel combat state (shouldn't happen but defensive)
+                // Note: With flush:'sync' watcher, UI receives events before this clear happens
                 if (game.activeCombat) {
                   game.message('Warning: Clearing stale combat state');
                   clearActiveCombat(game);
@@ -586,7 +587,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     if (game.pendingCombat && !game.activeCombat) {
                       const sector = game.getSector(game.pendingCombat.sectorId);
                       const player = game.rebelPlayers.find(
-                        p => `${p.position}` === game.pendingCombat!.playerId
+                        p => `${p.seat}` === game.pendingCombat!.playerId
                       );
                       if (sector && player) {
                         executeCombat(game, sector, player);

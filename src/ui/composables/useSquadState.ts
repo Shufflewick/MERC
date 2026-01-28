@@ -50,14 +50,14 @@ export interface SquadStateReturn {
  * Extracts squad data for both rebel and dictator players.
  *
  * @param getGameView - Getter function that returns the current gameView
- * @param playerPosition - Current player's position (ref or number)
+ * @param playerSeat - Current player's seat (ref or number)
  * @param currentPlayerIsDictator - Whether current player is the dictator
  * @param sectors - Computed sectors array for looking up sector names
  * @param players - Computed players array for color lookup
  */
 export function useSquadState(
   getGameView: () => any,
-  playerPosition: Ref<number> | number,
+  playerSeat: Ref<number> | number,
   currentPlayerIsDictator: ComputedRef<boolean>,
   sectors: ComputedRef<Sector[]>,
   players: ComputedRef<Player[]>
@@ -66,16 +66,16 @@ export function useSquadState(
     useGameViewHelpers(getGameView);
 
   /**
-   * Helper to get player position from squad.
-   * Tries various ways to extract the position.
+   * Helper to get player seat from squad.
+   * Tries various ways to extract the seat.
    */
-  function getSquadPlayerPosition(squad: any): number {
-    // Try various ways to get player position
-    const player = getAttr<{ position?: number } | null>(squad, 'player', null);
-    if (player?.position !== undefined) return player.position;
-    if (squad.player?.position !== undefined) return squad.player.position;
-    const playerPos = getAttr<number | undefined>(squad, 'playerPosition', undefined);
-    if (playerPos !== undefined) return playerPos;
+  function getSquadPlayerSeat(squad: any): number {
+    // Try various ways to get player seat
+    const player = getAttr<{ seat?: number } | null>(squad, 'player', null);
+    if (player?.seat !== undefined) return player.seat;
+    if (squad.player?.seat !== undefined) return squad.player.seat;
+    const playerSeatVal = getAttr<number | undefined>(squad, 'playerSeat', undefined);
+    if (playerSeatVal !== undefined) return playerSeatVal;
     // Try checking ref for player number
     const ref = squad.ref || '';
     let match = ref.match(/player-?(\d+)/i);
@@ -135,12 +135,12 @@ export function useSquadState(
 
   // Get current player's primary squad (rebel)
   const primarySquad = computed<SquadState | undefined>(() => {
-    const pos = unref(playerPosition);
+    const pos = unref(playerSeat);
     const squads = findAllByClassName('Squad');
     const squad = squads.find((s: any) => {
-      const playerPos = getSquadPlayerPosition(s);
+      const squadSeat = getSquadPlayerSeat(s);
       const isPrimary = getAttr<boolean>(s, 'isPrimary', false);
-      return playerPos === pos && isPrimary === true;
+      return squadSeat === pos && isPrimary === true;
     });
 
     if (!squad) return undefined;
@@ -168,13 +168,13 @@ export function useSquadState(
 
   // Get current player's secondary squad (rebel)
   const secondarySquad = computed<SquadState | undefined>(() => {
-    const pos = unref(playerPosition);
+    const pos = unref(playerSeat);
     const squads = findAllByClassName('Squad');
     const squad = squads.find((s: any) => {
-      const playerPos = getSquadPlayerPosition(s);
+      const squadSeat = getSquadPlayerSeat(s);
       // Default true so we exclude unless explicitly false
       const isPrimary = getAttr<boolean>(s, 'isPrimary', true);
-      return playerPos === pos && isPrimary === false;
+      return squadSeat === pos && isPrimary === false;
     });
 
     if (!squad) return undefined;
@@ -302,25 +302,25 @@ export function useSquadState(
     for (const squad of squads) {
       const sectorId = getAttr<string>(squad, 'sectorId', '');
 
-      // Get player color from squad's player position
-      const playerPos = getSquadPlayerPosition(squad);
+      // Get player color from squad's player seat
+      const squadSeat = getSquadPlayerSeat(squad);
       const squadName = getAttr<string>(squad, 'name', '') || squad.ref || '';
       const isDictatorSquad = squadName.includes('dictator');
 
       let playerColor = '';
       if (isDictatorSquad) {
         playerColor = 'dictator';
-      } else if (playerPos >= 0) {
-        const player = players.value.find((p) => p.position === playerPos);
+      } else if (squadSeat >= 0) {
+        const player = players.value.find((p) => p.seat === squadSeat);
         if (!player) {
           console.warn(
-            '[allMercs] No player found for squad position',
-            playerPos,
+            '[allMercs] No player found for squad seat',
+            squadSeat,
             'squad:',
             squadName
           );
         } else if (!player.playerColor) {
-          console.warn('[allMercs] Player has no color for position', playerPos);
+          console.warn('[allMercs] Player has no color for seat', squadSeat);
         }
         playerColor = player?.playerColor || '';
       }

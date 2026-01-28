@@ -41,7 +41,7 @@ describe('Team Limit', () => {
 
       // Clear any existing dictator militia and add rebel militia
       sector1.dictatorMilitia = 0;
-      sector1.addRebelMilitia(`${rebel.position}`, 3);
+      sector1.addRebelMilitia(`${rebel.seat}`, 3);
 
       // Verify rebel now controls 1 sector
       const controlled1 = game.getControlledSectors(rebel);
@@ -50,7 +50,7 @@ describe('Team Limit', () => {
 
       // Control a second sector
       sector2.dictatorMilitia = 0;
-      sector2.addRebelMilitia(`${rebel.position}`, 3);
+      sector2.addRebelMilitia(`${rebel.seat}`, 3);
 
       // Verify rebel now controls 2 sectors
       const controlled2 = game.getControlledSectors(rebel);

@@ -179,7 +179,7 @@ describe('Victory/Defeat Conditions', () => {
 
       // Clear any militia - directly set the rebelMilitia record
       for (const sector of game.gameMap.getAllSectors()) {
-        sector.rebelMilitia[`${rebel.position}`] = 0;
+        sector.rebelMilitia[`${rebel.seat}`] = 0;
       }
 
       expect(game.allRebelUnitsEliminated()).toBe(true);
@@ -243,7 +243,7 @@ describe('Victory/Defeat Conditions', () => {
       game.currentDay = 2;
 
       // No mercs but has militia - directly set the rebelMilitia record
-      sector.rebelMilitia[`${rebel.position}`] = 1;
+      sector.rebelMilitia[`${rebel.seat}`] = 1;
 
       expect(game.allRebelUnitsEliminated()).toBe(false);
     });

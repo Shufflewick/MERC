@@ -11,7 +11,7 @@ export interface ActionStateProps {
   availableActions: string[];
   actionController: {
     currentAction: Ref<string | null>;
-    currentSelection: Ref<any>;
+    currentPick: Ref<any>;
     currentArgs: Ref<Record<string, unknown> | undefined>;
     getChoices: (selection: any) => any[];
     fill: (selectionName: string, value: any) => Promise<void>;
@@ -21,7 +21,7 @@ export interface ActionStateProps {
   };
   actionArgs: Record<string, unknown>;
   state?: { state?: Record<string, any> };
-  playerPosition: number;
+  playerSeat: number;
   gameView?: any;
   isCurrentPlayerDictator?: () => boolean;
 }
@@ -33,7 +33,7 @@ export interface ActionStateReturn {
   // Core state
   actionChoices: ComputedRef<Record<string, unknown>>;
   currentActionMetadata: ComputedRef<any>;
-  currentSelection: ComputedRef<any>;
+  currentPick: ComputedRef<any>;
   allSelectionsComplete: ComputedRef<boolean>;
   getCurrentActionName: () => string | null;
 
@@ -122,7 +122,7 @@ export interface HagnessSquadMate {
  * Composable for action-related state derivation.
  * Extracts action type flags, selection state, and derived action data.
  *
- * @param props - Action state props from GameBoard
+ * @param props - Action state props from GameTable
  * @param sectors - Computed sectors array from useSectorState
  * @param primarySquad - Computed primary squad from useSquadState
  * @param secondarySquad - Computed secondary squad from useSquadState
@@ -181,12 +181,12 @@ export function useActionState(
     return null;
   });
 
-  // Get the current selection (first one that hasn't been filled yet)
-  // Prefers actionController.currentSelection when an action is active via actionController
-  const currentSelection = computed(() => {
-    // When an action is active via actionController, use its currentSelection
-    if (props.actionController.currentAction.value && props.actionController.currentSelection.value) {
-      return props.actionController.currentSelection.value;
+  // Get the current pick (first selection that hasn't been filled yet)
+  // Prefers actionController.currentPick when an action is active via actionController
+  const currentPick = computed(() => {
+    // When an action is active via actionController, use its currentPick
+    if (props.actionController.currentAction.value && props.actionController.currentPick.value) {
+      return props.actionController.currentPick.value;
     }
 
     // Fall back to flow state metadata approach
@@ -269,7 +269,7 @@ export function useActionState(
     const currentAction = props.actionController.currentAction.value;
     if (props.availableActions.includes('selectDictator')) return true;
     if (currentAction === 'selectDictator') {
-      return props.actionController.currentSelection.value !== null;
+      return props.actionController.currentPick.value !== null;
     }
     return false;
   });
@@ -289,7 +289,7 @@ export function useActionState(
   // Check if we're selecting a retreat sector (combatRetreat action needs retreatSector)
   const isSelectingRetreatSector = computed(() => {
     const currentAction = props.actionController.currentAction.value;
-    const currentSel = props.actionController.currentSelection.value;
+    const currentSel = props.actionController.currentPick.value;
     return currentAction === 'combatRetreat' && currentSel?.name === 'retreatSector';
   });
 
@@ -300,7 +300,7 @@ export function useActionState(
 
   // Check if current selection is for equipment type (Day 1 hiring or Castro hire)
   const isSelectingEquipmentType = computed(() => {
-    const selection = currentSelection.value;
+    const selection = currentPick.value;
     return selection?.name === 'equipmentType';
   });
 
@@ -311,7 +311,7 @@ export function useActionState(
 
   // Check if current selection is for sector (Castro hire placement)
   const isSelectingSector = computed(() => {
-    const selection = currentSelection.value;
+    const selection = currentPick.value;
     return selection?.name === 'targetSector';
   });
 
@@ -360,7 +360,7 @@ export function useActionState(
   // Get retreat sector choices when selecting retreat destination
   const retreatSectorChoices = computed<RetreatSectorChoice[]>(() => {
     if (!isSelectingRetreatSector.value) return [];
-    const currentSel = props.actionController.currentSelection.value;
+    const currentSel = props.actionController.currentPick.value;
     if (!currentSel) return [];
     const choices = props.actionController.getChoices(currentSel) || [];
 
@@ -388,7 +388,7 @@ export function useActionState(
   // Get sector choices for Castro hire placement - includes full sector data
   const sectorChoices = computed<SectorChoice[]>(() => {
     if (!isSelectingSector.value) return [];
-    const selection = currentSelection.value;
+    const selection = currentPick.value;
     if (!selection) return [];
     const choices = props.actionController.getChoices(selection) || [];
     return choices.map((choice: any) => {
@@ -422,7 +422,7 @@ export function useActionState(
   // Normalize to array of { value, label } objects
   const equipmentTypeChoices = computed<Array<{ value: string; label: string }>>(() => {
     if (!isSelectingEquipmentType.value) return [];
-    const selection = currentSelection.value;
+    const selection = currentPick.value;
     if (!selection) return [];
     // Use actionController getter (not selection.choices)
     const choices = props.actionController.getChoices(selection) || [];
@@ -569,7 +569,7 @@ export function useActionState(
     }
 
     // Fallback to game state locations
-    const playerKey = `${props.playerPosition}`;
+    const playerKey = `${props.playerSeat}`;
     const equipmentType = props.actionArgs['equipmentType'] as string | undefined;
 
     // Try typed key first (playerKey:equipmentType), then plain playerKey for backwards compat
@@ -643,7 +643,7 @@ export function useActionState(
     // Core state
     actionChoices,
     currentActionMetadata,
-    currentSelection,
+    currentPick,
     allSelectionsComplete,
     getCurrentActionName,
 

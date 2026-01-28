@@ -1,13 +1,45 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { GameShell, useActionAnimations, FlyingCardsOverlay } from 'boardsmith/ui';
+import { ref, watch, computed } from 'vue';
+import { GameShell, useActionAnimations, FlyingCardsOverlay, createAnimationEvents, provideAnimationEvents } from 'boardsmith/ui';
 import type { UseActionControllerReturn } from 'boardsmith/ui';
-import GameBoard from './components/GameBoard.vue';
+import GameTable from './components/GameTable.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import DetailModal from './components/DetailModal.vue';
 import CombatantCard from './components/CombatantCard.vue';
 import { UI_COLORS } from './colors';
 import { lastActionWasDragDrop, quickReassignInProgress } from './drag-drop-state';
+
+// =============================================================================
+// Animation Events Setup (must be provided before GameShell renders ActionPanel)
+// =============================================================================
+
+// Store refs from slot for animation events - these get updated when GameTable mounts
+const slotState = ref<any>(null);
+const slotActionController = ref<UseActionControllerReturn | null>(null);
+
+// Computed getter for animation events from state
+const animationEventsFromState = computed(() => {
+  const state = slotState.value;
+  if (!state) return [];
+  return state.state?.animationEvents || state.animationEvents || [];
+});
+
+// Create animation events context - uses the reactive refs
+const animationEvents = createAnimationEvents({
+  events: () => animationEventsFromState.value,
+  acknowledge: (upToId) => {
+    // Execute the acknowledgeAnimations action to tell the server we've processed events
+    const controller = slotActionController.value;
+    if (controller) {
+      controller.execute('acknowledgeAnimations', { upToId }).catch(() => {
+        // Ignore errors - action may fail if already acknowledged or not available
+      });
+    }
+  },
+});
+
+// Provide animation events so ActionPanel and child components can access them
+provideAnimationEvents(animationEvents);
 
 // Modal state for combatant details
 const showCombatantModal = ref(false);
@@ -179,10 +211,10 @@ function closeCombatantModal() {
     :player-count="2"
     :default-a-i-players="[1]"
   >
-    <template #game-board="{ state, gameView, playerPosition, isMyTurn, availableActions, actionArgs, actionController, setBoardPrompt }">
-      <GameBoard
+    <template #game-board="{ state, gameView, playerSeat, isMyTurn, availableActions, actionArgs, actionController, setBoardPrompt }">
+      <GameTable
         :game-view="gameView"
-        :player-position="playerPosition"
+        :player-seat="playerSeat"
         :is-my-turn="isMyTurn"
         :available-actions="availableActions"
         :action-args="actionArgs"
@@ -190,6 +222,7 @@ function closeCombatantModal() {
         :set-board-prompt="setBoardPrompt"
         :state="state"
         :flying-combatant-name="flyingCombatantName"
+        @animation-context-ready="(s, ac) => { slotState = s; slotActionController = ac; }"
         @vue:mounted="setupAnimations(actionController, gameView)"
         @vue:updated="syncGameView(gameView)"
       />
@@ -446,7 +479,7 @@ function getControlledSectors(player: any, gameView: any): number {
   if (!gameView?.children) return 0;
 
   const playerAttrs = player.attributes || player;
-  const playerId = String(playerAttrs.position);
+  const playerId = String(playerAttrs.seat);
   const primaryRef = playerAttrs.primarySquadRef;
   const secondaryRef = playerAttrs.secondarySquadRef;
 

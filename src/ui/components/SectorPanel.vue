@@ -31,9 +31,9 @@ const props = defineProps<{
     rebelMilitia: Record<string, number>;
     image?: string;
   };
-  playerPosition: number;
+  playerSeat: number;
   playerColor: string;  // Current player's color name (e.g., 'red', 'blue')
-  playerColorMap?: Record<string, string>;  // Maps player position to color name
+  playerColorMap?: Record<string, string>;  // Maps player seat to color name
   allMercsInSector?: Array<{
     combatantId?: string;
     combatantName?: string;
@@ -430,7 +430,7 @@ const baseIconStyle = computed(() => {
 
 // Calculate total rebel militia for this player
 const playerMilitia = computed(() => {
-  return props.sector.rebelMilitia[String(props.playerPosition)] || 0;
+  return props.sector.rebelMilitia[String(props.playerSeat)] || 0;
 });
 
 // All rebel militia entries with color mapping (for multi-team display)
@@ -617,29 +617,29 @@ const isInActionFlow = computed(() => {
 });
 
 // Get current selection from action controller
-const currentSelection = computed(() => {
+const currentPick = computed(() => {
   if (!isInActionFlow.value) return null;
-  return props.actionController.currentSelection.value;
+  return props.actionController.currentPick.value;
 });
 
 // Get choices for current selection
 const currentChoices = computed(() => {
-  if (!currentSelection.value) return [];
-  return props.actionController.getChoices(currentSelection.value);
+  if (!currentPick.value) return [];
+  return props.actionController.getChoices(currentPick.value);
 });
 
 // Get valid elements for element selection - use reactive computed from actionController
 const validElements = computed(() => {
-  if (!currentSelection.value) return [];
+  if (!currentPick.value) return [];
   // Use the reactive validElements computed - auto-updates when choices load
   return props.actionController.validElements.value || [];
 });
 
 // Get choices (for choice selections or element selections that use choices)
 const selectionChoices = computed(() => {
-  if (!currentSelection.value) return [];
+  if (!currentPick.value) return [];
   // Use getChoices from actionController
-  return props.actionController.getChoices(currentSelection.value);
+  return props.actionController.getChoices(currentPick.value);
 });
 
 // Get all available MERCs (from all squads in sector)
@@ -659,7 +659,7 @@ const allAvailableMercs = computed(() => {
 
 // Check if current selection is for MERC (or unit - includes dictator card)
 const isSelectingMerc = computed(() => {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return false;
 
   // Check selection name/prompt for MERC-related keywords
@@ -684,7 +684,7 @@ const isSelectingMerc = computed(() => {
 
 // Check if current selection is for equipment
 const isSelectingEquipment = computed(() => {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return false;
 
   // If this is an equipment TYPE selection (Weapon/Armor/Accessory), not equipment items
@@ -840,7 +840,7 @@ const pendingSlotType = computed((): 'Weapon' | 'Armor' | 'Accessory' | null => 
 
 // Check if current selection is for equipment type (Weapon/Armor/Accessory)
 const isSelectingEquipmentType = computed(() => {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   return sel.name === 'equipmentType';
 });
@@ -848,7 +848,7 @@ const isSelectingEquipmentType = computed(() => {
 // Get equipment type choices normalized to {value, label} format
 const equipmentTypeChoices = computed(() => {
   if (!isSelectingEquipmentType.value) return [];
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return [];
   const choices = props.actionController.getChoices(sel) || [];
   return choices.map((choice: any) => {
@@ -861,20 +861,20 @@ const equipmentTypeChoices = computed(() => {
 
 // Check if it's a generic choice selection (not MERC, equipment, or equipment type)
 const isSelectingChoice = computed(() => {
-  if (!currentSelection.value) return false;
+  if (!currentPick.value) return false;
   // Skip if it's an equipment type selection (handled specially)
   if (isSelectingEquipmentType.value) return false;
   // If we have choices but they're not MERCs or equipment, show as generic choices
   if (selectionChoices.value.length > 0 && !isSelectingMerc.value && !isSelectingEquipment.value) {
     return true;
   }
-  return currentSelection.value.type === 'choice' && !isSelectingMerc.value && !isSelectingEquipment.value;
+  return currentPick.value.type === 'choice' && !isSelectingMerc.value && !isSelectingEquipment.value;
 });
 
 // Get selectable items (from validElements or choices)
 const selectableItems = computed(() => {
   // Get choices from action controller
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return [];
 
   const choices = props.actionController.getChoices(sel);
@@ -1114,7 +1114,7 @@ async function handleAction(actionName: string) {
   await props.actionController.start(actionName);
 
   // For in-sector actions, auto-fill the unit if there's only one in this sector
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (sel && (sel.name === 'actingUnit' || sel.name === 'actingMerc' || sel.name === 'unit')) {
     const mercsInSector = allAvailableMercs.value;
     if (mercsInSector.length === 1) {
@@ -1139,7 +1139,7 @@ async function handleAction(actionName: string) {
 
 // Handle MERC selection
 async function selectMerc(item: any) {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (!sel) return;
 
   // Use _choiceValue if available (from our enriched items)
@@ -1157,9 +1157,9 @@ async function selectMerc(item: any) {
 
 // Handle equipment selection
 async function selectEquipment(item: any) {
-  if (!currentSelection.value) return;
+  if (!currentPick.value) return;
 
-  const selName = currentSelection.value.name;
+  const selName = currentPick.value.name;
   const value = item._choiceValue !== undefined ? item._choiceValue : getAttr(item, 'id', null);
 
   if (value !== null) {
@@ -1169,8 +1169,8 @@ async function selectEquipment(item: any) {
 
 // Handle choice selection
 async function selectChoice(choice: any) {
-  if (!currentSelection.value) return;
-  await props.actionController.fill(currentSelection.value.name, choice.value);
+  if (!currentPick.value) return;
+  await props.actionController.fill(currentPick.value.name, choice.value);
 }
 
 // Handle equipment type selection
@@ -1180,14 +1180,14 @@ async function selectEquipmentType(value: string) {
 
 // Check if current selection is optional (can be skipped)
 const isCurrentSelectionOptional = computed(() => {
-  return currentSelection.value?.optional !== undefined;
+  return currentPick.value?.optional !== undefined;
 });
 
 // Done button - skip the optional selection
 async function doneAction() {
-  if (!currentSelection.value) return;
+  if (!currentPick.value) return;
   // Skip the optional selection by filling with null
-  props.actionController.skip(currentSelection.value.name);
+  props.actionController.skip(currentPick.value.name);
 }
 
 // Cancel current action (only for non-optional selections)
@@ -1213,7 +1213,7 @@ const sectorTypeIcon = computed(() => {
 
 // Determine if panel-content has anything to show (only action flow)
 const hasContentToShow = computed(() => {
-  return isInActionFlow.value && currentSelection.value;
+  return isInActionFlow.value && currentPick.value;
 });
 </script>
 
@@ -1360,10 +1360,10 @@ const hasContentToShow = computed(() => {
     <!-- Main content area (action flow only) -->
     <div v-if="hasContentToShow" class="panel-content">
       <!-- Action Flow: Show selection UI when in action -->
-      <template v-if="isInActionFlow && currentSelection">
+      <template v-if="isInActionFlow && currentPick">
         <div class="action-flow">
           <div class="action-flow-header">
-            <span class="action-flow-title">{{ currentSelection.prompt || 'Select' }}</span>
+            <span class="action-flow-title">{{ currentPick.prompt || 'Select' }}</span>
             <button
               v-if="isCurrentSelectionOptional"
               class="done-btn"

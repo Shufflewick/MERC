@@ -143,13 +143,13 @@ export function isPrivacyPlayer(game: MERCGame, playerId: string): boolean {
  * Get the privacy player.
  * MERC-q4v: Per rules, returns the designated Rebel player for AI decisions.
  */
-export function getPrivacyPlayer(game: MERCGame): { name: string; position: number } | null {
+export function getPrivacyPlayer(game: MERCGame): { name: string; seat: number } | null {
   const privacyId = game.dictatorPlayer.privacyPlayerId;
   if (!privacyId) return null;
 
-  const rebel = game.rebelPlayers.find(r => r.position.toString() === privacyId);
+  const rebel = game.rebelPlayers.find(r => r.seat.toString() === privacyId);
   if (rebel) {
-    return { name: rebel.name ?? '', position: rebel.position };
+    return { name: rebel.name ?? '', seat: rebel.seat };
   }
   return null;
 }

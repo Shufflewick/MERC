@@ -910,7 +910,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
           return ['(select equipment type first)'];
         }
         const player = ctx.player as MERCPlayer;
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory' | undefined;
 
         // During availability check, equipmentType won't be set - return placeholder
@@ -1003,7 +1003,7 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
-      const playerId = `${player.position}`;
+      const playerId = `${player.seat}`;
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const cacheKey = getHagnessCacheKey(playerId, equipmentType);
       const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
@@ -1280,7 +1280,7 @@ function getMortarTargets(game: MERCGame, fromSector: Sector, player: any): Sect
       );
       // Check for rebel militia
       const hasRebelMilitia = game.rebelPlayers.some(rebel =>
-        sector.getRebelMilitia(`${rebel.position}`) > 0
+        sector.getRebelMilitia(`${rebel.seat}`) > 0
       );
       return hasRebelMercs || hasRebelMilitia;
     });
@@ -1310,7 +1310,7 @@ function countEnemyTargetsInSector(game: MERCGame, sector: Sector, player: any):
     // Count rebel targets
     for (const rebel of game.rebelPlayers) {
       count += rebel.team.filter(m => m.sectorId === sector.sectorId && !m.isDead).length;
-      count += sector.getRebelMilitia(`${rebel.position}`);
+      count += sector.getRebelMilitia(`${rebel.seat}`);
     }
   }
 
@@ -1492,10 +1492,10 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
           }
 
           // Damage rebel militia
-          const rebelMilitia = targetSector.getRebelMilitia(`${rebel.position}`);
+          const rebelMilitia = targetSector.getRebelMilitia(`${rebel.seat}`);
           if (rebelMilitia > 0) {
             const militiaKilled = Math.min(mortarDamage, rebelMilitia);
-            targetSector.removeRebelMilitia(`${rebel.position}`, militiaKilled);
+            targetSector.removeRebelMilitia(`${rebel.seat}`, militiaKilled);
             totalDamage++;
             game.message(`Mortar kills ${militiaKilled} rebel militia`);
           }

@@ -1,5 +1,15 @@
 import { ref, type Ref, type ComputedRef } from 'vue';
-import type { CombatAnimationEvent } from './useCombatAnimationQueue';
+
+/**
+ * Minimal animation event shape used for health initialization.
+ * This is compatible with both the old TheatreAnimationEvent and BoardSmith AnimationEvent types.
+ */
+export interface TheatreAnimationEvent {
+  type: string;
+  damage?: number;
+  targetId?: string;
+  targetName?: string;
+}
 
 /**
  * Combatant data shape for theatre health tracking.
@@ -34,7 +44,7 @@ export interface TheatreHealthReturn {
   deadCombatants: Ref<Set<string>>;
 
   // Methods
-  initializeDisplayHealth: (events: CombatAnimationEvent[], combat: TheatreCombatData | null) => void;
+  initializeDisplayHealth: (events: TheatreAnimationEvent[], combat: TheatreCombatData | null) => void;
   getDisplayHealth: (combatantId: string, actualHealth: number, isAnimating: boolean) => number;
   applyDisplayDamage: (targetId: string | null, targetName: string | null, damage: number, combat: TheatreCombatData | null) => void;
   findCombatantIdByName: (name: string, combat: TheatreCombatData | null) => string | null;
@@ -77,7 +87,7 @@ export function useTheatreHealth(): TheatreHealthReturn {
    */
   function computeStartingHealth(
     combatant: TheatreCombatant,
-    events: CombatAnimationEvent[]
+    events: TheatreAnimationEvent[]
   ): number {
     const combatantId = getCombatantId(combatant);
     const combatantName = (combatant.name || '').toLowerCase();
@@ -109,7 +119,7 @@ export function useTheatreHealth(): TheatreHealthReturn {
    * This computes what their health was BEFORE any animation events played.
    * IMPORTANT: Combatants who have already died stay dead (health = 0).
    */
-  function initializeDisplayHealth(events: CombatAnimationEvent[], combat: TheatreCombatData | null): void {
+  function initializeDisplayHealth(events: TheatreAnimationEvent[], combat: TheatreCombatData | null): void {
     if (!events || events.length === 0) return;
     if (!combat) return;
 

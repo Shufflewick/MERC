@@ -34,7 +34,7 @@ export function calculateRebelStrength(game: MERCGame, sector: Sector): number {
     }
 
     // Add militia (each militia has 1 health, 0 armor)
-    const militia = sector.getRebelMilitia(`${rebel.position}`);
+    const militia = sector.getRebelMilitia(`${rebel.seat}`);
     total += militia; // 1 health each, 0 armor
   }
 
@@ -178,9 +178,9 @@ export function detonateLandMines(
 
   // Damage rebel militia
   for (const rebel of game.rebelPlayers) {
-    const militia = sector.getRebelMilitia(`${rebel.position}`);
+    const militia = sector.getRebelMilitia(`${rebel.seat}`);
     if (militia > 0) {
-      sector.removeRebelMilitia(`${rebel.position}`, 1);
+      sector.removeRebelMilitia(`${rebel.seat}`, 1);
       damageDealt++;
       game.message(`Land mine kills 1 of ${rebel.name}'s militia`);
     }

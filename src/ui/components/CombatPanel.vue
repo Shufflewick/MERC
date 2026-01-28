@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed, ref, watch, onUnmounted, onMounted } from 'vue';
 import { UI_COLORS } from '../colors';
-import { useCombatAnimationQueue, type CombatAnimationEvent, type AnimationDisplayState } from '../composables/useCombatAnimationQueue';
+import { useAnimationEvents } from 'boardsmith/ui';
+import type { AnimationEvent } from 'boardsmith';
 import { useDeathAnimationCoordinator } from '../composables/useDeathAnimationCoordinator';
 import { useTheatreHealth, type TheatreCombatData } from '../composables/useTheatreHealth';
 import { useCombatSequence } from '../composables/useCombatSequence';
@@ -11,6 +12,26 @@ import HitAllocationPanel, { type PendingHitAllocation } from './HitAllocationPa
 import TargetSelectionPanel from './TargetSelectionPanel.vue';
 import AttackDogAssignmentPanel, { type AttackDogTarget } from './AttackDogAssignmentPanel.vue';
 import RetreatSectorSelection, { type RetreatSector } from './RetreatSectorSelection.vue';
+
+// Animation display state for UI
+interface AnimationDisplayState {
+  type: string;
+  attackerName?: string;
+  attackerId?: string;
+  attackerImage?: string;
+  targetName?: string;
+  targetId?: string;
+  targetImage?: string;
+  targetNames?: string[];
+  targetIds?: string[];
+  diceRolls?: number[];
+  hits?: number;
+  hitThreshold?: number;
+  damage?: number;
+  round?: number;
+  rebelVictory?: boolean;
+  dictatorVictory?: boolean;
+}
 
 const props = defineProps<{
   activeCombat: {
@@ -52,9 +73,8 @@ const props = defineProps<{
       validTargets: AttackDogTarget[];
     };
     dogAssignments?: Array<[string, any]>;
-    animationEvents?: CombatAnimationEvent[];
     combatComplete?: boolean;
-  };
+  } | null;
   isMyTurn: boolean;
   availableActions: string[];
   sectorName: string;
@@ -77,21 +97,152 @@ const emit = defineEmits<{
 }>();
 
 // =============================================================================
-// Composables
+// Animation Events (BoardSmith v2.4 Animation Event System)
 // =============================================================================
 
-// Combat animation queue
-const {
-  isAnimating,
-  isFastForward,
-  isPreRoll,
-  currentEvent,
-  eventQueue,
-  queuePosition,
-  queueEventsFromState,
-  fastForward,
-  reset: resetAnimations,
-} = useCombatAnimationQueue();
+// Animation timing constants
+const TIMING = {
+  PRE_ROLL_DELAY: 400,
+  ROLL_DURATION: 1500,
+  POST_ROLL_DELAY: 1000, // Time to display dice results after animation
+  DAMAGE_DURATION: 800,
+  DEATH_DURATION: 1000,
+  PAUSE_BETWEEN: 400,
+  COMBAT_END_DELAY: 1500,
+  // Fast-forward speeds
+  FAST_PRE_ROLL: 50,
+  FAST_ROLL: 100,
+  FAST_POST_ROLL: 100,
+  FAST_DAMAGE: 50,
+  FAST_DEATH: 100,
+  FAST_PAUSE: 25,
+  FAST_COMBAT_END: 200,
+};
+
+// Local display state
+const currentEvent = ref<AnimationDisplayState | null>(null);
+const isPreRoll = ref(false);
+const isFastForward = ref(false);
+
+// Use BoardSmith's animation events (injected by GameTable)
+const animationEvents = useAnimationEvents();
+const isAnimating = computed(() => animationEvents?.isAnimating.value ?? false);
+
+// Helper to get timing based on fast-forward state
+function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end'): number {
+  if (isFastForward.value) {
+    switch (type) {
+      case 'pre-roll': return TIMING.FAST_PRE_ROLL;
+      case 'roll': return TIMING.FAST_ROLL;
+      case 'post-roll': return TIMING.FAST_POST_ROLL;
+      case 'damage': return TIMING.FAST_DAMAGE;
+      case 'death': return TIMING.FAST_DEATH;
+      case 'pause': return TIMING.FAST_PAUSE;
+      case 'combat-end': return TIMING.FAST_COMBAT_END;
+    }
+  }
+  switch (type) {
+    case 'pre-roll': return TIMING.PRE_ROLL_DELAY;
+    case 'roll': return TIMING.ROLL_DURATION;
+    case 'post-roll': return TIMING.POST_ROLL_DELAY;
+    case 'damage': return TIMING.DAMAGE_DURATION;
+    case 'death': return TIMING.DEATH_DURATION;
+    case 'pause': return TIMING.PAUSE_BETWEEN;
+    case 'combat-end': return TIMING.COMBAT_END_DELAY;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Map BoardSmith AnimationEvent to our display state
+function mapEventToDisplayState(event: AnimationEvent): AnimationDisplayState {
+  const data = event.data as Record<string, unknown>;
+  return {
+    type: event.type.replace('combat-', ''), // 'combat-roll' -> 'roll'
+    attackerName: data.attackerName as string | undefined,
+    attackerId: data.attackerId as string | undefined,
+    attackerImage: data.attackerImage as string | undefined,
+    targetName: data.targetName as string | undefined,
+    targetId: data.targetId as string | undefined,
+    targetImage: data.targetImage as string | undefined,
+    targetNames: data.targetNames as string[] | undefined,
+    targetIds: data.targetIds as string[] | undefined,
+    diceRolls: data.diceRolls as number[] | undefined,
+    hits: data.hits as number | undefined,
+    hitThreshold: data.hitThreshold as number | undefined,
+    damage: data.damage as number | undefined,
+    round: data.round as number | undefined,
+    rebelVictory: data.rebelVictory as boolean | undefined,
+    dictatorVictory: data.dictatorVictory as boolean | undefined,
+  };
+}
+
+// Register animation event handlers
+onMounted(() => {
+  if (!animationEvents) {
+    console.warn('[CombatPanel] No animation events context - animations will not play');
+    return;
+  }
+
+  // Roll event handler
+  animationEvents.registerHandler('combat-roll', async (event) => {
+    isPreRoll.value = true;
+    currentEvent.value = mapEventToDisplayState(event);
+    await sleep(getTiming('pre-roll'));
+    isPreRoll.value = false;
+    await sleep(getTiming('roll'));
+    await sleep(getTiming('post-roll')); // Keep dice results visible for 1 second
+  });
+
+  // Damage event handler
+  animationEvents.registerHandler('combat-damage', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
+    await sleep(getTiming('damage'));
+    await sleep(getTiming('pause'));
+  });
+
+  // Death event handler
+  animationEvents.registerHandler('combat-death', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
+    await sleep(getTiming('death'));
+    await sleep(getTiming('pause'));
+  });
+
+  // Round start handler
+  animationEvents.registerHandler('combat-round-start', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
+    await sleep(getTiming('pause'));
+  });
+
+  // Combat end handler
+  animationEvents.registerHandler('combat-end', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
+    sawCombatEndEvent.value = true;
+    await sleep(getTiming('combat-end'));
+  });
+});
+
+// Fast forward function
+function fastForward(): void {
+  isFastForward.value = true;
+}
+
+// Reset for new combat
+function resetAnimations(): void {
+  currentEvent.value = null;
+  isPreRoll.value = false;
+  isFastForward.value = false;
+}
+
+function resetForNewCombat(): void {
+  resetAnimations();
+}
+
+// =============================================================================
+// Composables
+// =============================================================================
 
 // Death animation coordinator
 const {
@@ -135,6 +286,7 @@ const displayCombat = computed(() => {
   if (props.activeCombat) {
     return props.activeCombat;
   }
+  // Use cached data when activeCombat is cleared during animations
   if (isAnimating.value && cachedCombatData.value) {
     return cachedCombatData.value;
   }
@@ -365,26 +517,91 @@ function selectTarget(targetId: string) {
 // Watchers
 // =============================================================================
 
-// Queue animation events
-watch(
-  () => props.activeCombat?.animationEvents,
-  (events) => {
-    if (events && events.length > 0 && !displayHealthInitialized.value) {
-      initializeDisplayHealth(events, displayCombat.value as TheatreCombatData);
-    }
-    queueEventsFromState(events);
-  },
-  { deep: true, immediate: true, flush: 'sync' }
-);
-
-// Coordinate death animations
+// Initialize display health when combat starts or current event changes
+// Animation events are now handled by BoardSmith's useAnimationEvents system
 watch(currentEvent, (event) => {
   if (!event) return;
 
+  // Initialize display health on first event
+  if (!displayHealthInitialized.value && displayCombat.value) {
+    // Create a minimal events array for initialization
+    initializeDisplayHealth([{ type: event.type }] as any, displayCombat.value as TheatreCombatData);
+  }
+
+  // Coordinate death animations
   if (event.type === 'death' && event.targetName) {
     triggerDeathByName(event.targetName);
   }
 });
+
+// =============================================================================
+// Combat Panel State Machine
+// =============================================================================
+// States: IDLE | ANIMATING | WAITING_FOR_INPUT | COMPLETE
+//
+// Transitions:
+//   IDLE → ANIMATING: Animation events playing
+//   ANIMATING → WAITING_FOR_INPUT: Animations done, combatComplete is false
+//   ANIMATING → COMPLETE: Animations done AND (combatComplete is true OR saw combat-end event)
+//   WAITING_FOR_INPUT → ANIMATING: New events arrive
+//   COMPLETE → (emit combat-finished, panel closes)
+//
+// This is event-driven - BoardSmith's useAnimationEvents handles the queue.
+
+type CombatPanelState = 'IDLE' | 'ANIMATING' | 'WAITING_FOR_INPUT' | 'COMPLETE';
+const panelState = ref<CombatPanelState>('IDLE');
+
+// Track if we've seen a combat-end event (definitive signal that combat is over)
+// This is set by the combat-end handler in onMounted
+const sawCombatEndEvent = ref(false);
+
+// Derive state from current conditions
+function computeNextState(): CombatPanelState {
+  const animationsPlaying = isAnimating.value;
+  const hasPendingEvents = (animationEvents?.pendingCount.value ?? 0) > 0;
+  const combatComplete = props.activeCombat?.combatComplete === true;
+
+  // If we're playing animations
+  if (animationsPlaying || hasPendingEvents) {
+    return 'ANIMATING';
+  }
+
+  // Combat is ONLY complete when we have definitive evidence:
+  // 1. combatComplete flag is true, OR
+  // 2. We've seen a combat-end event in the queue
+  // NOT just because activeCombat became null (game might clear it prematurely)
+  if (combatComplete || sawCombatEndEvent.value) {
+    return 'COMPLETE';
+  }
+
+  // Waiting for more events or user input
+  return 'WAITING_FOR_INPUT';
+}
+
+// Handle state transitions
+function transitionState() {
+  const newState = computeNextState();
+  const oldState = panelState.value;
+
+  if (newState !== oldState) {
+    console.log(`[CombatPanel] State: ${oldState} → ${newState}`, {
+      combatComplete: props.activeCombat?.combatComplete,
+      activeCombatExists: props.activeCombat !== null,
+      isAnimating: isAnimating.value,
+      pendingCount: animationEvents?.pendingCount.value ?? 0,
+    });
+
+    panelState.value = newState;
+
+    // Handle state entry actions
+    if (newState === 'COMPLETE') {
+      console.log('[CombatPanel] CLOSING PANEL (state machine)');
+      resetTheatreState();
+      resetAnimations();
+      emit('combat-finished');
+    }
+  }
+}
 
 // Coordinate with death animation system
 watch(isAnimating, (animating) => {
@@ -394,15 +611,26 @@ watch(isAnimating, (animating) => {
   if (!animating) {
     // Reset displayHealthInitialized so the next round's events will trigger initializeDisplayHealth
     displayHealthInitialized.value = false;
+  }
 
-    setTimeout(() => {
-      const combatEnded = !props.activeCombat || props.activeCombat.combatComplete;
-      if (!isAnimating.value && combatEnded) {
-        resetTheatreState();
-        resetAnimations();
-        emit('combat-finished');
-      }
-    }, 100);
+  // Trigger state transition check
+  transitionState();
+});
+
+// Also check state when combatComplete changes
+watch(() => props.activeCombat?.combatComplete, () => {
+  transitionState();
+});
+
+// Also check state when activeCombat becomes null
+watch(() => props.activeCombat, (newVal, oldVal) => {
+  if (oldVal && !newVal) {
+    console.log('[CombatPanel] activeCombat became null', {
+      isAnimating: isAnimating.value,
+      sawCombatEndEvent: sawCombatEndEvent.value,
+    });
+    // Don't force close here - let the state machine handle it based on sawCombatEndEvent
+    transitionState();
   }
 });
 
@@ -411,7 +639,10 @@ watch(() => props.activeCombat?.sectorId, (newSectorId, oldSectorId) => {
   if (newSectorId && newSectorId !== oldSectorId) {
     deadCombatants.value.clear();
     resetTheatreState();
-    resetAnimations();
+    resetForNewCombat();
+    sawCombatEndEvent.value = false;
+    panelState.value = 'IDLE';
+    console.log('[CombatPanel] Reset for new combat in sector:', newSectorId);
   }
 });
 
@@ -471,7 +702,7 @@ watch(isAnimating, (animating) => {
 watch(isPreRoll, (preRoll, wasPreRoll) => {
   if (wasPreRoll && !preRoll && pendingRollEvent.value) {
     const rollEvent = pendingRollEvent.value;
-    startAttackSequence(rollEvent, eventQueue.value, queuePosition.value, findCombatantId);
+    startAttackSequence(rollEvent, findCombatantId);
     pendingRollEvent.value = null;
 
     const isMiss = (rollEvent?.hits || 0) === 0;
@@ -483,7 +714,7 @@ watch(isPreRoll, (preRoll, wasPreRoll) => {
 
 // Cleanup
 onUnmounted(() => {
-  resetAnimations();
+  resetForNewCombat();  // Full cleanup on unmount
   deadCombatants.value.clear();
 });
 </script>

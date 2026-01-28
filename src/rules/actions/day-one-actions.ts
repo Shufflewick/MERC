@@ -87,7 +87,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       defer: true, // Choices evaluated when action is started, enabling deck manipulation
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
 
         // Only draw if cache exists (populated by starting the action)
         // This prevents drawing during action availability preview
@@ -109,7 +109,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       // AI: Pick a random available MERC
       aiSelect: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const cached = getMercsFromCache(game, playerId);
         const available = cached ?? ensureMercsDrawn(game, playerId);
         if (available.length === 0) return undefined;
@@ -129,7 +129,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
     } as any)
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.position}`;
+      const playerId = `${player.seat}`;
       const available = getMercsFromCache(game, playerId) || [];
 
       if (available.length === 0) {
@@ -188,7 +188,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       'has 1 MERC and 2+ remaining to hire': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
         const player = ctx.player;
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const remaining = getMercsFromCache(game, playerId) || [];
         return player.team.length === 1 && remaining.length >= 2;
       },
@@ -198,7 +198,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       prompt: 'Select your SECOND MERC to hire',
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const available = getMercsFromCache(game, playerId) || [];
 
         if (available.length === 0) {
@@ -218,7 +218,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       // AI: Pick a random compatible MERC
       aiSelect: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const available = getMercsFromCache(game, playerId) || [];
         const compatible = available.filter(m => canHireMercWithTeam(m.combatantId, player.team));
         if (compatible.length === 0) return undefined;
@@ -238,7 +238,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
     } as any)
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.position}`;
+      const playerId = `${player.seat}`;
       const available = getMercsFromCache(game, playerId) || [];
 
       if (available.length === 0) {
@@ -315,7 +315,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       'Teresa bonus: can hire third MERC': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
         const player = ctx.player;
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const remaining = getMercsFromCache(game, playerId) || [];
         const hasTeresa = player.team.some(m => m.combatantId === 'teresa');
         return player.team.length === 2 && hasTeresa && remaining.length > 0;
@@ -326,7 +326,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const available = getMercsFromCache(game, playerId) || [];
 
         // Filter out MERCs incompatible with current team
@@ -341,7 +341,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       // AI: Pick a random compatible MERC (don't skip)
       aiSelect: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
         const available = getMercsFromCache(game, playerId) || [];
         const compatible = available.filter(m => canHireMercWithTeam(m.combatantId, player.team));
         if (compatible.length === 0) return 'Skip (no third hire)';
@@ -370,7 +370,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
     } as any)
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.position}`;
+      const playerId = `${player.seat}`;
       const available = getMercsFromCache(game, playerId) || [];
       const chosenMercName = args.merc as string;
 
@@ -953,7 +953,7 @@ export function createDesignatePrivacyPlayerAction(game: MERCGame): ActionDefini
     })
     .execute((args) => {
       const player = asRebelPlayer(args.player);
-      setPrivacyPlayer(game, `${player.position}`);
+      setPrivacyPlayer(game, `${player.seat}`);
       return {
         success: true,
         message: `${player.name} designated as Privacy Player`,

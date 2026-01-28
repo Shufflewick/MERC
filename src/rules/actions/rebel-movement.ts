@@ -184,7 +184,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         const player = asRebelPlayer(ctx.player);
         const hasSonia = mercs.some(m => m.combatantId === 'sonia');
         if (hasSonia) {
-          const playerId = `${player.position}`;
+          const playerId = `${player.seat}`;
           const militiaAvailable = sourceSector.getRebelMilitia(playerId);
           militiaMoved = Math.min(2, militiaAvailable);
           if (militiaMoved > 0) {
@@ -218,7 +218,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
           game.message(`Enemies detected at ${destination.sectorName} - combat begins!`);
           game.pendingCombat = {
             sectorId: destination.sectorId,
-            playerId: `${player.position}`,
+            playerId: `${player.seat}`,
           };
         }
       } else {
@@ -226,7 +226,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         for (const rebel of game.rebelPlayers) {
           const hasSquad = rebel.primarySquad.sectorId === destination.sectorId ||
             rebel.secondarySquad.sectorId === destination.sectorId;
-          const hasMilitia = destination.getRebelMilitia(`${rebel.position}`) > 0;
+          const hasMilitia = destination.getRebelMilitia(`${rebel.seat}`) > 0;
 
           if (hasSquad || hasMilitia) {
             game.message(`Rebels detected at ${destination.sectorName} - combat begins!`);
@@ -333,7 +333,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         game.message(`Combat begins with coordinated rebel forces!`);
         game.pendingCombat = {
           sectorId: target.sectorId,
-          playerId: `${player.position}`,
+          playerId: `${player.seat}`,
         };
       }
 
@@ -407,7 +407,7 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
 
       // Declare the coordinated attack
-      game.declareCoordinatedAttack(target.sectorId, `${player.position}`, squadType);
+      game.declareCoordinatedAttack(target.sectorId, `${player.seat}`, squadType);
 
       const pending = game.getPendingCoordinatedAttack(target.sectorId);
       game.message(`${player.name}'s ${squadType} squad staged for coordinated attack on ${target.sectorName} (${pending.length} squad(s) ready)`);
@@ -500,7 +500,7 @@ export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinit
       const targetId = args.targetAttack as string;
       const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
 
-      game.declareCoordinatedAttack(targetId, `${player.position}`, squadType);
+      game.declareCoordinatedAttack(targetId, `${player.seat}`, squadType);
 
       const pending = game.getPendingCoordinatedAttack(targetId);
       const target = game.getSector(targetId);
@@ -557,7 +557,7 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
       // Move all participating squads and spend actions
       let totalMercs = 0;
       for (const { playerId, squadType } of participants) {
-        const rebel = game.rebelPlayers.find(p => `${p.position}` === playerId);
+        const rebel = game.rebelPlayers.find(p => `${p.seat}` === playerId);
         if (!rebel) continue;
 
         const squad = squadType === 'primary' ? rebel.primarySquad : rebel.secondarySquad;
@@ -578,11 +578,11 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
       game.message(`Coordinated attack launched on ${target.sectorName} with ${totalMercs} MERC(s)!`);
 
       // Flag for combat - use first participant's player for context
-      const firstRebel = game.rebelPlayers.find(p => `${p.position}` === participants[0].playerId);
+      const firstRebel = game.rebelPlayers.find(p => `${p.seat}` === participants[0].playerId);
       if (firstRebel && hasEnemies(game, target, firstRebel)) {
         game.pendingCombat = {
           sectorId: target.sectorId,
-          playerId: `${firstRebel.position}`,
+          playerId: `${firstRebel.seat}`,
         };
       }
 

@@ -227,7 +227,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       // Find attacking player - fallback to first rebel if lookup fails
       // (can happen when dictator initiates combat by moving into rebel sector)
       const player = game.rebelPlayers.find(
-        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
       ) ?? game.rebelPlayers[0];
 
       if (!player) {
@@ -345,7 +345,7 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
 
       // Find attacking player - fallback to first rebel if lookup fails
       const player = game.rebelPlayers.find(
-        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
       ) ?? game.rebelPlayers[0];
 
       if (!player) {
@@ -529,7 +529,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
 
       // Find attacking player - fallback to first rebel if lookup fails
       const player = game.rebelPlayers.find(
-        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
       ) ?? game.rebelPlayers[0];
 
       if (!player) {
@@ -667,7 +667,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
 
       // Find attacking player - fallback to first rebel if lookup fails
       const player = game.rebelPlayers.find(
-        p => `${p.position}` === game.activeCombat!.attackingPlayerId
+        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
       ) ?? game.rebelPlayers[0];
 
       if (!player) {
@@ -876,7 +876,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
       'player has units in targeted sector': (ctx) => {
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return false;
-        const playerId = `${ctx.player.position}`;
+        const playerId = `${ctx.player.seat}`;
         return pending.validTargets.some(t => t.ownerId === playerId);
       },
     })
@@ -893,7 +893,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return [];
 
-        const playerId = `${ctx.player.position}`;
+        const playerId = `${ctx.player.seat}`;
         const choices: string[] = [];
 
         // Build choices for this player's targets only
@@ -925,7 +925,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
       }
 
       const pending = game.pendingArtilleryAllocation;
-      const playerId = `${ctx.player.position}`;
+      const playerId = `${ctx.player.seat}`;
       const player = ctx.player as RebelPlayer;
 
       // Parse allocations
@@ -1174,6 +1174,43 @@ export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinit
       return {
         success: true,
         message: 'Combat animations cleared',
+      };
+    });
+}
+
+/**
+ * Acknowledge animation events up to a given ID
+ * Called by UI animation system to acknowledge events have been played.
+ * Uses BoardSmith v2.4's animation event system.
+ *
+ * Note: This action has no selection steps - it receives upToId directly
+ * from the actionController.execute() call.
+ *
+ * The condition ensures this action only appears available when there are
+ * unacknowledged animation events, preventing it from interfering with turn flow.
+ */
+export function createAcknowledgeAnimationsAction(game: MERCGame): ActionDefinition {
+  return Action.create('acknowledgeAnimations')
+    .prompt('Acknowledge animations')
+    .condition({
+      'has unacknowledged animation events': () => {
+        // Check if there are any animation events that haven't been acknowledged
+        const events = game.pendingAnimationEvents;
+        return events && events.length > 0;
+      },
+    })
+    .execute((args) => {
+      const upToId = args.upToId as number;
+      if (typeof upToId !== 'number') {
+        return {
+          success: false,
+          message: 'upToId must be a number',
+        };
+      }
+      game.acknowledgeAnimationEvents(upToId);
+      return {
+        success: true,
+        message: `Acknowledged animations up to event ${upToId}`,
       };
     });
 }

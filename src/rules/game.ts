@@ -65,10 +65,10 @@ export interface MERCOptions extends GameOptions {
   dictatorChoice?: string;  // Which dictator character to use
   expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
   dictatorIsAI?: boolean;  // MERC-exaf: Explicitly set if dictator is AI-controlled
-  // MERC-pbx4: Role selection - which player position is the dictator
-  // Default: last player (position = playerCount - 1)
+  // MERC-pbx4: Role selection - which player seat is the dictator
+  // Default: last player (seat = playerCount - 1)
   // Set to 0 for first player, 1 for second player, etc.
-  dictatorPlayerPosition?: number;
+  dictatorPlayerSeat?: number;
   // Player configurations from lobby (colors, AI settings)
   playerConfigs?: PlayerConfig[];
   // Game options from lobby
@@ -185,14 +185,14 @@ export class MERCPlayer extends Player {
   get primarySquad(): Squad {
     const game = this.game as MERCGame;
     if (!game) {
-      throw new Error(`primarySquad: game not set for player ${this.position}`);
+      throw new Error(`primarySquad: game not set for player ${this.seat}`);
     }
     if (!this.primarySquadRef) {
-      throw new Error(`primarySquad: primarySquadRef not set for player ${this.position}`);
+      throw new Error(`primarySquad: primarySquadRef not set for player ${this.seat}`);
     }
     const squad = game.first(Squad, s => s.name === this.primarySquadRef);
     if (!squad) {
-      throw new Error(`primarySquad: could not find squad "${this.primarySquadRef}" for player ${this.position}`);
+      throw new Error(`primarySquad: could not find squad "${this.primarySquadRef}" for player ${this.seat}`);
     }
     return squad;
   }
@@ -200,14 +200,14 @@ export class MERCPlayer extends Player {
   get secondarySquad(): Squad {
     const game = this.game as MERCGame;
     if (!game) {
-      throw new Error(`secondarySquad: game not set for player ${this.position}`);
+      throw new Error(`secondarySquad: game not set for player ${this.seat}`);
     }
     if (!this.secondarySquadRef) {
-      throw new Error(`secondarySquad: secondarySquadRef not set for player ${this.position}`);
+      throw new Error(`secondarySquad: secondarySquadRef not set for player ${this.seat}`);
     }
     const squad = game.first(Squad, s => s.name === this.secondarySquadRef);
     if (!squad) {
-      throw new Error(`secondarySquad: could not find squad "${this.secondarySquadRef}" for player ${this.position}`);
+      throw new Error(`secondarySquad: could not find squad "${this.secondarySquadRef}" for player ${this.seat}`);
     }
     return squad;
   }
@@ -219,14 +219,14 @@ export class MERCPlayer extends Player {
     }
     const game = this.game as MERCGame;
     if (!game) {
-      throw new Error(`baseSquad: game not set for player ${this.position}`);
+      throw new Error(`baseSquad: game not set for player ${this.seat}`);
     }
     if (!this.baseSquadRef) {
-      throw new Error(`baseSquad: baseSquadRef not set for player ${this.position}`);
+      throw new Error(`baseSquad: baseSquadRef not set for player ${this.seat}`);
     }
     const squad = game.first(Squad, s => s.name === this.baseSquadRef);
     if (!squad) {
-      throw new Error(`baseSquad: could not find squad "${this.baseSquadRef}" for player ${this.position}`);
+      throw new Error(`baseSquad: could not find squad "${this.baseSquadRef}" for player ${this.seat}`);
     }
     return squad;
   }
@@ -238,14 +238,14 @@ export class MERCPlayer extends Player {
     }
     const game = this.game as MERCGame;
     if (!game) {
-      throw new Error(`area: game not set for player ${this.position}`);
+      throw new Error(`area: game not set for player ${this.seat}`);
     }
     if (!this.areaRef) {
-      throw new Error(`area: areaRef not set for player ${this.position}`);
+      throw new Error(`area: areaRef not set for player ${this.seat}`);
     }
     const area = game.first(PlayerArea, a => a.name === this.areaRef);
     if (!area) {
-      throw new Error(`area: could not find area "${this.areaRef}" for player ${this.position}`);
+      throw new Error(`area: could not find area "${this.areaRef}" for player ${this.seat}`);
     }
     return area;
   }
@@ -527,27 +527,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       dyingCombatantSide: 'rebel' | 'dictator';
       availableSavers: Array<{ combatantId: number; combatantName: string }>;
     };
-    // Combat animation events for UI to display
-    animationEvents?: Array<{
-      type: 'roll' | 'damage' | 'death' | 'round-start' | 'combat-end';
-      timestamp: number;
-      attackerName?: string;
-      attackerId?: string;
-      attackerImage?: string;
-      targetName?: string;
-      targetId?: string;
-      targetImage?: string;
-      // For roll events: all declared targets (used for highlighting even on miss)
-      targetNames?: string[];
-      targetIds?: string[];
-      diceRolls?: number[];
-      hits?: number;
-      hitThreshold?: number;
-      damage?: number;
-      round?: number;
-      rebelVictory?: boolean;
-      dictatorVictory?: boolean;
-    }>;
     // Flag indicating combat is complete but UI is still animating
     // Flow system exits combat loop when this is true
     // UI clears activeCombat after animations complete
@@ -560,29 +539,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     sectorId: string;
     playerId: string;
   } | null = null;
-
-  // Combat animation events buffer - stored at game level so they survive activeCombat recreation
-  // Events are copied to activeCombat.animationEvents when activeCombat is set
-  _combatAnimationEventsBuffer: Array<{
-    type: 'roll' | 'damage' | 'death' | 'round-start' | 'combat-end';
-    timestamp: number;
-    attackerName?: string;
-    attackerId?: string;
-    attackerImage?: string;
-    targetName?: string;
-    targetId?: string;
-    targetImage?: string;
-    // For roll events: all declared targets (used for highlighting even on miss)
-    targetNames?: string[];
-    targetIds?: string[];
-    diceRolls?: number[];
-    hits?: number;
-    hitThreshold?: number;
-    damage?: number;
-    round?: number;
-    rebelVictory?: boolean;
-    dictatorVictory?: boolean;
-  }> = [];
 
   // Explosives victory - set when rebels detonate explosives in palace
   explosivesVictory: boolean = false;
@@ -628,7 +584,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Hagness ability staging - holds drawn equipment during selection
   // Plain object to ensure it serializes to clients
-  // Key: player position (string), Value: serialized equipment data for UI display
+  // Key: player seat (string), Value: serialized equipment data for UI display
   hagnessDrawnEquipmentData: Record<string, {
     equipmentId: number;
     equipmentName: string;
@@ -692,7 +648,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     // Find dictator position from:
     // 1. playerConfigs with isDictator: true (from exclusive player option)
-    // 2. dictatorPlayerPosition option (legacy)
+    // 2. dictatorPlayerSeat option (legacy)
     // 3. Default to last player
     let dictatorPos = -1;  // -1 means last player
 
@@ -703,14 +659,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     );
     if (dictatorConfigIndex >= 0) {
       dictatorPos = dictatorConfigIndex;
-    } else if (options.dictatorPlayerPosition !== undefined) {
-      dictatorPos = options.dictatorPlayerPosition;
+    } else if (options.dictatorPlayerSeat !== undefined) {
+      dictatorPos = options.dictatorPlayerSeat;
     }
 
-    // Validate position if explicitly set
+    // Validate seat if explicitly set
     if (dictatorPos >= 0 && dictatorPos >= MERCGame._pendingPlayerCount) {
       throw new Error(
-        `Invalid dictator position: ${dictatorPos}. ` +
+        `Invalid dictator seat: ${dictatorPos}. ` +
         `Must be less than playerCount (${MERCGame._pendingPlayerCount}).`
       );
     }
@@ -746,7 +702,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       : playerCount;  // Default: last player
 
     for (const player of this.players) {
-      if (player.position === dictatorPosition) {
+      if (player.seat === dictatorPosition) {
         this.configureAsDictator(player);
       } else {
         this.configureAsRebel(player);
@@ -834,14 +790,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     player.role = 'rebel';
 
     // Assign color and AI flag from player config
-    const position = player.position;
-    const playerConfig = MERCGame._pendingPlayerConfigs[position - 1];
+    const seat = player.seat;
+    const playerConfig = MERCGame._pendingPlayerConfigs[seat - 1];
     if (playerConfig?.color) {
       player.playerColorHex = playerConfig.color;
       player.playerColor = hexToPlayerColor(playerConfig.color);
     } else {
       const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
-      player.playerColor = colors[(position - 1) % colors.length];
+      player.playerColor = colors[(seat - 1) % colors.length];
     }
 
     // Set AI flag from player config (for bot players)
@@ -850,9 +806,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     // Create squads and area for rebel
-    const primaryRef = `squad-${position}-primary`;
-    const secondaryRef = `squad-${position}-secondary`;
-    const areaRef = `area-${position}`;
+    const primaryRef = `squad-${seat}-primary`;
+    const secondaryRef = `squad-${seat}-secondary`;
+    const areaRef = `area-${seat}`;
 
     this.create(Squad, primaryRef, { isPrimary: true });
     this.create(Squad, secondaryRef, { isPrimary: false });
@@ -1148,14 +1104,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         if (dictatorUnits >= rebelUnits) return false;
 
         // MERC-eqe: Check against other rebels with tie-breaker
-        // Lower position (earlier in turn order) wins ties between rebels
+        // Lower seat (earlier in turn order) wins ties between rebels
         for (const otherRebel of this.rebelPlayers) {
           if (otherRebel === rebel) continue;
           const otherUnits = this.getRebelUnitsInSector(sector, otherRebel);
           // Other rebel has strictly more units - they win
           if (otherUnits > rebelUnits) return false;
-          // Tied units: lower position wins
-          if (otherUnits === rebelUnits && otherRebel.position < rebel.position) return false;
+          // Tied units: lower seat wins
+          if (otherUnits === rebelUnits && otherRebel.seat < rebel.seat) return false;
         }
 
         return rebelUnits > 0;
@@ -1301,7 +1257,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   getRebelUnitsInSector(sector: Sector, player: RebelPlayer): number {
-    const militia = sector.getRebelMilitia(`${player.position}`);
+    const militia = sector.getRebelMilitia(`${player.seat}`);
     const mercs = this.getMercsInSector(sector, player).length;
     return militia + mercs;
   }
@@ -1487,7 +1443,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
       // Check if this rebel has militia anywhere
       const hasAnyMilitia = this.gameMap.getAllSectors()
-        .some(s => s.getRebelMilitia(`${rebel.position}`) > 0);
+        .some(s => s.getRebelMilitia(`${rebel.seat}`) > 0);
       if (hasAnyMilitia) return false;
 
       // Note: We intentionally do NOT check canHireMerc here.
@@ -1524,7 +1480,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const hasRebelUnits = this.rebelPlayers.some(rebel => {
       const hasSquad = rebel.primarySquad.sectorId === baseSector.sectorId ||
         rebel.secondarySquad.sectorId === baseSector.sectorId;
-      const hasMilitia = baseSector.getRebelMilitia(`${rebel.position}`) > 0;
+      const hasMilitia = baseSector.getRebelMilitia(`${rebel.seat}`) > 0;
       return hasSquad || hasMilitia;
     });
 

@@ -115,7 +115,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       },
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.position}`;
+        const playerId = `${player.seat}`;
 
         // Draw 3 MERCs if not already cached
         let drawnMercs = getHireDrawnMercs(game, playerId);
@@ -135,7 +135,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const actingMerc = asCombatantModel(args.actingMerc);
-      const playerId = `${player.position}`;
+      const playerId = `${player.seat}`;
       const drawnMercs = getHireDrawnMercs(game, playerId) || [];
       const selectedNames = (args.selectedMercs as string[]) || [];
       const fireChoice = args.fireFirst as string;
@@ -785,7 +785,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       let trained: number;
       if (game.isRebelPlayer(ctx.player)) {
         const player = asRebelPlayer(ctx.player);
-        trained = sector.addRebelMilitia(`${player.position}`, actingUnit.training);
+        trained = sector.addRebelMilitia(`${player.seat}`, actingUnit.training);
         game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
 
         // Check if dictator has units at this sector and trigger combat
@@ -813,7 +813,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         for (const rebel of game.rebelPlayers) {
           const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
             rebel.secondarySquad.sectorId === sector.sectorId;
-          const hasMilitia = sector.getRebelMilitia(`${rebel.position}`) > 0;
+          const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
 
           if (hasSquad || hasMilitia) {
             game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
@@ -962,10 +962,10 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
 // Settings key for arms dealer drawn equipment cache
 const ARMS_DEALER_DRAWN_KEY = 'armsDealerDrawn';
 
-// Helper to get player ID for arms dealer cache (distinguishes rebels by position, dictator)
+// Helper to get player ID for arms dealer cache (distinguishes rebels by seat, dictator)
 function getArmsDealerPlayerId(player: unknown, game: MERCGame): string {
   if (game.isRebelPlayer(player)) {
-    return `${asRebelPlayer(player).position}`;
+    return `${asRebelPlayer(player).seat}`;
   }
   return 'dictator';
 }

@@ -48,14 +48,14 @@ export function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
   }> = [];
 
   for (const rebel of game.rebelPlayers) {
-    const playerId = `${rebel.position}`;
+    const playerId = `${rebel.seat}`;
 
     // Add militia as single target per player (with count as "health")
     const militiaCount = sector.getRebelMilitia(playerId);
     if (militiaCount > 0) {
       targets.push({
         id: `militia-${playerId}-${sector.sectorId}`,
-        name: `${rebel.position} Militia (${militiaCount})`,
+        name: `${rebel.seat} Militia (${militiaCount})`,
         type: 'militia',
         ownerId: playerId,
         currentHealth: militiaCount, // Each hit kills one militia
@@ -125,7 +125,7 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
     if (hits === 0) return false;
     // Check if sector has any rebel units
     return game.rebelPlayers.some(rebel => {
-      const militia = sector.getRebelMilitia(`${rebel.position}`);
+      const militia = sector.getRebelMilitia(`${rebel.seat}`);
       const mercs = game.getMercsInSector(sector, rebel);
       return militia > 0 || mercs.length > 0;
     });
@@ -226,7 +226,7 @@ function familyThreat(game: MERCGame): TacticsEffectResult {
 
   for (const sector of game.gameMap.getAllSectors()) {
     for (const rebel of game.rebelPlayers) {
-      const removed = sector.removeRebelMilitia(`${rebel.position}`, 2);
+      const removed = sector.removeRebelMilitia(`${rebel.seat}`, 2);
       if (removed > 0) {
         totalRemoved += removed;
         game.message(`${removed} militia fled from ${sector.sectorName}`);
@@ -253,7 +253,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
     let targetSector: Sector | null = null;
 
     for (const sector of game.gameMap.getAllSectors()) {
-      const rebelMilitia = sector.getRebelMilitia(`${rebel.position}`);
+      const rebelMilitia = sector.getRebelMilitia(`${rebel.seat}`);
       if (rebelMilitia > maxMilitia) {
         maxMilitia = rebelMilitia;
         targetSector = sector;
@@ -302,7 +302,7 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
       for (const rebel of game.rebelPlayers) {
         const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
           rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.position}`) > 0;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
 
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
@@ -451,7 +451,7 @@ export function applyConscriptsEffect(game: MERCGame): void {
         for (const rebel of game.rebelPlayers) {
           const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
             rebel.secondarySquad.sectorId === sector.sectorId;
-          const hasMilitia = sector.getRebelMilitia(`${rebel.position}`) > 0;
+          const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
 
           if (hasSquad || hasMilitia) {
             game.message(`Conscripts triggered combat at ${sector.sectorName}!`);
@@ -538,7 +538,7 @@ export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, reb
   const hasAnyRebelPresence = game.rebelPlayers.some(r =>
     r.primarySquad.sectorId === oilSector.sectorId ||
     r.secondarySquad.sectorId === oilSector.sectorId ||
-    oilSector.getRebelMilitia(`${r.position}`) > 0
+    oilSector.getRebelMilitia(`${r.seat}`) > 0
   );
 
   if (isRebelTurn && rebelPlayer) {
@@ -546,7 +546,7 @@ export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, reb
     const thisRebelPresence =
       rebelPlayer.primarySquad.sectorId === oilSector.sectorId ||
       rebelPlayer.secondarySquad.sectorId === oilSector.sectorId ||
-      oilSector.getRebelMilitia(`${rebelPlayer.position}`) > 0;
+      oilSector.getRebelMilitia(`${rebelPlayer.seat}`) > 0;
 
     if (!dictatorPresence && thisRebelPresence) {
       // Grant +1 action to the first living MERC with < max actions
@@ -583,7 +583,7 @@ function taintedWater(game: MERCGame): TacticsEffectResult {
   for (const sector of game.gameMap.getAllSectors()) {
     // Remove rebel militia
     for (const rebel of game.rebelPlayers) {
-      const removed = sector.removeRebelMilitia(`${rebel.position}`, amount);
+      const removed = sector.removeRebelMilitia(`${rebel.seat}`, amount);
       militiaRemoved += removed;
     }
   }

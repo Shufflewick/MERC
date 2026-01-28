@@ -54,16 +54,16 @@ const selectedCombatantName = computed(() =>
 );
 
 // Which selection step we're on
-const currentSelectionStep = computed(() =>
-  props.actionController.currentSelection.value?.name
+const currentPickStep = computed(() =>
+  props.actionController.currentPick.value?.name
 );
 
 const isSelectingCombatant = computed(() =>
-  currentSelectionStep.value === 'combatantName'
+  currentPickStep.value === 'combatantName'
 );
 
 const isSelectingTarget = computed(() =>
-  currentSelectionStep.value === 'targetSquad'
+  currentPickStep.value === 'targetSquad'
 );
 
 // Find the selected combatant object for highlighting
@@ -84,7 +84,7 @@ const selectedCombatantSquad = computed((): SquadData | null => {
 
 // Get valid target squad choices from action controller
 const validTargetChoices = computed(() => {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (sel?.name === 'targetSquad') {
     return props.actionController.getChoices(sel) || [];
   }
@@ -155,7 +155,7 @@ function isValidTarget(squad: SquadData): boolean {
 
 // Handle combatant click - uses fill() for bidirectional sync with action panel
 async function handleCombatantClick(merc: MercData) {
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (sel?.name !== 'combatantName') return;
 
   const combatantName = getCombatantName(merc);
@@ -270,7 +270,7 @@ async function handleDrop(targetSquad: SquadData) {
 
   // Step 2: Find the matching target choice and fill it
   // Need to get fresh choices after filling combatantName
-  const sel = props.actionController.currentSelection.value;
+  const sel = props.actionController.currentPick.value;
   if (sel?.name !== 'targetSquad') return;
 
   const choices = props.actionController.getChoices(sel) || [];

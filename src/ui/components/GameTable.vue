@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Vue core
-import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
+import { computed, ref, watch, inject, nextTick, toRef, onMounted } from 'vue';
 
 // External packages
-import { useBoardInteraction, type UseActionControllerReturn } from 'boardsmith/ui';
+import { useBoardInteraction, type UseActionControllerReturn, useAnimationEvents } from 'boardsmith/ui';
 
 // Components (alphabetical)
 import AssignToSquadPanel from './AssignToSquadPanel.vue';
@@ -34,7 +34,7 @@ import { quickReassignInProgress } from '../drag-drop-state';
 type FetchDeferredChoicesFn = (
   actionName: string,
   selectionName: string,
-  playerPosition: number,
+  playerSeat: number,
   currentArgs: Record<string, unknown>
 ) => Promise<{
   success: boolean;
@@ -50,7 +50,7 @@ const boardInteraction = useBoardInteraction();
 
 const props = defineProps<{
   gameView: any;
-  playerPosition: number;
+  playerSeat: number;
   isMyTurn: boolean;
   availableActions: string[];
   actionArgs: Record<string, unknown>;
@@ -59,6 +59,22 @@ const props = defineProps<{
   state?: any; // Flow state from GameShell
   flyingCombatantName?: string | null; // Name of combatant currently animating (hide at destination)
 }>();
+
+const emit = defineEmits<{
+  (e: 'animation-context-ready', state: any, actionController: UseActionControllerReturn): void;
+}>();
+
+// Emit animation context when state and actionController are available
+// This allows App.vue to sync the refs for animation events
+watch(
+  () => [props.state, props.actionController] as const,
+  ([state, actionController]) => {
+    if (state && actionController) {
+      emit('animation-context-ready', state, actionController);
+    }
+  },
+  { immediate: true }
+);
 
 // Initialize composables with gameView getter
 const {
@@ -86,7 +102,7 @@ const {
 // ============================================================================
 
 // Create a ref from props for reactive tracking in composables
-const playerPositionRef = toRef(() => props.playerPosition);
+const playerSeatRef = toRef(() => props.playerSeat);
 
 // Player state (independent)
 const {
@@ -95,10 +111,10 @@ const {
   playerColorMap,
   dictatorPlayerColor,
   currentPlayerIsDictator,
-  positionToColor,
+  seatToColor,
 } = usePlayerState(
   () => props.gameView,
-  playerPositionRef
+  playerSeatRef
 );
 
 // Sector state (needs allMercs via lazy getter - allMercs initialized below)
@@ -132,7 +148,7 @@ const {
     // Cast required: dictatorCard returns full dictator data, but SectorStateDependencies
     // only needs { sectorId, inPlay } subset. The cast is safe as these properties exist.
     getDictatorCard: () => dictatorCard.value as { sectorId: string; inPlay: boolean } | undefined,
-    positionToColor,
+    seatToColor,
   }
 );
 
@@ -147,7 +163,7 @@ const {
   allMercs,
 } = useSquadState(
   () => props.gameView,
-  playerPositionRef,
+  playerSeatRef,
   currentPlayerIsDictator,
   sectors,
   players
@@ -157,7 +173,7 @@ const {
 const {
   actionChoices,
   currentActionMetadata,
-  currentSelection,
+  currentPick,
   allSelectionsComplete,
   getCurrentActionName,
   isHiringMercs,
@@ -195,7 +211,7 @@ const {
     actionController: props.actionController,
     actionArgs: props.actionArgs,
     state: props.state,
-    playerPosition: props.playerPosition,
+    playerSeat: props.playerSeat,
     gameView: props.gameView,
     isCurrentPlayerDictator: () => currentPlayerIsDictator.value,
   },
@@ -450,10 +466,28 @@ const activeCombat = computed(() => {
 // Track if CombatPanel is still animating (keeps panel visible after activeCombat clears)
 const isCombatAnimating = ref(false);
 
+// ============================================================================
+// ANIMATION EVENTS SETUP (BoardSmith v2.4 Animation Event System)
+// ============================================================================
+
+// Animation events are provided by App.vue - inject them here for hasActiveCombat check
+const animationEvents = useAnimationEvents();
+
 // Check if there's active combat to show the panel
 // Keep panel mounted while animations are playing even if activeCombat is null
 const hasActiveCombat = computed(() => {
-  return activeCombat.value !== null || isCombatAnimating.value;
+  return activeCombat.value !== null ||
+         isCombatAnimating.value ||
+         (animationEvents?.isAnimating.value ?? false);
+});
+
+// Watch for activeCombat becoming null - game logic may clear it before animations finish
+// The CombatPanel's state machine will detect this and transition to COMPLETE
+watch(activeCombat, (newCombat, oldCombat) => {
+  if (oldCombat && !newCombat) {
+    console.log('[GameTable] activeCombat cleared by game - CombatPanel state machine will handle closure');
+    // Don't reset isCombatAnimating here - let CombatPanel's state machine handle it
+  }
 });
 
 // Handler for CombatPanel animation state changes
@@ -464,17 +498,27 @@ function handleCombatAnimating(animating: boolean) {
 // Handler for when combat is truly finished (animations done AND combat marked complete)
 // This is emitted by CombatPanel after a small delay to handle race conditions
 async function handleCombatFinished() {
+  console.log('[GameTable] handleCombatFinished - panel state machine triggered closure');
+
+  // Panel is closing - reset our tracking flag
+  isCombatAnimating.value = false;
+
+  // Tell the game to clear combat state
+  // Animation events are acknowledged automatically by the animation events composable
   try {
     await props.actionController.execute('clearCombatAnimations', {});
+    console.log('[GameTable] handleCombatFinished - clearCombatAnimations executed');
   } catch {
-    // Silently ignore errors clearing combat animations
+    // Action may fail if game already cleared activeCombat - that's fine
+    console.log('[GameTable] handleCombatFinished - clearCombatAnimations failed (already cleared?)');
   }
 }
 
 // Get sector name for the combat
 const combatSectorName = computed(() => {
-  if (!activeCombat.value?.sectorId) return 'Unknown';
-  const sector = sectors.value.find(s => s.sectorId === activeCombat.value.sectorId);
+  const combat = activeCombat.value;
+  if (!combat?.sectorId) return 'Unknown';
+  const sector = sectors.value.find(s => s.sectorId === combat.sectorId);
   return sector?.sectorName || 'Unknown';
 });
 
@@ -514,8 +558,13 @@ async function handleConfirmTargets(targetIds: string[]) {
 
 // Handle continue combat from CombatPanel
 async function handleContinueCombat() {
+  console.log('[GameTable] handleContinueCombat START');
   if (!props.availableActions.includes('combatContinue')) return;
+  // Keep panel mounted while action executes - prevents race condition where
+  // activeCombat becomes null before new animation events are queued
+  isCombatAnimating.value = true;
   await props.actionController.execute('combatContinue', {});
+  console.log('[GameTable] handleContinueCombat END');
 }
 
 // Handle retreat from CombatPanel - opens retreat sector selection
@@ -591,7 +640,7 @@ watch(() => props.actionArgs['equipmentType'], (val) => {
 
 // Get MERCs available for hiring from action metadata
 const hirableMercs = computed(() => {
-  const selection = currentSelection.value;
+  const selection = currentPick.value;
   if (!selection) return [];
 
   // Don't return MERCs when selection is for sectors (landing zone, Castro placement, retreat)
@@ -709,7 +758,7 @@ const hirableMercs = computed(() => {
 
 // Check if skip option is available (for third hire)
 const hasSkipOption = computed(() => {
-  const selection = currentSelection.value;
+  const selection = currentPick.value;
   if (!selection) return false;
 
   // Get choices using actionController.getChoices() - all choices are now fetched on-demand
@@ -724,7 +773,7 @@ const hasSkipOption = computed(() => {
 
 // Handle skip button click
 function skipThirdHire() {
-  const selection = currentSelection.value;
+  const selection = currentPick.value;
   if (!selection) return;
 
   // Get choices using actionController.getChoices() - all choices are now fetched on-demand
@@ -747,10 +796,10 @@ function skipThirdHire() {
 const landingSectors = computed(() => {
   if (!isPlacingLanding.value) return [];
 
-  // Get the selection - use currentSelection when action is active, otherwise from metadata
+  // Get the selection - use currentPick when action is active, otherwise from metadata
   const isActionActive = props.actionController.currentAction.value === 'placeLanding';
   const selection = isActionActive
-    ? props.actionController.currentSelection.value
+    ? props.actionController.currentPick.value
     : landingZoneMetadata.value?.selections?.[0];
   if (!selection) return [];
 
@@ -787,7 +836,7 @@ const landingSectors = computed(() => {
 
 // Handle clicking a MERC to hire - simplified since watcher auto-starts action
 async function selectMercToHire(merc: any) {
-  const selection = props.actionController.currentSelection.value;
+  const selection = props.actionController.currentPick.value;
   if (!selection) return;
 
   const choiceValue = merc._choiceValue;
@@ -798,7 +847,7 @@ async function selectMercToHire(merc: any) {
 
 // Handle selecting equipment type
 async function selectEquipmentType(equipType: string) {
-  const selection = currentSelection.value;
+  const selection = currentPick.value;
   if (!selection) return;
 
   // Fill the selection - actionController handles auto-execute
@@ -830,7 +879,7 @@ async function selectHagnessRecipient(choice: any) {
 
 // Handle retreat sector selection from CombatPanel
 async function handleSelectRetreatSector(sectorId: string | number) {
-  const currentSel = props.actionController.currentSelection.value;
+  const currentSel = props.actionController.currentPick.value;
   if (!currentSel) return;
   // Find the sector element to fill - match by numeric value
   const choices = props.actionController.getChoices(currentSel) || [];
@@ -843,7 +892,7 @@ async function handleSelectRetreatSector(sectorId: string | number) {
 
 // Select sector for Castro hire placement
 async function selectSector(sector: { value: string; label: string }) {
-  const selection = currentSelection.value;
+  const selection = currentPick.value;
   if (!selection) return;
   await props.actionController.fill(selection.name, sector.value);
 }
@@ -870,7 +919,7 @@ async function handleReassignCombatant(combatantName: string) {
 
   // After action starts, check if we're still on a selection (not auto-completed)
   // If so, the panel should be shown and we should scroll to it
-  if (props.actionController.currentSelection.value) {
+  if (props.actionController.currentPick.value) {
     // Action didn't auto-complete - clear the flag and show panel normally
     quickReassignInProgress.value = false;
     nextTick(() => {
@@ -892,7 +941,7 @@ async function handleLandingSectorSelected(sectorId: string) {
 async function handleSectorClick(sectorId: string) {
   if (isPlacingLanding.value) {
     // Action is auto-started by watcher, just fill the selection
-    const selection = props.actionController.currentSelection.value;
+    const selection = props.actionController.currentPick.value;
     if (!selection) return;
 
     // Get the matching choice value
@@ -913,7 +962,7 @@ async function handleSectorClick(sectorId: string) {
 
   if (isSelectingRetreatSector.value) {
     // Handle retreat sector selection
-    const selection = props.actionController.currentSelection.value;
+    const selection = props.actionController.currentPick.value;
     if (!selection) return;
 
     // Find the sector element ID from valid elements
@@ -1021,7 +1070,7 @@ const clickableSectors = computed(() => {
 
   // Handle retreat sector selection
   if (isSelectingRetreatSector.value) {
-    const selection = props.actionController.currentSelection.value;
+    const selection = props.actionController.currentPick.value;
     if (!selection) return [];
 
     // Get valid retreat sectors from action controller
@@ -1096,7 +1145,7 @@ const clickableSectors = computed(() => {
     <SectorPanel
       v-if="activeSector && !hasActiveCombat && !isHiringMercs"
       :sector="activeSector"
-      :player-position="playerPosition"
+      :player-seat="playerSeat"
       :player-color="currentPlayerIsDictator ? dictatorPlayerColor : currentPlayerColor"
       :player-color-map="playerColorMap"
       :all-mercs-in-sector="selectedSectorMercs"
@@ -1140,7 +1189,7 @@ const clickableSectors = computed(() => {
       :selected-merc-name="selectedMercName"
       :selected-merc-id="selectedMercId"
       :show-hiring-merc-modal="showHiringMercModal"
-      :prompt="currentSelection?.prompt || state?.flowState?.prompt || 'Select your MERCs'"
+      :prompt="currentPick?.prompt || state?.flowState?.prompt || 'Select your MERCs'"
       :player-color="currentPlayerColor"
       @select-merc="selectMercToHire"
       @select-equipment-type="selectEquipmentType"

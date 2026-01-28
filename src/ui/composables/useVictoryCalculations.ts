@@ -9,7 +9,7 @@ import {
 
 /**
  * Victory calculation composable.
- * Extracts victory condition checks and point calculations from GameBoard.vue.
+ * Extracts victory condition checks and point calculations from GameTable.vue.
  *
  * @param getGameView - Getter function that returns the current gameView
  */

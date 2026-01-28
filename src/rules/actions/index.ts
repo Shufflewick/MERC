@@ -61,6 +61,7 @@ import {
   createCombatUseEpinephrineAction,
   createCombatDeclineEpinephrineAction,
   createClearCombatAnimationsAction,
+  createAcknowledgeAnimationsAction,
 } from './rebel-combat.js';
 
 import {
@@ -165,6 +166,9 @@ export function registerAllActions(game: MERCGame): void {
   // Clear combat state after UI animations complete
   game.registerAction(createClearCombatAnimationsAction(game));
 
+  // Acknowledge animation events (BoardSmith v2.4 Animation Event System)
+  game.registerAction(createAcknowledgeAnimationsAction(game));
+
   // MERC-lw9r: Artillery Barrage hit allocation (stub until Plan 04)
   game.registerAction(createArtilleryAllocateHitsAction(game));
 
@@ -253,7 +257,7 @@ function registerDebugData(game: MERCGame): void {
     for (const rebel of game.rebelPlayers) {
       if (rebel.primarySquad) {
         result.push({
-          player: rebel.position,
+          player: rebel.seat,
           squad: 'primary',
           sectorId: rebel.primarySquad.sectorId,
           mercs: rebel.primarySquad.getLivingMercs().map(m => ({
@@ -264,7 +268,7 @@ function registerDebugData(game: MERCGame): void {
       }
       if (rebel.secondarySquad) {
         result.push({
-          player: rebel.position,
+          player: rebel.seat,
           squad: 'secondary',
           sectorId: rebel.secondarySquad.sectorId,
           mercs: rebel.secondarySquad.getLivingMercs().map(m => ({
@@ -413,7 +417,7 @@ function registerDebugData(game: MERCGame): void {
       const team = rebel.team;
 
       return {
-        player: rebel.position,
+        player: rebel.seat,
         name: rebel.name,
         primarySquad: {
           sectorId: primarySquad?.sectorId,
