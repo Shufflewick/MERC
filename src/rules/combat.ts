@@ -1555,6 +1555,18 @@ function assignAttackDog(
   dogState.assignments.set(target.id, dog);
   dogState.dogs.push(dog);
 
+  // Emit animation event for UI
+  game.emitAnimationEvent('combat-attack-dog', {
+    attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+    attackerId: attacker.id,
+    attackerImage: attacker.image,
+    targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+    targetId: target.id,
+    targetImage: target.image,
+    dogId: dog.id,
+    dogImage: dog.image,
+  });
+
   game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
   game.message(`${target.name} must attack the dog before doing anything else.`);
 
@@ -1596,6 +1608,18 @@ function assignAttackDogToTarget(
   // Track the assignment
   dogState.assignments.set(target.id, dog);
   dogState.dogs.push(dog);
+
+  // Emit animation event for UI
+  game.emitAnimationEvent('combat-attack-dog', {
+    attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+    attackerId: attacker.id,
+    attackerImage: attacker.image,
+    targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+    targetId: target.id,
+    targetImage: target.image,
+    dogId: dog.id,
+    dogImage: dog.image,
+  });
 
   game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
   game.message(`${target.name} must attack the dog before doing anything else.`);

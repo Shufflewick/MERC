@@ -31,6 +31,9 @@ interface AnimationDisplayState {
   round?: number;
   rebelVictory?: boolean;
   dictatorVictory?: boolean;
+  // Attack Dog animation
+  dogId?: string;
+  dogImage?: string;
 }
 
 const props = defineProps<{
@@ -109,6 +112,7 @@ const TIMING = {
   DEATH_DURATION: 1000,
   PAUSE_BETWEEN: 400,
   COMBAT_END_DELAY: 1500,
+  ATTACK_DOG_DURATION: 1500, // Time to show Attack Dog assignment animation
   // Fast-forward speeds
   FAST_PRE_ROLL: 50,
   FAST_ROLL: 100,
@@ -117,6 +121,7 @@ const TIMING = {
   FAST_DEATH: 100,
   FAST_PAUSE: 25,
   FAST_COMBAT_END: 200,
+  FAST_ATTACK_DOG: 200,
 };
 
 // Local display state
@@ -129,7 +134,7 @@ const animationEvents = useAnimationEvents();
 const isAnimating = computed(() => animationEvents?.isAnimating.value ?? false);
 
 // Helper to get timing based on fast-forward state
-function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end'): number {
+function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end' | 'attack-dog'): number {
   if (isFastForward.value) {
     switch (type) {
       case 'pre-roll': return TIMING.FAST_PRE_ROLL;
@@ -139,6 +144,7 @@ function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' 
       case 'death': return TIMING.FAST_DEATH;
       case 'pause': return TIMING.FAST_PAUSE;
       case 'combat-end': return TIMING.FAST_COMBAT_END;
+      case 'attack-dog': return TIMING.FAST_ATTACK_DOG;
     }
   }
   switch (type) {
@@ -149,6 +155,7 @@ function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' 
     case 'death': return TIMING.DEATH_DURATION;
     case 'pause': return TIMING.PAUSE_BETWEEN;
     case 'combat-end': return TIMING.COMBAT_END_DELAY;
+    case 'attack-dog': return TIMING.ATTACK_DOG_DURATION;
   }
 }
 
@@ -176,6 +183,8 @@ function mapEventToDisplayState(event: AnimationEvent): AnimationDisplayState {
     round: data.round as number | undefined,
     rebelVictory: data.rebelVictory as boolean | undefined,
     dictatorVictory: data.dictatorVictory as boolean | undefined,
+    dogId: data.dogId as string | undefined,
+    dogImage: data.dogImage as string | undefined,
   };
 }
 
@@ -221,6 +230,12 @@ onMounted(() => {
     currentEvent.value = mapEventToDisplayState(event);
     sawCombatEndEvent.value = true;
     await sleep(getTiming('combat-end'));
+  });
+
+  // Attack Dog assignment handler
+  animationEvents.registerHandler('combat-attack-dog', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
+    await sleep(getTiming('attack-dog'));
   });
 });
 
@@ -823,6 +838,33 @@ onUnmounted(() => {
       </button>
     </div>
 
+    <!-- Attack Dog assignment animation -->
+    <div v-if="currentEvent && currentEvent.type === 'attack-dog'" class="animation-display attack-dog-animation">
+      <div class="attack-dog-header">
+        <img
+          v-if="currentEvent.dogImage"
+          :src="currentEvent.dogImage"
+          alt="Attack Dog"
+          class="attack-dog-icon"
+        />
+        <div class="attack-dog-text">
+          <strong>{{ currentEvent.attackerName }}</strong> releases Attack Dog!
+        </div>
+      </div>
+      <div class="attack-dog-target">
+        <span class="target-arrow">→</span>
+        <span class="target-name">Targeting: <strong>{{ currentEvent.targetName }}</strong></span>
+      </div>
+      <button
+        class="fast-forward-btn"
+        :class="{ active: isFastForward }"
+        @click="fastForward"
+        title="Speed up animations"
+      >
+        >>
+      </button>
+    </div>
+
     <!-- Wolverine's 6s allocation -->
     <div v-if="activeCombat?.pendingWolverineSixes && !isAnimating" class="wolverine-area">
       <div class="wolverine-info">
@@ -1006,6 +1048,60 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   border-color: #ff9800;
   color: #fff;
+}
+
+/* Attack Dog Animation Styles */
+.attack-dog-animation {
+  border-color: rgba(139, 90, 43, 0.8);
+  background: rgba(139, 69, 19, 0.2);
+}
+
+.attack-dog-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.attack-dog-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #D2691E;
+  object-fit: cover;
+}
+
+.attack-dog-text {
+  color: v-bind('UI_COLORS.text');
+  font-size: 1.1rem;
+}
+
+.attack-dog-target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 107, 107, 0.2);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.target-arrow {
+  font-size: 1.5rem;
+  color: #ff6b6b;
+  animation: pulse-arrow 0.8s ease-in-out infinite;
+}
+
+@keyframes pulse-arrow {
+  0%, 100% { opacity: 0.6; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(4px); }
+}
+
+.target-name {
+  color: #ff6b6b;
+  font-size: 1rem;
 }
 
 .wolverine-area {
