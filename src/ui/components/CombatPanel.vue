@@ -83,6 +83,7 @@ const props = defineProps<{
   sectorName: string;
   isSelectingRetreatSector?: boolean;
   retreatSectorChoices?: RetreatSector[];
+  pendingAnimationEvents?: Array<{ type: string; damage?: number; targetId?: string; targetName?: string; [key: string]: any }>;
 }>();
 
 const emit = defineEmits<{
@@ -543,10 +544,11 @@ function selectTarget(targetId: string) {
 watch(currentEvent, (event) => {
   if (!event) return;
 
-  // Initialize display health on first event
+  // Initialize display health on first event - use actual pending events from state
+  // This allows computing starting health correctly by summing up all pending damage
   if (!displayHealthInitialized.value && displayCombat.value) {
-    // Create a minimal events array for initialization
-    initializeDisplayHealth([{ type: event.type }] as any, displayCombat.value as TheatreCombatData);
+    const eventsForInit = props.pendingAnimationEvents || [];
+    initializeDisplayHealth(eventsForInit as TheatreAnimationEvent[], displayCombat.value as TheatreCombatData);
   }
 
   // Coordinate death animations

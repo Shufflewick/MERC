@@ -473,6 +473,11 @@ const isCombatAnimating = ref(false);
 // Animation events are provided by App.vue - inject them here for hasActiveCombat check
 const animationEvents = useAnimationEvents();
 
+// Get pending animation events from state for CombatPanel theatre health initialization
+const pendingAnimationEvents = computed(() => {
+  return props.state?.state?.animationEvents || props.state?.animationEvents || [];
+});
+
 // Check if there's active combat to show the panel
 // Keep panel mounted while animations are playing even if activeCombat is null
 const hasActiveCombat = computed(() => {
@@ -1119,6 +1124,7 @@ const clickableSectors = computed(() => {
       :sector-name="combatSectorName"
       :is-selecting-retreat-sector="isSelectingRetreatSector"
       :retreat-sector-choices="retreatSectorChoices"
+      :pending-animation-events="pendingAnimationEvents"
       @allocate-hit="handleAllocateHit"
       @allocate-wolverine-six="handleAllocateWolverineSix"
       @reroll="handleReroll"
