@@ -584,18 +584,10 @@ function transitionState() {
   const oldState = panelState.value;
 
   if (newState !== oldState) {
-    console.log(`[CombatPanel] State: ${oldState} → ${newState}`, {
-      combatComplete: props.activeCombat?.combatComplete,
-      activeCombatExists: props.activeCombat !== null,
-      isAnimating: isAnimating.value,
-      pendingCount: animationEvents?.pendingCount.value ?? 0,
-    });
-
     panelState.value = newState;
 
     // Handle state entry actions
     if (newState === 'COMPLETE') {
-      console.log('[CombatPanel] CLOSING PANEL (state machine)');
       resetTheatreState();
       resetAnimations();
       emit('combat-finished');
@@ -625,10 +617,6 @@ watch(() => props.activeCombat?.combatComplete, () => {
 // Also check state when activeCombat becomes null
 watch(() => props.activeCombat, (newVal, oldVal) => {
   if (oldVal && !newVal) {
-    console.log('[CombatPanel] activeCombat became null', {
-      isAnimating: isAnimating.value,
-      sawCombatEndEvent: sawCombatEndEvent.value,
-    });
     // Don't force close here - let the state machine handle it based on sawCombatEndEvent
     transitionState();
   }
@@ -642,7 +630,6 @@ watch(() => props.activeCombat?.sectorId, (newSectorId, oldSectorId) => {
     resetForNewCombat();
     sawCombatEndEvent.value = false;
     panelState.value = 'IDLE';
-    console.log('[CombatPanel] Reset for new combat in sector:', newSectorId);
   }
 });
 

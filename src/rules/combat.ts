@@ -2584,11 +2584,6 @@ export function executeCombat(
 ): CombatOutcome {
   const { maxRounds = 10, interactive = true, attackingPlayerIsRebel: optionAttackingPlayerIsRebel = true } = options;
 
-  console.log('[executeCombat] START', {
-    hasActiveCombat: !!game.activeCombat,
-    combatComplete: game.activeCombat?.combatComplete,
-  });
-
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
 
@@ -2890,10 +2885,6 @@ export function executeCombat(
     const aliveDictator = dictator.filter(c => c.health > 0);
 
     if (aliveRebels.length === 0 || aliveDictator.length === 0) {
-      console.log('[executeCombat] One side eliminated, breaking loop', {
-        aliveRebels: aliveRebels.length,
-        aliveDictator: aliveDictator.length,
-      });
       break;
     }
 
@@ -2931,8 +2922,6 @@ export function executeCombat(
 
   // If combat is pending, don't apply final results yet
   if (combatPending) {
-    console.log('[executeCombat] Combat pending, returning early');
-    game.message(`[DEBUG] Combat pending - returning early`);
     return {
       rounds,
       rebelVictory: false,
@@ -2944,8 +2933,6 @@ export function executeCombat(
       canRetreat: retreatAvailable,
     };
   }
-
-  console.log('[executeCombat] Combat complete, applying results');
 
   // Apply results to game state
   applyCombatResults(game, sector, rebels, dictator, attackingPlayer);
@@ -2995,12 +2982,6 @@ export function executeCombat(
     dogs: dogState.dogs,
     combatComplete: true,
   };
-
-  console.log('[executeCombat] END - returning outcome', {
-    rebelVictory: outcome.rebelVictory,
-    dictatorVictory: outcome.dictatorVictory,
-    activeCombatComplete: game.activeCombat?.combatComplete,
-  });
 
   return outcome;
 }

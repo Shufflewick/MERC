@@ -485,7 +485,6 @@ const hasActiveCombat = computed(() => {
 // The CombatPanel's state machine will detect this and transition to COMPLETE
 watch(activeCombat, (newCombat, oldCombat) => {
   if (oldCombat && !newCombat) {
-    console.log('[GameTable] activeCombat cleared by game - CombatPanel state machine will handle closure');
     // Don't reset isCombatAnimating here - let CombatPanel's state machine handle it
   }
 });
@@ -498,8 +497,6 @@ function handleCombatAnimating(animating: boolean) {
 // Handler for when combat is truly finished (animations done AND combat marked complete)
 // This is emitted by CombatPanel after a small delay to handle race conditions
 async function handleCombatFinished() {
-  console.log('[GameTable] handleCombatFinished - panel state machine triggered closure');
-
   // Panel is closing - reset our tracking flag
   isCombatAnimating.value = false;
 
@@ -507,10 +504,8 @@ async function handleCombatFinished() {
   // Animation events are acknowledged automatically by the animation events composable
   try {
     await props.actionController.execute('clearCombatAnimations', {});
-    console.log('[GameTable] handleCombatFinished - clearCombatAnimations executed');
   } catch {
     // Action may fail if game already cleared activeCombat - that's fine
-    console.log('[GameTable] handleCombatFinished - clearCombatAnimations failed (already cleared?)');
   }
 }
 
@@ -558,13 +553,11 @@ async function handleConfirmTargets(targetIds: string[]) {
 
 // Handle continue combat from CombatPanel
 async function handleContinueCombat() {
-  console.log('[GameTable] handleContinueCombat START');
   if (!props.availableActions.includes('combatContinue')) return;
   // Keep panel mounted while action executes - prevents race condition where
   // activeCombat becomes null before new animation events are queued
   isCombatAnimating.value = true;
   await props.actionController.execute('combatContinue', {});
-  console.log('[GameTable] handleContinueCombat END');
 }
 
 // Handle retreat from CombatPanel - opens retreat sector selection
