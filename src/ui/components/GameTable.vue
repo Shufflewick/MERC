@@ -3,18 +3,18 @@
 import { computed, ref, watch, inject, nextTick, toRef, onMounted } from 'vue';
 
 // External packages
-import { useBoardInteraction, type UseActionControllerReturn, useAnimationEvents } from 'boardsmith/ui';
+import { useBoardInteraction, type UseActionControllerReturn, useAnimationEvents, GameOverlay } from 'boardsmith/ui';
 
 // Components (alphabetical)
 import AssignToSquadPanel from './AssignToSquadPanel.vue';
 import CombatPanel from './CombatPanel.vue';
-import DetailModal from './DetailModal.vue';
+import CombatantCard from './CombatantCard.vue';
 import DictatorPanel from './DictatorPanel.vue';
-import GameOverOverlay from './GameOverOverlay.vue';
 import HagnessDrawEquipment from './HagnessDrawEquipment.vue';
 import HiringPhase from './HiringPhase.vue';
 import LandingZoneSelection from './LandingZoneSelection.vue';
 import MapGrid from './MapGrid.vue';
+import ModalContent from './ModalContent.vue';
 import SectorPanel from './SectorPanel.vue';
 import SquadPanel from './SquadPanel.vue';
 
@@ -58,10 +58,18 @@ const props = defineProps<{
   setBoardPrompt: (prompt: string | null) => void;
   state?: any; // Flow state from GameShell
   flyingCombatantName?: string | null; // Name of combatant currently animating (hide at destination)
+  // Combatant data for modal opened from header (outside GameShell)
+  headerCombatantData?: {
+    combatant: any;
+    color: string;
+    squadName: string;
+    sectorName: string;
+  } | null;
 }>();
 
 const emit = defineEmits<{
   (e: 'animation-context-ready', state: any, actionController: UseActionControllerReturn): void;
+  (e: 'close-header-combatant-modal'): void;
 }>();
 
 // Emit animation context when state and actionController are available
@@ -1110,10 +1118,19 @@ const clickableSectors = computed(() => {
 <template>
   <div class="game-board">
     <!-- Game Over Overlay -->
-    <GameOverOverlay
-      :is-visible="showGameOverOverlay"
-      :winner="gameWinner"
-    />
+    <GameOverlay :active="showGameOverOverlay">
+      <div class="game-over-content" @click.stop>
+        <h1 class="game-over-title">Game Over</h1>
+        <div v-if="gameWinner === 'rebels'" class="game-over-winner rebels">
+          <h2>Rebels Victory!</h2>
+          <p>The dictator has been eliminated. Freedom prevails!</p>
+        </div>
+        <div v-else class="game-over-winner dictator">
+          <h2>Dictator Victory!</h2>
+          <p>The rebellion has been crushed. Order is restored.</p>
+        </div>
+      </div>
+    </GameOverlay>
 
     <!-- Combat Panel - shown when there's active combat -->
     <CombatPanel
@@ -1306,25 +1323,40 @@ const clickableSectors = computed(() => {
     </button>
 
     <!-- Played Cards Modal -->
-    <DetailModal :show="showPlayedCardsModal" @close="showPlayedCardsModal = false">
-      <div class="played-cards-modal">
-        <h2 class="played-cards-title">Dictator's Played Cards</h2>
-        <div class="played-cards-list">
-          <div
-            v-for="card in tacticsDiscard"
-            :key="card.id"
-            class="played-card"
-          >
-            <div class="played-card-name">{{ card.tacticsName }}</div>
-            <div v-if="card.story" class="played-card-story">"{{ card.story }}"</div>
-            <div class="played-card-effect">{{ card.description }}</div>
+    <GameOverlay :active="showPlayedCardsModal" @click="showPlayedCardsModal = false">
+      <ModalContent @close="showPlayedCardsModal = false">
+        <div class="played-cards-modal">
+          <h2 class="played-cards-title">Dictator's Played Cards</h2>
+          <div class="played-cards-list">
+            <div
+              v-for="card in tacticsDiscard"
+              :key="card.id"
+              class="played-card"
+            >
+              <div class="played-card-name">{{ card.tacticsName }}</div>
+              <div v-if="card.story" class="played-card-story">"{{ card.story }}"</div>
+              <div class="played-card-effect">{{ card.description }}</div>
+            </div>
+          </div>
+          <div v-if="tacticsDiscard.length === 0" class="no-played-cards">
+            No tactics cards have been played yet.
           </div>
         </div>
-        <div v-if="tacticsDiscard.length === 0" class="no-played-cards">
-          No tactics cards have been played yet.
-        </div>
-      </div>
-    </DetailModal>
+      </ModalContent>
+    </GameOverlay>
+
+    <!-- Header Combatant Modal (opened from App.vue header icons) -->
+    <GameOverlay :active="!!headerCombatantData" @click="emit('close-header-combatant-modal')">
+      <ModalContent v-if="headerCombatantData" @close="emit('close-header-combatant-modal')">
+        <CombatantCard
+          :merc="headerCombatantData.combatant"
+          :player-color="headerCombatantData.color"
+          :squad-name="headerCombatantData.squadName"
+          :sector-name="headerCombatantData.sectorName"
+          :show-equipment="true"
+        />
+      </ModalContent>
+    </GameOverlay>
 
   </div>
 </template>
@@ -1492,5 +1524,47 @@ const clickableSectors = computed(() => {
   text-align: center;
   width: fit-content;
   margin: 0 auto;
+}
+
+/* Game Over Overlay */
+.game-over-content {
+  position: sticky;
+  top: 10px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d4a 100%);
+  border: 3px solid #d4a84b;
+  border-radius: 16px;
+  padding: 32px 48px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 168, 75, 0.2);
+  max-width: 90vw;
+  margin: 0 auto;
+}
+
+.game-over-title {
+  font-size: 2.5rem;
+  color: #d4a84b;
+  margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-over-winner h2 {
+  font-size: 1.75rem;
+  margin: 0 0 12px 0;
+}
+
+.game-over-winner p {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.game-over-winner.rebels h2 {
+  color: #4CAF50;
+}
+
+.game-over-winner.dictator h2 {
+  color: #f44336;
 }
 </style>

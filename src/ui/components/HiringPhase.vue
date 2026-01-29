@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { UI_COLORS } from '../colors';
+import { GameOverlay } from 'boardsmith/ui';
 import CombatantCard from './CombatantCard.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import SectorCardChoice, { type SectorChoice } from './SectorCardChoice.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
-import DetailModal from './DetailModal.vue';
+import ModalContent from './ModalContent.vue';
 
 interface Props {
   // Action state flags
@@ -157,15 +158,17 @@ function handleCloseDetailModal() {
     </div>
 
     <!-- MERC Detail Modal -->
-    <DetailModal :show="showHiringMercModal" @close="handleCloseDetailModal">
-      <div class="hiring-merc-modal">
-        <CombatantCard
-          v-if="selectedMercForEquipment"
-          :merc="selectedMercForEquipment"
-          :player-color="playerColor"
-        />
-      </div>
-    </DetailModal>
+    <GameOverlay :active="showHiringMercModal" @click="handleCloseDetailModal">
+      <ModalContent @close="handleCloseDetailModal">
+        <div class="hiring-merc-modal">
+          <CombatantCard
+            v-if="selectedMercForEquipment"
+            :merc="selectedMercForEquipment"
+            :player-color="playerColor"
+          />
+        </div>
+      </ModalContent>
+    </GameOverlay>
   </div>
 </template>
 

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
-import DetailModal from './DetailModal.vue';
+import { GameOverlay } from 'boardsmith/ui';
 import EquipmentCard from './EquipmentCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
+import ModalContent from './ModalContent.vue';
 
 // Stat breakdown item for tooltips
 interface StatBreakdownItem {
@@ -810,30 +811,32 @@ function confirmDropEquipment() {
     </div>
 
     <!-- Equipment Details Modal -->
-    <DetailModal :show="showEquipmentModal" @close="closeEquipmentModal">
-      <div class="equipment-modal-content">
-        <EquipmentCard v-if="selectedEquipment" :equipment="selectedEquipment">
-          <template #actions>
-            <!-- Drop to Stash Button -->
-            <div class="drop-section" v-if="canDropEquipment">
-              <div v-if="!showDropConfirm" class="drop-button-container">
-                <button class="drop-button" @click="initiateDropEquipment">
-                  Unequip
-                </button>
-                <span class="drop-hint">Free action - drops equipment in current sector</span>
-              </div>
-              <div v-else class="drop-confirm">
-                <p class="confirm-text">Drop this equipment to the sector stash?</p>
-                <div class="confirm-buttons">
-                  <button class="confirm-yes" @click="confirmDropEquipment">Yes, Drop It</button>
-                  <button class="confirm-no" @click="cancelDrop">Cancel</button>
+    <GameOverlay :active="showEquipmentModal" @click="closeEquipmentModal">
+      <ModalContent @close="closeEquipmentModal">
+        <div class="equipment-modal-content">
+          <EquipmentCard v-if="selectedEquipment" :equipment="selectedEquipment">
+            <template #actions>
+              <!-- Drop to Stash Button -->
+              <div class="drop-section" v-if="canDropEquipment">
+                <div v-if="!showDropConfirm" class="drop-button-container">
+                  <button class="drop-button" @click="initiateDropEquipment">
+                    Unequip
+                  </button>
+                  <span class="drop-hint">Free action - drops equipment in current sector</span>
+                </div>
+                <div v-else class="drop-confirm">
+                  <p class="confirm-text">Drop this equipment to the sector stash?</p>
+                  <div class="confirm-buttons">
+                    <button class="confirm-yes" @click="confirmDropEquipment">Yes, Drop It</button>
+                    <button class="confirm-no" @click="cancelDrop">Cancel</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </template>
-        </EquipmentCard>
-      </div>
-    </DetailModal>
+            </template>
+          </EquipmentCard>
+        </div>
+      </ModalContent>
+    </GameOverlay>
   </div>
 </template>
 

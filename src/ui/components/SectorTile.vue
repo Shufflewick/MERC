@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { getPlayerColor } from '../colors';
+import { GameOverlay } from 'boardsmith/ui';
 import MilitiaIndicator from './MilitiaIndicator.vue';
-import DetailModal from './DetailModal.vue';
 import CombatantCard from './CombatantCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
+import ModalContent from './ModalContent.vue';
 
 interface SectorData {
   sectorId: string;
@@ -261,16 +262,18 @@ function closeMercModal() {
     </div>
 
     <!-- MERC Details Modal -->
-    <DetailModal :show="showMercModal" @close="closeMercModal">
-      <CombatantCard
-        v-if="selectedMerc"
-        :merc="selectedMerc"
-        :player-color="selectedMerc.playerColor"
-        :show-equipment="true"
-        :can-drop-equipment="canDropEquipment"
-        @drop-equipment="handleDropEquipment"
-      />
-    </DetailModal>
+    <GameOverlay :active="showMercModal" @click="closeMercModal">
+      <ModalContent @close="closeMercModal">
+        <CombatantCard
+          v-if="selectedMerc"
+          :merc="selectedMerc"
+          :player-color="selectedMerc.playerColor"
+          :show-equipment="true"
+          :can-drop-equipment="canDropEquipment"
+          @drop-equipment="handleDropEquipment"
+        />
+      </ModalContent>
+    </GameOverlay>
   </div>
 </template>
 

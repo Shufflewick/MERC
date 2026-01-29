@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
-import type { UseActionControllerReturn } from 'boardsmith/ui';
-import DetailModal from './DetailModal.vue';
+import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
 import CombatantCard from './CombatantCard.vue';
 import EquipmentTable from './EquipmentTable.vue';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import MilitiaCard from './MilitiaCard.vue';
+import ModalContent from './ModalContent.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 
@@ -1491,50 +1491,46 @@ const hasContentToShow = computed(() => {
     </div>
 
     <!-- MERC Details Modal -->
-    <DetailModal :show="showMercModal" @close="closeMercModal">
-      <CombatantCard
-        v-if="selectedMerc"
-        :merc="selectedMerc"
-        :player-color="selectedMercPlayerColor"
-        :squad-name="selectedMercSquadName"
-        :sector-name="sector?.sectorName"
-        :show-equipment="true"
-        :can-drop-equipment="canDropEquipmentForSelectedMerc"
-        @drop-equipment="handleDropEquipment"
-      />
-    </DetailModal>
+    <GameOverlay :active="showMercModal" @click="closeMercModal">
+      <ModalContent @close="closeMercModal">
+        <CombatantCard
+          v-if="selectedMerc"
+          :merc="selectedMerc"
+          :player-color="selectedMercPlayerColor"
+          :squad-name="selectedMercSquadName"
+          :sector-name="sector?.sectorName"
+          :show-equipment="true"
+          :can-drop-equipment="canDropEquipmentForSelectedMerc"
+          @drop-equipment="handleDropEquipment"
+        />
+      </ModalContent>
+    </GameOverlay>
 
     <!-- Stash Modal -->
-    <DetailModal :show="showStashModal" @close="showStashModal = false">
-      <div
-        class="stash-modal"
-        :style="{
-          background: UI_COLORS.surface,
-          border: `1px solid ${UI_COLORS.border}`,
-          borderRadius: '12px',
-          padding: '16px',
-          minWidth: '400px',
-          maxWidth: '600px',
-        }"
-      >
-        <EquipmentTable
-          :items="stashContents || []"
-          :title="`${sector.sectorName} Stash`"
-        />
-      </div>
-    </DetailModal>
+    <GameOverlay :active="showStashModal" @click="showStashModal = false">
+      <ModalContent @close="showStashModal = false">
+        <div class="stash-modal">
+          <EquipmentTable
+            :items="stashContents || []"
+            :title="`${sector.sectorName} Stash`"
+          />
+        </div>
+      </ModalContent>
+    </GameOverlay>
 
     <!-- Militia Modal -->
-    <DetailModal :show="showMilitiaModal" @close="closeMilitiaModal">
-      <MilitiaCard
-        v-if="selectedMilitia"
-        :count="selectedMilitia.count"
-        :is-dictator="selectedMilitia.isDictator"
-        :player-color="selectedMilitia.playerColor"
-        :better-weapons="selectedMilitia.isDictator && militiaBonuses?.betterWeapons"
-        :veteran-militia="selectedMilitia.isDictator && militiaBonuses?.veteranMilitia"
-      />
-    </DetailModal>
+    <GameOverlay :active="showMilitiaModal" @click="closeMilitiaModal">
+      <ModalContent @close="closeMilitiaModal">
+        <MilitiaCard
+          v-if="selectedMilitia"
+          :count="selectedMilitia.count"
+          :is-dictator="selectedMilitia.isDictator"
+          :player-color="selectedMilitia.playerColor"
+          :better-weapons="selectedMilitia.isDictator && militiaBonuses?.betterWeapons"
+          :veteran-militia="selectedMilitia.isDictator && militiaBonuses?.veteranMilitia"
+        />
+      </ModalContent>
+    </GameOverlay>
   </div>
 </template>
 

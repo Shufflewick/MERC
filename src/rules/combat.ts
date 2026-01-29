@@ -2113,11 +2113,14 @@ function executeCombatRound(
     for (const target of expandedTargets) {
       if (remainingHits <= 0) break;
 
+      // Capture health BEFORE damage is applied (for UI animation sync)
+      const healthBefore = target.health;
+
       // MERC-38e: Pass armorPiercing flag to applyDamage
       const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
       damageDealt.set(target.id, damage);
 
-      // Emit damage event for UI animation
+      // Emit damage event for UI animation with health state
       if (damage > 0) {
         game.emitAnimationEvent('combat-damage', {
           attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
@@ -2126,6 +2129,8 @@ function executeCombatRound(
           targetId: target.id,
           targetImage: target.image,
           damage,
+          healthBefore,
+          healthAfter: target.health,
         });
       }
 

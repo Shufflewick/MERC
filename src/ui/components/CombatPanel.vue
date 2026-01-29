@@ -4,7 +4,6 @@ import { UI_COLORS } from '../colors';
 import { useAnimationEvents } from 'boardsmith/ui';
 import type { AnimationEvent } from 'boardsmith';
 import { useDeathAnimationCoordinator } from '../composables/useDeathAnimationCoordinator';
-import { useTheatreHealth, type TheatreCombatData } from '../composables/useTheatreHealth';
 import { useCombatSequence } from '../composables/useCombatSequence';
 import CombatPanelCombatant from './CombatPanelCombatant.vue';
 import DiceRollDisplay from './DiceRollDisplay.vue';
@@ -83,7 +82,16 @@ const props = defineProps<{
   sectorName: string;
   isSelectingRetreatSector?: boolean;
   retreatSectorChoices?: RetreatSector[];
-  pendingAnimationEvents?: Array<{ type: string; damage?: number; targetId?: string; targetName?: string; [key: string]: any }>;
+  pendingAnimationEvents?: Array<{
+    type: string;
+    data?: {
+      targetId?: string;
+      healthBefore?: number;
+      healthAfter?: number;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }>;
 }>();
 
 const emit = defineEmits<{
@@ -133,11 +141,19 @@ const isFastForward = ref(false);
 // Use BoardSmith's animation events (injected by GameTable)
 const animationEvents = useAnimationEvents();
 const isAnimating = computed(() => animationEvents?.isAnimating.value ?? false);
-// Combined flag: true while animating OR while there are pending events to process
-// This prevents UI from showing final state before all animations complete
-const isProcessingAnimations = computed(() =>
-  isAnimating.value || (animationEvents?.pendingCount.value ?? 0) > 0
-);
+
+// =============================================================================
+// Display Health Tracking (Event-Driven)
+// =============================================================================
+// Instead of computing health backwards from future events, we initialize from
+// combat state when combat starts, then update health as damage events arrive.
+// The events now include healthBefore/healthAfter so we just use those values.
+
+// Map from combatant ID to their display health (what the theatre shows)
+const displayHealth = ref<Map<string, number>>(new Map());
+
+// Track combatants who have died during this combat - once dead, always dead
+const deadCombatants = ref<Set<string>>(new Set());
 
 // Helper to get timing based on fast-forward state
 function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end' | 'attack-dog'): number {
@@ -211,9 +227,21 @@ onMounted(() => {
     await sleep(getTiming('post-roll')); // Keep dice results visible for 1 second
   });
 
-  // Damage event handler
+  // Damage event handler - update display health from event data
   animationEvents.registerHandler('combat-damage', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
+
+    // Update display health directly from event (no backwards computation needed)
+    const data = event.data as Record<string, unknown>;
+    const targetId = data.targetId as string | undefined;
+    const healthAfter = data.healthAfter as number | undefined;
+    if (targetId && healthAfter !== undefined) {
+      displayHealth.value.set(targetId, healthAfter);
+      if (healthAfter <= 0) {
+        deadCombatants.value.add(targetId);
+      }
+    }
+
     await sleep(getTiming('damage'));
     await sleep(getTiming('pause'));
   });
@@ -271,17 +299,6 @@ const {
   triggerDeathByName,
 } = useDeathAnimationCoordinator();
 
-// Theatre health model
-const {
-  displayHealthInitialized,
-  deadCombatants,
-  initializeDisplayHealth,
-  getDisplayHealth,
-  applyDisplayDamage,
-  findCombatantIdByName,
-  resetTheatreState,
-} = useTheatreHealth();
-
 // Combat sequence (attacker/target highlighting)
 const {
   activeAttackerId,
@@ -296,6 +313,103 @@ const {
   scheduleMissShake,
   getBulletHolePosition,
 } = useCombatSequence();
+
+// =============================================================================
+// Display Health Functions
+// =============================================================================
+
+/**
+ * Initialize display health from combat state when combat starts.
+ * Uses healthBefore from pending animation events to show correct starting health,
+ * since combat state already has damage applied.
+ */
+function initializeDisplayHealth(combat: typeof props.activeCombat): void {
+  if (!combat) return;
+  displayHealth.value.clear();
+
+  // Build a map of starting health from pending damage events.
+  // These events have healthBefore captured BEFORE damage was applied.
+  // IMPORTANT: BoardSmith AnimationEvent stores data in event.data, not directly on event.
+  const startingHealth = new Map<string, number>();
+  if (props.pendingAnimationEvents) {
+    for (const event of props.pendingAnimationEvents) {
+      const data = event.data as Record<string, unknown> | undefined;
+      if (event.type === 'combat-damage' && data?.targetId && data?.healthBefore !== undefined) {
+        const targetId = data.targetId as string;
+        const healthBefore = data.healthBefore as number;
+        // Only use the FIRST healthBefore for each target (their starting health)
+        if (!startingHealth.has(targetId)) {
+          startingHealth.set(targetId, healthBefore);
+        }
+      }
+    }
+  }
+
+  // Initialize display health - prefer healthBefore from events, fall back to combat state
+  const allCombatants = [
+    ...(combat.rebelCombatants || []),
+    ...(combat.dictatorCombatants || []),
+  ];
+
+  for (const c of allCombatants) {
+    const id = c.id || c.sourceElement?.id;
+    if (id) {
+      // Use healthBefore from pending events if available, otherwise use current state
+      const health = startingHealth.get(id) ?? c.health ?? 1;
+      displayHealth.value.set(id, health);
+    }
+  }
+}
+
+/**
+ * Get the display health for a combatant.
+ * During animations, returns the theatre health; otherwise returns actual health.
+ */
+function getDisplayHealth(combatantId: string, actualHealth: number): number {
+  // Dead combatants always show 0
+  if (deadCombatants.value.has(combatantId)) {
+    return 0;
+  }
+
+  // During animations, use display health if we have it
+  if (isAnimating.value && displayHealth.value.has(combatantId)) {
+    return displayHealth.value.get(combatantId)!;
+  }
+
+  return actualHealth;
+}
+
+/**
+ * Find combatant ID by name (case-insensitive).
+ */
+function findCombatantIdByName(name: string): string | null {
+  if (!name || !displayCombat.value) return null;
+  const lowerName = name.toLowerCase();
+
+  const allCombatants = [
+    ...(displayCombat.value.rebelCombatants || []),
+    ...(displayCombat.value.dictatorCombatants || []),
+    ...(displayCombat.value.rebelCasualties || []),
+    ...(displayCombat.value.dictatorCasualties || []),
+  ];
+
+  for (const c of allCombatants) {
+    if (!c) continue;
+    const cName = (c.name || '').toLowerCase();
+    if (cName === lowerName || cName.includes(lowerName) || lowerName.includes(cName)) {
+      return c.id || c.sourceElement?.id || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Reset display health state for new combat.
+ */
+function resetDisplayHealthState(): void {
+  displayHealth.value.clear();
+  deadCombatants.value.clear();
+}
 
 // =============================================================================
 // Combat Data Caching
@@ -317,6 +431,8 @@ const displayCombat = computed(() => {
 watch(() => props.activeCombat, (newCombat) => {
   if (newCombat) {
     cachedCombatData.value = JSON.parse(JSON.stringify(newCombat));
+    // Initialize display health from combat state when combat starts
+    initializeDisplayHealth(newCombat);
   }
 }, { deep: true, immediate: true });
 
@@ -461,8 +577,7 @@ function getCombatantDisplay(combatant: any) {
   const maxHealth = combatant.maxHealth ?? defaultMaxHealth;
 
   const combatantId = combatant.id || combatant.sourceElement?.id;
-  // Use isProcessingAnimations to keep showing theatre health until ALL events are processed
-  const health = getDisplayHealth(combatantId, actualHealth, isProcessingAnimations.value);
+  const health = getDisplayHealth(combatantId, actualHealth);
 
   return {
     id: combatant.id,
@@ -480,7 +595,7 @@ function getCombatantDisplay(combatant: any) {
 }
 
 function findCombatantId(name: string): string | null {
-  return findCombatantIdByName(name, displayCombat.value as TheatreCombatData);
+  return findCombatantIdByName(name);
 }
 
 function isValidTarget(targetId: string): boolean {
@@ -539,17 +654,9 @@ function selectTarget(targetId: string) {
 // Watchers
 // =============================================================================
 
-// Initialize display health when combat starts or current event changes
-// Animation events are now handled by BoardSmith's useAnimationEvents system
+// Coordinate death animations when death events play
 watch(currentEvent, (event) => {
   if (!event) return;
-
-  // Initialize display health on first event - use actual pending events from state
-  // This allows computing starting health correctly by summing up all pending damage
-  if (!displayHealthInitialized.value && displayCombat.value) {
-    const eventsForInit = props.pendingAnimationEvents || [];
-    initializeDisplayHealth(eventsForInit as TheatreAnimationEvent[], displayCombat.value as TheatreCombatData);
-  }
 
   // Coordinate death animations
   if (event.type === 'death' && event.targetName) {
@@ -611,7 +718,7 @@ function transitionState() {
 
     // Handle state entry actions
     if (newState === 'COMPLETE') {
-      resetTheatreState();
+      resetDisplayHealthState();
       resetAnimations();
       emit('combat-finished');
     }
@@ -626,12 +733,7 @@ watch([isAnimating, () => animationEvents?.pendingCount.value ?? 0], ([animating
   setCombatAnimationActive(isActive);
   emit('animating', isActive);
 
-  // Only reset displayHealthInitialized when BOTH not animating AND no pending events
-  // This prevents UI from showing final state before all animations complete
-  if (!animating && pendingCount === 0) {
-    // Reset displayHealthInitialized so the next round's events will trigger initializeDisplayHealth
-    displayHealthInitialized.value = false;
-  }
+  // No special reset needed - display health is updated via event handlers
 
   // Trigger state transition check
   transitionState();
@@ -653,8 +755,7 @@ watch(() => props.activeCombat, (newVal, oldVal) => {
 // Reset on new combat
 watch(() => props.activeCombat?.sectorId, (newSectorId, oldSectorId) => {
   if (newSectorId && newSectorId !== oldSectorId) {
-    deadCombatants.value.clear();
-    resetTheatreState();
+    resetDisplayHealthState();
     resetForNewCombat();
     sawCombatEndEvent.value = false;
     panelState.value = 'IDLE';
@@ -691,7 +792,7 @@ watch(currentEvent, (event, oldEvent) => {
       if (targetId) {
         addDisplayedDamage(targetId, event.damage);
       }
-      applyDisplayDamage(event.targetId || null, event.targetName || null, event.damage, displayCombat.value as TheatreCombatData);
+      // Display health is now updated in the combat-damage event handler via healthAfter
     }
 
     if (event.type === 'death' && event.targetName) {

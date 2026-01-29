@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
-import type { UseActionControllerReturn } from 'boardsmith/ui';
-import DetailModal from './DetailModal.vue';
+import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantCard from './CombatantCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
+import ModalContent from './ModalContent.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
 
 // Helper to get attribute from node
@@ -548,25 +548,29 @@ const dictatorCardData = computed(() => ({
     </div>
 
     <!-- Dictator Details Modal -->
-    <DetailModal :show="showDictatorModal" @close="showDictatorModal = false">
-      <CombatantCard
-        :merc="dictatorCardData"
-        :player-color="playerColor"
-        :show-equipment="dictator.inPlay"
-        :sector-name="dictatorSectorName"
-      />
-    </DetailModal>
+    <GameOverlay :active="showDictatorModal" @click="showDictatorModal = false">
+      <ModalContent @close="showDictatorModal = false">
+        <CombatantCard
+          :merc="dictatorCardData"
+          :player-color="playerColor"
+          :show-equipment="dictator.inPlay"
+          :sector-name="dictatorSectorName"
+        />
+      </ModalContent>
+    </GameOverlay>
 
     <!-- Tactics Card Detail Modal -->
-    <DetailModal :show="showTacticsModal" @close="closeTacticsModal">
-      <div v-if="selectedTacticsCard" class="tactics-modal">
-        <h2>{{ selectedTacticsCard.tacticsName }}</h2>
-        <p v-if="selectedTacticsCard.story" class="tactics-story">
-          "{{ selectedTacticsCard.story }}"
-        </p>
-        <p class="tactics-effect">{{ selectedTacticsCard.description }}</p>
-      </div>
-    </DetailModal>
+    <GameOverlay :active="showTacticsModal" @click="closeTacticsModal">
+      <ModalContent @close="closeTacticsModal">
+        <div v-if="selectedTacticsCard" class="tactics-modal">
+          <h2>{{ selectedTacticsCard.tacticsName }}</h2>
+          <p v-if="selectedTacticsCard.story" class="tactics-story">
+            "{{ selectedTacticsCard.story }}"
+          </p>
+          <p class="tactics-effect">{{ selectedTacticsCard.description }}</p>
+        </div>
+      </ModalContent>
+    </GameOverlay>
   </div>
 </template>
 

@@ -4,8 +4,6 @@ import { GameShell, useActionAnimations, FlyingCardsOverlay, createAnimationEven
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import GameTable from './components/GameTable.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
-import DetailModal from './components/DetailModal.vue';
-import CombatantCard from './components/CombatantCard.vue';
 import { UI_COLORS } from './colors';
 import { lastActionWasDragDrop, quickReassignInProgress } from './drag-drop-state';
 
@@ -41,12 +39,13 @@ const animationEvents = createAnimationEvents({
 // Provide animation events so ActionPanel and child components can access them
 provideAnimationEvents(animationEvents);
 
-// Modal state for combatant details
-const showCombatantModal = ref(false);
-const selectedCombatant = ref<any>(null);
-const selectedCombatantColor = ref<string>('');
-const selectedCombatantSquadName = ref<string>('');
-const selectedCombatantSectorName = ref<string>('');
+// Combatant modal data - passed to GameTable which renders the modal inside GameShell
+const headerCombatantData = ref<{
+  combatant: any;
+  color: string;
+  squadName: string;
+  sectorName: string;
+} | null>(null);
 
 // Track which combatant is currently animating (to hide at destination)
 const flyingCombatantName = ref<string | null>(null);
@@ -191,16 +190,16 @@ function syncGameView(gameView: any) {
 }
 
 function openCombatantModal(combatant: any, playerColor: string, squadName: string, sectorName: string) {
-  selectedCombatant.value = combatant;
-  selectedCombatantColor.value = playerColor;
-  selectedCombatantSquadName.value = squadName;
-  selectedCombatantSectorName.value = sectorName;
-  showCombatantModal.value = true;
+  headerCombatantData.value = {
+    combatant,
+    color: playerColor,
+    squadName,
+    sectorName,
+  };
 }
 
-function closeCombatantModal() {
-  showCombatantModal.value = false;
-  selectedCombatant.value = null;
+function closeHeaderCombatantModal() {
+  headerCombatantData.value = null;
 }
 </script>
 
@@ -222,9 +221,11 @@ function closeCombatantModal() {
         :set-board-prompt="setBoardPrompt"
         :state="state"
         :flying-combatant-name="flyingCombatantName"
+        :header-combatant-data="headerCombatantData"
         @animation-context-ready="(s, ac) => { slotState = s; slotActionController = ac; }"
         @vue:mounted="setupAnimations(actionController, gameView)"
         @vue:updated="syncGameView(gameView)"
+        @close-header-combatant-modal="closeHeaderCombatantModal"
       />
       <FlyingCardsOverlay :flying-cards="actionAnimations.flyingElements.value">
         <template #card="{ card }">
@@ -348,18 +349,6 @@ function closeCombatantModal() {
       </div>
     </template>
   </GameShell>
-
-  <!-- Combatant detail modal -->
-  <DetailModal :show="showCombatantModal" @close="closeCombatantModal">
-    <CombatantCard
-      v-if="selectedCombatant"
-      :merc="selectedCombatant"
-      :player-color="selectedCombatantColor"
-      :squad-name="selectedCombatantSquadName"
-      :sector-name="selectedCombatantSectorName"
-      :show-equipment="true"
-    />
-  </DetailModal>
 </template>
 
 <script lang="ts">
