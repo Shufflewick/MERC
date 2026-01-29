@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted, onMounted } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { UI_COLORS } from '../colors';
 import { useAnimationEvents } from 'boardsmith/ui';
 import type { AnimationEvent } from 'boardsmith';
@@ -142,6 +142,9 @@ const isFastForward = ref(false);
 const animationEvents = useAnimationEvents();
 const isAnimating = computed(() => animationEvents?.isAnimating.value ?? false);
 
+// NOTE: Removed isProcessingAnimations - the system is purely event-driven.
+// displayHealth is the single source of truth during combat, updated only by events.
+
 // =============================================================================
 // Display Health Tracking (Event-Driven)
 // =============================================================================
@@ -210,13 +213,15 @@ function mapEventToDisplayState(event: AnimationEvent): AnimationDisplayState {
   };
 }
 
-// Register animation event handlers
-onMounted(() => {
-  if (!animationEvents) {
-    console.warn('[CombatPanel] No animation events context - animations will not play');
-    return;
-  }
+// =============================================================================
+// Animation Event Handler Registration
+// =============================================================================
+// IMPORTANT: Register handlers synchronously in setup scope, NOT in onMounted().
+// BoardSmith's useAnimationEvents watcher has { immediate: true }, so events
+// may be processed when App.vue mounts, BEFORE CombatPanel's onMounted runs.
+// By registering here, handlers exist before any reactive effects process events.
 
+if (animationEvents) {
   // Roll event handler
   animationEvents.registerHandler('combat-roll', async (event) => {
     isPreRoll.value = true;
@@ -271,7 +276,7 @@ onMounted(() => {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('attack-dog'));
   });
-});
+}
 
 // Fast forward function
 function fastForward(): void {
@@ -331,6 +336,7 @@ function initializeDisplayHealth(combat: typeof props.activeCombat): void {
   // These events have healthBefore captured BEFORE damage was applied.
   // IMPORTANT: BoardSmith AnimationEvent stores data in event.data, not directly on event.
   const startingHealth = new Map<string, number>();
+
   if (props.pendingAnimationEvents) {
     for (const event of props.pendingAnimationEvents) {
       const data = event.data as Record<string, unknown> | undefined;
@@ -363,7 +369,8 @@ function initializeDisplayHealth(combat: typeof props.activeCombat): void {
 
 /**
  * Get the display health for a combatant.
- * During animations, returns the theatre health; otherwise returns actual health.
+ * Always returns displayHealth during combat - this is the single source of truth.
+ * displayHealth is initialized when combat starts and updated only by animation events.
  */
 function getDisplayHealth(combatantId: string, actualHealth: number): number {
   // Dead combatants always show 0
@@ -371,11 +378,12 @@ function getDisplayHealth(combatantId: string, actualHealth: number): number {
     return 0;
   }
 
-  // During animations, use display health if we have it
-  if (isAnimating.value && displayHealth.value.has(combatantId)) {
+  // displayHealth is the source of truth during combat - always use it
+  if (displayHealth.value.has(combatantId)) {
     return displayHealth.value.get(combatantId)!;
   }
 
+  // If we don't have a displayHealth entry, combat hasn't properly initialized this combatant
   return actualHealth;
 }
 
@@ -428,11 +436,21 @@ const displayCombat = computed(() => {
   return null;
 });
 
-watch(() => props.activeCombat, (newCombat) => {
+watch(() => props.activeCombat, (newCombat, oldCombat) => {
+  if (newCombat && !oldCombat) {
+    // Combat starting - activate coordinator IMMEDIATELY before any state changes propagate.
+    // This ensures deaths are suppressed until combat-death events play, preventing the
+    // map death animation from firing immediately when combat panel opens.
+    setCombatAnimationActive(true);
+  }
   if (newCombat) {
     cachedCombatData.value = JSON.parse(JSON.stringify(newCombat));
     // Initialize display health from combat state when combat starts
     initializeDisplayHealth(newCombat);
+  }
+  if (!newCombat && oldCombat) {
+    // Combat ending - deactivate coordinator
+    setCombatAnimationActive(false);
   }
 }, { deep: true, immediate: true });
 
@@ -463,52 +481,46 @@ const pendingRollEvent = ref<AnimationDisplayState | null>(null);
 // Computed
 // =============================================================================
 
-// Get rebels to display
+// Get rebels to display - always include all combatants (living + casualties)
+// Death state is controlled by the deadCombatants set, updated by combat-death events
 const livingRebels = computed(() => {
   const combat = displayCombat.value;
   if (!combat) return [];
   const allRebels = (combat.rebelCombatants || []).filter((c: any) => c != null);
   const casualties = (combat.rebelCasualties || []).filter((c: any) => c != null);
 
-  if (isAnimating.value) {
-    const seen = new Set<string>();
-    const combined: any[] = [];
-    for (const c of [...allRebels, ...casualties]) {
-      const id = c.id || c.sourceElement?.id;
-      if (id && !seen.has(id)) {
-        seen.add(id);
-        combined.push(c);
-      }
+  // Always show all combatants - death animations are event-driven via deadCombatants set
+  const seen = new Set<string>();
+  const combined: any[] = [];
+  for (const c of [...allRebels, ...casualties]) {
+    const id = c.id || c.sourceElement?.id;
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      combined.push(c);
     }
-    return combined;
   }
-
-  const casualtyIds = new Set(casualties.map((c: any) => c.id || c.sourceElement?.id));
-  return allRebels.filter((c: any) => !casualtyIds.has(c.id || c.sourceElement?.id));
+  return combined;
 });
 
-// Get dictator forces to display
+// Get dictator forces to display - always include all combatants (living + casualties)
+// Death state is controlled by the deadCombatants set, updated by combat-death events
 const livingDictator = computed(() => {
   const combat = displayCombat.value;
   if (!combat) return [];
   const allDictator = (combat.dictatorCombatants || []).filter((c: any) => c != null);
   const casualties = (combat.dictatorCasualties || []).filter((c: any) => c != null);
 
-  if (isAnimating.value) {
-    const seen = new Set<string>();
-    const combined: any[] = [];
-    for (const c of [...allDictator, ...casualties]) {
-      const id = c.id || c.sourceElement?.id;
-      if (id && !seen.has(id)) {
-        seen.add(id);
-        combined.push(c);
-      }
+  // Always show all combatants - death animations are event-driven via deadCombatants set
+  const seen = new Set<string>();
+  const combined: any[] = [];
+  for (const c of [...allDictator, ...casualties]) {
+    const id = c.id || c.sourceElement?.id;
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      combined.push(c);
     }
-    return combined;
   }
-
-  const casualtyIds = new Set(casualties.map((c: any) => c.id || c.sourceElement?.id));
-  return allDictator.filter((c: any) => !casualtyIds.has(c.id || c.sourceElement?.id));
+  return combined;
 });
 
 // Mode checks
@@ -682,7 +694,7 @@ type CombatPanelState = 'IDLE' | 'ANIMATING' | 'WAITING_FOR_INPUT' | 'COMPLETE';
 const panelState = ref<CombatPanelState>('IDLE');
 
 // Track if we've seen a combat-end event (definitive signal that combat is over)
-// This is set by the combat-end handler in onMounted
+// This is set by the combat-end handler
 const sawCombatEndEvent = ref(false);
 
 // Derive state from current conditions
@@ -727,13 +739,13 @@ function transitionState() {
 
 // Coordinate with death animation system
 // Watch both isAnimating and pendingCount to properly track all animation activity
+// NOTE: setCombatAnimationActive is now handled in the activeCombat watcher (activated when
+// combat starts, deactivated when combat ends). This ensures deaths are suppressed for the
+// entire duration of combat, not just while animations are playing.
 watch([isAnimating, () => animationEvents?.pendingCount.value ?? 0], ([animating, pendingCount]) => {
-  // Combat animation is active while animating OR while there are pending events
+  // Emit animating state for parent components
   const isActive = animating || pendingCount > 0;
-  setCombatAnimationActive(isActive);
   emit('animating', isActive);
-
-  // No special reset needed - display health is updated via event handlers
 
   // Trigger state transition check
   transitionState();
@@ -811,6 +823,9 @@ watch(isAnimating, (animating) => {
   if (!animating) {
     clearAttackSequence();
     pendingRollEvent.value = null;
+    // Clear the current event display when animations finish
+    // This prevents dice/attack displays from persisting while waiting for user input
+    currentEvent.value = null;
   }
 });
 
