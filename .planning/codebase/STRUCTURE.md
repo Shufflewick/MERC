@@ -181,11 +181,6 @@ MERC/
 - Source: Manual documentation
 - Committed: Yes
 
-**.beads/**
-- Purpose: Issue tracking (Beads workflow)
-- Source: bd CLI commands
-- Committed: Yes
-
 ---
 
 *Structure analysis: 2026-01-08*
