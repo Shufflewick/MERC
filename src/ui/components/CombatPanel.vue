@@ -445,8 +445,10 @@ watch(() => props.activeCombat, (newCombat, oldCombat) => {
   }
   if (newCombat) {
     cachedCombatData.value = JSON.parse(JSON.stringify(newCombat));
-    // Initialize display health from combat state when combat starts
-    initializeDisplayHealth(newCombat);
+    // Only initialize health when combat STARTS (not on mid-combat state updates)
+    if (!oldCombat) {
+      initializeDisplayHealth(newCombat);
+    }
   }
   if (!newCombat && oldCombat) {
     // Combat ending - deactivate coordinator

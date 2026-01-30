@@ -207,7 +207,6 @@ function closeHeaderCombatantModal() {
   <GameShell
     game-type="MERC"
     display-name="MERC"
-    :player-count="2"
     :default-a-i-players="[1]"
   >
     <template #game-board="{ state, gameView, playerSeat, isMyTurn, availableActions, actionArgs, actionController, setBoardPrompt }">
