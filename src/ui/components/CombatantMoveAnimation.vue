@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { easeInOutCubic } from 'boardsmith/utils';
 import { getPlayerColor } from '../colors';
 
 const props = defineProps<{
@@ -51,13 +52,6 @@ function getSectorPosition(sectorId: string): { x: number; y: number } | null {
     x: rect.left + 30,
     y: rect.bottom - 30,
   };
-}
-
-// Easing function (ease-in-out cubic)
-function easeInOutCubic(t: number): number {
-  return t < 0.5
-    ? 4 * t * t * t
-    : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 // Animation state

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { easeInCubic } from 'boardsmith/utils';
 import { getPlayerColor } from '../colors';
 
 const props = defineProps<{
@@ -66,11 +67,6 @@ function getStartPosition(): { x: number; y: number } | null {
     x: rect.left + 30,
     y: rect.bottom - 30,
   };
-}
-
-// Easing function (ease-in cubic - starts slow, ends fast)
-function easeInCubic(t: number): number {
-  return t * t * t;
 }
 
 // Animation state

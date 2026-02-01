@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { easeOutCubic } from 'boardsmith/utils';
 
 const props = defineProps<{
   equipmentName: string;
@@ -96,11 +97,6 @@ function getAnimationPositions(): { start: { x: number; y: number }; end: { x: n
       end: target,
     };
   }
-}
-
-// Easing function (ease-out cubic)
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
 }
 
 // Animation state

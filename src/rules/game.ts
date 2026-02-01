@@ -657,6 +657,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const dictatorConfigIndex = playerConfigs.findIndex(
       (config: any) => config.isDictator === true
     );
+
     if (dictatorConfigIndex >= 0) {
       dictatorPos = dictatorConfigIndex;
     } else if (options.dictatorPlayerSeat !== undefined) {

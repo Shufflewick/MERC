@@ -74,7 +74,6 @@ import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetr
  * Animation events are handled by BoardSmith's game.emitAnimationEvent() system.
  */
 export function clearActiveCombat(game: MERCGame): void {
-  console.log('[DEBUG clearActiveCombat] Clearing activeCombat');
   game.activeCombat = null;
 }
 

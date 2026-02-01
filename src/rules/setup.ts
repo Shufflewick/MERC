@@ -65,39 +65,20 @@ export interface TacticsData {
 // =============================================================================
 
 /**
- * Check if a position is a corner of the grid.
+ * Determines if a position is on the checkerboard pattern.
+ * Checkerboard positions are where (row + col) % 2 === 0.
+ * Industries are always placed on checkerboard positions to ensure
+ * no two industries are orthogonally adjacent.
  */
-function isCorner(row: number, col: number, rows: number, cols: number): boolean {
-  return (row === 0 || row === rows - 1) && (col === 0 || col === cols - 1);
-}
-
-/**
- * Check if a position is the center of an odd-dimension grid.
- * For odd grids (like 3x3), the center should be a city, not an industry.
- */
-function isCenter(row: number, col: number, rows: number, cols: number): boolean {
-  // Only applies to odd-dimension grids
-  if (rows % 2 === 0 || cols % 2 === 0) return false;
-  const centerRow = Math.floor(rows / 2);
-  const centerCol = Math.floor(cols / 2);
-  return row === centerRow && col === centerCol;
-}
-
-/**
- * Determines if a position should be an industry based on checkerboard pattern.
- * Industries are placed so no two are adjacent (orthogonally).
- * Special case: center of odd-dimension grids is reserved for city.
- */
-export function isIndustryPosition(row: number, col: number, rows?: number, cols?: number): boolean {
-  // If grid dimensions provided, check for center exclusion
-  if (rows !== undefined && cols !== undefined) {
-    // Center of odd grids is NOT an industry position (reserved for city)
-    if (isCenter(row, col, rows, cols)) {
-      return false;
-    }
-  }
-  // Checkerboard pattern: (row + col) % 2 === 0 means industry position
+export function isCheckerboardPosition(row: number, col: number): boolean {
   return (row + col) % 2 === 0;
+}
+
+/**
+ * @deprecated Use isCheckerboardPosition instead. Kept for backwards compatibility.
+ */
+export function isIndustryPosition(row: number, col: number): boolean {
+  return isCheckerboardPosition(row, col);
 }
 
 /**
@@ -125,11 +106,12 @@ function selectRandom<T>(array: T[], count: number, random: () => number): T[] {
 /**
  * Build the game map with sectors placed in checkerboard pattern.
  *
- * Layout rules:
- * - Industries are placed in a checkerboard pattern so no two are adjacent
- * - For odd-dimension grids (e.g., 3x3), the center is reserved for a city
- * - Industries are placed at corners first, then remaining checkerboard positions
- * - Wilderness fills the non-checkerboard positions
+ * Layout rules (all player counts, no special cases):
+ * 1. Industries → ALWAYS on checkerboard positions (strict requirement)
+ * 2. Cities → Prefer checkerboard, overflow to non-checkerboard if needed
+ * 3. Wilderness → Fill all remaining non-checkerboard positions
+ *
+ * This ensures no two industries are ever orthogonally adjacent.
  *
  * @param game - The game instance
  * @param sectorData - Array of sector data from JSON
@@ -155,73 +137,57 @@ export function buildMap(game: MERCGame, sectorData: SectorData[]): void {
   const selectedCities = selectRandom(cities, config.sectorTypes.cities, game.random);
   const selectedWilderness = selectRandom(wilderness, config.sectorTypes.wilderness, game.random);
 
-  // Categorize positions
-  const cornerPositions: Array<{row: number; col: number}> = [];
-  const centerPosition: {row: number; col: number} | null =
-    (rows % 2 === 1 && cols % 2 === 1)
-      ? { row: Math.floor(rows / 2), col: Math.floor(cols / 2) }
-      : null;
-  const industryPositions: Array<{row: number; col: number}> = [];
-  const nonIndustryPositions: Array<{row: number; col: number}> = [];
+  // Categorize ALL positions by checkerboard pattern
+  const checkerboardPositions: Array<{row: number; col: number}> = [];
+  const nonCheckerboardPositions: Array<{row: number; col: number}> = [];
 
-  // First pass: categorize all positions
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const pos = { row, col };
-
-      if (isCorner(row, col, rows, cols)) {
-        cornerPositions.push(pos);
-      } else if (centerPosition && row === centerPosition.row && col === centerPosition.col) {
-        // Center is handled separately - will get a city
-      } else if (isIndustryPosition(row, col, rows, cols)) {
-        industryPositions.push(pos);
+      if (isCheckerboardPosition(row, col)) {
+        checkerboardPositions.push({ row, col });
       } else {
-        nonIndustryPositions.push(pos);
+        nonCheckerboardPositions.push({ row, col });
       }
     }
   }
 
-  // Shuffle non-corner industry positions for variety
-  const shuffledIndustryPositions = shuffleArray(industryPositions, game.random);
+  // Shuffle both arrays for variety
+  const shuffledCheckerboard = shuffleArray(checkerboardPositions, game.random);
+  const shuffledNonCheckerboard = shuffleArray(nonCheckerboardPositions, game.random);
 
-  // All industry positions: corners first, then remaining checkerboard positions
-  const allIndustryPositions = [...cornerPositions, ...shuffledIndustryPositions];
-
-  // Shuffle non-industry positions for variety
-  const shuffledNonIndustryPositions = shuffleArray(nonIndustryPositions, game.random);
-
-  // Track which sectors we've used
-  let industryIndex = 0;
-  let cityIndex = 0;
-  let wildernessIndex = 0;
-
-  // Create a map of position -> sector type
+  // Place sectors in priority order
   const positionMap = new Map<string, SectorData>();
+  let checkerIdx = 0;
+  let nonCheckerIdx = 0;
 
-  // Place industries at industry positions (corners + checkerboard)
-  for (let i = 0; i < allIndustryPositions.length && industryIndex < selectedIndustries.length; i++) {
-    const pos = allIndustryPositions[i];
-    positionMap.set(`${pos.row},${pos.col}`, selectedIndustries[industryIndex++]);
+  const key = (pos: {row: number; col: number}) => `${pos.row},${pos.col}`;
+
+  // 1. Industries → checkerboard only (strict requirement)
+  for (const industry of selectedIndustries) {
+    if (checkerIdx >= shuffledCheckerboard.length) {
+      throw new Error(`Not enough checkerboard positions for industries: need ${selectedIndustries.length}, have ${shuffledCheckerboard.length}`);
+    }
+    positionMap.set(key(shuffledCheckerboard[checkerIdx++]), industry);
   }
 
-  // Place city at center (for odd grids) or in non-industry positions
-  if (centerPosition && cityIndex < selectedCities.length) {
-    positionMap.set(`${centerPosition.row},${centerPosition.col}`, selectedCities[cityIndex++]);
-  }
-
-  // Place remaining cities in non-industry positions
-  for (let i = 0; i < shuffledNonIndustryPositions.length && cityIndex < selectedCities.length; i++) {
-    const pos = shuffledNonIndustryPositions[i];
-    if (!positionMap.has(`${pos.row},${pos.col}`)) {
-      positionMap.set(`${pos.row},${pos.col}`, selectedCities[cityIndex++]);
+  // 2. Cities → remaining checkerboard first, then overflow to non-checkerboard
+  for (const city of selectedCities) {
+    if (checkerIdx < shuffledCheckerboard.length) {
+      positionMap.set(key(shuffledCheckerboard[checkerIdx++]), city);
+    } else {
+      if (nonCheckerIdx >= shuffledNonCheckerboard.length) {
+        throw new Error('Not enough positions for cities');
+      }
+      positionMap.set(key(shuffledNonCheckerboard[nonCheckerIdx++]), city);
     }
   }
 
-  // Place wilderness in remaining non-industry positions
-  for (const pos of shuffledNonIndustryPositions) {
-    if (!positionMap.has(`${pos.row},${pos.col}`) && wildernessIndex < selectedWilderness.length) {
-      positionMap.set(`${pos.row},${pos.col}`, selectedWilderness[wildernessIndex++]);
+  // 3. Wilderness → remaining non-checkerboard positions
+  for (const wild of selectedWilderness) {
+    if (nonCheckerIdx >= shuffledNonCheckerboard.length) {
+      throw new Error('Not enough non-checkerboard positions for wilderness');
     }
+    positionMap.set(key(shuffledNonCheckerboard[nonCheckerIdx++]), wild);
   }
 
   // Build the map

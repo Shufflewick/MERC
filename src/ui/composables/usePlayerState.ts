@@ -29,34 +29,6 @@ export function usePlayerState(
 ): PlayerState {
   const { findAllByClassName, getAttr } = useGameViewHelpers(getGameView);
 
-  // Get dictator seat from game settings (set from lobby configuration)
-  // This is the authoritative source for who is the dictator
-  const dictatorSeat = computed(() => {
-    const gameView = getGameView();
-    const settings = gameView?.attributes?.settings || gameView?.settings || {};
-    const playerConfigs: any[] = settings.playerConfigs || [];
-
-    // Check playerConfigs for isDictator flag (from exclusive player option in lobby)
-    const dictatorConfigIndex = playerConfigs.findIndex(
-      (config: any) => config.isDictator === true
-    );
-
-    if (dictatorConfigIndex >= 0) {
-      // playerConfigs is 0-indexed, but player seats are 1-indexed
-      return dictatorConfigIndex + 1;
-    }
-
-    // Fallback: dictatorPlayerSeat from settings (legacy)
-    if (settings.dictatorPlayerSeat !== undefined) {
-      // dictatorPlayerSeat is 0-indexed, convert to 1-indexed
-      return settings.dictatorPlayerSeat + 1;
-    }
-
-    // Default: last player (seat = playerCount)
-    const playerCount = settings.playerCount || playerConfigs.length || 2;
-    return playerCount;
-  });
-
   // Extract all players from game view tree
   const players = computed(() => {
     const mercPlayers = findAllByClassName('MERCPlayer');
@@ -79,8 +51,9 @@ export function usePlayerState(
 
       const playerColor = getAttr<string>(p, 'playerColor', '') || getAttr<string>(p, 'color', '');
 
-      // Check if this player is the dictator based on lobby configuration
-      const isDictator = seat === dictatorSeat.value;
+      // Read role directly from player object
+      const role = getAttr<string>(p, 'role', '');
+      const isDictator = role === 'dictator';
 
       return {
         seat: seat as number,
@@ -125,10 +98,10 @@ export function usePlayerState(
   });
 
   // Check if current player is the dictator
-  // Uses dictatorSeat from game settings (set from lobby configuration)
   const currentPlayerIsDictator = computed(() => {
     const pos = unref(playerSeat);
-    return pos === dictatorSeat.value;
+    const player = players.value.find(p => p.seat === pos);
+    return player?.isDictator ?? false;
   });
 
   // Helper to convert player seat to color name
