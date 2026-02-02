@@ -386,7 +386,23 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
     .chooseFrom<string>('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
-        // Get dictator-controlled sectors
+        const primarySquad = game.dictatorPlayer.primarySquad;
+        const secondarySquad = game.dictatorPlayer.secondarySquad;
+        const primaryHasSector = !!primarySquad.sectorId;
+        const secondaryHasSector = !!secondarySquad.sectorId;
+
+        // If both squads are already deployed, only allow their current sectors
+        if (primaryHasSector && secondaryHasSector) {
+          const validSectorIds = new Set<string>();
+          if (primarySquad.sectorId) validSectorIds.add(primarySquad.sectorId);
+          if (secondarySquad.sectorId) validSectorIds.add(secondarySquad.sectorId);
+
+          return game.gameMap.getAllSectors()
+            .filter(s => validSectorIds.has(s.sectorId))
+            .map(s => s.sectorName);
+        }
+
+        // Otherwise, show all dictator-controlled sectors (existing behavior)
         const sectors = game.gameMap.getAllSectors()
           .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
 
@@ -475,7 +491,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
       // Put MERC into chosen squad - merc inherits sectorId from squad
       selectedMerc.putInto(targetSquad);
-      targetSquad.sectorId = targetSector.sectorId;
+      // Only set squad location if it doesn't already have one
+      if (!targetSquad.sectorId) {
+        targetSquad.sectorId = targetSector.sectorId;
+      }
       game.message(`Castro deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
 
       // Update squad-based ability bonuses (Tack, Sarge, Valkyrie, etc.)
