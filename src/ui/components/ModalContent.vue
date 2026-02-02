@@ -30,12 +30,13 @@ const emit = defineEmits<{
 
 <style scoped>
 .modal-content {
-  position: sticky;
-  top: 10px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   max-width: 90vw;
   max-height: calc(100vh - 150px);
   overflow-y: auto;
-  margin: 0 auto;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   /* Default background and text styling - can be overridden by slot content */
   background: #1e231e;
