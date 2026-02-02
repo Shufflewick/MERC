@@ -1901,7 +1901,8 @@ function executeCombatRound(
     }
 
     // Target selection - comes AFTER attack dog assignment
-    if (interactive && isHumanControlled && !hasSelectedTargets) {
+    // Only pause for target selection if unit is on attacking side (defending units auto-target)
+    if (interactive && isHumanControlled && isOnAttackingSide && !hasSelectedTargets) {
       // Check if dog forces targets (no player choice needed)
       const assignedDog = activeDogState.assignments.get(attacker.id);
       const dogForcesTarget = assignedDog && assignedDog.health > 0;

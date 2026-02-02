@@ -191,11 +191,12 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     game.dictatorPlayer.dictator.baseSectorId = game.dictatorPlayer.baseSectorId;
   }
 
-  // Put dictator into primary squad and set squad location to base
-  // sectorId is derived from squad membership
-  if (game.dictatorPlayer.dictator && game.dictatorPlayer.primarySquad && game.dictatorPlayer.baseSectorId) {
-    game.dictatorPlayer.primarySquad.sectorId = game.dictatorPlayer.baseSectorId;
-    game.dictatorPlayer.dictator.putInto(game.dictatorPlayer.primarySquad);
+  // Put dictator into base squad (not primary/secondary) at the base location
+  // Using baseSquad avoids teleporting any MERCs already in primary/secondary squads
+  if (game.dictatorPlayer.dictator && game.dictatorPlayer.baseSectorId) {
+    const baseSquad = game.dictatorPlayer.baseSquad;
+    baseSquad.sectorId = game.dictatorPlayer.baseSectorId;
+    game.dictatorPlayer.dictator.putInto(baseSquad);
   }
 
   // Dictators get 1 free equipment when entering play, just like MERCs
