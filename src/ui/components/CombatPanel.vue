@@ -594,7 +594,7 @@ function getCombatantDisplay(combatant: any) {
   const health = getDisplayHealth(combatantId, actualHealth);
 
   return {
-    id: combatant.id,
+    id: combatantId,
     name,
     isMerc,
     isAttackDog: isAttackDogUnit,
