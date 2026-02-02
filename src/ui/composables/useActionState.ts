@@ -20,9 +20,11 @@ export interface ActionStateProps {
     [key: string]: any; // Allow additional properties from UseActionControllerReturn
   };
   actionArgs: Record<string, unknown>;
+  getActionArgs?: () => Record<string, unknown>; // Reactive getter for actionArgs
   state?: { state?: Record<string, any> };
   playerSeat: number;
   gameView?: any;
+  getGameView?: () => any; // Reactive getter for gameView
   isCurrentPlayerDictator?: () => boolean;
 }
 
@@ -133,7 +135,7 @@ export function useActionState(
   primarySquad: ComputedRef<SquadState | undefined>,
   secondarySquad: ComputedRef<SquadState | undefined>
 ): ActionStateReturn {
-  const { getAttr } = useGameViewHelpers(() => props.gameView);
+  const { getAttr, findElementById } = useGameViewHelpers(() => props.gameView);
 
   // ============================================================================
   // REFS FOR UI STATE
@@ -465,9 +467,30 @@ export function useActionState(
 
     // Get MERC name from actionController.currentArgs (active action) or actionArgs (fallback)
     // During multi-step actions, currentArgs contains the filled values
+    // Use getActionArgs getter for reactivity (props.actionArgs is a plain object that doesn't trigger re-computation)
     const currentArgs = props.actionController.currentArgs?.value || {};
-    const combatantName = (currentArgs['merc'] as string | undefined) ||
-                          (props.actionArgs['merc'] as string | undefined);
+    const actionArgs = props.getActionArgs ? props.getActionArgs() : props.actionArgs;
+    let combatantName = (currentArgs['merc'] as string | undefined) ||
+                        (actionArgs['merc'] as string | undefined);
+
+    // Fallback for dictator hiring: get from cached combatantId and look up in combatantData
+    if (!combatantName) {
+      const settings = props.gameView?.settings ||
+                       props.state?.state?.settings ||
+                       props.gameView?.attributes?.settings;
+      // Use combatantId (string) to look up in combatantData directly
+      // (numeric element ID can't find MERC because it's in mercDiscard which isn't serialized)
+      const drawnMercCombatantId = settings?.dictatorFirstMercCombatantId;
+      if (drawnMercCombatantId) {
+        const combatantData = settings?.combatantData || [];
+        const mercInfo = combatantData.find((d: any) =>
+          d.cardType === 'merc' && d.id === drawnMercCombatantId
+        );
+        if (mercInfo) {
+          combatantName = mercInfo.name;
+        }
+      }
+    }
     if (!combatantName) return null;
 
     // First try to find the MERC in the game tree
@@ -475,9 +498,11 @@ export function useActionState(
 
     // If not found, fall back to combatantData (mercs in deck during hiring aren't in tree)
     if (!merc) {
-      const combatantData = props.gameView?.attributes?.settings?.combatantData ||
+      // Use getGameView getter for reactivity (props.gameView is a snapshot that doesn't update)
+      const gameView = props.getGameView ? props.getGameView() : props.gameView;
+      const combatantData = gameView?.attributes?.settings?.combatantData ||
                             props.state?.state?.settings?.combatantData ||
-                            props.gameView?.settings?.combatantData || [];
+                            gameView?.settings?.combatantData || [];
       const mercInfo = combatantData.find((d: any) =>
         d.cardType === 'merc' && d.name.toLowerCase() === combatantName.toLowerCase()
       );

@@ -615,6 +615,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       const merc = game.drawMerc();
       if (merc) {
         setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+        setGlobalCachedValue(game, 'dictatorFirstMercCombatantId', merc.combatantId);
         game.message(`Dictator drew ${merc.combatantName}`);
       }
     }
@@ -681,6 +682,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 
       if (!merc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
         return { success: false, message: 'No MERC drawn' };
       }
 
@@ -706,6 +708,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       }
 
       clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+      clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
       return { success: true, message: `Hired ${merc.combatantName}` };
     });
 }

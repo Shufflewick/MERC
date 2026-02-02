@@ -218,9 +218,11 @@ const {
     availableActions: props.availableActions,
     actionController: props.actionController,
     actionArgs: props.actionArgs,
+    getActionArgs: () => props.actionArgs, // Reactive getter for Vue dependency tracking
     state: props.state,
     playerSeat: props.playerSeat,
     gameView: props.gameView,
+    getGameView: () => props.gameView, // Reactive getter for Vue dependency tracking
     isCurrentPlayerDictator: () => currentPlayerIsDictator.value,
   },
   sectors,
