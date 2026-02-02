@@ -737,15 +737,37 @@ const actingMercForEquipment = computed(() => {
   if (!args) return null;
 
   // Get element ID from args - different actions use different arg names
-  // collectEquipment/reEquipContinue use numeric element ID, display names in separate display option
-  // reEquip uses actingMerc (from first selection)
+  // reEquip uses actingUnit (string format "id:name:isDictator")
+  // reEquipContinue/collectEquipment use combatantId (numeric element ID)
   let combatantElementId: number | undefined;
 
-  const mercArg = args.actingMerc;
-  if (typeof mercArg === 'number') {
-    combatantElementId = mercArg;
-  } else if (mercArg && typeof mercArg === 'object') {
-    combatantElementId = (mercArg as { id?: number; ref?: number }).id ?? (mercArg as { id?: number; ref?: number }).ref;
+  // Check actingUnit first (reEquip action - string format "id:name:isDictator")
+  const actingUnitArg = args.actingUnit;
+  if (typeof actingUnitArg === 'string') {
+    const parts = actingUnitArg.split(':');
+    if (parts.length >= 1) {
+      combatantElementId = parseInt(parts[0], 10);
+    }
+  }
+
+  // Fall back to combatantId (reEquipContinue/collectEquipment - numeric ID)
+  if (combatantElementId === undefined) {
+    const combatantArg = args.combatantId;
+    if (typeof combatantArg === 'number') {
+      combatantElementId = combatantArg;
+    } else if (combatantArg && typeof combatantArg === 'object' && 'id' in combatantArg) {
+      combatantElementId = (combatantArg as { id: number }).id;
+    }
+  }
+
+  // Legacy fallback: actingMerc (for any older code paths)
+  if (combatantElementId === undefined) {
+    const mercArg = args.actingMerc;
+    if (typeof mercArg === 'number') {
+      combatantElementId = mercArg;
+    } else if (mercArg && typeof mercArg === 'object') {
+      combatantElementId = (mercArg as { id?: number; ref?: number }).id ?? (mercArg as { id?: number; ref?: number }).ref;
+    }
   }
 
   if (combatantElementId === undefined) return null;
