@@ -132,6 +132,16 @@ export function equipStartingEquipment(
   merc: CombatantModel,
   equipmentType: 'Weapon' | 'Armor' | 'Accessory'
 ): Equipment | undefined {
+  // MERC-9mxd: Vrbansk gets bonus accessory FIRST (before starting equipment)
+  let vrbanskBonus: Equipment | undefined;
+  if (merc.combatantId === 'vrbansk') {
+    vrbanskBonus = game.drawEquipment('Accessory');
+    if (vrbanskBonus) {
+      merc.equip(vrbanskBonus);
+      game.message(`${merc.combatantName} receives bonus accessory: ${vrbanskBonus.equipmentName}`);
+    }
+  }
+
   let equipment = game.drawEquipment(equipmentType);
 
   // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
@@ -160,17 +170,21 @@ export function equipStartingEquipment(
   }
 
   if (equipment) {
-    merc.equip(equipment);
-    game.message(`${merc.combatantName} equipped ${equipment.equipmentName}`);
-  }
+    const replaced = merc.equip(equipment);
 
-  // MERC-9mxd: Vrbansk gets a free accessory when hired
-  if (merc.combatantId === 'vrbansk') {
-    const bonusAccessory = game.drawEquipment('Accessory');
-    if (bonusAccessory) {
-      merc.equip(bonusAccessory);
-      game.message(`${merc.combatantName} receives bonus accessory: ${bonusAccessory.equipmentName}`);
+    // If Vrbansk's bonus was replaced, put it in sector stash
+    if (replaced && vrbanskBonus && replaced.id === vrbanskBonus.id) {
+      const sector = merc.sectorId ? game.getSector(merc.sectorId) : undefined;
+      if (sector) {
+        sector.addToStash(replaced);
+        game.message(`${replaced.equipmentName} added to ${sector.sectorName} stash`);
+      } else {
+        const discard = game.getEquipmentDiscard(replaced.equipmentType);
+        if (discard) replaced.putInto(discard);
+      }
     }
+
+    game.message(`${merc.combatantName} equipped ${equipment.equipmentName}`);
   }
 
   return equipment;

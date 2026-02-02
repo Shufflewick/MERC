@@ -451,6 +451,16 @@ export function equipNewHire(
   merc: CombatantModel,
   equipType: 'Weapon' | 'Armor' | 'Accessory'
 ): void {
+  // MERC-9mxd: Vrbansk gets bonus accessory FIRST (before starting equipment)
+  let vrbanskBonus: Equipment | undefined;
+  if (merc.combatantId === 'vrbansk') {
+    vrbanskBonus = game.drawEquipment('Accessory');
+    if (vrbanskBonus) {
+      merc.equip(vrbanskBonus);
+      game.message(`${merc.combatantName} receives bonus accessory: ${vrbanskBonus.equipmentName}`);
+    }
+  }
+
   let freeEquipment = game.drawEquipment(equipType);
 
   // MERC-70a: If Apeiron draws a grenade/mortar, discard and redraw
@@ -481,20 +491,22 @@ export function equipNewHire(
   if (freeEquipment) {
     const replaced = merc.equip(freeEquipment);
     if (replaced) {
-      // Put replaced equipment in discard pile
-      const discard = game.getEquipmentDiscard(replaced.equipmentType);
-      if (discard) replaced.putInto(discard);
+      // If Vrbansk's bonus was replaced, stash it; otherwise discard
+      if (vrbanskBonus && replaced.id === vrbanskBonus.id) {
+        const sector = merc.sectorId ? game.getSector(merc.sectorId) : undefined;
+        if (sector) {
+          sector.addToStash(replaced);
+          game.message(`${replaced.equipmentName} added to ${sector.sectorName} stash`);
+        } else {
+          const discard = game.getEquipmentDiscard(replaced.equipmentType);
+          if (discard) replaced.putInto(discard);
+        }
+      } else {
+        const discard = game.getEquipmentDiscard(replaced.equipmentType);
+        if (discard) replaced.putInto(discard);
+      }
     }
     game.message(`${merc.combatantName} equipped free ${freeEquipment.equipmentName}`);
-  }
-
-  // MERC-9mxd: Vrbansk gets a free accessory when hired
-  if (merc.combatantId === 'vrbansk' && !merc.accessorySlot) {
-    const freeAccessory = game.drawEquipment('Accessory');
-    if (freeAccessory) {
-      merc.equip(freeAccessory);
-      game.message(`${merc.combatantName} receives bonus accessory: ${freeAccessory.equipmentName}`);
-    }
   }
 }
 
