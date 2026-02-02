@@ -22,14 +22,14 @@ const imagePath = computed(() => {
   if (props.image) {
     return props.image;
   }
-  // No fallback - log warning for debugging
-  console.warn('[CombatantIconSmall] No image provided, props:', {
-    image: props.image,
-    combatantId: props.combatantId,
-    alt: props.alt
-  });
-  return ''; // Empty src will show broken image indicator
+  // Only warn if there's a combatantId (suggesting this is a real combatant that should have an image)
+  if (props.combatantId && props.combatantId !== 'unknown') {
+    console.warn('[CombatantIconSmall] No image provided for combatant:', props.combatantId);
+  }
+  return ''; // Empty - use v-if in template to hide when no image
 });
+
+const hasImage = computed(() => !!props.image);
 
 const borderColor = computed(() => {
   if (!props.playerColor) return '#666';
@@ -57,17 +57,19 @@ function handleClick() {
 <template>
   <div
     class="combatant-icon-small"
-    :class="{ clickable }"
+    :class="{ clickable, 'no-image': !hasImage }"
     :style="sizeStyle"
     :data-combatant-id="combatantId"
     @click="handleClick"
   >
     <img
+      v-if="hasImage"
       :src="imagePath"
       :alt="alt || 'Portrait'"
       :style="{ borderColor }"
       @error="handleImageError"
     />
+    <div v-else class="placeholder" :style="{ borderColor }">?</div>
   </div>
 </template>
 
@@ -100,5 +102,19 @@ function handleClick() {
 
 .combatant-icon-small img {
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.combatant-icon-small .placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid;
+  background: #333;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 1.2em;
 }
 </style>

@@ -1680,6 +1680,8 @@ interface CombatRoundResult {
   // MERC-dice: Pause for hit allocation
   pausedForHitAllocation?: boolean;
   currentAttackerIndex?: number;
+  // Pause for Epinephrine choice
+  pausedForEpinephrine?: boolean;
 }
 
 /**
@@ -1842,7 +1844,7 @@ function executeCombatRound(
     // 1. Unit is human controlled AND
     // 2. Unit belongs to the attacking side (defending units auto-target to avoid cross-turn issues)
     const isOnAttackingSide = attackingPlayerIsRebel ? !attacker.isDictatorSide : attacker.isDictatorSide;
-    const isHumanControlled = (isRebelHumanControlled || isDictatorHumanControlled) && isOnAttackingSide;
+    const isHumanControlled = isRebelHumanControlled || isDictatorHumanControlled;
     const hasSelectedTargets = playerSelectedTargets?.has(attacker.id);
 
     // MERC-l09: Before attacking, assign Attack Dog if available (MUST come before target selection)
@@ -2210,7 +2212,11 @@ function executeCombatRound(
                       availableSavers: savers,
                     };
                     // Don't discard equipment yet - will be done after player choice
-                    return { combatPending: true } as any;
+                    return {
+                      round: { roundNumber, results, casualties },
+                      complete: false,
+                      pausedForEpinephrine: true,
+                    };
                   }
                 }
                 // AI dictator auto-uses epinephrine per rules 4.9
@@ -2268,7 +2274,11 @@ function executeCombatRound(
                           availableSavers: savers,
                         };
                         // Don't discard equipment yet - will be done after player choice
-                        return { combatPending: true } as any;
+                        return {
+                          round: { roundNumber, results, casualties },
+                          complete: false,
+                          pausedForEpinephrine: true,
+                        };
                       }
                     }
                     // AI rebel auto-uses epinephrine per rules 4.9

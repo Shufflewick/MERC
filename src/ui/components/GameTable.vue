@@ -301,7 +301,8 @@ const dictatorCard = computed(() => {
   const dictatorCardNode = result?.node;
   const parentNode = result?.parent;
 
-  // If we still can't find it, return a placeholder so panel still shows
+  // If we still can't find it, return a placeholder
+  // This is expected during dictator selection phase before the character is chosen
   if (!dictatorCardNode) {
     return {
       id: 0,
@@ -1160,8 +1161,9 @@ const clickableSectors = computed(() => {
 
     <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->
     <!-- Hidden during Castro hire since hiring phase UI takes over -->
+    <!-- Also hidden if dictator combatant not yet created (during dictator selection) -->
     <DictatorPanel
-      v-if="currentPlayerIsDictator && dictatorCard && !hasActiveCombat && !isHiringMercs"
+      v-if="currentPlayerIsDictator && dictatorCard && dictatorCard.combatantId !== 'unknown' && !hasActiveCombat && !isHiringMercs"
       :dictator="dictatorCard"
       :tactics-hand="tacticsHand"
       :available-actions="availableActions"
