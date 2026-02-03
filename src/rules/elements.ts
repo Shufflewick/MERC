@@ -330,6 +330,120 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   /**
+   * Update ability bonuses from registry.
+   * Call this when equipment changes or squad composition changes.
+   *
+   * @param squadMates - All MERCs in the same squad (including self)
+   */
+  updateAbilityBonuses(squadMates: CombatantBase[] = []): void {
+    const context = this.buildStatModifierContext(squadMates);
+
+    // Get this MERC's own active modifiers
+    const selfModifiers = getActiveStatModifiers(this.combatantId, context);
+
+    // Filter to self-only modifiers (target undefined or 'self')
+    const selfOnlyModifiers = selfModifiers.filter(m => !m.target || m.target === 'self');
+
+    // Get squad-wide bonuses from OTHER squad mates that affect this MERC
+    const receivedFromSquad = this.getReceivedSquadModifiers(squadMates, context);
+
+    // Combine all modifiers that affect this MERC
+    this.activeStatModifiers = [...selfOnlyModifiers, ...receivedFromSquad];
+
+    // SPECIAL CASE: Haarg's per-stat bonus evaluation
+    // Haarg gets +1 to each stat where a squad mate has higher BASE
+    if (this.combatantId === 'haarg') {
+      this.applyHaargPerStatModifiers(squadMates);
+    }
+
+    // Update computed stats with new modifiers
+    this.updateComputedStats();
+  }
+
+  /**
+   * Get modifiers received from squad mates (Tack, Valkyrie bonuses).
+   */
+  private getReceivedSquadModifiers(squadMates: CombatantBase[], selfContext: StatModifierContext): StatModifier[] {
+    const received: StatModifier[] = [];
+
+    for (const mate of squadMates) {
+      if (mate.combatantId === this.combatantId || mate.isDead) continue;
+
+      // Build context for the squad mate
+      const mateContext = mate.buildStatModifierContext(squadMates);
+      const mateModifiers = getActiveStatModifiers(mate.combatantId, mateContext);
+
+      for (const mod of mateModifiers) {
+        // Check if this modifier applies to squad mates or all squad
+        if (mod.target === 'squadMates') {
+          // squadMates excludes the source (Valkyrie doesn't get her own bonus)
+          received.push({
+            ...mod,
+            label: mod.label || `${mate.combatantName}'s Ability`,
+          });
+        } else if (mod.target === 'allSquad') {
+          // allSquad includes everyone (Tack gives +2 to everyone including herself)
+          received.push({
+            ...mod,
+            label: mod.label || `${mate.combatantName}'s Ability`,
+          });
+        }
+      }
+    }
+
+    // Also add allSquad bonuses from SELF (Tack gets her own +2)
+    const selfAllSquad = getActiveStatModifiers(this.combatantId, selfContext)
+      .filter(m => m.target === 'allSquad');
+    for (const mod of selfAllSquad) {
+      received.push({
+        ...mod,
+        label: mod.label || "Squad Bonus",
+      });
+    }
+
+    return received;
+  }
+
+  /**
+   * SPECIAL: Apply Haarg's per-stat bonus.
+   * Haarg gets +1 to each stat where a living squad mate has higher BASE stat.
+   * This is evaluated per-stat, not as a blanket condition.
+   */
+  private applyHaargPerStatModifiers(squadMates: CombatantBase[]): void {
+    const livingMates = squadMates.filter(m => m.combatantId !== 'haarg' && !m.isDead);
+
+    // Remove any existing Haarg modifiers (they use squadMateHigherBase condition)
+    this.activeStatModifiers = this.activeStatModifiers.filter(
+      m => m.condition !== 'squadMateHigherBase'
+    );
+
+    // Check each stat individually
+    const hasHigherCombat = livingMates.some(m => m.baseCombat > this.baseCombat);
+    const hasHigherInitiative = livingMates.some(m => m.baseInitiative > this.baseInitiative);
+    const hasHigherTraining = livingMates.some(m => m.baseTraining > this.baseTraining);
+
+    if (hasHigherCombat) {
+      this.activeStatModifiers.push({ stat: 'combat', bonus: 1, label: "Haarg's Ability" });
+    }
+    if (hasHigherInitiative) {
+      this.activeStatModifiers.push({ stat: 'initiative', bonus: 1, label: "Haarg's Ability" });
+    }
+    if (hasHigherTraining) {
+      this.activeStatModifiers.push({ stat: 'training', bonus: 1, label: "Haarg's Ability" });
+    }
+  }
+
+  /**
+   * Get total ability bonus for a specific stat from activeStatModifiers.
+   * Only includes self-targeting modifiers (already filtered in updateAbilityBonuses).
+   */
+  protected getAbilityBonus(stat: StatModifier['stat']): number {
+    return this.activeStatModifiers
+      .filter(m => m.stat === stat)
+      .reduce((sum, m) => sum + m.bonus, 0);
+  }
+
+  /**
    * Update computed stat caches.
    * Call this whenever equipment or abilities change.
    */
