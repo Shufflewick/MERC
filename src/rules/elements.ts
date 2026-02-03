@@ -462,10 +462,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       t += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'training');
     }
-    if (this.combatantId === 'haarg') t += this.haargTrainingBonus || 0;
-    if (this.combatantId === 'sarge') t += this.sargeTrainingBonus || 0;
-    t += this.snakeSoloTrainingBonus || 0;
-    t += this.tavistoWomanTrainingBonus || 0;
+    // Unified ability bonus from activeStatModifiers
+    t += this.getAbilityBonus('training');
     this.effectiveTraining = t;
 
     // Initiative
@@ -479,17 +477,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       c += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'combatBonus');
     }
-    if (this.combatantId === 'haarg') c += this.haargCombatBonus || 0;
-    if (this.combatantId === 'sarge') c += this.sargeCombatBonus || 0;
-    c += ability?.passive?.extraCombat || 0;
-    c += this.boubaHandgunCombatBonus || 0;
-    c += this.mayhemUziCombatBonus || 0;
-    c += this.rozeskeArmorCombatBonus || 0;
-    c += this.stumpyExplosiveCombatBonus || 0;
-    c += this.vandradiMultiTargetCombatBonus || 0;
-    c += this.dutchUnarmedCombatBonus || 0;
-    c += this.snakeSoloCombatBonus || 0;
-    c += this.tavistoWomanCombatBonus || 0;
+    // Unified ability bonus from activeStatModifiers
+    c += this.getAbilityBonus('combat');
     this.effectiveCombat = Math.max(0, c);
   }
 
@@ -693,13 +682,8 @@ export abstract class CombatantBase extends BaseCard {
       addInitiative(this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative'));
     }
 
-    if (this.combatantId === 'haarg') value += this.haargInitiativeBonus || 0;
-    if (this.combatantId === 'sarge') value += this.sargeInitiativeBonus || 0;
-    if (this.tackSquadInitiativeBonus > 0) value += this.tackSquadInitiativeBonus;
-    if (this.valkyrieSquadInitiativeBonus > 0) value += this.valkyrieSquadInitiativeBonus;
-    value += this.dutchUnarmedInitiativeBonus || 0;
-    value += this.snakeSoloInitiativeBonus || 0;
-    value += this.tavistoWomanInitiativeBonus || 0;
+    // Unified ability bonus from activeStatModifiers
+    value += this.getAbilityBonus('initiative');
 
     return value;
   }
