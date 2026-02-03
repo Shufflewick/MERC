@@ -341,8 +341,13 @@ export abstract class CombatantBase extends BaseCard {
     // Get this MERC's own active modifiers
     const selfModifiers = getActiveStatModifiers(this.combatantId, context);
 
-    // Filter to self-only modifiers (target undefined or 'self')
-    const selfOnlyModifiers = selfModifiers.filter(m => !m.target || m.target === 'self');
+    // Filter to self-only modifiers (target undefined or 'self') and add labels
+    const selfOnlyModifiers = selfModifiers
+      .filter(m => !m.target || m.target === 'self')
+      .map(m => ({
+        ...m,
+        label: m.label || `${this.combatantName}'s Ability`,
+      }));
 
     // Get squad-wide bonuses from OTHER squad mates that affect this MERC
     const receivedFromSquad = this.getReceivedSquadModifiers(squadMates, context);
