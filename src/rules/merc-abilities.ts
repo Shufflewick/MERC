@@ -25,12 +25,13 @@ export type AbilityCondition =
   | 'hasSmaw'                   // Has SMAW equipped
   | 'hasSwordOrUnarmed'         // Has sword or no weapon (Dutch)
   | 'womanInSquad'              // A woman is in the squad
-  | 'aloneInSquad';             // Only MERC in squad (Snake)
+  | 'aloneInSquad'              // Only MERC in squad (Snake)
+  | 'squadMateHigherBase';      // Squad mate has higher BASE stat (Haarg)
 
 /**
  * Who the bonus applies to
  */
-export type BonusTarget = 'self' | 'squadMates' | 'allSquad' | 'enemyMercs';
+export type BonusTarget = 'self' | 'squadMates' | 'allSquad' | 'enemyMercs' | 'militia';
 
 /**
  * Combat modifiers that affect dice rolling and hit calculation
@@ -76,6 +77,23 @@ export interface EnemyDebuff {
   initiative?: number;
   /** Who is affected */
   appliesTo?: 'enemyMercs' | 'allEnemies';
+}
+
+/**
+ * Unified stat modifier for declarative ability definitions.
+ * Single source of truth for stat bonuses - used by calculation and display.
+ */
+export interface StatModifier {
+  /** Which stat is modified */
+  stat: 'combat' | 'training' | 'initiative' | 'health' | 'targets' | 'actions';
+  /** Bonus amount (positive for buff, negative for debuff) */
+  bonus: number;
+  /** Condition for modifier to apply (defaults to 'always') */
+  condition?: AbilityCondition;
+  /** Label for UI display (defaults to "[Name]'s Ability") */
+  label?: string;
+  /** Who receives the modifier (defaults to 'self') */
+  target?: BonusTarget;
 }
 
 /**
@@ -190,6 +208,8 @@ export interface MercAbility {
   restrictions?: WorkRestriction;
   /** Is this MERC female? (for Tavisto's ability) */
   isFemale?: boolean;
+  /** Unified stat modifiers - single source of truth for stat bonuses */
+  statModifiers?: StatModifier[];
 }
 
 // =============================================================================
