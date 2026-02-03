@@ -175,20 +175,26 @@ describe('MERC Ability Integration Tests', () => {
     });
 
     describe('Juicer - +2 health', () => {
-      it('Juicer should have 5 max health instead of 3', () => {
+      it('Juicer should have 5 max health and activeStatModifiers with +2 health', () => {
         const juicer = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'juicer');
         if (!juicer) {
           console.log('Juicer not in deck, skipping test');
           return;
         }
 
+        // Verify maxHealth is correct
         expect(juicer.maxHealth).toBe(5);
         expect(juicer.health).toBe(5);
+
+        // Verify activeStatModifiers includes the health modifier
+        juicer.updateAbilityBonuses([]);
+        const healthMod = juicer.activeStatModifiers.find(m => m.stat === 'health' && m.bonus === 2);
+        expect(healthMod).toBeDefined();
       });
     });
 
     describe('Ewok - +1 action', () => {
-      it('Ewok should have 3 actions when reset', () => {
+      it('Ewok should have 3 actions when reset and activeStatModifiers with +1 actions', () => {
         const ewok = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'ewok');
         if (!ewok) {
           console.log('Ewok not in deck, skipping test');
@@ -197,6 +203,33 @@ describe('MERC Ability Integration Tests', () => {
 
         ewok.resetActions();
         expect(ewok.actionsRemaining).toBe(3);
+
+        // Verify activeStatModifiers includes the actions modifier
+        ewok.updateAbilityBonuses([]);
+        const actionMod = ewok.activeStatModifiers.find(m => m.stat === 'actions' && m.bonus === 1);
+        expect(actionMod).toBeDefined();
+      });
+    });
+
+    describe('Shooter - +3 combat', () => {
+      it('Shooter should have effectiveCombat = baseCombat + 3 and activeStatModifiers', () => {
+        const shooter = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'shooter');
+        if (!shooter) {
+          console.log('Shooter not in deck, skipping test');
+          return;
+        }
+
+        // Record base combat before ability update
+        const baseCombat = shooter.baseCombat;
+
+        shooter.updateAbilityBonuses([]);
+
+        // Verify effectiveCombat equals baseCombat + 3 (ability bonus)
+        expect(shooter.effectiveCombat).toBe(baseCombat + 3);
+
+        // Verify activeStatModifiers includes the combat modifier
+        const combatMod = shooter.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 3);
+        expect(combatMod).toBeDefined();
       });
     });
 
