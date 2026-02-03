@@ -71,6 +71,11 @@ Plans:
 
 **Goal:** Remove hardcoded bonus field checks from `CombatantCard.vue` and generate breakdown from `activeStatModifiers`.
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 39-01-PLAN.md - Replace hardcoded bonus checks with unified activeStatModifiers iteration
+
 **Deliverables:**
 - Remove hardcoded bonus field checks
 - Read `activeStatModifiers` from merc data
