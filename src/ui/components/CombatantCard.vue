@@ -184,8 +184,12 @@ const initiative = computed(() => {
   return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus;
 });
 
-// Targets - base is 1, plus any equipment bonuses and ability bonuses
+// Targets - base is 1, plus equipment bonuses and ability modifiers
 const targets = computed(() => {
+  // Check if server has computed effective targets
+  const effective = getProp('effectiveTargets', 0);
+  if (effective > 0) return effective;
+  // Fallback: calculate client-side from base + equipment + abilities
   const base = 1; // All MERCs have 1 target by default
   const weaponBonus = getEquipmentBonus(weaponSlot.value, 'targets');
   const armorBonus = getEquipmentBonus(armorSlot.value, 'targets');
@@ -195,10 +199,10 @@ const targets = computed(() => {
   for (const bSlot of bandolierSlots.value) {
     bandolierBonus += getEquipmentBonus(bSlot, 'targets');
   }
-  // Ability target bonuses (Moe with SMAW, Ra with weapon)
-  const moeBonus = getProp('moeSmawTargetBonus', 0);
-  const raBonus = getProp('raWeaponTargetBonus', 0);
-  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus + moeBonus + raBonus;
+  // Add ability target bonuses from unified source
+  const abilityBonus = getAbilityModifiersForStat('targets')
+    .reduce((sum, mod) => sum + mod.value, 0);
+  return base + weaponBonus + armorBonus + accessoryBonus + bandolierBonus + abilityBonus;
 });
 
 // Stat breakdown for tooltips
@@ -237,103 +241,33 @@ function buildStatBreakdown(statKey: string, baseStatKey: string): StatBreakdown
     }
   }
 
-  // Haarg's ability bonus (stored on the merc)
-  if (combatantId.value === 'haarg') {
-    const haargBonusKey = statKey === 'training' ? 'haargTrainingBonus'
-                        : statKey === 'initiative' ? 'haargInitiativeBonus'
-                        : 'haargCombatBonus';
-    const haargBonus = getProp(haargBonusKey, 0);
-    if (haargBonus !== 0) {
-      breakdown.push({ label: "Haarg's Ability", value: haargBonus });
-    }
-  }
-
-  // Check for ability-based stat bonuses by comparing effective to base + equipment
-  // This catches abilities like Shooter's +3 combat
-  if (statKey === 'combat') {
-    const effectiveCombat = getProp('effectiveCombat', 0);
-    const sumSoFar = breakdown.reduce((sum, item) => sum + item.value, 0);
-    const abilityBonus = effectiveCombat - sumSoFar;
-    if (abilityBonus > 0) {
-      breakdown.push({ label: 'Ability', value: abilityBonus });
-    }
-  }
+  // Ability bonuses are added by callers via getAbilityModifiersForStat()
+  // Removed: Haarg-specific check (now in activeStatModifiers)
+  // Removed: "Ability +X" fallback (caused double display bug)
 
   return breakdown;
 }
 
 const trainingBreakdown = computed(() => {
   const breakdown = buildStatBreakdown('training', 'baseTraining');
-
-  // Snake's solo training bonus
-  const snakeBonus = getProp('snakeSoloTrainingBonus', 0);
-  if (snakeBonus > 0) {
-    breakdown.push({ label: "Snake's Ability", value: snakeBonus });
-  }
-
-  // Tavisto's woman-in-squad training bonus
-  const tavistoBonus = getProp('tavistoWomanTrainingBonus', 0);
-  if (tavistoBonus > 0) {
-    breakdown.push({ label: "Tavisto's Ability", value: tavistoBonus });
-  }
-
+  // Add all ability modifiers for training from unified source
+  breakdown.push(...getAbilityModifiersForStat('training'));
   return breakdown;
 });
 
 const combatBreakdown = computed(() => {
   const breakdown = buildStatBreakdown('combat', 'baseCombat');
-
-  // Equipment-conditional combat bonuses
-  const boubaBonus = getProp('boubaHandgunCombatBonus', 0);
-  if (boubaBonus > 0) {
-    breakdown.push({ label: "Bouba's Ability", value: boubaBonus });
-  }
-
-  const mayhemBonus = getProp('mayhemUziCombatBonus', 0);
-  if (mayhemBonus > 0) {
-    breakdown.push({ label: "Mayhem's Ability", value: mayhemBonus });
-  }
-
-  const rozeskeBonus = getProp('rozeskeArmorCombatBonus', 0);
-  if (rozeskeBonus > 0) {
-    breakdown.push({ label: "Rozeske's Ability", value: rozeskeBonus });
-  }
-
-  const stumpyBonus = getProp('stumpyExplosiveCombatBonus', 0);
-  if (stumpyBonus > 0) {
-    breakdown.push({ label: "Stumpy's Ability", value: stumpyBonus });
-  }
-
-  const vandradiBonus = getProp('vandradiMultiTargetCombatBonus', 0);
-  if (vandradiBonus > 0) {
-    breakdown.push({ label: "Vandradi's Ability", value: vandradiBonus });
-  }
-
-  const dutchBonus = getProp('dutchUnarmedCombatBonus', 0);
-  if (dutchBonus > 0) {
-    breakdown.push({ label: "Dutch's Ability", value: dutchBonus });
-  }
-
-  // Snake's solo combat bonus
-  const snakeBonus = getProp('snakeSoloCombatBonus', 0);
-  if (snakeBonus > 0) {
-    breakdown.push({ label: "Snake's Ability", value: snakeBonus });
-  }
-
-  // Tavisto's woman-in-squad combat bonus
-  const tavistoBonus = getProp('tavistoWomanCombatBonus', 0);
-  if (tavistoBonus > 0) {
-    breakdown.push({ label: "Tavisto's Ability", value: tavistoBonus });
-  }
-
+  // Add all ability modifiers for combat from unified source
+  breakdown.push(...getAbilityModifiersForStat('combat'));
   return breakdown;
 });
 
-// Initiative breakdown with Vulture's and Tack's ability handling
+// Initiative breakdown with Vulture's penalty negation handling
 const initiativeBreakdown = computed(() => {
   const breakdown = buildStatBreakdown('initiative', 'baseInitiative');
 
   // For Vulture, add a line showing the ability negates initiative penalties
+  // This is special - Vulture negates equipment penalties, not a bonus from activeStatModifiers
   if (combatantId.value === 'vulture') {
     // Calculate total penalties from equipment (negative values)
     const penaltyTotal = breakdown
@@ -346,36 +280,8 @@ const initiativeBreakdown = computed(() => {
     }
   }
 
-  // Add Tack's squad bonus if present (applies to all squad members when Tack has highest initiative)
-  const tackBonus = getProp('tackSquadInitiativeBonus', 0);
-  if (tackBonus > 0) {
-    breakdown.push({ label: "Tack's Ability", value: tackBonus });
-  }
-
-  // Add Valkyrie's squad bonus if present (applies to squad mates, not Valkyrie herself)
-  const valkyrieBonus = getProp('valkyrieSquadInitiativeBonus', 0);
-  if (valkyrieBonus > 0) {
-    breakdown.push({ label: "Valkyrie's Ability", value: valkyrieBonus });
-  }
-
-  // Dutch's unarmed initiative bonus
-  const dutchBonus = getProp('dutchUnarmedInitiativeBonus', 0);
-  if (dutchBonus > 0) {
-    breakdown.push({ label: "Dutch's Ability", value: dutchBonus });
-  }
-
-  // Snake's solo initiative bonus
-  const snakeBonus = getProp('snakeSoloInitiativeBonus', 0);
-  if (snakeBonus > 0) {
-    breakdown.push({ label: "Snake's Ability", value: snakeBonus });
-  }
-
-  // Tavisto's woman-in-squad initiative bonus
-  const tavistoBonus = getProp('tavistoWomanInitiativeBonus', 0);
-  if (tavistoBonus > 0) {
-    breakdown.push({ label: "Tavisto's Ability", value: tavistoBonus });
-  }
-
+  // Add all ability modifiers for initiative from unified source
+  breakdown.push(...getAbilityModifiersForStat('initiative'));
   return breakdown;
 });
 const targetsBreakdown = computed(() => {
@@ -408,32 +314,16 @@ const targetsBreakdown = computed(() => {
     }
   }
 
-  // Moe's SMAW target bonus
-  const moeBonus = getProp('moeSmawTargetBonus', 0);
-  if (moeBonus > 0) {
-    breakdown.push({ label: "Moe's Ability", value: moeBonus });
-  }
-
-  // Ra's weapon target bonus
-  const raBonus = getProp('raWeaponTargetBonus', 0);
-  if (raBonus > 0) {
-    breakdown.push({ label: "Ra's Ability", value: raBonus });
-  }
-
+  // Add all ability modifiers for targets from unified source
+  breakdown.push(...getAbilityModifiersForStat('targets'));
   return breakdown;
 });
 
 // Health breakdown for tooltip
 const healthBreakdown = computed(() => {
   const breakdown: StatBreakdownItem[] = [{ label: 'Base', value: 3 }];
-
-  // Check for ability-based health bonus (e.g., Juicer's +2)
-  const effectiveMax = getProp('effectiveMaxHealth', 3);
-  const abilityBonus = effectiveMax - 3;
-  if (abilityBonus > 0) {
-    breakdown.push({ label: 'Ability', value: abilityBonus });
-  }
-
+  // Add all ability modifiers for health from unified source
+  breakdown.push(...getAbilityModifiersForStat('health'));
   return breakdown;
 });
 
@@ -474,19 +364,21 @@ const currentHealth = computed(() => {
 const maxHealth = computed(() => getProp('effectiveMaxHealth', 0) || getProp('maxHealth', 3));
 const actionsRemaining = computed(() => getProp('actionsRemaining', 2));
 const maxActions = computed(() => {
+  // Check if server has computed effective actions
+  const effective = getProp('effectiveActions', 0);
+  if (effective > 0) return effective;
+  // Fallback: base of 2 plus any action ability modifiers
   const base = 2;
-  // Ewok gets +1 action
-  if (combatantId.value === 'ewok') return base + 1;
-  return base;
+  const abilityBonus = getAbilityModifiersForStat('actions')
+    .reduce((sum, mod) => sum + mod.value, 0);
+  return base + abilityBonus;
 });
 
 // Actions breakdown for tooltip
 const actionsBreakdown = computed(() => {
-  const breakdown: StatBreakdownItem[] = [];
-  breakdown.push({ label: 'Base', value: 2 });
-  if (combatantId.value === 'ewok') {
-    breakdown.push({ label: "Ewok's Ability", value: 1 });
-  }
+  const breakdown: StatBreakdownItem[] = [{ label: 'Base', value: 2 }];
+  // Add all ability modifiers for actions from unified source
+  breakdown.push(...getAbilityModifiersForStat('actions'));
   return breakdown;
 });
 
