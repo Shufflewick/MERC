@@ -145,8 +145,6 @@ export abstract class CombatantBase extends BaseCard {
   vandradiMultiTargetCombatBonus: number = 0;
   dutchUnarmedCombatBonus: number = 0;
   dutchUnarmedInitiativeBonus: number = 0;
-  moeSmawTargetBonus: number = 0;
-  raWeaponTargetBonus: number = 0;
 
   // Squad-conditional bonuses (displayed in UI tooltips)
   snakeSoloCombatBonus: number = 0;
@@ -582,8 +580,6 @@ export abstract class CombatantBase extends BaseCard {
     this.vandradiMultiTargetCombatBonus = 0;
     this.dutchUnarmedCombatBonus = 0;
     this.dutchUnarmedInitiativeBonus = 0;
-    this.moeSmawTargetBonus = 0;
-    this.raWeaponTargetBonus = 0;
 
     const weaponId = this.weaponSlot?.equipmentId || this.weaponSlotData?.equipmentId;
     const hasWeaponEquipped = !!weaponId;
@@ -608,8 +604,7 @@ export abstract class CombatantBase extends BaseCard {
       this.dutchUnarmedCombatBonus = 1;
       this.dutchUnarmedInitiativeBonus = 1;
     }
-    if (this.combatantId === 'moe' && weaponId && isSmaw(weaponId)) this.moeSmawTargetBonus = 1;
-    if (this.combatantId === 'ra' && hasWeaponEquipped) this.raWeaponTargetBonus = 1;
+    // Note: Moe and Ra targets bonuses now handled via activeStatModifiers/getAbilityBonus('targets')
   }
 
   /**
@@ -733,8 +728,8 @@ export abstract class CombatantBase extends BaseCard {
     for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
       value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'targets');
     }
-    value += this.moeSmawTargetBonus || 0;
-    value += this.raWeaponTargetBonus || 0;
+    // Unified ability bonus from activeStatModifiers
+    value += this.getAbilityBonus('targets');
     return value;
   }
 
