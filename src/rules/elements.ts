@@ -13,7 +13,14 @@ import {
   isExplosive,
   isSmaw,
 } from './equipment-effects.js';
-import { getMercAbility, ignoresInitiativePenalties, FEMALE_MERCS } from './merc-abilities.js';
+import {
+  getMercAbility,
+  ignoresInitiativePenalties,
+  FEMALE_MERCS,
+  getActiveStatModifiers,
+  StatModifier,
+  StatModifierContext,
+} from './merc-abilities.js';
 
 // =============================================================================
 // Types and Interfaces
@@ -148,6 +155,10 @@ export abstract class CombatantBase extends BaseCard {
   tavistoWomanCombatBonus: number = 0;
   tavistoWomanInitiativeBonus: number = 0;
   tavistoWomanTrainingBonus: number = 0;
+
+  // Unified stat modifiers from ability registry (Phase 38)
+  // This array holds ALL active stat modifiers including squad-received bonuses
+  activeStatModifiers: StatModifier[] = [];
 
   // Faustina's extra training-only action (separate from regular actions)
   trainingActionsRemaining: number = 0;
@@ -414,7 +425,16 @@ export abstract class CombatantBase extends BaseCard {
     if (this.combatantId === 'bouba' && weaponId && isHandgun(weaponId)) this.boubaHandgunCombatBonus = 1;
     if (this.combatantId === 'mayhem' && weaponId && isUzi(weaponId)) this.mayhemUziCombatBonus = 2;
     if (this.combatantId === 'rozeske' && hasArmorEquipped) this.rozeskeArmorCombatBonus = 1;
-    if (this.combatantId === 'stumpy' && weaponId && isExplosive(weaponId)) this.stumpyExplosiveCombatBonus = 1;
+    // Stumpy: check accessory slot and bandolier (grenades/mortars are accessories)
+    if (this.combatantId === 'stumpy') {
+      const accessoryId = this.accessorySlot?.equipmentId || this.accessorySlotData?.equipmentId;
+      const hasExplosiveInAccessory = accessoryId && isExplosive(accessoryId);
+      const hasExplosiveInBandolier = this.bandolierSlots.some(e => e?.equipmentId && isExplosive(e.equipmentId)) ||
+                                      this.bandolierSlotsData.some(d => d?.equipmentId && isExplosive(d.equipmentId));
+      if (hasExplosiveInAccessory || hasExplosiveInBandolier) {
+        this.stumpyExplosiveCombatBonus = 1;
+      }
+    }
     if (this.combatantId === 'vandradi' && weaponTargets > 0) this.vandradiMultiTargetCombatBonus = 1;
     if (this.combatantId === 'dutch' && !hasWeaponEquipped) {
       this.dutchUnarmedCombatBonus = 1;
