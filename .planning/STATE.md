@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 ## Current Position
 
 Phase: 38 of 41 (Unify Server-Side Calculation)
-Plan: 01 of 01 complete
+Plan: 02 of 02 complete
 Status: Phase complete
-Last activity: 2026-02-03 - Completed 38-01-PLAN.md
+Last activity: 2026-02-03 - Completed 38-02-PLAN.md
 
 Progress: ████░░░░░░ 40% (2 of 5 phases complete)
 
@@ -41,12 +41,12 @@ Progress: ████░░░░░░ 40% (2 of 5 phases complete)
 - v1.6 Final ID Cleanup (Phases 28-30) - 5 plans
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
 
-Total: 37 phases, 77 plans, 8 milestones shipped
+Total: 37 phases, 78 plans, 8 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 77
+- Total plans completed: 78
 - Average duration: 10.0 min/plan
 
 ## Accumulated Context
@@ -60,6 +60,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Uses BASE initiative for highestInitInSquad check (Sarge/Tack check base initiative before bonuses)
 - Haarg's per-stat evaluation is special-cased - can't be expressed in generic condition system
 - allSquad bonuses (Tack) include the source, squadMates bonuses (Valkyrie) exclude the source
+- Removed extraCombat passive lookup from updateComputedStats - now in merc-abilities registry
 
 ### Deferred Issues
 
@@ -84,13 +85,14 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-03T19:35:36Z
-Stopped at: Completed 38-01-PLAN.md (Unify Server-Side Calculation)
+Last session: 2026-02-03T19:39:15Z
+Stopped at: Completed 38-02-PLAN.md (Integrate Unified Stat Calculation)
 Resume file: None
 
 ### Recent Plans Completed
 
-- 38-01: Unify Server-Side Calculation (3 commits, +196 lines, 2 min)
+- 38-02: Integrate Unified Stat Calculation (3 commits, -77 lines, 3 min)
+- 38-01: Add Unified Stat Modifier Infrastructure (3 commits, +196 lines, 2 min)
 - 37-01: Extend Ability Registry (3 commits, +192 lines, 4 min)
 
 ### Previous Milestone Summary (v1.7)
