@@ -227,31 +227,49 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
   bouba: {
     id: 'bouba',
     combatModifiers: { combatBonus: 1, condition: 'hasHandgun' },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'hasHandgun' },
+    ],
   },
 
   mayhem: {
     id: 'mayhem',
     combatModifiers: { combatBonus: 2, condition: 'hasUzi' },
+    statModifiers: [
+      { stat: 'combat', bonus: 2, condition: 'hasUzi' },
+    ],
   },
 
   rozeske: {
     id: 'rozeske',
     combatModifiers: { combatBonus: 1, condition: 'hasArmor' },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'hasArmor' },
+    ],
   },
 
   stumpy: {
     id: 'stumpy',
     combatModifiers: { combatBonus: 1, condition: 'hasExplosive' },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'hasExplosive' },
+    ],
   },
 
   vandradi: {
     id: 'vandradi',
     combatModifiers: { combatBonus: 1, condition: 'hasMultiTargetWeapon' },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'hasMultiTargetWeapon' },
+    ],
   },
 
   moe: {
     id: 'moe',
     combatModifiers: { targetBonus: 1, condition: 'hasSmaw' },
+    statModifiers: [
+      { stat: 'targets', bonus: 1, condition: 'hasSmaw' },
+    ],
   },
 
   dutch: {
@@ -261,6 +279,10 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       initiativeBonus: 1,
       condition: 'hasSwordOrUnarmed',
     },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'hasSwordOrUnarmed' },
+      { stat: 'initiative', bonus: 1, condition: 'hasSwordOrUnarmed' },
+    ],
   },
 
   snake: {
@@ -271,11 +293,19 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       trainingBonus: 1,
       condition: 'aloneInSquad',
     },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'aloneInSquad' },
+      { stat: 'initiative', bonus: 1, condition: 'aloneInSquad' },
+      { stat: 'training', bonus: 1, condition: 'aloneInSquad' },
+    ],
   },
 
   ra: {
     id: 'ra',
     combatModifiers: { targetBonus: 1, condition: 'hasWeapon' },
+    statModifiers: [
+      { stat: 'targets', bonus: 1, condition: 'hasWeapon' },
+    ],
   },
 
   // --- MERCs with Conditional Self Bonuses ---
@@ -288,6 +318,11 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       trainingBonus: 1,
       condition: 'highestInitInSquad',
     },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'highestInitInSquad' },
+      { stat: 'initiative', bonus: 1, condition: 'highestInitInSquad' },
+      { stat: 'training', bonus: 1, condition: 'highestInitInSquad' },
+    ],
   },
 
   tavisto: {
@@ -298,6 +333,11 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       trainingBonus: 1,
       condition: 'womanInSquad',
     },
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'womanInSquad' },
+      { stat: 'initiative', bonus: 1, condition: 'womanInSquad' },
+      { stat: 'training', bonus: 1, condition: 'womanInSquad' },
+    ],
   },
 
   haarg: {
@@ -305,6 +345,11 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
     // Special: +1 to any skill someone in squad has higher
     // Implemented in elements.ts CombatantModel.updateHaargBonus()
     passive: {},
+    statModifiers: [
+      { stat: 'combat', bonus: 1, condition: 'squadMateHigherBase' },
+      { stat: 'initiative', bonus: 1, condition: 'squadMateHigherBase' },
+      { stat: 'training', bonus: 1, condition: 'squadMateHigherBase' },
+    ],
   },
 
   // --- MERCs with Squad Bonuses ---
@@ -317,6 +362,9 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       condition: 'highestInitInSquad',
       appliesTo: 'allSquad',
     },
+    statModifiers: [
+      { stat: 'initiative', bonus: 2, condition: 'highestInitInSquad', target: 'allSquad' },
+    ],
   },
 
   valkyrie: {
@@ -327,11 +375,17 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       condition: 'always',
       appliesTo: 'squadMates',
     },
+    statModifiers: [
+      { stat: 'initiative', bonus: 1, target: 'squadMates' },
+    ],
   },
 
   walter: {
     id: 'walter',
     passive: { militiaInitiativeBonus: 2 },
+    statModifiers: [
+      { stat: 'initiative', bonus: 2, target: 'militia', label: "Walter's Leadership" },
+    ],
   },
 
   // --- MERCs with Enemy Debuffs ---
@@ -345,6 +399,10 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
       initiative: -1,
       appliesTo: 'enemyMercs',
     },
+    statModifiers: [
+      { stat: 'combat', bonus: -1, target: 'enemyMercs', label: "Max's Intimidation" },
+      { stat: 'initiative', bonus: -1, target: 'enemyMercs', label: "Max's Intimidation" },
+    ],
   },
 
   // --- MERCs with Targeting Behaviors ---
@@ -454,6 +512,9 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
     id: 'ewok',
     isFemale: true,
     passive: { extraActions: 1 },
+    statModifiers: [
+      { stat: 'actions', bonus: 1 },
+    ],
   },
 
   faustina: {
@@ -465,6 +526,9 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
   juicer: {
     id: 'juicer',
     passive: { extraHealth: 2 },
+    statModifiers: [
+      { stat: 'health', bonus: 2 },
+    ],
   },
 
   genesis: {
@@ -536,6 +600,9 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
   shooter: {
     id: 'shooter',
     passive: { extraCombat: 3 },
+    statModifiers: [
+      { stat: 'combat', bonus: 3 },
+    ],
   },
 };
 
