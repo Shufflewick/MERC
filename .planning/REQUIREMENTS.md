@@ -100,14 +100,16 @@ This causes:
 **Goal:** Integration tests verify all 18 stat-modifying abilities display and calculate correctly.
 
 **Acceptance Criteria:**
-- [ ] Test each equipment-conditional ability (Bouba, Mayhem, Rozeske, Stumpy, Vandradi, Dutch, Moe, Ra)
-- [ ] Test each squad-conditional ability (Haarg, Sarge, Tack, Valkyrie, Snake, Tavisto)
-- [ ] Test each passive ability (Shooter, Juicer, Ewok)
-- [ ] Test combat-only abilities (Max, Walter, Vulture)
-- [ ] Visual verification: start game, equip Stumpy with Mortar, verify no duplicate display
+- [x] Test each equipment-conditional ability (Bouba, Mayhem, Rozeske, Stumpy, Vandradi, Dutch, Moe, Ra)
+- [x] Test each squad-conditional ability (Haarg, Sarge, Tack, Valkyrie, Snake, Tavisto)
+- [x] Test each passive ability (Shooter, Juicer, Ewok)
+- [x] Test combat-only abilities (Max, Walter, Vulture)
+- [x] Visual verification: start game, equip Stumpy with Mortar, verify no duplicate display
+
+**Status:** Complete (Phase 41)
 
 **Key Changes:**
-- `tests/merc-abilities-integration.test.ts` - New test file
+- `tests/merc-abilities-integration.test.ts` - Extended with 36 new tests covering all 18+ MERCs
 
 ---
 

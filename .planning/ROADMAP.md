@@ -134,8 +134,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 41-01-PLAN.md - Equipment-conditional and passive ability tests (11 MERCs)
-- [ ] 41-02-PLAN.md - Squad-conditional and combat-only ability tests (10 MERCs)
+- [x] 41-01-PLAN.md - Equipment-conditional and passive ability tests (11 MERCs)
+- [x] 41-02-PLAN.md - Squad-conditional and combat-only ability tests (10 MERCs)
 
 **Deliverables:**
 - Integration tests for equipment-conditional abilities (8 MERCs)
