@@ -71,24 +71,28 @@ Plans:
 
 **Goal:** Remove hardcoded bonus field checks from `CombatantCard.vue` and generate breakdown from `activeStatModifiers`.
 
-**Plans:** 1 plan
+**Plans:** 2 plans
 
 Plans:
-- [ ] 39-01-PLAN.md - Replace hardcoded bonus checks with unified activeStatModifiers iteration
+- [x] 39-01-PLAN.md - Replace hardcoded bonus checks with unified activeStatModifiers iteration
+- [ ] 39-02-PLAN.md - Add labels to self-targeting modifiers (gap closure)
 
 **Deliverables:**
 - Remove hardcoded bonus field checks
 - Read `activeStatModifiers` from merc data
 - Generate breakdown items from modifier list
 - Remove "Ability +X" fallback logic
+- Self-targeting modifiers labeled with "[MERC Name]'s Ability"
 
 **Key Files:**
 - `src/ui/components/CombatantCard.vue`
+- `src/rules/elements.ts`
 
 **Success Criteria:**
 - No duplicate display of ability bonuses
 - Tooltips show correct breakdown for all 18 MERCs
 - No hardcoded ability checks in Vue component
+- Self-targeting abilities display proper labels (not generic "Ability")
 
 ---
 
@@ -164,7 +168,7 @@ Phases 39 and 40 can be worked in parallel after Phase 38 completes.
 |-------|---------------|-----------------|
 | 37 | merc-abilities.ts | - |
 | 38 | elements.ts, game.ts | - |
-| 39 | CombatantCard.vue | - |
+| 39 | CombatantCard.vue, elements.ts | - |
 | 40 | combat.ts | combat-types.ts |
 | 41 | merc-abilities-integration.test.ts | - |
 
