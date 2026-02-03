@@ -10,6 +10,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 ## Current State
 
+**Current:** v1.8 Unified Stat Ability System (In Progress)
 **Shipped:** v1.7 GameBoard Component Refactor (2026-01-19)
 
 - 32,090 lines of TypeScript/Vue (modular structure)
@@ -59,6 +60,14 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Extract helper functions to composables (useGameViewHelpers, useVictoryCalculations) — v1.7
 - ✓ Extract state derivation to composables (usePlayerState, useSectorState, useSquadState, useActionState) — v1.7
 - ✓ GameBoard.vue reduced to thin orchestrator (3,368 → 1,393 lines, 59% reduction) — v1.7
+
+### v1.8 Unified Stat Ability System (In Progress)
+
+- [ ] STAT-01: Unified Ability Registry — all stat-modifying abilities defined declaratively in merc-abilities.ts
+- [ ] STAT-02: Single Server-Side Calculation — one calculateStatModifiers() function from registry
+- [ ] STAT-03: Unified UI Display — CombatantCard.vue reads from ability data, no hardcoded checks
+- [ ] STAT-04: Combat Consistency — combat stats read from cached values, no duplicate calculations
+- [ ] STAT-05: Test Coverage — integration tests for all 18 stat-modifying abilities
 
 <!-- Existing working functionality inferred from codebase -->
 
@@ -127,6 +136,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | Shared composables for action state | Reduce prop drilling, components import state directly | ✓ Good |
 | Watch both availableActions AND currentAction | Auto-start watcher needs to fire when previous action completes | ✓ Good |
 | Match choices by display name, fill with element ID | ActionPanel pattern - choices have display/value structure | ✓ Good |
+| Unified stat ability system | Single source of truth for ability bonuses - define once, calculate once, display once | Pending |
 
 ---
-*Last updated: 2026-01-19 after v1.7 milestone shipped*
+*Last updated: 2026-02-03 v1.8 milestone initialized*
