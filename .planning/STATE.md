@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 ## Current Position
 
 Phase: 41 of 41 (Testing & Verification)
-Plan: 01 of 01 complete
+Plan: 02 of 02 complete
 Status: Phase complete - MILESTONE COMPLETE
-Last activity: 2026-02-03 - Completed 41-01-PLAN.md
+Last activity: 2026-02-03 - Completed 41-02-PLAN.md
 
 Progress: ██████████ 100% (5 of 5 phases complete)
 
@@ -40,14 +40,14 @@ Progress: ██████████ 100% (5 of 5 phases complete)
 - v1.5 Final Combatant Unification (Phases 24-27) - 7 plans
 - v1.6 Final ID Cleanup (Phases 28-30) - 5 plans
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
-- v1.8 Unified Stat Ability System (Phases 37-41) - 6 plans
+- v1.8 Unified Stat Ability System (Phases 37-41) - 7 plans
 
-Total: 41 phases, 81 plans, 9 milestones shipped
+Total: 41 phases, 82 plans, 9 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 81
+- Total plans completed: 82
 - Average duration: 9.6 min/plan
 
 ## Accumulated Context
@@ -87,17 +87,18 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Focus: Unified stat ability system for 18 MERCs
 - Problem: Duplicate calculations cause double display bug and maintenance burden
 - Solution: Single source of truth in merc-abilities.ts registry
-- Result: 11 abilities tested, all 589 tests pass
+- Result: 11 abilities tested, all 599 tests pass (added 10 more in 41-02)
 
 ## Session Continuity
 
-Last session: 2026-02-03T21:11:32Z
-Stopped at: Completed 41-01-PLAN.md (Testing & Verification) - MILESTONE COMPLETE
+Last session: 2026-02-03T15:16:00Z
+Stopped at: Completed 41-02-PLAN.md (Testing & Verification) - MILESTONE COMPLETE
 Resume file: None
 
 ### Recent Plans Completed
 
-- 41-01: Testing & Verification (2 commits, +220 lines, 4 min) - MILESTONE COMPLETE
+- 41-02: Squad-Conditional & Combat-Only Tests (1 commit, +315 lines, 6 min) - MILESTONE COMPLETE
+- 41-01: Testing & Verification (2 commits, +220 lines, 4 min)
 - 40-01: Unify Combat-Time Application (2 commits, -610 lines, 5 min)
 - 39-02: Self-Modifier Labels (1 commit, +5 lines, 1 min) - gap closure
 - 39-01: Unify UI Breakdown (2 commits, -108 lines, 3 min)
