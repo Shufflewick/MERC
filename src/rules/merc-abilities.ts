@@ -932,3 +932,106 @@ export function getIncompatibleMercs(combatantId: string): string[] {
   const ability = MERC_ABILITIES[combatantId];
   return ability?.restrictions?.incompatibleWith ?? [];
 }
+
+// =============================================================================
+// Stat Modifier Functions
+// =============================================================================
+
+/**
+ * Context required for evaluating stat modifier conditions.
+ * Passed to getActiveStatModifiers to determine which modifiers are active.
+ */
+export interface StatModifierContext {
+  /** Equipment currently equipped (for hasWeapon, hasUzi, etc.) */
+  equipment?: {
+    weapon?: { name: string; type?: string; targets?: number };
+    armor?: { name: string };
+    accessory?: { name: string };
+  };
+  /** Squad mates (for squad-conditional abilities) */
+  squadMates?: Array<{
+    combatantId: string;
+    baseCombat: number;
+    baseInitiative: number;
+    baseTraining: number;
+  }>;
+  /** Is this MERC alone in their squad? */
+  isAlone?: boolean;
+  /** Does squad have a female MERC? */
+  hasWomanInSquad?: boolean;
+  /** Is this MERC the highest initiative in squad? */
+  isHighestInitInSquad?: boolean;
+}
+
+/**
+ * Evaluate if an ability condition is met.
+ * Returns true if the condition is satisfied given the context.
+ */
+function evaluateCondition(condition: AbilityCondition | undefined, context: StatModifierContext): boolean {
+  if (!condition || condition === 'always') return true;
+
+  const { equipment, squadMates, isAlone, hasWomanInSquad, isHighestInitInSquad } = context;
+
+  switch (condition) {
+    case 'hasWeapon':
+      return !!equipment?.weapon;
+    case 'hasHandgun':
+      return equipment?.weapon?.type === 'handgun';
+    case 'hasUzi':
+      return equipment?.weapon?.name?.toLowerCase().includes('uzi') ?? false;
+    case 'hasArmor':
+      return !!equipment?.armor;
+    case 'hasAccessory':
+      return !!equipment?.accessory;
+    case 'hasExplosive':
+      return equipment?.weapon?.type === 'grenade' || equipment?.weapon?.type === 'mortar';
+    case 'hasMultiTargetWeapon':
+      return (equipment?.weapon?.targets ?? 0) > 0;
+    case 'hasSmaw':
+      return equipment?.weapon?.name?.toLowerCase().includes('smaw') ?? false;
+    case 'hasSwordOrUnarmed':
+      return !equipment?.weapon || equipment?.weapon?.type === 'sword';
+    case 'aloneInSquad':
+      return isAlone ?? false;
+    case 'womanInSquad':
+      return hasWomanInSquad ?? false;
+    case 'highestInitInSquad':
+      return isHighestInitInSquad ?? false;
+    case 'squadMateHigherBase':
+      // This is Haarg-specific: returns true if ANY squad mate has higher base stat
+      // The actual check happens per-stat in the calculation layer (Phase 38)
+      // Here we just return true to indicate the modifier exists and should be evaluated
+      return (squadMates?.length ?? 0) > 0;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Get active stat modifiers for a MERC given the current context.
+ * Returns array of StatModifier objects that are currently active.
+ *
+ * @param combatantId - The MERC's ID
+ * @param context - Current game context for condition evaluation
+ * @returns Array of active StatModifier objects (empty if none or MERC not found)
+ */
+export function getActiveStatModifiers(
+  combatantId: string,
+  context: StatModifierContext = {}
+): StatModifier[] {
+  const ability = MERC_ABILITIES[combatantId];
+  if (!ability?.statModifiers) return [];
+
+  return ability.statModifiers.filter(mod =>
+    evaluateCondition(mod.condition, context)
+  );
+}
+
+/**
+ * Get all stat modifiers for a MERC (ignoring conditions).
+ * Useful for displaying "potential" bonuses in UI.
+ */
+export function getAllStatModifiers(combatantId: string): StatModifier[] {
+  const ability = MERC_ABILITIES[combatantId];
+  return ability?.statModifiers ?? [];
+}
