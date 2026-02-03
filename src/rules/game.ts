@@ -1134,40 +1134,36 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Update Haarg's ability bonuses for all squads.
-   * Call this whenever squad composition changes (hiring, movement, death, etc.)
+   * Update ability bonuses for all squads in the game.
+   * @deprecated Individual methods like updateAllHaargBonuses are superseded by unified updateSquadBonuses.
    */
   updateAllHaargBonuses(): void {
-    // Check all rebel squads
+    // Update all rebel squads
     for (const rebel of this.rebelPlayers) {
       try {
-        this.updateHaargBonusForSquad(rebel.primarySquad);
+        this.updateSquadBonuses(rebel.primarySquad);
       } catch { /* squad not initialized */ }
       try {
-        this.updateHaargBonusForSquad(rebel.secondarySquad);
+        this.updateSquadBonuses(rebel.secondarySquad);
       } catch { /* squad not initialized */ }
     }
-    // Check dictator squads (in case Haarg is hired by dictator)
+    // Update dictator squads
     if (this.dictatorPlayer) {
       try {
-        this.updateHaargBonusForSquad(this.dictatorPlayer.primarySquad);
+        this.updateSquadBonuses(this.dictatorPlayer.primarySquad);
       } catch { /* squad not initialized */ }
       try {
-        this.updateHaargBonusForSquad(this.dictatorPlayer.secondarySquad);
+        this.updateSquadBonuses(this.dictatorPlayer.secondarySquad);
       } catch { /* squad not initialized */ }
     }
   }
 
   /**
-   * Update Haarg's bonus for a specific squad
+   * @deprecated Use updateSquadBonuses instead. Haarg is now handled by unified updateAbilityBonuses.
    */
   updateHaargBonusForSquad(squad: Squad): void {
-    if (!squad) return;
-    const mercs = squad.getMercs();
-    const haarg = mercs.find(m => m.combatantId === 'haarg');
-    if (haarg) {
-      haarg.updateHaargBonus(mercs);
-    }
+    // Delegate to unified method - updates all MERCs including Haarg
+    this.updateSquadBonuses(squad);
   }
 
   /**
@@ -1205,38 +1201,18 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Update all squad-based bonuses (Sarge, Tack, Valkyrie, Snake, Tavisto) for a specific squad
+   * Update all ability-based stat bonuses for a specific squad.
+   * Uses unified updateAbilityBonuses() which reads from ability registry.
+   * Handles: Sarge, Tack, Valkyrie, Snake, Tavisto, Haarg, and all equipment-conditional bonuses.
    */
   updateSquadBonuses(squad: Squad): void {
     if (!squad) return;
     const mercs = squad.getMercs();
 
-    // Update Sarge's bonus
-    const sarge = mercs.find(m => m.combatantId === 'sarge');
-    if (sarge) {
-      sarge.updateSargeBonus(mercs);
-    }
-
-    // Update Tack's squad bonus for ALL mercs in the squad
-    // (Tack gives +2 initiative to everyone when she has highest initiative)
+    // Single unified update for all ability bonuses
+    // Each MERC's updateAbilityBonuses builds context and computes activeStatModifiers
     for (const merc of mercs) {
-      merc.updateTackSquadBonus(mercs);
-    }
-
-    // Update Valkyrie's squad bonus for ALL mercs in the squad
-    // (Valkyrie gives +1 initiative to squad mates, not herself)
-    for (const merc of mercs) {
-      merc.updateValkyrieSquadBonus(mercs);
-    }
-
-    // Update Snake's solo bonus (when alone in squad)
-    for (const merc of mercs) {
-      merc.updateSnakeBonus(mercs);
-    }
-
-    // Update Tavisto's woman-in-squad bonus
-    for (const merc of mercs) {
-      merc.updateTavistoBonus(mercs);
+      merc.updateAbilityBonuses(mercs);
     }
   }
 
