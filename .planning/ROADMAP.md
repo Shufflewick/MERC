@@ -17,7 +17,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [x] 37-01-PLAN.md - Add StatModifier interface, migrate 18 MERCs, add getActiveStatModifiers function ✓
+- [x] 37-01-PLAN.md - Add StatModifier interface, migrate 18 MERCs, add getActiveStatModifiers function
 
 **Deliverables:**
 - `StatModifier` interface with stat, bonus, condition, label, target fields
@@ -41,14 +41,22 @@ Plans:
 
 **Goal:** Replace 20+ individual bonus fields with single `activeStatModifiers` computed property that reads from registry.
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 38-01-PLAN.md - Add unified infrastructure (activeStatModifiers, updateAbilityBonuses, context builder)
+- [ ] 38-02-PLAN.md - Integrate with stat calculation and game.ts
+
 **Deliverables:**
-- `calculateStatModifiers(merc, squad)` function in elements.ts
-- `activeStatModifiers` computed property on CombatantModel
-- `updateAbilityBonuses()` replaces multiple `updateXBonus()` methods
+- `activeStatModifiers` property on CombatantBase
+- `updateAbilityBonuses(squadMates)` method replaces multiple `updateXBonus()` methods
+- `buildStatModifierContext()` and `getAbilityBonus()` helpers
 - `updateComputedStats()` uses unified calculation
+- `game.ts` uses single `updateAbilityBonuses()` call
 
 **Key Files:**
 - `src/rules/elements.ts`
+- `src/rules/game.ts`
 
 **Success Criteria:**
 - Single calculation path for all ability stat bonuses
@@ -150,7 +158,7 @@ Phases 39 and 40 can be worked in parallel after Phase 38 completes.
 | Phase | Primary Files | Secondary Files |
 |-------|---------------|-----------------|
 | 37 | merc-abilities.ts | - |
-| 38 | elements.ts | helpers.ts |
+| 38 | elements.ts, game.ts | - |
 | 39 | CombatantCard.vue | - |
 | 40 | combat.ts | combat-types.ts |
 | 41 | merc-abilities-integration.test.ts | - |
