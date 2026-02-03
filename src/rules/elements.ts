@@ -270,6 +270,66 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   /**
+   * Build context object for getActiveStatModifiers().
+   * Used to evaluate ability conditions like hasHandgun, isAlone, etc.
+   */
+  protected buildStatModifierContext(squadMates: CombatantBase[]): StatModifierContext {
+    const weaponId = this.weaponSlot?.equipmentId || this.weaponSlotData?.equipmentId;
+    const armorId = this.armorSlot?.equipmentId || this.armorSlotData?.equipmentId;
+    const accessoryId = this.accessorySlot?.equipmentId || this.accessorySlotData?.equipmentId;
+    const weaponTargets = this.weaponSlot?.targets ?? this.weaponSlotData?.targets ?? 0;
+    const weaponName = this.weaponSlot?.equipmentName || this.weaponSlotData?.equipmentName || '';
+
+    // Determine weapon type using equipment-effects helpers
+    let weaponType: string | undefined;
+    if (weaponId) {
+      if (isHandgun(weaponId)) weaponType = 'handgun';
+      else if (isUzi(weaponId)) weaponType = 'uzi';
+      else if (isExplosive(weaponId)) weaponType = 'grenade'; // Phase 37 condition expects 'grenade' or 'mortar'
+      else if (isSmaw(weaponId)) weaponType = 'smaw';
+    }
+
+    // Check for explosive in accessory/bandolier (for Stumpy)
+    const hasExplosiveInAccessory = accessoryId && isExplosive(accessoryId);
+    const hasExplosiveInBandolier = this.bandolierSlots.some(e => e?.equipmentId && isExplosive(e.equipmentId)) ||
+                                    this.bandolierSlotsData.some(d => d?.equipmentId && isExplosive(d.equipmentId));
+    const hasExplosiveEquipped = hasExplosiveInAccessory || hasExplosiveInBandolier || weaponType === 'grenade';
+
+    // Filter living squad mates (excluding self)
+    const livingMates = squadMates.filter(m => m.combatantId !== this.combatantId && !m.isDead);
+
+    // Check if this MERC has highest initiative in squad (for Sarge, Tack)
+    // Uses BASE initiative only (before equipment/bonuses)
+    let isHighestInitInSquad = false;
+    if (livingMates.length > 0) {
+      isHighestInitInSquad = livingMates.every(mate => mate.baseInitiative < this.baseInitiative);
+    }
+
+    return {
+      equipment: {
+        weapon: weaponId ? {
+          name: weaponName,
+          type: weaponType,
+          targets: weaponTargets,
+        } : undefined,
+        armor: armorId ? { name: this.armorSlot?.equipmentName || this.armorSlotData?.equipmentName || '' } : undefined,
+        accessory: accessoryId ? { name: this.accessorySlot?.equipmentName || this.accessorySlotData?.equipmentName || '' } : undefined,
+        // Extension for Stumpy's explosive check (not in original StatModifierContext but used internally)
+        hasExplosiveEquipped,
+      } as StatModifierContext['equipment'] & { hasExplosiveEquipped?: boolean },
+      squadMates: livingMates.map(m => ({
+        combatantId: m.combatantId,
+        baseCombat: m.baseCombat,
+        baseInitiative: m.baseInitiative,
+        baseTraining: m.baseTraining,
+      })),
+      isAlone: livingMates.length === 0,
+      hasWomanInSquad: squadMates.some(m => !m.isDead && FEMALE_MERCS.includes(m.combatantId)),
+      isHighestInitInSquad,
+    };
+  }
+
+  /**
    * Update computed stat caches.
    * Call this whenever equipment or abilities change.
    */
