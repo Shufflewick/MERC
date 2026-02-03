@@ -29,6 +29,8 @@ export interface Combatant {
   armorPiercing: boolean; // MERC-38e: Weapon ignores armor
   hasAttackDog: boolean; // MERC-l09: Has Attack Dog equipped
   attackDogAssignedTo?: string; // MERC-l09: ID of MERC this dog is assigned to
+  attackDogTargetName?: string; // MERC-l09: Name of MERC this dog is targeting (for UI display)
+  attackDogPendingTarget?: boolean; // MERC-l09: Dog created but awaiting target selection
   isImmuneToAttackDogs: boolean; // MERC-l09: Shadkaam ability
   willNotHarmDogs: boolean; // MERC-l09: Tao ability
   hasUsedReroll?: boolean; // MERC-5l3: Basic's once-per-combat reroll

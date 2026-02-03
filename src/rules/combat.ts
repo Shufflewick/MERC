@@ -1549,6 +1549,9 @@ function assignAttackDog(
 
   // Create the dog combatant
   const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex);
+  // Store target info for UI display
+  dog.attackDogAssignedTo = target.id;
+  dog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
 
   // Track the assignment
   dogState.assignments.set(target.id, dog);
@@ -1603,6 +1606,9 @@ function assignAttackDogToTarget(
 
   // Create the dog combatant
   const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex);
+  // Store target info for UI display
+  dog.attackDogAssignedTo = target.id;
+  dog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
 
   // Track the assignment
   dogState.assignments.set(target.id, dog);
@@ -1676,6 +1682,7 @@ interface CombatRoundResult {
     attackerName: string;
     attackerIndex: number;
     validTargets: Combatant[]; // Enemy MERCs the dog can be assigned to
+    dogId?: string; // MERC-l09: ID of the created dog awaiting target
   };
   // MERC-dice: Pause for hit allocation
   pausedForHitAllocation?: boolean;
@@ -1853,14 +1860,62 @@ function executeCombatRound(
       const playerDogTargetId = playerSelectedDogTargets?.get(attacker.id);
 
       if (playerDogTargetId) {
-        // Player already chose - assign to their selected target
-        const dog = assignAttackDogToTarget(attacker, enemies, activeDogState, game, dogIndex++, playerDogTargetId);
-        // Add dog to attacker's side so it appears in combat panel
-        if (dog) {
-          if (dog.isDictatorSide) {
-            dictatorSide.push(dog);
-          } else {
-            rebels.push(dog);
+        // MERC-l09: Player already chose - find existing pending dog and assign target
+        const existingDog = activeDogState.dogs.find(d => d.ownerId === attacker.id && d.attackDogPendingTarget);
+
+        if (existingDog) {
+          // Find the target
+          const target = enemies.find(e =>
+            e.id === playerDogTargetId &&
+            e.health > 0 &&
+            !e.isMilitia &&
+            !e.isAttackDog &&
+            !e.isImmuneToAttackDogs
+          );
+
+          if (target) {
+            // Assign target to existing dog
+            existingDog.attackDogAssignedTo = target.id;
+            existingDog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
+            existingDog.attackDogPendingTarget = false;
+            activeDogState.assignments.set(target.id, existingDog);
+
+            // MERC-l09: Also update the dog in combatant arrays (may be different object after deserialization)
+            const combatantArrays = existingDog.isDictatorSide ? dictatorSide : rebels;
+            const dogInCombatants = combatantArrays.find(c => c.id === existingDog.id);
+            if (dogInCombatants) {
+              dogInCombatants.attackDogAssignedTo = target.id;
+              dogInCombatants.attackDogTargetName = existingDog.attackDogTargetName;
+              dogInCombatants.attackDogPendingTarget = false;
+            }
+
+            // Emit animation event for UI
+            game.emitAnimationEvent('combat-attack-dog', {
+              attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+              attackerId: attacker.id,
+              attackerImage: attacker.image,
+              targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+              targetId: target.id,
+              targetImage: target.image,
+              dogId: existingDog.id,
+              dogImage: existingDog.image,
+            });
+
+            game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
+            game.message(`${target.name} must attack the dog before doing anything else.`);
+
+            // Mark attacker as having used their dog
+            attacker.hasAttackDog = false;
+          }
+        } else {
+          // Fallback: create new dog (handles edge cases or data loss)
+          const dog = assignAttackDogToTarget(attacker, enemies, activeDogState, game, dogIndex++, playerDogTargetId);
+          if (dog) {
+            if (dog.isDictatorSide) {
+              dictatorSide.push(dog);
+            } else {
+              rebels.push(dog);
+            }
           }
         }
       } else if (interactive && isHumanControlled) {
@@ -1874,6 +1929,18 @@ function executeCombatRound(
         );
 
         if (validDogTargets.length > 0) {
+          // MERC-l09: Create the dog NOW so it shows in UI during target selection
+          const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex++);
+          dog.attackDogPendingTarget = true; // Flag: awaiting target selection
+          activeDogState.dogs.push(dog);
+
+          // Add to combatant arrays for UI display
+          if (dog.isDictatorSide) {
+            dictatorSide.push(dog);
+          } else {
+            rebels.push(dog);
+          }
+
           // Pause for player to choose dog target
           return {
             round: { roundNumber, results, casualties },
@@ -1883,6 +1950,7 @@ function executeCombatRound(
               attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
               attackerIndex: i,
               validTargets: validDogTargets,
+              dogId: dog.id,
             },
           };
         }
@@ -2655,6 +2723,21 @@ export function executeCombat(
       assignments: new Map(game.activeCombat.dogAssignments || []),
       dogs: (game.activeCombat.dogs || []) as Combatant[],
     };
+
+    // MERC-l09: Add any existing dogs back to combatant arrays
+    // Dogs may have been created in a previous round but need to be in the arrays for display
+    for (const dog of dogState.dogs) {
+      if (dog.isDictatorSide) {
+        if (!dictator.some(c => c.id === dog.id)) {
+          dictator.push(dog);
+        }
+      } else {
+        if (!rebels.some(c => c.id === dog.id)) {
+          rebels.push(dog);
+        }
+      }
+    }
+
     // Restore who initiated combat (default to rebel if not saved, for backwards compat)
     attackingPlayerIsRebel = game.activeCombat.attackingPlayerIsRebel ?? true;
 

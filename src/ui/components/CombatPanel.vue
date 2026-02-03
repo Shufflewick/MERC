@@ -275,6 +275,7 @@ if (animationEvents) {
   animationEvents.registerHandler('combat-attack-dog', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('attack-dog'));
+    currentEvent.value = null; // Explicitly clear after display
   });
 }
 
@@ -550,16 +551,38 @@ const isAssigningAttackDog = computed(() => {
 const dogTargetNames = computed(() => {
   const nameMap = new Map<string, string>();
   const assignments = props.activeCombat?.dogAssignments || [];
-  const allCombatants = [...livingRebels.value, ...livingDictator.value];
 
   for (const [targetId, dog] of assignments) {
-    const target = allCombatants.find((c: any) => (c.id || c.sourceElement?.id) === targetId);
-    if (target && dog) {
+    if (dog) {
       const dogId = dog.id || dog.sourceElement?.id;
-      const targetName = target.name || 'Unknown';
-      nameMap.set(dogId, targetName);
+      // Use stored attackDogTargetName directly, fall back to lookup
+      let targetName = dog.attackDogTargetName;
+      if (!targetName) {
+        const allCombatants = [...livingRebels.value, ...livingDictator.value];
+        const target = allCombatants.find((c: any) => (c.id || c.sourceElement?.id) === targetId);
+        targetName = target?.name || 'Unknown';
+      }
+      if (dogId && targetName) {
+        nameMap.set(dogId, targetName);
+      }
     }
   }
+
+  // MERC-l09: Check dogs array for target names (handles both pending and assigned dogs)
+  const dogs = props.activeCombat?.dogs || [];
+  for (const dog of dogs) {
+    if (dog) {
+      const dogId = dog.id || dog.sourceElement?.id;
+      if (dogId && !nameMap.has(dogId)) {
+        if (dog.attackDogPendingTarget) {
+          nameMap.set(dogId, 'Selecting...');
+        } else if (dog.attackDogTargetName) {
+          nameMap.set(dogId, dog.attackDogTargetName);
+        }
+      }
+    }
+  }
+
   return nameMap;
 });
 
@@ -605,6 +628,9 @@ function getCombatantDisplay(combatant: any) {
     image,
     isDead: health <= 0,
     playerColor: combatant.playerColor,
+    // Include dog target info directly from combatant for reliable lookup
+    attackDogTargetName: isAttackDogUnit ? combatant.attackDogTargetName : undefined,
+    attackDogPendingTarget: isAttackDogUnit ? combatant.attackDogPendingTarget : undefined,
   };
 }
 
@@ -827,7 +853,10 @@ watch(isAnimating, (animating) => {
     pendingRollEvent.value = null;
     // Clear the current event display when animations finish
     // This prevents dice/attack displays from persisting while waiting for user input
-    currentEvent.value = null;
+    // Attack-dog events are cleared by their handler after display duration
+    if (currentEvent.value?.type !== 'attack-dog') {
+      currentEvent.value = null;
+    }
   }
 });
 
@@ -889,7 +918,8 @@ onUnmounted(() => {
             :is-animating="isAnimating"
             :allocated-hits="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id)"
             :target-hits="getTargetHits(getCombatantDisplay(combatant).id)"
-            :dog-target-name="dogTargetNames.get(getCombatantDisplay(combatant).id)"
+            :dog-target-name="getCombatantDisplay(combatant).attackDogTargetName ||
+                              (getCombatantDisplay(combatant).attackDogPendingTarget ? 'Selecting...' : dogTargetNames.get(getCombatantDisplay(combatant).id))"
             :get-bullet-hole-position="getBulletHolePosition"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           />
@@ -927,7 +957,8 @@ onUnmounted(() => {
             :is-animating="isAnimating"
             :allocated-hits="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id)"
             :target-hits="getTargetHits(getCombatantDisplay(combatant).id)"
-            :dog-target-name="dogTargetNames.get(getCombatantDisplay(combatant).id)"
+            :dog-target-name="getCombatantDisplay(combatant).attackDogTargetName ||
+                              (getCombatantDisplay(combatant).attackDogPendingTarget ? 'Selecting...' : dogTargetNames.get(getCombatantDisplay(combatant).id))"
             :get-bullet-hole-position="getBulletHolePosition"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
           />
