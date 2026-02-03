@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 
 ## Current Position
 
-Phase: 37 of 41 (Extend Ability Registry)
+Phase: 38 of 41 (Unify Server-Side Calculation)
 Plan: 01 of 01 complete
 Status: Phase complete
-Last activity: 2026-02-03 — Completed 37-01-PLAN.md
+Last activity: 2026-02-03 - Completed 38-01-PLAN.md
 
-Progress: ██░░░░░░░░ 20% (1 of 5 phases complete)
+Progress: ████░░░░░░ 40% (2 of 5 phases complete)
 
 ## Current Milestone
 
@@ -23,7 +23,7 @@ Progress: ██░░░░░░░░ 20% (1 of 5 phases complete)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 37 | Extend Ability Registry | STAT-01 | COMPLETE |
-| 38 | Unify Server-Side Calculation | STAT-02 | NOT STARTED |
+| 38 | Unify Server-Side Calculation | STAT-02 | COMPLETE |
 | 39 | Unify UI Breakdown | STAT-03 | NOT STARTED |
 | 40 | Unify Combat-Time Application | STAT-04 | NOT STARTED |
 | 41 | Testing & Verification | STAT-05 | NOT STARTED |
@@ -32,22 +32,22 @@ Progress: ██░░░░░░░░ 20% (1 of 5 phases complete)
 
 ## Milestones Completed
 
-- v1.0 Codebase Cleanup (Phases 1-6) — 20 plans
-- v1.1 Polish (Phases 7-8) — 6 plans
-- v1.2 Merge Dictator and Merc Cards (Phases 9-13) — 7 plans
-- v1.3 Combatant Unification (Phases 14-19) — 6 plans
-- v1.4 Combatant Naming Unification (Phases 20-23) — 6 plans
-- v1.5 Final Combatant Unification (Phases 24-27) — 7 plans
-- v1.6 Final ID Cleanup (Phases 28-30) — 5 plans
-- v1.7 GameBoard Component Refactor (Phases 31-36) — 18 plans
+- v1.0 Codebase Cleanup (Phases 1-6) - 20 plans
+- v1.1 Polish (Phases 7-8) - 6 plans
+- v1.2 Merge Dictator and Merc Cards (Phases 9-13) - 7 plans
+- v1.3 Combatant Unification (Phases 14-19) - 6 plans
+- v1.4 Combatant Naming Unification (Phases 20-23) - 6 plans
+- v1.5 Final Combatant Unification (Phases 24-27) - 7 plans
+- v1.6 Final ID Cleanup (Phases 28-30) - 5 plans
+- v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
 
-Total: 36 phases, 76 plans, 8 milestones shipped
+Total: 37 phases, 77 plans, 8 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 76
-- Average duration: 10.1 min/plan
+- Total plans completed: 77
+- Average duration: 10.0 min/plan
 
 ## Accumulated Context
 
@@ -57,6 +57,9 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 **v1.8 Decisions:**
 - Unified stat ability system: Single source of truth for ability bonuses - define once, calculate once, display once
+- Uses BASE initiative for highestInitInSquad check (Sarge/Tack check base initiative before bonuses)
+- Haarg's per-stat evaluation is special-cased - can't be expressed in generic condition system
+- allSquad bonuses (Tack) include the source, squadMates bonuses (Valkyrie) exclude the source
 
 ### Deferred Issues
 
@@ -81,12 +84,13 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-03T19:19:30Z
-Stopped at: Completed 37-01-PLAN.md (Extend Ability Registry)
+Last session: 2026-02-03T19:35:36Z
+Stopped at: Completed 38-01-PLAN.md (Unify Server-Side Calculation)
 Resume file: None
 
 ### Recent Plans Completed
 
+- 38-01: Unify Server-Side Calculation (3 commits, +196 lines, 2 min)
 - 37-01: Extend Ability Registry (3 commits, +192 lines, 4 min)
 
 ### Previous Milestone Summary (v1.7)
@@ -94,4 +98,4 @@ Resume file: None
 - 36-03: Verification & Test Suite (0 commits, verification only)
 - 36-02: TypeScript cast audit (1 commit, +5 lines from documentation and type guards)
 - 36-01: Dead code removal and import organization (5 commits, -15 lines)
-- GameBoard.vue: 3,368 → 1,393 lines (59% reduction)
+- GameBoard.vue: 3,368 -> 1,393 lines (59% reduction)
