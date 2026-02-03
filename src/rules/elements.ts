@@ -20,6 +20,7 @@ import {
   getActiveStatModifiers,
   StatModifier,
   StatModifierContext,
+  AbilityCondition,
 } from './merc-abilities.js';
 
 // =============================================================================
@@ -437,6 +438,47 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   /**
+   * Equipment conditions that don't require squad context.
+   * These are recalculated when equipment changes via updateComputedStats().
+   */
+  private static readonly EQUIPMENT_CONDITIONS: AbilityCondition[] = [
+    'hasWeapon', 'hasHandgun', 'hasUzi', 'hasArmor', 'hasAccessory',
+    'hasExplosive', 'hasMultiTargetWeapon', 'hasSmaw', 'hasSwordOrUnarmed'
+  ];
+
+  /**
+   * Update equipment-conditional modifiers (Bouba, Mayhem, Rozeske, etc).
+   * Called from updateComputedStats to ensure modifiers reflect current equipment.
+   *
+   * Equipment-conditional abilities only depend on the combatant's own equipment,
+   * not on squad composition, so they can be evaluated without squad context.
+   */
+  private updateEquipmentConditionalModifiers(): void {
+    // Build context with current equipment (empty squad - equipment checks don't need it)
+    const context = this.buildStatModifierContext([]);
+
+    // Get active self-targeting modifiers from registry
+    const selfModifiers = getActiveStatModifiers(this.combatantId, context)
+      .filter(m => !m.target || m.target === 'self')
+      .map(m => ({
+        ...m,
+        label: m.label || `${this.combatantName}'s Ability`,
+      }));
+
+    // Remove old equipment-conditional modifiers (preserve squad-based ones)
+    this.activeStatModifiers = this.activeStatModifiers.filter(
+      m => !CombatantBase.EQUIPMENT_CONDITIONS.includes(m.condition as AbilityCondition)
+    );
+
+    // Add new equipment-conditional modifiers
+    for (const mod of selfModifiers) {
+      if (CombatantBase.EQUIPMENT_CONDITIONS.includes(mod.condition as AbilityCondition)) {
+        this.activeStatModifiers.push(mod);
+      }
+    }
+  }
+
+  /**
    * Get total ability bonus for a specific stat from activeStatModifiers.
    * Only includes self-targeting modifiers (already filtered in updateAbilityBonuses).
    */
@@ -452,6 +494,7 @@ export abstract class CombatantBase extends BaseCard {
    */
   updateComputedStats(): void {
     this.updateEquipmentBonuses();
+    this.updateEquipmentConditionalModifiers();
 
     const ability = getMercAbility(this.combatantId);
     const extraHealth = ability?.passive?.extraHealth || 0;
