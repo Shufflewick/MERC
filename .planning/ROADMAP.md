@@ -14,6 +14,11 @@
 
 **Goal:** Add `statModifiers` field to `MercAbility` interface and migrate all 18 MERCs' stat bonuses to declarative format.
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 37-01-PLAN.md - Add StatModifier interface, migrate 18 MERCs, add getActiveStatModifiers function
+
 **Deliverables:**
 - `StatModifier` interface with stat, bonus, condition, label, target fields
 - `statModifiers` field on `MercAbility` interface
@@ -124,15 +129,15 @@
 
 ```
 Phase 37 (Registry)
-    │
-    ▼
+    |
+    v
 Phase 38 (Server-Side)
-    │
-    ▼
+    |
+    v
 Phase 39 (UI)          Phase 40 (Combat)
-    │                       │
-    └───────────┬───────────┘
-                ▼
+    |                       |
+    +----------+------------+
+               v
          Phase 41 (Testing)
 ```
 
