@@ -17,7 +17,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 37-01-PLAN.md - Add StatModifier interface, migrate 18 MERCs, add getActiveStatModifiers function
+- [x] 37-01-PLAN.md - Add StatModifier interface, migrate 18 MERCs, add getActiveStatModifiers function ✓
 
 **Deliverables:**
 - `StatModifier` interface with stat, bonus, condition, label, target fields

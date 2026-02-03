@@ -28,10 +28,12 @@ This causes:
 **Goal:** All stat-modifying abilities defined declaratively in `merc-abilities.ts` with standard `StatModifier` interface.
 
 **Acceptance Criteria:**
-- [ ] `StatModifier` interface added to `merc-abilities.ts` with: stat, bonus, condition, label, target
-- [ ] `statModifiers` field added to `MercAbility` interface
-- [ ] All 18 stat-modifying MERCs have their bonuses defined in registry
-- [ ] `getActiveStatModifiers(merc, context)` function returns active modifiers for a combatant
+- [x] `StatModifier` interface added to `merc-abilities.ts` with: stat, bonus, condition, label, target
+- [x] `statModifiers` field added to `MercAbility` interface
+- [x] All 18 stat-modifying MERCs have their bonuses defined in registry (19 total found)
+- [x] `getActiveStatModifiers(merc, context)` function returns active modifiers for a combatant
+
+**Status:** Complete (Phase 37)
 
 **Key Changes:**
 - `src/rules/merc-abilities.ts` - Extend registry with StatModifier interface and data
