@@ -45,11 +45,13 @@ This causes:
 **Goal:** One function `calculateStatModifiers()` that reads from registry and computes all active bonuses.
 
 **Acceptance Criteria:**
-- [ ] `calculateStatModifiers(merc, squad)` function added to elements.ts
-- [ ] Function reads from ability registry (not hardcoded logic)
-- [ ] `activeStatModifiers` computed property on CombatantModel
-- [ ] `updateComputedStats()` uses unified calculation
-- [ ] Remove duplicate `updateXBonus()` methods (replace with single `updateAbilityBonuses()`)
+- [x] `calculateStatModifiers(merc, squad)` function added to elements.ts
+- [x] Function reads from ability registry (not hardcoded logic)
+- [x] `activeStatModifiers` computed property on CombatantModel
+- [x] `updateComputedStats()` uses unified calculation
+- [x] Remove duplicate `updateXBonus()` methods (replace with single `updateAbilityBonuses()`)
+
+**Status:** Complete (Phase 38)
 
 **Key Changes:**
 - `src/rules/elements.ts` - Replace 20+ bonus fields with unified calculation

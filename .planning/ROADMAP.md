@@ -44,8 +44,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 38-01-PLAN.md - Add unified infrastructure (activeStatModifiers, updateAbilityBonuses, context builder)
-- [ ] 38-02-PLAN.md - Integrate with stat calculation and game.ts
+- [x] 38-01-PLAN.md - Add unified infrastructure (activeStatModifiers, updateAbilityBonuses, context builder)
+- [x] 38-02-PLAN.md - Integrate with stat calculation and game.ts
 
 **Deliverables:**
 - `activeStatModifiers` property on CombatantBase
