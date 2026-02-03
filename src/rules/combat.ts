@@ -48,11 +48,6 @@ import {
   FEMALE_MERCS,
 } from './merc-abilities.js';
 import {
-  isHandgun as checkIsHandgun,
-  isUzi as checkIsUzi,
-  isExplosive as checkIsExplosive,
-  isSword as checkIsSword,
-  isSmaw as checkIsSmaw,
   isAttackDog as checkIsAttackDog,
   discardAfterAttack as checkDiscardAfterAttack,
 } from './equipment-effects.js';
@@ -291,39 +286,6 @@ function isGolem(combatant: Combatant): boolean {
 }
 
 /**
- * MERC-16f: Check if a combatant is Bouba
- */
-function isBouba(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'bouba';
-  }
-  return false;
-}
-
-/**
- * MERC-16f: Check if combatant has a handgun equipped
- * Uses equipment registry instead of string matching
- */
-function hasHandgun(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    const weapon = combatant.sourceElement.weaponSlot;
-    return weapon ? checkIsHandgun(weapon.equipmentId) : false;
-  }
-  return false;
-}
-
-/**
- * MERC-16f: Apply Bouba's handgun combat bonus
- */
-function applyBoubaBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isBouba(combatant) && hasHandgun(combatant) && combatant.health > 0) {
-      combatant.combat += 1;
-    }
-  }
-}
-
-/**
  * MERC-2se: Check if a combatant is Buzzkill
  */
 function isBuzzkill(combatant: Combatant): boolean {
@@ -339,28 +301,6 @@ function isBuzzkill(combatant: Combatant): boolean {
 function isKhenn(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.combatantId === 'khenn';
-  }
-  return false;
-}
-
-/**
- * MERC-s3x: Check if a combatant is Mayhem
- */
-function isMayhem(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'mayhem';
-  }
-  return false;
-}
-
-/**
- * MERC-s3x: Check if combatant has an Uzi equipped
- * Uses equipment registry instead of string matching
- */
-function hasUzi(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    const weapon = combatant.sourceElement.weaponSlot;
-    return weapon ? checkIsUzi(weapon.equipmentId) : false;
   }
   return false;
 }
@@ -388,140 +328,11 @@ function hasAccessory(combatant: Combatant): boolean {
 }
 
 /**
- * MERC-c1f: Check if a combatant is Ra
- */
-function isRa(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'ra';
-  }
-  return false;
-}
-
-/**
- * MERC-3zd: Check if a combatant is Rozeske
- */
-function isRozeske(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'rozeske';
-  }
-  return false;
-}
-
-/**
- * MERC-3zd: Check if combatant has armor equipped
- */
-function hasArmor(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.armorSlot !== undefined;
-  }
-  return false;
-}
-
-/**
  * MERC-qh3: Check if a combatant is Runde
  */
 function isRunde(combatant: Combatant): boolean {
   if (combatant.sourceElement?.isMerc) {
     return combatant.sourceElement.combatantId === 'runde';
-  }
-  return false;
-}
-
-/**
- * MERC-5yq: Check if a combatant is Sarge
- */
-function isSarge(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'sarge';
-  }
-  return false;
-}
-
-/**
- * MERC-581: Check if a combatant is Stumpy
- */
-function isStumpy(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'stumpy';
-  }
-  return false;
-}
-
-/**
- * MERC-581: Check if combatant has grenade or mortar equipped
- * Uses equipment registry instead of string matching
- * Note: Grenades/mortars are accessories, not weapons
- */
-function hasExplosive(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    const merc = combatant.sourceElement;
-    // Check accessory slot
-    if (merc.accessorySlot && checkIsExplosive(merc.accessorySlot.equipmentId)) {
-      return true;
-    }
-    // Check bandolier slots
-    return merc.bandolierSlots.some(e => checkIsExplosive(e.equipmentId));
-  }
-  return false;
-}
-
-/**
- * MERC-kmv: Check if a combatant is Tack
- */
-function isTack(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'tack';
-  }
-  return false;
-}
-
-/**
- * MERC-dxi: Check if a combatant is Tavisto
- */
-function isTavisto(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'tavisto';
-  }
-  return false;
-}
-
-/**
- * MERC-qbci: Check if a combatant is Valkyrie
- */
-function isValkyrie(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'valkyrie';
-  }
-  return false;
-}
-
-/**
- * MERC-x0jg: Check if a combatant is Vandradi
- */
-function isVandradi(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'vandradi';
-  }
-  return false;
-}
-
-/**
- * MERC-x0jg: Check if combatant has multi-target weapon
- */
-function hasMultiTargetWeapon(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    const weapon = combatant.sourceElement.weaponSlot;
-    return weapon?.targets !== undefined && weapon.targets > 0;
-  }
-  return false;
-}
-
-/**
- * MERC-btst: Check if a combatant is Vulture
- */
-function isVulture(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'vulture';
   }
   return false;
 }
@@ -547,88 +358,6 @@ function isWolverine(combatant: Combatant): boolean {
 }
 
 /**
- * MERC-ddq4: Check if a combatant is Dutch
- */
-function isDutch(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'dutch';
-  }
-  return false;
-}
-
-/**
- * MERC-ddq4: Check if Dutch is using a sword (or unarmed)
- * Uses equipment registry instead of string matching
- */
-function isDutchUsingFists(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    const weapon = combatant.sourceElement.weaponSlot;
-    // No weapon or sword equipped
-    if (!weapon) return true;
-    return checkIsSword(weapon.equipmentId);
-  }
-  return false;
-}
-
-/**
- * MERC-adnu: Check if a combatant is Moe
- */
-function isMoe(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'moe';
-  }
-  return false;
-}
-
-/**
- * MERC-adnu: Check if combatant has SMAW equipped
- * Uses equipment registry instead of string matching
- */
-function hasSmaw(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    const weapon = combatant.sourceElement.weaponSlot;
-    return weapon ? checkIsSmaw(weapon.equipmentId) : false;
-  }
-  return false;
-}
-
-/**
- * MERC-s3x: Apply Mayhem's Uzi combat bonus (+2)
- */
-function applyMayhemBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isMayhem(combatant) && hasUzi(combatant) && combatant.health > 0) {
-      combatant.combat += 2;
-    }
-  }
-}
-
-/**
- * MERC-3zd: Apply Rozeske's armor combat bonus (+1)
- */
-function applyRozeskeBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isRozeske(combatant) && hasArmor(combatant) && combatant.health > 0) {
-      combatant.combat += 1;
-    }
-  }
-}
-
-/**
- * MERC-c1f: Apply Ra's target bonus (+1 with any weapon)
- */
-function applyRaBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isRa(combatant) && combatant.health > 0) {
-      // Ra gets +1 target with any weapon
-      if (combatant.sourceElement?.isMerc && combatant.sourceElement.weaponSlot) {
-        combatant.targets += 1;
-      }
-    }
-  }
-}
-
-/**
  * MERC-ml7: Apply Khenn's random initiative
  * Khenn rolls a D6 at the beginning of combat for his initiative
  */
@@ -638,215 +367,6 @@ function applyKhennInitiative(combatants: Combatant[], game: MERCGame): void {
       const roll = Math.floor(game.random() * 6) + 1;
       combatant.initiative = roll;
       game.message(`Khenn rolls ${roll} for initiative`);
-    }
-  }
-}
-
-/**
- * MERC-581: Apply Stumpy's explosive combat bonus (+1)
- */
-function applyStumpyBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isStumpy(combatant) && hasExplosive(combatant) && combatant.health > 0) {
-      combatant.combat += 1;
-    }
-  }
-}
-
-/**
- * MERC-x0jg: Apply Vandradi's multi-target weapon bonus (+1 combat)
- */
-function applyVandradiBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isVandradi(combatant) && hasMultiTargetWeapon(combatant) && combatant.health > 0) {
-      combatant.combat += 1;
-    }
-  }
-}
-
-/**
- * MERC-5yq: Apply Sarge's highest initiative bonus
- * Sarge gets +1 to all skills when he has the highest initiative in his squad
- */
-function applySargeBonus(game: MERCGame, combatants: Combatant[]): void {
-  const sargeCombatants = combatants.filter(c => isSarge(c) && c.health > 0);
-  if (sargeCombatants.length === 0) return;
-
-  for (const sarge of sargeCombatants) {
-    const sargeMerc = sarge.sourceElement as CombatantModel;
-
-    // Find squad mates
-    for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getLivingMercs();
-      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
-
-      let squadMates: CombatantModel[] | null = null;
-      if (primaryMercs.some(m => m.id === sargeMerc.id)) {
-        squadMates = primaryMercs;
-      } else if (secondaryMercs.some(m => m.id === sargeMerc.id)) {
-        squadMates = secondaryMercs;
-      }
-
-      if (squadMates) {
-        // Check if Sarge has highest initiative in squad
-        const maxInitiative = Math.max(...squadMates.map(m => m.initiative));
-        if (sargeMerc.initiative >= maxInitiative) {
-          sarge.initiative += 1;
-          sarge.combat += 1;
-          // Training bonus applied separately for train action
-        }
-        break;
-      }
-    }
-  }
-}
-
-/**
- * MERC-kmv: Apply Tack's initiative bonus to squad
- * When Tack has highest initiative, all squad mates get +2 initiative
- */
-function applyTackBonus(game: MERCGame, combatants: Combatant[]): void {
-  const tackCombatants = combatants.filter(c => isTack(c) && c.health > 0);
-  if (tackCombatants.length === 0) return;
-
-  for (const tack of tackCombatants) {
-    const tackMerc = tack.sourceElement as CombatantModel;
-
-    for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getLivingMercs();
-      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
-
-      let squadMates: CombatantModel[] | null = null;
-      if (primaryMercs.some(m => m.id === tackMerc.id)) {
-        squadMates = primaryMercs;
-      } else if (secondaryMercs.some(m => m.id === tackMerc.id)) {
-        squadMates = secondaryMercs;
-      }
-
-      if (squadMates) {
-        // Check if Tack has highest initiative
-        const maxInitiative = Math.max(...squadMates.map(m => m.initiative));
-        if (tackMerc.initiative >= maxInitiative) {
-          // Apply +2 initiative to all squad mates (including Tack)
-          for (const combatant of combatants) {
-            if (combatant.sourceElement?.isMerc &&
-                squadMates.some(m => m.id === combatant.sourceElement!.id) &&
-                combatant.health > 0) {
-              combatant.initiative += 2;
-            }
-          }
-        }
-        break;
-      }
-    }
-  }
-}
-
-/**
- * MERC-qbci: Apply Valkyrie's initiative bonus to squad mates
- * All squad mates get +1 initiative
- */
-function applyValkyrieBonus(game: MERCGame, combatants: Combatant[]): void {
-  const valkyrieCombatants = combatants.filter(c => isValkyrie(c) && c.health > 0);
-  if (valkyrieCombatants.length === 0) return;
-
-  for (const valkyrie of valkyrieCombatants) {
-    const valkyrieMerc = valkyrie.sourceElement as CombatantModel;
-
-    for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getLivingMercs();
-      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
-
-      let squadMates: CombatantModel[] | null = null;
-      if (primaryMercs.some(m => m.id === valkyrieMerc.id)) {
-        squadMates = primaryMercs;
-      } else if (secondaryMercs.some(m => m.id === valkyrieMerc.id)) {
-        squadMates = secondaryMercs;
-      }
-
-      if (squadMates) {
-        // Apply +1 initiative to all squad mates (except Valkyrie herself)
-        for (const combatant of combatants) {
-          if (combatant.sourceElement?.isMerc &&
-              squadMates.some(m => m.id === combatant.sourceElement!.id) &&
-              combatant.sourceElement!.id !== valkyrieMerc.id &&
-              combatant.health > 0) {
-            combatant.initiative += 1;
-          }
-        }
-        break;
-      }
-    }
-  }
-}
-
-/**
- * MERC-dxi: Apply Tavisto's bonus when woman is in squad
- * Tavisto gets +1 to all skills when a woman is in his squad
- */
-function applyTavistoBonus(game: MERCGame, combatants: Combatant[]): void {
-  const tavistoCombatants = combatants.filter(c => isTavisto(c) && c.health > 0);
-  if (tavistoCombatants.length === 0) return;
-
-  for (const tavisto of tavistoCombatants) {
-    const tavistoMerc = tavisto.sourceElement as CombatantModel;
-
-    for (const rebel of game.rebelPlayers) {
-      const primaryMercs = rebel.primarySquad.getLivingMercs();
-      const secondaryMercs = rebel.secondarySquad.getLivingMercs();
-
-      let squadMates: CombatantModel[] | null = null;
-      if (primaryMercs.some(m => m.id === tavistoMerc.id)) {
-        squadMates = primaryMercs;
-      } else if (secondaryMercs.some(m => m.id === tavistoMerc.id)) {
-        squadMates = secondaryMercs;
-      }
-
-      if (squadMates) {
-        // Check if any woman in squad
-        const hasWoman = squadMates.some(m => {
-          return FEMALE_MERCS.includes(m.combatantId) && m !== tavistoMerc;
-        });
-
-        if (hasWoman) {
-          tavisto.initiative += 1;
-          tavisto.combat += 1;
-          // Training bonus applied separately for train action
-        }
-        break;
-      }
-    }
-  }
-}
-
-/**
- * MERC-btst: Apply Vulture's initiative penalty ignore
- * Vulture ignores initiative penalties from equipment
- */
-function applyVultureBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isVulture(combatant) && combatant.health > 0) {
-      const merc = combatant.sourceElement as CombatantModel;
-      // Calculate total negative initiative from equipment (use slotData as fallback)
-      let penalty = 0;
-
-      const weaponInit = merc.weaponSlot?.initiative ?? merc.weaponSlotData?.initiative ?? 0;
-      if (weaponInit < 0) penalty += weaponInit;
-
-      const armorInit = merc.armorSlot?.initiative ?? merc.armorSlotData?.initiative ?? 0;
-      if (armorInit < 0) penalty += armorInit;
-
-      const accessoryInit = merc.accessorySlot?.initiative ?? merc.accessorySlotData?.initiative ?? 0;
-      if (accessoryInit < 0) penalty += accessoryInit;
-
-      // Include bandolier slots
-      for (let i = 0; i < merc.bandolierSlotsData.length; i++) {
-        const bandolierInit = merc.bandolierSlots[i]?.initiative ?? merc.bandolierSlotsData[i]?.initiative ?? 0;
-        if (bandolierInit < 0) penalty += bandolierInit;
-      }
-
-      // Add back the penalty (negate it)
-      combatant.initiative -= penalty;
     }
   }
 }
@@ -876,31 +396,6 @@ function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
   for (const combatant of combatants) {
     if (combatant.isMilitia && combatant.ownerId === walterOwnerId) {
       combatant.initiative += 2;
-    }
-  }
-}
-
-/**
- * MERC-ddq4: Apply Dutch's unarmed bonus
- * Dutch gets +1 combat and +1 initiative when using fists (or sword)
- */
-function applyDutchBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isDutch(combatant) && isDutchUsingFists(combatant) && combatant.health > 0) {
-      combatant.combat += 1;
-      combatant.initiative += 1;
-    }
-  }
-}
-
-/**
- * MERC-adnu: Apply Moe's SMAW target bonus
- * Moe gets +1 target when using SMAW
- */
-function applyMoeBonus(combatants: Combatant[]): void {
-  for (const combatant of combatants) {
-    if (isMoe(combatant) && hasSmaw(combatant) && combatant.health > 0) {
-      combatant.targets += 1;
     }
   }
 }
@@ -1221,16 +716,6 @@ function applyHaargBonus(allCombatants: Combatant[]): void {
 }
 
 /**
- * MERC-r2k: Check if a combatant is Snake
- */
-function isSnake(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'snake';
-  }
-  return false;
-}
-
-/**
  * MERC-zd5: Check if a combatant is Vandal
  */
 function isVandal(combatant: Combatant): boolean {
@@ -1238,50 +723,6 @@ function isVandal(combatant: Combatant): boolean {
     return combatant.sourceElement.combatantId === 'vandal';
   }
   return false;
-}
-
-/**
- * MERC-r2k: Apply Snake's solo bonus ability
- * Per rules 13-clarifications-and-edge-cases.md:
- * - Only gets ability if he is the SOLE member of his squad
- * - Other squads can exist, but Snake must be alone in his
- * - +1 to all skills when working alone
- */
-function applySnakeBonus(game: MERCGame, allCombatants: Combatant[]): void {
-  const snakeCombatants = allCombatants.filter(c => isSnake(c) && c.health > 0);
-  if (snakeCombatants.length === 0) return;
-
-  for (const snake of snakeCombatants) {
-    const snakeMerc = snake.sourceElement as CombatantModel;
-
-    // Find which player owns Snake and which squad he's in
-    for (const rebel of game.rebelPlayers) {
-      // Check primary squad
-      const primaryMercs = rebel.primarySquad.getMercs();
-      if (primaryMercs.some(m => m.id === snakeMerc.id)) {
-        // Snake is in primary squad - check if alone
-        if (rebel.primarySquad.getLivingMercs().length === 1) {
-          // Snake is alone in his squad - apply +1 to all stats
-          snake.initiative += 1;
-          snake.combat += 1;
-          // Note: Training bonus applied separately for train action
-        }
-        break;
-      }
-
-      // Check secondary squad
-      const secondaryMercs = rebel.secondarySquad.getMercs();
-      if (secondaryMercs.some(m => m.id === snakeMerc.id)) {
-        // Snake is in secondary squad - check if alone
-        if (rebel.secondarySquad.getLivingMercs().length === 1) {
-          // Snake is alone in his squad - apply +1 to all stats
-          snake.initiative += 1;
-          snake.combat += 1;
-        }
-        break;
-      }
-    }
-  }
 }
 
 // =============================================================================
@@ -1737,56 +1178,15 @@ function executeCombatRound(
   }
 
   // MERC-cm0: Apply Haarg's comparative bonus (must be after refresh, before sorting)
+  // Haarg compares to ALL combatants per rules, not just squad (unlike card display)
   applyHaargBonus([...rebels, ...dictatorSide]);
-
-  // MERC-r2k: Apply Snake's solo bonus (needs game for squad context)
-  applySnakeBonus(game, [...rebels, ...dictatorSide]);
 
   // Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
   applyEnemyDebuffs(rebels, dictatorSide);
   applyEnemyDebuffs(dictatorSide, rebels);
 
-  // MERC-16f: Apply Bouba's handgun combat bonus
-  applyBoubaBonus([...rebels, ...dictatorSide]);
-
-  // MERC-s3x: Apply Mayhem's Uzi combat bonus
-  applyMayhemBonus([...rebels, ...dictatorSide]);
-
-  // MERC-3zd: Apply Rozeske's armor combat bonus
-  applyRozeskeBonus([...rebels, ...dictatorSide]);
-
-  // MERC-c1f: Apply Ra's target bonus
-  applyRaBonus([...rebels, ...dictatorSide]);
-
-  // MERC-581: Apply Stumpy's explosive combat bonus
-  applyStumpyBonus([...rebels, ...dictatorSide]);
-
-  // MERC-x0jg: Apply Vandradi's multi-target weapon bonus
-  applyVandradiBonus([...rebels, ...dictatorSide]);
-
-  // MERC-5yq: Apply Sarge's highest initiative bonus
-  applySargeBonus(game, [...rebels, ...dictatorSide]);
-
-  // MERC-kmv: Apply Tack's squad initiative bonus
-  applyTackBonus(game, [...rebels, ...dictatorSide]);
-
-  // MERC-qbci: Apply Valkyrie's squad initiative bonus
-  applyValkyrieBonus(game, [...rebels, ...dictatorSide]);
-
-  // MERC-dxi: Apply Tavisto's woman-in-squad bonus
-  applyTavistoBonus(game, [...rebels, ...dictatorSide]);
-
-  // MERC-btst: Apply Vulture's initiative penalty ignore
-  applyVultureBonus([...rebels, ...dictatorSide]);
-
-  // MERC-djs0: Apply Walter's militia initiative bonus
+  // MERC-djs0: Apply Walter's militia initiative bonus (militia not tracked by CombatantModel)
   applyWalterBonus(game, [...rebels, ...dictatorSide]);
-
-  // MERC-ddq4: Apply Dutch's unarmed bonus
-  applyDutchBonus([...rebels, ...dictatorSide]);
-
-  // MERC-adnu: Apply Moe's SMAW target bonus
-  applyMoeBonus([...rebels, ...dictatorSide]);
 
   // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
   applyKhennInitiative([...rebels, ...dictatorSide], game);
