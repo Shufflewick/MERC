@@ -105,7 +105,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 40-01-PLAN.md - Remove duplicate bonus functions, fix targets getter
+- [x] 40-01-PLAN.md - Remove duplicate bonus functions, fix targets getter
 
 **Deliverables:**
 - Remove duplicate calculation functions from combat.ts

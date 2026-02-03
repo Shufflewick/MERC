@@ -82,13 +82,16 @@ This causes:
 **Goal:** Combat stats read from cached values, no duplicate calculation functions.
 
 **Acceptance Criteria:**
-- [ ] Remove duplicate `applyXBonus()` functions from `combat.ts`
-- [ ] Combat reads from cached stat values (already calculated server-side)
-- [ ] Combat-only effects (Max's debuff to enemies) applied at combat time
-- [ ] Combat stats match displayed stats exactly
+- [x] Remove duplicate `applyXBonus()` functions from `combat.ts`
+- [x] Combat reads from cached stat values (already calculated server-side)
+- [x] Combat-only effects (Max's debuff to enemies) applied at combat time
+- [x] Combat stats match displayed stats exactly
+
+**Status:** Complete (Phase 40)
 
 **Key Changes:**
-- `src/rules/combat.ts` - Remove duplicate calculations
+- `src/rules/combat.ts` - Remove duplicate calculations (14 applyXBonus functions, 20+ helpers removed, -610 lines)
+- `src/rules/elements.ts` - Unified targets getter with getAbilityBonus('targets')
 
 ---
 
