@@ -109,6 +109,19 @@ function selectDie(dieIndex: number) {
 function allocateToTarget(targetId: string) {
   // When dice data is available, use dice-based allocation
   if (hasDiceData.value) {
+    // Check if any die is already allocated to this target - if so, deselect it
+    const allocatedToTarget = [...allocatedHits.value.entries()]
+      .filter(([_, tid]) => tid === targetId);
+
+    if (allocatedToTarget.length > 0) {
+      // Remove the last allocation to this target and select that die
+      const [dieIndex] = allocatedToTarget[allocatedToTarget.length - 1];
+      allocatedHits.value.delete(dieIndex);
+      selectedDieIndex.value = dieIndex;
+      return;
+    }
+
+    // Normal allocation
     if (selectedDieIndex.value === null) return;
 
     allocatedHits.value.set(selectedDieIndex.value, targetId);
@@ -119,6 +132,13 @@ function allocateToTarget(targetId: string) {
     selectedDieIndex.value = nextUnallocated?.index ?? null;
   } else {
     // Fallback mode: no dice data, just track allocations by count
+    // Check for deselection first
+    const lastIndex = fallbackAllocations.value.lastIndexOf(targetId);
+    if (lastIndex !== -1) {
+      fallbackAllocations.value.splice(lastIndex, 1);
+      return;
+    }
+
     const totalHits = props.pendingAllocation.hits || 0;
     if (fallbackAllocations.value.length >= totalHits) return;
 
