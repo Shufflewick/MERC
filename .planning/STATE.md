@@ -9,16 +9,16 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 
 ## Current Position
 
-Phase: 40 of 41 (Unify Combat-Time Application)
+Phase: 41 of 41 (Testing & Verification)
 Plan: 01 of 01 complete
-Status: Phase complete
-Last activity: 2026-02-03 - Completed 40-01-PLAN.md
+Status: Phase complete - MILESTONE COMPLETE
+Last activity: 2026-02-03 - Completed 41-01-PLAN.md
 
-Progress: ████████░░ 80% (4 of 5 phases complete)
+Progress: ██████████ 100% (5 of 5 phases complete)
 
 ## Current Milestone
 
-**v1.8 Unified Stat Ability System** - IN PROGRESS
+**v1.8 Unified Stat Ability System** - COMPLETE
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
@@ -26,9 +26,9 @@ Progress: ████████░░ 80% (4 of 5 phases complete)
 | 38 | Unify Server-Side Calculation | STAT-02 | COMPLETE |
 | 39 | Unify UI Breakdown | STAT-03 | COMPLETE |
 | 40 | Unify Combat-Time Application | STAT-04 | COMPLETE |
-| 41 | Testing & Verification | STAT-05 | NOT STARTED |
+| 41 | Testing & Verification | STAT-05 | COMPLETE |
 
-**Target:** Eliminate duplicate stat calculations and display bugs for 18 stat-modifying MERCs
+**Target:** Eliminate duplicate stat calculations and display bugs for 18 stat-modifying MERCs - ACHIEVED
 
 ## Milestones Completed
 
@@ -40,14 +40,15 @@ Progress: ████████░░ 80% (4 of 5 phases complete)
 - v1.5 Final Combatant Unification (Phases 24-27) - 7 plans
 - v1.6 Final ID Cleanup (Phases 28-30) - 5 plans
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
+- v1.8 Unified Stat Ability System (Phases 37-41) - 6 plans
 
-Total: 39 phases, 80 plans, 8 milestones shipped
+Total: 41 phases, 81 plans, 9 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 80
-- Average duration: 9.8 min/plan
+- Total plans completed: 81
+- Average duration: 9.6 min/plan
 
 ## Accumulated Context
 
@@ -64,6 +65,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Vulture's penalty negation preserved as UI-calculated exception (not in activeStatModifiers)
 - Self-modifier labels follow same pattern as squad-modifier labels: `${name}'s Ability`
 - Combat-time-only effects (Haarg all-combatants, Max debuff, Walter militia, Khenn roll, Golem) preserved in combat.ts
+- hasExplosive condition checks weapon slot AND accessory/bandolier slots (for Stumpy)
 
 ### Deferred Issues
 
@@ -85,15 +87,17 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Focus: Unified stat ability system for 18 MERCs
 - Problem: Duplicate calculations cause double display bug and maintenance burden
 - Solution: Single source of truth in merc-abilities.ts registry
+- Result: 11 abilities tested, all 589 tests pass
 
 ## Session Continuity
 
-Last session: 2026-02-03T20:33:09Z
-Stopped at: Completed 40-01-PLAN.md (Unify Combat-Time Application)
+Last session: 2026-02-03T21:11:32Z
+Stopped at: Completed 41-01-PLAN.md (Testing & Verification) - MILESTONE COMPLETE
 Resume file: None
 
 ### Recent Plans Completed
 
+- 41-01: Testing & Verification (2 commits, +220 lines, 4 min) - MILESTONE COMPLETE
 - 40-01: Unify Combat-Time Application (2 commits, -610 lines, 5 min)
 - 39-02: Self-Modifier Labels (1 commit, +5 lines, 1 min) - gap closure
 - 39-01: Unify UI Breakdown (2 commits, -108 lines, 3 min)
