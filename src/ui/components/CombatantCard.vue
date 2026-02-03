@@ -37,6 +37,12 @@ interface MercData {
   armorSlot?: { equipmentName?: string; name?: string } | null;
   accessorySlot?: { equipmentName?: string; name?: string } | null;
   bandolierSlotsData?: Array<{ equipmentName?: string; name?: string }>;
+  // Unified ability stat modifiers from server - populated by updateAbilityBonuses()
+  activeStatModifiers?: Array<{
+    stat: string;
+    bonus: number;
+    label?: string;
+  }>;
 }
 
 const props = defineProps<{
@@ -76,6 +82,20 @@ function getProp<T>(key: string, defaultVal: T): T {
   const rootVal = (props.merc as any)[key];
   if (rootVal !== undefined) return rootVal;
   return defaultVal;
+}
+
+/**
+ * Get ability modifiers for a specific stat from activeStatModifiers.
+ * Returns breakdown items ready for display.
+ */
+function getAbilityModifiersForStat(stat: string): StatBreakdownItem[] {
+  const modifiers = getProp<Array<{stat: string; bonus: number; label?: string}>>('activeStatModifiers', []);
+  return modifiers
+    .filter(m => m.stat === stat)
+    .map(m => ({
+      label: m.label || 'Ability',
+      value: m.bonus
+    }));
 }
 
 // Helper to get combatant ID
