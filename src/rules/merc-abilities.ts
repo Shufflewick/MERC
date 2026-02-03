@@ -984,7 +984,10 @@ function evaluateCondition(condition: AbilityCondition | undefined, context: Sta
     case 'hasAccessory':
       return !!equipment?.accessory;
     case 'hasExplosive':
-      return equipment?.weapon?.type === 'grenade' || equipment?.weapon?.type === 'mortar';
+      // Check for explosive in weapon slot OR accessory/bandolier (Stumpy can use grenades from accessory)
+      // The hasExplosiveEquipped field is added by elements.ts buildStatModifierContext()
+      return (equipment?.weapon?.type === 'grenade' || equipment?.weapon?.type === 'mortar' ||
+              (equipment as { hasExplosiveEquipped?: boolean })?.hasExplosiveEquipped === true);
     case 'hasMultiTargetWeapon':
       return (equipment?.weapon?.targets ?? 0) > 0;
     case 'hasSmaw':

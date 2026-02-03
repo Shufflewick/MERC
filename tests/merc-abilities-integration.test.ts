@@ -10,6 +10,7 @@ import {
   type Combatant,
 } from '../src/rules/combat.js';
 import { canHireMercWithTeam } from '../src/rules/actions/helpers.js';
+import { isHandgun, isUzi, isExplosive, isSmaw } from '../src/rules/equipment-effects.js';
 
 /**
  * MERC Ability Integration Tests
@@ -427,6 +428,223 @@ describe('MERC Ability Integration Tests', () => {
         rozeske.equip(armor);
         expect(rozeske.armorSlot).toBe(armor);
       }
+    });
+  });
+
+  // =========================================================================
+  // Equipment-Conditional Ability Stats Tests (Unified Stat System)
+  // =========================================================================
+  describe('Equipment-Conditional Ability Stats', () => {
+    let game: MERCGame;
+
+    beforeEach(() => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'equipment-conditional-stats-test',
+      });
+      game = testGame.game;
+    });
+
+    it('Bouba: effectiveCombat increases by +1 when handgun equipped', () => {
+      const bouba = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'bouba');
+      if (!bouba) {
+        console.log('Bouba not in deck, skipping test');
+        return;
+      }
+
+      // Record base combat before equipment
+      const baseCombat = bouba.baseCombat;
+
+      // Find a handgun using the helper function
+      const handgun = game.weaponsDeck.all(Equipment).find(e => e.equipmentId && isHandgun(e.equipmentId));
+      if (!handgun) {
+        console.log('No handgun in deck, skipping test');
+        return;
+      }
+
+      // Equip the handgun and update ability bonuses
+      bouba.equip(handgun);
+      bouba.updateAbilityBonuses([]);
+
+      // Verify effectiveCombat = baseCombat + weaponBonus + abilityBonus(1)
+      const weaponBonus = handgun.combatBonus || 0;
+      expect(bouba.effectiveCombat).toBe(baseCombat + weaponBonus + 1);
+
+      // Verify activeStatModifiers includes the correct modifier
+      const combatMod = bouba.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 1);
+      expect(combatMod).toBeDefined();
+      expect(combatMod!.label).toContain('Ability');
+    });
+
+    it('Mayhem: effectiveCombat increases by +2 when Uzi equipped', () => {
+      const mayhem = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'mayhem');
+      if (!mayhem) {
+        console.log('Mayhem not in deck, skipping test');
+        return;
+      }
+
+      const baseCombat = mayhem.baseCombat;
+
+      // Find an Uzi
+      const uzi = game.weaponsDeck.all(Equipment).find(e => e.equipmentId && isUzi(e.equipmentId));
+      if (!uzi) {
+        console.log('No Uzi in deck, skipping test');
+        return;
+      }
+
+      mayhem.equip(uzi);
+      mayhem.updateAbilityBonuses([]);
+
+      const weaponBonus = uzi.combatBonus || 0;
+      expect(mayhem.effectiveCombat).toBe(baseCombat + weaponBonus + 2);
+
+      const combatMod = mayhem.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 2);
+      expect(combatMod).toBeDefined();
+    });
+
+    it('Rozeske: effectiveCombat increases by +1 when armor equipped', () => {
+      const rozeske = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'rozeske');
+      if (!rozeske) {
+        console.log('Rozeske not in deck, skipping test');
+        return;
+      }
+
+      const baseCombat = rozeske.baseCombat;
+
+      const armor = game.armorDeck.first(Equipment);
+      if (!armor) {
+        console.log('No armor in deck, skipping test');
+        return;
+      }
+
+      rozeske.equip(armor);
+      rozeske.updateAbilityBonuses([]);
+
+      const armorCombatBonus = armor.combatBonus || 0;
+      expect(rozeske.effectiveCombat).toBe(baseCombat + armorCombatBonus + 1);
+
+      const combatMod = rozeske.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 1);
+      expect(combatMod).toBeDefined();
+    });
+
+    it('Stumpy: effectiveCombat increases by +1 when explosive equipped', () => {
+      const stumpy = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'stumpy');
+      if (!stumpy) {
+        console.log('Stumpy not in deck, skipping test');
+        return;
+      }
+
+      const baseCombat = stumpy.baseCombat;
+
+      // Find a grenade or mortar in accessories deck (grenades are accessories)
+      const explosive = game.accessoriesDeck.all(Equipment).find(e => e.equipmentId && isExplosive(e.equipmentId));
+      if (!explosive) {
+        console.log('No explosive in deck, skipping test');
+        return;
+      }
+
+      stumpy.equip(explosive);
+      stumpy.updateAbilityBonuses([]);
+
+      // Stumpy gets +1 combat with grenade/mortar
+      const explosiveCombatBonus = explosive.combatBonus || 0;
+      expect(stumpy.effectiveCombat).toBe(baseCombat + explosiveCombatBonus + 1);
+
+      const combatMod = stumpy.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 1);
+      expect(combatMod).toBeDefined();
+    });
+
+    it('Vandradi: effectiveCombat increases by +1 with multi-target weapon', () => {
+      const vandradi = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'vandradi');
+      if (!vandradi) {
+        console.log('Vandradi not in deck, skipping test');
+        return;
+      }
+
+      const baseCombat = vandradi.baseCombat;
+
+      // Find a weapon with targets > 0
+      const multiTargetWeapon = game.weaponsDeck.all(Equipment).find(e => (e.targets ?? 0) > 0);
+      if (!multiTargetWeapon) {
+        console.log('No multi-target weapon in deck, skipping test');
+        return;
+      }
+
+      vandradi.equip(multiTargetWeapon);
+      vandradi.updateAbilityBonuses([]);
+
+      const weaponBonus = multiTargetWeapon.combatBonus || 0;
+      expect(vandradi.effectiveCombat).toBe(baseCombat + weaponBonus + 1);
+
+      const combatMod = vandradi.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 1);
+      expect(combatMod).toBeDefined();
+    });
+
+    it('Dutch: effectiveCombat +1 and effectiveInitiative +1 when unarmed', () => {
+      const dutch = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'dutch');
+      if (!dutch) {
+        console.log('Dutch not in deck, skipping test');
+        return;
+      }
+
+      const baseCombat = dutch.baseCombat;
+      const baseInit = dutch.baseInitiative;
+
+      // Dutch gets bonus when unarmed (no weapon equipped)
+      dutch.updateAbilityBonuses([]);
+
+      expect(dutch.effectiveCombat).toBe(baseCombat + 1);
+      expect(dutch.effectiveInitiative).toBe(baseInit + 1);
+
+      const combatMod = dutch.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 1);
+      const initMod = dutch.activeStatModifiers.find(m => m.stat === 'initiative' && m.bonus === 1);
+      expect(combatMod).toBeDefined();
+      expect(initMod).toBeDefined();
+    });
+
+    it('Moe: activeStatModifiers includes +1 targets when SMAW equipped', () => {
+      const moe = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'moe');
+      if (!moe) {
+        console.log('Moe not in deck, skipping test');
+        return;
+      }
+
+      // Find SMAW
+      const smaw = game.weaponsDeck.all(Equipment).find(e => e.equipmentId && isSmaw(e.equipmentId));
+      if (!smaw) {
+        console.log('No SMAW in deck, skipping test');
+        return;
+      }
+
+      moe.equip(smaw);
+      moe.updateAbilityBonuses([]);
+
+      // Moe gets +1 targets with SMAW
+      const targetMod = moe.activeStatModifiers.find(m => m.stat === 'targets' && m.bonus === 1);
+      expect(targetMod).toBeDefined();
+    });
+
+    it('Ra: activeStatModifiers includes +1 targets when any weapon equipped', () => {
+      const ra = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'ra');
+      if (!ra) {
+        console.log('Ra not in deck, skipping test');
+        return;
+      }
+
+      // Find any weapon
+      const weapon = game.weaponsDeck.first(Equipment);
+      if (!weapon) {
+        console.log('No weapon in deck, skipping test');
+        return;
+      }
+
+      ra.equip(weapon);
+      ra.updateAbilityBonuses([]);
+
+      // Ra gets +1 targets with any weapon
+      const targetMod = ra.activeStatModifiers.find(m => m.stat === 'targets' && m.bonus === 1);
+      expect(targetMod).toBeDefined();
     });
   });
 
