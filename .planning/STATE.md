@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 ## Current Position
 
 Phase: 39 of 41 (Unify UI Breakdown)
-Plan: 01 of 01 complete
-Status: Phase complete
-Last activity: 2026-02-03 - Completed 39-01-PLAN.md
+Plan: 02 of 02 complete
+Status: Phase complete (gap closure plan)
+Last activity: 2026-02-03 - Completed 39-02-PLAN.md
 
 Progress: █████░░░░░ 60% (3 of 5 phases complete)
 
@@ -62,6 +62,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - allSquad bonuses (Tack) include the source, squadMates bonuses (Valkyrie) exclude the source
 - Removed extraCombat passive lookup from updateComputedStats - now in merc-abilities registry
 - Vulture's penalty negation preserved as UI-calculated exception (not in activeStatModifiers)
+- Self-modifier labels follow same pattern as squad-modifier labels: `${name}'s Ability`
 
 ### Deferred Issues
 
@@ -86,12 +87,13 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-03T19:55:21Z
-Stopped at: Completed 39-01-PLAN.md (Unify UI Breakdown)
+Last session: 2026-02-03T20:13:07Z
+Stopped at: Completed 39-02-PLAN.md (Self-Modifier Labels gap closure)
 Resume file: None
 
 ### Recent Plans Completed
 
+- 39-02: Self-Modifier Labels (1 commit, +5 lines, 1 min) - gap closure
 - 39-01: Unify UI Breakdown (2 commits, -108 lines, 3 min)
 - 38-02: Integrate Unified Stat Calculation (3 commits, -77 lines, 3 min)
 - 38-01: Add Unified Stat Modifier Infrastructure (3 commits, +196 lines, 2 min)
