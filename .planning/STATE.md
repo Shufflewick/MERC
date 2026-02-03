@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-03)
 
 ## Current Position
 
-Phase: 39 of 41 (Unify UI Breakdown)
-Plan: 02 of 02 complete
-Status: Phase complete (gap closure plan)
-Last activity: 2026-02-03 - Completed 39-02-PLAN.md
+Phase: 40 of 41 (Unify Combat-Time Application)
+Plan: 01 of 01 complete
+Status: Phase complete
+Last activity: 2026-02-03 - Completed 40-01-PLAN.md
 
-Progress: █████░░░░░ 60% (3 of 5 phases complete)
+Progress: ████████░░ 80% (4 of 5 phases complete)
 
 ## Current Milestone
 
@@ -25,7 +25,7 @@ Progress: █████░░░░░ 60% (3 of 5 phases complete)
 | 37 | Extend Ability Registry | STAT-01 | COMPLETE |
 | 38 | Unify Server-Side Calculation | STAT-02 | COMPLETE |
 | 39 | Unify UI Breakdown | STAT-03 | COMPLETE |
-| 40 | Unify Combat-Time Application | STAT-04 | NOT STARTED |
+| 40 | Unify Combat-Time Application | STAT-04 | COMPLETE |
 | 41 | Testing & Verification | STAT-05 | NOT STARTED |
 
 **Target:** Eliminate duplicate stat calculations and display bugs for 18 stat-modifying MERCs
@@ -41,13 +41,13 @@ Progress: █████░░░░░ 60% (3 of 5 phases complete)
 - v1.6 Final ID Cleanup (Phases 28-30) - 5 plans
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
 
-Total: 38 phases, 79 plans, 8 milestones shipped
+Total: 39 phases, 80 plans, 8 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 79
-- Average duration: 9.9 min/plan
+- Total plans completed: 80
+- Average duration: 9.8 min/plan
 
 ## Accumulated Context
 
@@ -63,6 +63,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Removed extraCombat passive lookup from updateComputedStats - now in merc-abilities registry
 - Vulture's penalty negation preserved as UI-calculated exception (not in activeStatModifiers)
 - Self-modifier labels follow same pattern as squad-modifier labels: `${name}'s Ability`
+- Combat-time-only effects (Haarg all-combatants, Max debuff, Walter militia, Khenn roll, Golem) preserved in combat.ts
 
 ### Deferred Issues
 
@@ -87,17 +88,17 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-03T20:13:07Z
-Stopped at: Completed 39-02-PLAN.md (Self-Modifier Labels gap closure)
+Last session: 2026-02-03T20:33:09Z
+Stopped at: Completed 40-01-PLAN.md (Unify Combat-Time Application)
 Resume file: None
 
 ### Recent Plans Completed
 
+- 40-01: Unify Combat-Time Application (2 commits, -610 lines, 5 min)
 - 39-02: Self-Modifier Labels (1 commit, +5 lines, 1 min) - gap closure
 - 39-01: Unify UI Breakdown (2 commits, -108 lines, 3 min)
 - 38-02: Integrate Unified Stat Calculation (3 commits, -77 lines, 3 min)
 - 38-01: Add Unified Stat Modifier Infrastructure (3 commits, +196 lines, 2 min)
-- 37-01: Extend Ability Registry (3 commits, +192 lines, 4 min)
 
 ### Previous Milestone Summary (v1.7)
 
