@@ -63,14 +63,17 @@ This causes:
 **Goal:** `CombatantCard.vue` reads from ability data, no hardcoded bonus field checks, no fallback calculation.
 
 **Acceptance Criteria:**
-- [ ] Remove all hardcoded bonus field checks from `CombatantCard.vue`
-- [ ] Read `activeStatModifiers` from merc data
-- [ ] Generate breakdown items from modifier list
-- [ ] Remove "Ability +X" fallback logic entirely
-- [ ] No duplicate display of ability bonuses
+- [x] Remove all hardcoded bonus field checks from `CombatantCard.vue`
+- [x] Read `activeStatModifiers` from merc data
+- [x] Generate breakdown items from modifier list
+- [x] Remove "Ability +X" fallback logic entirely
+- [x] No duplicate display of ability bonuses
+
+**Status:** Complete (Phase 39)
 
 **Key Changes:**
-- `src/ui/components/CombatantCard.vue` - Unified breakdown generation
+- `src/ui/components/CombatantCard.vue` - Unified breakdown generation via getAbilityModifiersForStat()
+- `src/rules/elements.ts` - Self-modifier labels use `${combatantName}'s Ability` pattern
 
 ---
 

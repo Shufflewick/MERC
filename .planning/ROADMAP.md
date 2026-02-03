@@ -75,7 +75,7 @@ Plans:
 
 Plans:
 - [x] 39-01-PLAN.md - Replace hardcoded bonus checks with unified activeStatModifiers iteration
-- [ ] 39-02-PLAN.md - Add labels to self-targeting modifiers (gap closure)
+- [x] 39-02-PLAN.md - Add labels to self-targeting modifiers (gap closure)
 
 **Deliverables:**
 - Remove hardcoded bonus field checks
