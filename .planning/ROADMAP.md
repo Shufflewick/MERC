@@ -131,15 +131,21 @@ Plans:
 
 **Goal:** Add integration tests for each stat-modifying ability and verify UI displays correctly.
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 41-01-PLAN.md - Equipment-conditional and passive ability tests (11 MERCs)
+- [ ] 41-02-PLAN.md - Squad-conditional and combat-only ability tests (10 MERCs)
+
 **Deliverables:**
 - Integration tests for equipment-conditional abilities (8 MERCs)
 - Integration tests for squad-conditional abilities (6 MERCs)
 - Integration tests for passive abilities (3 MERCs)
-- Integration tests for combat-only abilities (3 MERCs)
+- Integration tests for combat-only abilities (4 MERCs)
 - Visual verification documentation
 
 **Key Files:**
-- `tests/merc-abilities-integration.test.ts` (new)
+- `tests/merc-abilities-integration.test.ts` (extended)
 
 **Success Criteria:**
 - All 18 stat-modifying abilities have test coverage
