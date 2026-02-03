@@ -102,14 +102,21 @@ Plans:
 
 **Goal:** Remove duplicate `applyXBonus()` functions from combat.ts and read from cached stat values.
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 40-01-PLAN.md - Remove duplicate bonus functions, fix targets getter
+
 **Deliverables:**
 - Remove duplicate calculation functions from combat.ts
 - Combat reads from `effectiveCombat`, `effectiveTraining`, etc.
-- Combat-only effects (Max's debuff) applied at combat time only
+- Combat-only effects (Max's debuff, Walter militia, Khenn roll, Haarg all-combatant, Golem) applied at combat time only
 - Combat stats match displayed stats
+- targets getter uses unified getAbilityBonus('targets')
 
 **Key Files:**
 - `src/rules/combat.ts`
+- `src/rules/elements.ts`
 
 **Success Criteria:**
 - Combat calculations use cached values
@@ -169,7 +176,7 @@ Phases 39 and 40 can be worked in parallel after Phase 38 completes.
 | 37 | merc-abilities.ts | - |
 | 38 | elements.ts, game.ts | - |
 | 39 | CombatantCard.vue, elements.ts | - |
-| 40 | combat.ts | combat-types.ts |
+| 40 | combat.ts, elements.ts | - |
 | 41 | merc-abilities-integration.test.ts | - |
 
 ---
