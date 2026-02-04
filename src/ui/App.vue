@@ -368,6 +368,22 @@ interface CombatantInfo {
   sectorName: string;
 }
 
+// Helper to check if a combatant is dead (mirrors useGameViewHelpers.ts:isMercDead)
+function isMercDeadLocal(attrs: any): boolean {
+  // Check isDead if serialized
+  if (attrs.isDead === true) return true;
+
+  // Check health directly
+  if (attrs.health === 0) return true;
+
+  // Check damage vs maxHealth
+  const damage = attrs.damage || 0;
+  const maxHealth = attrs.effectiveMaxHealth || attrs.maxHealth || 3;
+  if (damage > 0 && damage >= maxHealth) return true;
+
+  return false;
+}
+
 // Helper functions for player stats
 function getCombatants(player: any, gameView: any): CombatantInfo[] {
   if (!gameView?.children) return [];
@@ -402,6 +418,9 @@ function getCombatants(player: any, gameView: any): CombatantInfo[] {
   function addCombatant(attrs: any, squadName: string, sectorName: string) {
     const id = attrs.combatantId || '';
     if (id && !seenIds.has(id)) {
+      // Skip dead combatants - they shouldn't appear in player stats
+      if (isMercDeadLocal(attrs)) return;
+
       seenIds.add(id);
       combatants.push({
         combatantId: id,

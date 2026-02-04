@@ -74,6 +74,20 @@ const props = defineProps<{
       attackerName: string;
       validTargets: AttackDogTarget[];
     };
+    pendingBeforeAttackHealing?: {
+      attackerId: string;
+      attackerName: string;
+      availableHealers: Array<{
+        healerId: string;
+        healerName: string;
+        itemName: string;
+      }>;
+      damagedAllies: Array<{
+        id: string;
+        name: string;
+        damage: number;
+      }>;
+    };
     dogAssignments?: Array<[string, any]>;
     combatComplete?: boolean;
   } | null;
@@ -106,6 +120,10 @@ const emit = defineEmits<{
   (e: 'assign-attack-dog', targetId: string): void;
   (e: 'animating', isAnimating: boolean): void;
   (e: 'combat-finished'): void;
+  (e: 'use-medical-kit'): void;
+  (e: 'use-surgeon-heal'): void;
+  (e: 'use-before-attack-heal'): void;
+  (e: 'skip-before-attack-heal'): void;
 }>();
 
 // =============================================================================
@@ -122,6 +140,7 @@ const TIMING = {
   PAUSE_BETWEEN: 400,
   COMBAT_END_DELAY: 1500,
   ATTACK_DOG_DURATION: 1500, // Time to show Attack Dog assignment animation
+  HEAL_DURATION: 1500, // Time to show healing animation
   // Fast-forward speeds
   FAST_PRE_ROLL: 50,
   FAST_ROLL: 100,
@@ -131,6 +150,7 @@ const TIMING = {
   FAST_PAUSE: 25,
   FAST_COMBAT_END: 200,
   FAST_ATTACK_DOG: 200,
+  FAST_HEAL: 200,
 };
 
 // Local display state
@@ -158,8 +178,11 @@ const displayHealth = ref<Map<string, number>>(new Map());
 // Track combatants who have died during this combat - once dead, always dead
 const deadCombatants = ref<Set<string>>(new Set());
 
+// Track combatants currently being healed (for animation)
+const healingCombatants = ref<Set<string>>(new Set());
+
 // Helper to get timing based on fast-forward state
-function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end' | 'attack-dog'): number {
+function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' | 'pause' | 'combat-end' | 'attack-dog' | 'heal'): number {
   if (isFastForward.value) {
     switch (type) {
       case 'pre-roll': return TIMING.FAST_PRE_ROLL;
@@ -170,6 +193,7 @@ function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' 
       case 'pause': return TIMING.FAST_PAUSE;
       case 'combat-end': return TIMING.FAST_COMBAT_END;
       case 'attack-dog': return TIMING.FAST_ATTACK_DOG;
+      case 'heal': return TIMING.FAST_HEAL;
     }
   }
   switch (type) {
@@ -181,6 +205,7 @@ function getTiming(type: 'pre-roll' | 'roll' | 'post-roll' | 'damage' | 'death' 
     case 'pause': return TIMING.PAUSE_BETWEEN;
     case 'combat-end': return TIMING.COMBAT_END_DELAY;
     case 'attack-dog': return TIMING.ATTACK_DOG_DURATION;
+    case 'heal': return TIMING.HEAL_DURATION;
   }
 }
 
@@ -276,6 +301,30 @@ if (animationEvents) {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('attack-dog'));
     currentEvent.value = null; // Explicitly clear after display
+  });
+
+  // Healing event handler - update display health and show animation
+  animationEvents.registerHandler('combat-heal', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
+
+    // Update display health from event data
+    const data = event.data as Record<string, unknown>;
+    const targetId = data.targetId as string | undefined;
+    const healthAfter = data.healthAfter as number | undefined;
+    if (targetId && healthAfter !== undefined) {
+      displayHealth.value.set(targetId, healthAfter);
+      // Trigger healing animation
+      healingCombatants.value.add(targetId);
+    }
+
+    await sleep(getTiming('heal'));
+
+    // Clear healing animation
+    if (targetId) {
+      healingCombatants.value.delete(targetId);
+    }
+    currentEvent.value = null;
+    await sleep(getTiming('pause'));
   });
 }
 
@@ -418,6 +467,7 @@ function findCombatantIdByName(name: string): string | null {
 function resetDisplayHealthState(): void {
   displayHealth.value.clear();
   deadCombatants.value.clear();
+  healingCombatants.value.clear();
 }
 
 // =============================================================================
@@ -547,6 +597,10 @@ const isAssigningAttackDog = computed(() => {
   return !!props.activeCombat?.pendingAttackDogSelection && props.isMyTurn;
 });
 
+const isHealingBeforeAttack = computed(() => {
+  return !!props.activeCombat?.pendingBeforeAttackHealing && props.isMyTurn;
+});
+
 // Dog target names map
 const dogTargetNames = computed(() => {
   const nameMap = new Map<string, string>();
@@ -661,6 +715,10 @@ function getAllocatedHitsForTarget(targetId: string): number {
   return count;
 }
 
+function isHealingCombatant(combatantId: string): boolean {
+  return healingCombatants.value.has(combatantId);
+}
+
 function selectTarget(targetId: string) {
   // Handle target selection mode (before rolling)
   if (isSelectingTargets.value) {
@@ -682,12 +740,24 @@ function selectTarget(targetId: string) {
     return;
   }
 
-  // Handle hit allocation mode
+  // Handle hit allocation mode - clicking adds a hit
   if (isAllocating.value && hitAllocationRef.value) {
     const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets.map(t => t.id) ?? [];
     if (!validTargetIds.includes(targetId)) return;
-    hitAllocationRef.value.allocateToTarget(targetId);
+    hitAllocationRef.value.addHitToTarget(targetId);
   }
+}
+
+function addHitToTarget(targetId: string) {
+  if (!isAllocating.value || !hitAllocationRef.value) return;
+  const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets.map(t => t.id) ?? [];
+  if (!validTargetIds.includes(targetId)) return;
+  hitAllocationRef.value.addHitToTarget(targetId);
+}
+
+function removeHitFromTarget(targetId: string) {
+  if (!isAllocating.value || !hitAllocationRef.value) return;
+  hitAllocationRef.value.removeHitFromTarget(targetId);
 }
 
 // =============================================================================
@@ -916,12 +986,16 @@ onUnmounted(() => {
             :is-animating-target="isCurrentTarget(getCombatantDisplay(combatant).id)"
             :attack-missed="isCurrentAttacker(getCombatantDisplay(combatant).id) && showMissShake"
             :is-animating="isAnimating"
+            :is-healing="isHealingCombatant(getCombatantDisplay(combatant).id)"
             :allocated-hits="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id)"
             :target-hits="getTargetHits(getCombatantDisplay(combatant).id)"
+            :show-hit-controls="isAllocating"
             :dog-target-name="getCombatantDisplay(combatant).attackDogTargetName ||
                               (getCombatantDisplay(combatant).attackDogPendingTarget ? 'Selecting...' : dogTargetNames.get(getCombatantDisplay(combatant).id))"
             :get-bullet-hole-position="getBulletHolePosition"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
+            @add-hit="addHitToTarget(getCombatantDisplay(combatant).id)"
+            @remove-hit="removeHitFromTarget(getCombatantDisplay(combatant).id)"
           />
         </div>
       </div>
@@ -955,12 +1029,16 @@ onUnmounted(() => {
             :is-animating-target="isCurrentTarget(getCombatantDisplay(combatant).id)"
             :attack-missed="isCurrentAttacker(getCombatantDisplay(combatant).id) && showMissShake"
             :is-animating="isAnimating"
+            :is-healing="isHealingCombatant(getCombatantDisplay(combatant).id)"
             :allocated-hits="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id)"
             :target-hits="getTargetHits(getCombatantDisplay(combatant).id)"
+            :show-hit-controls="isAllocating"
             :dog-target-name="getCombatantDisplay(combatant).attackDogTargetName ||
                               (getCombatantDisplay(combatant).attackDogPendingTarget ? 'Selecting...' : dogTargetNames.get(getCombatantDisplay(combatant).id))"
             :get-bullet-hole-position="getBulletHolePosition"
             @click="selectTarget(getCombatantDisplay(combatant).id)"
+            @add-hit="addHitToTarget(getCombatantDisplay(combatant).id)"
+            @remove-hit="removeHitFromTarget(getCombatantDisplay(combatant).id)"
           />
         </div>
       </div>
@@ -1046,6 +1124,40 @@ onUnmounted(() => {
       @assign="emit('assign-attack-dog', $event)"
     />
 
+    <!-- Before-attack healing phase -->
+    <div v-if="isHealingBeforeAttack && !isAnimating" class="healing-phase-panel">
+      <div class="healing-header">
+        <strong>{{ activeCombat?.pendingBeforeAttackHealing?.attackerName }}</strong>'s Turn - Healing Phase
+      </div>
+      <div class="healing-hint">
+        Use Medical Kit/First Aid Kit to heal an ally before attacking
+      </div>
+      <div class="healing-options">
+        <div class="healers-available">
+          <span class="label">Available healers:</span>
+          <span v-for="healer in activeCombat?.pendingBeforeAttackHealing?.availableHealers"
+                :key="healer.healerId" class="healer-badge">
+            {{ healer.healerName }} ({{ healer.itemName }})
+          </span>
+        </div>
+        <div class="damaged-allies">
+          <span class="label">Can heal:</span>
+          <span v-for="ally in activeCombat?.pendingBeforeAttackHealing?.damagedAllies"
+                :key="ally.id" class="ally-badge">
+            {{ ally.name }} ({{ ally.damage }} damage)
+          </span>
+        </div>
+      </div>
+      <div class="healing-actions">
+        <button class="healing-use-btn" @click="emit('use-before-attack-heal')">
+          Use Healing Item
+        </button>
+        <button class="healing-skip-btn" @click="emit('skip-before-attack-heal')">
+          Skip Healing
+        </button>
+      </div>
+    </div>
+
     <!-- Target selection -->
     <TargetSelectionPanel
       v-if="isSelectingTargets && !isAnimating"
@@ -1060,6 +1172,20 @@ onUnmounted(() => {
       v-if="!isAllocating && !isSelectingTargets && !isAllocatingWolverineSixes && !isAssigningAttackDog && !isSelectingRetreatSector && isMyTurn && !isAnimating"
       class="combat-actions"
     >
+      <button
+        v-if="availableActions.includes('combatHeal')"
+        class="combat-heal-btn"
+        @click="emit('use-medical-kit')"
+      >
+        Use Medical Kit
+      </button>
+      <button
+        v-if="availableActions.includes('combatSurgeonHeal')"
+        class="combat-heal-btn"
+        @click="emit('use-surgeon-heal')"
+      >
+        Surgeon's Heal
+      </button>
       <button
         v-if="availableActions.includes('combatContinue')"
         class="combat-continue-btn"
@@ -1331,5 +1457,115 @@ onUnmounted(() => {
 .combat-retreat-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.combat-heal-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4fc3f7 0%, #0288d1 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.combat-heal-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
+}
+
+/* Before-attack healing phase panel */
+.healing-phase-panel {
+  background: rgba(79, 195, 247, 0.1);
+  border: 2px solid #4fc3f7;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.healing-header {
+  color: #4fc3f7;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.healing-hint {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.healing-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.healers-available, .damaged-allies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.healing-options .label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.healer-badge, .ally-badge {
+  background: rgba(79, 195, 247, 0.2);
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.ally-badge {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.4);
+}
+
+.healing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.healing-use-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4fc3f7 0%, #0288d1 100%);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.healing-use-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
+}
+
+.healing-skip-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #666 0%, #444 100%);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.healing-skip-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 </style>

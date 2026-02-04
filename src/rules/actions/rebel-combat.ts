@@ -815,6 +815,17 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       targetCombatant.health += healAmount;
       targetMerc.heal(healAmount);
 
+      // Emit healing animation event
+      game.emitAnimationEvent('combat-heal', {
+        healerName: capitalize(healerMerc.combatantName),
+        healerId: healerCombatant.id,
+        targetName: capitalize(targetMerc.combatantName),
+        targetId: targetCombatant.id,
+        healAmount,
+        healthAfter: targetCombatant.health,
+        itemName: healingItem.equipmentName,
+      });
+
       // Use up the healing item
       if (healingItem.usesRemaining === undefined) {
         healingItem.usesRemaining = healingEffect.totalUses;
@@ -853,6 +864,411 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
           target: targetMerc.combatantName,
           healAmount,
           diceDiscarded: healingEffect.dicePerHeal,
+        },
+      };
+    });
+}
+
+// =============================================================================
+// Before-Attack Healing Actions (Medical Kit, First Aid Kit, Surgeon)
+// =============================================================================
+
+/**
+ * Use healing item BEFORE a MERC's attack.
+ * Rules: "On your initiative, before your attack, discard 1 combat dice to heal..."
+ * This is triggered when pendingBeforeAttackHealing is set, not at end of round.
+ */
+export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatBeforeAttackHeal')
+    .prompt('Use healing item')
+    .condition({
+      'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+    })
+    .chooseFrom<string>('healer', {
+      prompt: 'Select MERC to use healing item',
+      choices: () => {
+        const pending = game.activeCombat?.pendingBeforeAttackHealing;
+        if (!pending) return [];
+        return pending.availableHealers.map(h => `${h.healerName} (${h.itemName})`);
+      },
+    })
+    .chooseFrom<string>('target', {
+      prompt: 'Select MERC to heal',
+      choices: () => {
+        const pending = game.activeCombat?.pendingBeforeAttackHealing;
+        if (!pending) return [];
+        return pending.damagedAllies.map(a => `${a.name} (${a.damage} damage)`);
+      },
+    })
+    .execute((args) => {
+      if (!game.activeCombat?.pendingBeforeAttackHealing) {
+        return { success: false, message: 'No pending healing decision' };
+      }
+
+      const pending = game.activeCombat.pendingBeforeAttackHealing;
+      const healerChoice = args.healer as string;
+      const targetChoice = args.target as string;
+
+      // Find the selected healer
+      const healerData = pending.availableHealers.find(h =>
+        `${h.healerName} (${h.itemName})` === healerChoice
+      );
+      if (!healerData) {
+        return { success: false, message: 'Healer not found' };
+      }
+
+      // Find the selected target
+      const targetData = pending.damagedAllies.find(a =>
+        `${a.name} (${a.damage} damage)` === targetChoice
+      );
+      if (!targetData) {
+        return { success: false, message: 'Target not found' };
+      }
+
+      // Find the actual combatant objects
+      const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
+      const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
+      const allCombatants = [...rebelCombatants, ...dictatorCombatants];
+
+      const healerCombatant = allCombatants.find(c => c.id === healerData.healerId);
+      if (!healerCombatant || !isCombatantModel(healerCombatant.sourceElement)) {
+        return { success: false, message: 'Healer combatant not found' };
+      }
+      const healerMerc = healerCombatant.sourceElement;
+
+      const targetCombatant = allCombatants.find(c => c.id === targetData.id);
+      if (!targetCombatant || !isCombatantModel(targetCombatant.sourceElement)) {
+        return { success: false, message: 'Target combatant not found' };
+      }
+      const targetMerc = targetCombatant.sourceElement;
+
+      // Find the healing item
+      let healingItem: Equipment | null = null;
+      if (healerMerc.accessorySlot?.equipmentId === healerData.healingItemId) {
+        healingItem = healerMerc.accessorySlot;
+      } else {
+        healingItem = healerMerc.bandolierSlots.find(b => b.equipmentId === healerData.healingItemId) ?? null;
+      }
+      if (!healingItem) {
+        return { success: false, message: 'Healing item not found' };
+      }
+
+      // Initialize healingDiceUsed map if needed
+      if (!game.activeCombat.healingDiceUsed) {
+        game.activeCombat.healingDiceUsed = new Map();
+      }
+
+      // Track dice discarded
+      const diceUsed = game.activeCombat.healingDiceUsed.get(healerCombatant.id) ?? 0;
+      game.activeCombat.healingDiceUsed.set(healerCombatant.id, diceUsed + healerData.dicePerHeal);
+
+      // Heal the target
+      const healAmount = Math.min(healerData.healPerUse, targetCombatant.maxHealth - targetCombatant.health);
+      targetCombatant.health += healAmount;
+      targetMerc.heal(healAmount);
+
+      // Emit healing animation event
+      game.emitAnimationEvent('combat-heal', {
+        healerName: capitalize(healerMerc.combatantName),
+        healerId: healerCombatant.id,
+        targetName: capitalize(targetMerc.combatantName),
+        targetId: targetCombatant.id,
+        healAmount,
+        healthAfter: targetCombatant.health,
+        itemName: healingItem.equipmentName,
+      });
+
+      // Use up the healing item
+      if (healingItem.usesRemaining === undefined) {
+        const effect = getHealingEffect(healingItem.equipmentId);
+        healingItem.usesRemaining = effect?.totalUses ?? 1;
+      }
+      healingItem.usesRemaining--;
+
+      // If uses exhausted, discard the item
+      if (healingItem.usesRemaining <= 0) {
+        if (healerMerc.accessorySlot?.id === healingItem.id) {
+          healerMerc.unequip('Accessory');
+        } else {
+          const bIdx = healerMerc.bandolierSlots.findIndex(e => e.id === healingItem!.id);
+          if (bIdx >= 0) {
+            healerMerc.unequipBandolierSlot(bIdx);
+          }
+        }
+
+        const discard = game.getEquipmentDiscard('Accessory');
+        if (discard) {
+          healingItem.putInto(discard);
+        }
+
+        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} - item exhausted!`);
+      } else {
+        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
+      }
+
+      // Mark this attacker's healing phase as processed and clear the pending state
+      if (!game.activeCombat.beforeAttackHealingProcessed) {
+        game.activeCombat.beforeAttackHealingProcessed = new Set();
+      }
+      game.activeCombat.beforeAttackHealingProcessed.add(pending.attackerId);
+      game.activeCombat.pendingBeforeAttackHealing = undefined;
+
+      return {
+        success: true,
+        message: `Healed ${targetMerc.combatantName} for ${healAmount}`,
+        data: {
+          healer: healerMerc.combatantName,
+          target: targetMerc.combatantName,
+          healAmount,
+          diceDiscarded: healerData.dicePerHeal,
+        },
+      };
+    });
+}
+
+/**
+ * Skip before-attack healing and proceed to attack
+ */
+export function createCombatSkipBeforeAttackHealAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatSkipBeforeAttackHeal')
+    .prompt('Skip healing')
+    .condition({
+      'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
+      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+    })
+    .execute(() => {
+      if (!game.activeCombat?.pendingBeforeAttackHealing) {
+        return { success: false, message: 'No pending healing decision' };
+      }
+
+      const pending = game.activeCombat.pendingBeforeAttackHealing;
+
+      // Mark this attacker's healing phase as processed and clear the pending state
+      if (!game.activeCombat.beforeAttackHealingProcessed) {
+        game.activeCombat.beforeAttackHealingProcessed = new Set();
+      }
+      game.activeCombat.beforeAttackHealingProcessed.add(pending.attackerId);
+      game.activeCombat.pendingBeforeAttackHealing = undefined;
+
+      return {
+        success: true,
+        message: `Skipping healing for ${pending.attackerName}'s turn`,
+      };
+    });
+}
+
+// =============================================================================
+// Combat Surgeon Heal (Human-Controlled Surgeon)
+// =============================================================================
+
+/**
+ * Helper to find Surgeon in combat combatants
+ */
+function findSurgeonInCombat(combatants: Combatant[], game: MERCGame): {
+  combatant: Combatant;
+  merc: CombatantModel;
+} | null {
+  for (const combatant of combatants) {
+    if (combatant.health <= 0) continue;
+    if (!isCombatantModel(combatant.sourceElement) || !combatant.sourceElement.isMerc) continue;
+    if (combatant.sourceElement.combatantId === 'surgeon') {
+      // Check if controlled by human player (not dictator AI)
+      const isDictatorSide = combatant.isDictatorSide;
+      if (isDictatorSide && game.dictatorPlayer?.isAI) {
+        // Surgeon is AI-controlled, skip
+        continue;
+      }
+      return { combatant, merc: combatant.sourceElement };
+    }
+  }
+  return null;
+}
+
+/**
+ * Helper to find damaged allies that Surgeon can heal
+ */
+function getSurgeonHealTargets(surgeon: Combatant, allies: Combatant[]): Combatant[] {
+  return allies.filter(c =>
+    c !== surgeon &&
+    c.health > 0 &&
+    c.health < c.maxHealth &&
+    !c.isMilitia &&
+    !c.isAttackDog
+  );
+}
+
+/**
+ * Surgeon's ability: Sacrifice 1 combat die to heal 1 damage to a squad mate.
+ * For human-controlled Surgeon only - AI Surgeon auto-heals in combat.ts.
+ */
+export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition {
+  return Action.create('combatSurgeonHeal')
+    .prompt("Surgeon's Heal")
+    .condition({
+      'has active combat': () => game.activeCombat != null,
+      'no pending target selection': () => !game.activeCombat?.pendingTargetSelection,
+      'no pending hit allocation': () => !game.activeCombat?.pendingHitAllocation,
+      'has human-controlled Surgeon with heal available': () => {
+        if (!game.activeCombat) return false;
+
+        // Check rebel side for human Surgeon
+        const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
+        const rebelSurgeon = findSurgeonInCombat(rebelCombatants, game);
+        if (rebelSurgeon) {
+          const { combatant } = rebelSurgeon;
+          // Surgeon needs at least 2 dice (1 to sacrifice, 1 to still attack)
+          const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
+          if (combatant.combat - diceUsed >= 2) {
+            const damagedAllies = getSurgeonHealTargets(combatant, rebelCombatants);
+            if (damagedAllies.length > 0) return true;
+          }
+        }
+
+        // Check dictator side for human Surgeon (human dictator mode)
+        if (!game.dictatorPlayer?.isAI) {
+          const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
+          const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
+          if (dictatorSurgeon) {
+            const { combatant } = dictatorSurgeon;
+            const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
+            if (combatant.combat - diceUsed >= 2) {
+              const damagedAllies = getSurgeonHealTargets(combatant, dictatorCombatants);
+              if (damagedAllies.length > 0) return true;
+            }
+          }
+        }
+
+        return false;
+      },
+    })
+    .chooseFrom<string>('target', {
+      prompt: 'Select ally to heal',
+      choices: () => {
+        if (!game.activeCombat) return [];
+
+        // Find Surgeon on player's side
+        const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
+        const rebelSurgeon = findSurgeonInCombat(rebelCombatants, game);
+        if (rebelSurgeon) {
+          const { combatant } = rebelSurgeon;
+          const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
+          if (combatant.combat - diceUsed >= 2) {
+            const damagedAllies = getSurgeonHealTargets(combatant, rebelCombatants);
+            return damagedAllies.map(c => {
+              const merc = c.sourceElement as CombatantModel;
+              const damage = c.maxHealth - c.health;
+              return `${capitalize(merc.combatantName)} (${damage} damage)`;
+            });
+          }
+        }
+
+        // Check dictator side for human dictator
+        if (!game.dictatorPlayer?.isAI) {
+          const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
+          const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
+          if (dictatorSurgeon) {
+            const { combatant } = dictatorSurgeon;
+            const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
+            if (combatant.combat - diceUsed >= 2) {
+              const damagedAllies = getSurgeonHealTargets(combatant, dictatorCombatants);
+              return damagedAllies.map(c => {
+                const merc = c.sourceElement as CombatantModel;
+                const damage = c.maxHealth - c.health;
+                return `${capitalize(merc.combatantName)} (${damage} damage)`;
+              });
+            }
+          }
+        }
+
+        return [];
+      },
+    })
+    .execute((args) => {
+      if (!game.activeCombat) {
+        return { success: false, message: 'No active combat' };
+      }
+
+      const targetChoice = args.target as string;
+
+      // Find Surgeon and target on the appropriate side
+      let surgeonData: { combatant: Combatant; merc: CombatantModel } | null = null;
+      let combatants: Combatant[] = [];
+
+      const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
+      const rebelSurgeon = findSurgeonInCombat(rebelCombatants, game);
+      if (rebelSurgeon) {
+        surgeonData = rebelSurgeon;
+        combatants = rebelCombatants;
+      }
+
+      if (!surgeonData && !game.dictatorPlayer?.isAI) {
+        const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
+        const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
+        if (dictatorSurgeon) {
+          surgeonData = dictatorSurgeon;
+          combatants = dictatorCombatants;
+        }
+      }
+
+      if (!surgeonData) {
+        return { success: false, message: 'Surgeon not found' };
+      }
+
+      const { combatant: surgeonCombatant, merc: surgeonMerc } = surgeonData;
+
+      // Find the target
+      const damagedAllies = getSurgeonHealTargets(surgeonCombatant, combatants);
+      const targetCombatant = damagedAllies.find(c => {
+        const merc = c.sourceElement as CombatantModel;
+        const damage = c.maxHealth - c.health;
+        return `${capitalize(merc.combatantName)} (${damage} damage)` === targetChoice;
+      });
+
+      if (!targetCombatant) {
+        return { success: false, message: 'Target not found' };
+      }
+
+      const targetMerc = targetCombatant.sourceElement as CombatantModel;
+
+      // Initialize healingDiceUsed map if needed
+      if (!game.activeCombat.healingDiceUsed) {
+        game.activeCombat.healingDiceUsed = new Map();
+      }
+
+      // Track dice sacrificed (1 die for 1 heal)
+      const diceUsedAlready = game.activeCombat.healingDiceUsed.get(surgeonCombatant.id) ?? 0;
+      game.activeCombat.healingDiceUsed.set(surgeonCombatant.id, diceUsedAlready + 1);
+
+      // Also reduce the combatant's combat stat for this round
+      surgeonCombatant.combat--;
+
+      // Heal the target (both combatant and source merc)
+      const healAmount = 1; // Surgeon heals 1 per die
+      targetCombatant.health = Math.min(targetCombatant.health + healAmount, targetCombatant.maxHealth);
+      targetMerc.heal(healAmount);
+
+      // Emit healing animation event
+      game.emitAnimationEvent('combat-heal', {
+        healerName: capitalize(surgeonMerc.combatantName),
+        healerId: surgeonCombatant.id,
+        targetName: capitalize(targetMerc.combatantName),
+        targetId: targetCombatant.id,
+        healAmount,
+        healthAfter: targetCombatant.health,
+        isSurgeonAbility: true,
+      });
+
+      game.message(`${surgeonMerc.combatantName} sacrifices a combat die to heal ${targetMerc.combatantName} for ${healAmount}`);
+
+      return {
+        success: true,
+        message: `Healed ${targetMerc.combatantName} for ${healAmount}`,
+        data: {
+          healer: surgeonMerc.combatantName,
+          target: targetMerc.combatantName,
+          healAmount,
+          diceDiscarded: 1,
         },
       };
     });

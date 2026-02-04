@@ -603,6 +603,32 @@ async function handleAssignAttackDog(targetId: string) {
   await props.actionController.execute('combatAssignAttackDog', { target: targetId });
 }
 
+// Handle Medical Kit heal from CombatPanel
+async function handleUseMedicalKit() {
+  if (!props.availableActions.includes('combatHeal')) return;
+  // Start in wizard mode to let player choose healer and target
+  await props.actionController.start('combatHeal');
+}
+
+// Handle Surgeon's heal ability from CombatPanel
+async function handleUseSurgeonHeal() {
+  if (!props.availableActions.includes('combatSurgeonHeal')) return;
+  // Start in wizard mode to let player choose target
+  await props.actionController.start('combatSurgeonHeal');
+}
+
+// Handle before-attack healing from CombatPanel
+async function handleUseBeforeAttackHeal() {
+  if (!props.availableActions.includes('combatBeforeAttackHeal')) return;
+  await props.actionController.start('combatBeforeAttackHeal');
+}
+
+// Handle skipping before-attack healing from CombatPanel
+async function handleSkipBeforeAttackHeal() {
+  if (!props.availableActions.includes('combatSkipBeforeAttackHeal')) return;
+  await props.actionController.start('combatSkipBeforeAttackHeal');
+}
+
 // Handle display phase completion (automated combat animation finished)
 async function handleDisplayComplete() {
   if (!props.availableActions.includes('combatDisplayContinue')) return;
@@ -1157,6 +1183,10 @@ const clickableSectors = computed(() => {
       @display-complete="handleDisplayComplete"
       @animating="handleCombatAnimating"
       @combat-finished="handleCombatFinished"
+      @use-medical-kit="handleUseMedicalKit"
+      @use-surgeon-heal="handleUseSurgeonHeal"
+      @use-before-attack-heal="handleUseBeforeAttackHeal"
+      @skip-before-attack-heal="handleSkipBeforeAttackHeal"
     />
 
     <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->

@@ -23,11 +23,13 @@ const props = defineProps<{
   isAnimatingTarget?: boolean;
   attackMissed?: boolean;
   isAnimating?: boolean;
+  isHealing?: boolean;
 
   // Display data
   allocatedHits?: number;
   targetHits?: number;
   dogTargetName?: string;
+  showHitControls?: boolean;
 
   // Bullet hole positioning function
   getBulletHolePosition?: (combatantId: string, hitIndex: number) => { top: string; left: string };
@@ -35,10 +37,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'click'): void;
+  (e: 'add-hit'): void;
+  (e: 'remove-hit'): void;
 }>();
 
 function handleClick() {
   emit('click');
+}
+
+function handleAddHit(event: Event) {
+  event.stopPropagation();
+  emit('add-hit');
+}
+
+function handleRemoveHit(event: Event) {
+  event.stopPropagation();
+  emit('remove-hit');
 }
 
 // Default bullet hole position if not provided
@@ -99,8 +113,23 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
     <div v-if="isAttackDog && dogTargetName" class="dog-target-info">
       Targeting: {{ dogTargetName }}
     </div>
-    <!-- Show allocated hits during allocation phase -->
-    <div v-if="allocatedHits && allocatedHits > 0" class="allocated-hits">
+    <!-- Show allocated hits during allocation phase with +/- controls -->
+    <div v-if="showHitControls && isTargetable" class="hit-controls">
+      <button
+        class="hit-btn remove-btn"
+        :disabled="!allocatedHits || allocatedHits <= 0"
+        @click="handleRemoveHit"
+      >−</button>
+      <span class="hit-count" :class="{ 'has-hits': allocatedHits && allocatedHits > 0 }">
+        {{ allocatedHits || 0 }}
+      </span>
+      <button
+        class="hit-btn add-btn"
+        @click="handleAddHit"
+      >+</button>
+    </div>
+    <!-- Show allocated hits without controls when not targetable -->
+    <div v-else-if="allocatedHits && allocatedHits > 0" class="allocated-hits">
       +{{ allocatedHits }} hit(s)
     </div>
     <!-- Bullet holes for targeted combatants during animation -->
@@ -111,6 +140,14 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
         class="bullet-hole"
         :style="getBulletPosition(n)"
       >◎</span>
+    </div>
+    <!-- Healing animation - white + symbols floating upward -->
+    <div v-if="isHealing" class="healing-particles">
+      <span class="healing-plus" style="--delay: 0s; --offset: -10px">+</span>
+      <span class="healing-plus" style="--delay: 0.15s; --offset: 5px">+</span>
+      <span class="healing-plus" style="--delay: 0.3s; --offset: -5px">+</span>
+      <span class="healing-plus" style="--delay: 0.45s; --offset: 10px">+</span>
+      <span class="healing-plus" style="--delay: 0.6s; --offset: 0px">+</span>
     </div>
   </div>
 </template>
@@ -270,6 +307,67 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
   margin-top: 4px;
 }
 
+.hit-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.hit-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.hit-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.add-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.add-btn:hover:not(:disabled) {
+  background: #66BB6A;
+  transform: scale(1.1);
+}
+
+.remove-btn {
+  background: #f44336;
+  color: white;
+}
+
+.remove-btn:hover:not(:disabled) {
+  background: #ef5350;
+  transform: scale(1.1);
+}
+
+.hit-count {
+  min-width: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+.hit-count.has-hits {
+  color: #ff6b6b;
+}
+
 .dog-target-info {
   font-size: 0.65rem;
   color: #D2691E;
@@ -310,6 +408,45 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
   100% {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
+  }
+}
+
+/* Healing animation styles */
+.healing-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.healing-plus {
+  position: absolute;
+  bottom: 10%;
+  left: calc(50% + var(--offset, 0px));
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow:
+    0 0 8px rgba(76, 175, 80, 0.9),
+    0 0 16px rgba(76, 175, 80, 0.6),
+    0 0 24px rgba(76, 175, 80, 0.4);
+  animation: heal-float 1.2s ease-out forwards;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+}
+
+@keyframes heal-float {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1);
+  }
+  100% {
+    transform: translateY(-80px) scale(0.8);
+    opacity: 0;
   }
 }
 </style>

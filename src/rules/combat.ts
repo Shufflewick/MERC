@@ -50,7 +50,10 @@ import {
 import {
   isAttackDog as checkIsAttackDog,
   discardAfterAttack as checkDiscardAfterAttack,
+  isHealingItem,
+  getHealingEffect,
 } from './equipment-effects.js';
+import { capitalize } from './actions/helpers.js';
 
 // Re-export types from combat-types.ts for backwards compatibility
 export type { Combatant, CombatResult, CombatRound, CombatOutcome } from './combat-types.js';
@@ -222,6 +225,9 @@ function isSurgeon(combatant: Combatant): boolean {
 /**
  * MERC-7te: Surgeon can sacrifice a combat die to heal 1 damage to squad mate
  * Returns true if Surgeon used ability (combat reduced by 1)
+ *
+ * NOTE: This function only auto-heals for AI-controlled Surgeon.
+ * Human-controlled Surgeon uses the combatSurgeonHeal action to choose targets.
  */
 function applySurgeonHeal(
   game: MERCGame,
@@ -229,6 +235,13 @@ function applySurgeonHeal(
   allies: Combatant[]
 ): boolean {
   if (!isSurgeon(surgeon) || surgeon.combat <= 1) {
+    return false;
+  }
+
+  // Only auto-heal for AI-controlled Surgeon
+  // Human players use the combatSurgeonHeal action to choose targets
+  const isAIControlled = surgeon.isDictatorSide && game.dictatorPlayer?.isAI;
+  if (!isAIControlled) {
     return false;
   }
 
@@ -1130,6 +1143,12 @@ interface CombatRoundResult {
   currentAttackerIndex?: number;
   // Pause for Epinephrine choice
   pausedForEpinephrine?: boolean;
+  // Pause for before-attack healing decision (Medical Kit, First Aid Kit, Surgeon)
+  pausedForBeforeAttackHealing?: {
+    attackerId: string;
+    attackerName: string;
+    attackerIndex: number;
+  };
 }
 
 /**
@@ -1253,6 +1272,137 @@ function executeCombatRound(
     const isOnAttackingSide = attackingPlayerIsRebel ? !attacker.isDictatorSide : attacker.isDictatorSide;
     const isHumanControlled = isRebelHumanControlled || isDictatorHumanControlled;
     const hasSelectedTargets = playerSelectedTargets?.has(attacker.id);
+
+    // BEFORE-ATTACK HEALING: Check if we need to pause for healing before this attacker acts
+    // Only for human-controlled MERCs on the attacking side
+    if (interactive && isHumanControlled && isOnAttackingSide && !attacker.isMilitia && hasMercSource) {
+      // Check if we've already handled this attacker's healing phase
+      const hasProcessedHealing = game.activeCombat?.beforeAttackHealingProcessed?.has(attacker.id);
+
+      if (!hasProcessedHealing) {
+        // Get all allied combatants on this side
+        const alliedCombatants = attacker.isDictatorSide ? dictatorSide : rebels;
+
+        // Find all healers among allies (MERCs with healing items and dice available)
+        const availableHealers: Array<{
+          healerId: string;
+          healerName: string;
+          healingItemId: string;
+          itemName: string;
+          usesRemaining: number;
+          dicePerHeal: number;
+          healPerUse: number;
+          combatant: Combatant;
+        }> = [];
+
+        for (const ally of alliedCombatants) {
+          if (ally.health <= 0) continue;
+          if (!ally.sourceElement) continue;
+          const sourceElem = ally.sourceElement as CombatantModel;
+          if (!sourceElem.isMerc) continue;
+
+          // Check dice available for this healer
+          const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
+          const availableDice = ally.combat - diceUsed;
+
+          // Check accessory slot for healing items
+          if (sourceElem.accessorySlot && isHealingItem(sourceElem.accessorySlot.equipmentId)) {
+            const effect = getHealingEffect(sourceElem.accessorySlot.equipmentId);
+            if (effect && availableDice >= effect.dicePerHeal) {
+              const uses = sourceElem.accessorySlot.usesRemaining ?? effect.totalUses;
+              if (uses > 0) {
+                availableHealers.push({
+                  healerId: ally.id,
+                  healerName: capitalize(sourceElem.combatantName),
+                  healingItemId: sourceElem.accessorySlot.equipmentId,
+                  itemName: sourceElem.accessorySlot.equipmentName,
+                  usesRemaining: uses,
+                  dicePerHeal: effect.dicePerHeal,
+                  healPerUse: effect.healPerUse,
+                  combatant: ally,
+                });
+              }
+            }
+          }
+
+          // Check bandolier slots for healing items
+          for (const bSlot of sourceElem.bandolierSlots) {
+            if (isHealingItem(bSlot.equipmentId)) {
+              const effect = getHealingEffect(bSlot.equipmentId);
+              if (effect && availableDice >= effect.dicePerHeal) {
+                const uses = bSlot.usesRemaining ?? effect.totalUses;
+                if (uses > 0) {
+                  availableHealers.push({
+                    healerId: ally.id,
+                    healerName: capitalize(sourceElem.combatantName),
+                    healingItemId: bSlot.equipmentId,
+                    itemName: bSlot.equipmentName,
+                    usesRemaining: uses,
+                    dicePerHeal: effect.dicePerHeal,
+                    healPerUse: effect.healPerUse,
+                    combatant: ally,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Find damaged allies
+        const damagedAllies: Array<{
+          id: string;
+          name: string;
+          currentHealth: number;
+          maxHealth: number;
+          damage: number;
+        }> = [];
+
+        for (const ally of alliedCombatants) {
+          if (ally.health <= 0) continue;
+          if (ally.health >= ally.maxHealth) continue;
+          if (!ally.sourceElement) continue;
+          const sourceElem = ally.sourceElement as CombatantModel;
+          if (!sourceElem.isMerc) continue;
+
+          damagedAllies.push({
+            id: ally.id,
+            name: capitalize(sourceElem.combatantName),
+            currentHealth: ally.health,
+            maxHealth: ally.maxHealth,
+            damage: ally.maxHealth - ally.health,
+          });
+        }
+
+        // If we have both healers and damaged allies, pause for healing decision
+        if (availableHealers.length > 0 && damagedAllies.length > 0) {
+          // Set the pending state - strip combatant from healers for serialization
+          game.activeCombat!.pendingBeforeAttackHealing = {
+            attackerId: attacker.id,
+            attackerName: capitalize(attacker.name),
+            availableHealers: availableHealers.map(h => ({
+              healerId: h.healerId,
+              healerName: h.healerName,
+              healingItemId: h.healingItemId,
+              itemName: h.itemName,
+              usesRemaining: h.usesRemaining,
+              dicePerHeal: h.dicePerHeal,
+              healPerUse: h.healPerUse,
+            })),
+            damagedAllies,
+          };
+
+          return {
+            round: { roundNumber, results, casualties },
+            complete: false,
+            pausedForBeforeAttackHealing: {
+              attackerId: attacker.id,
+              attackerName: capitalize(attacker.name),
+              attackerIndex: i,
+            },
+          };
+        }
+      }
+    }
 
     // MERC-l09: Before attacking, assign Attack Dog if available (MUST come before target selection)
     if (attacker.hasAttackDog) {
@@ -2315,6 +2465,47 @@ export function executeCombat(
 
       const attacker = game.activeCombat.pendingHitAllocation?.attackerName ?? 'MERC';
       game.message(`${attacker} rolled! Allocate hits to targets.`);
+
+      return {
+        rounds,
+        rebelVictory: false,
+        dictatorVictory: false,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        retreated: false,
+        combatPending: true,
+        canRetreat: false,
+      };
+    }
+
+    // Check if round paused for before-attack healing decision
+    if (!roundResult.complete && roundResult.pausedForBeforeAttackHealing) {
+      const pause = roundResult.pausedForBeforeAttackHealing;
+
+      // Save state for resuming (pendingBeforeAttackHealing already set)
+      game.activeCombat = {
+        ...game.activeCombat!,
+        sectorId: sector.sectorId,
+        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerIsRebel,
+        round,
+        rebelCombatants: rebels,
+        dictatorCombatants: dictator,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        dogAssignments: Array.from(dogState.assignments.entries()),
+        dogs: dogState.dogs,
+        selectedTargets: playerSelectedTargets,
+        selectedDogTargets: playerSelectedDogTargets,
+        currentAttackerIndex: pause.attackerIndex,
+        roundResults: roundResult.round.results,
+        roundCasualties: roundResult.round.casualties,
+      };
+
+      // Sync militia casualties so UI reflects kills during combat
+      syncMilitiaCasualties(game, sector, rebels, dictator);
+
+      game.message(`${pause.attackerName}'s turn. Use healing items before attacking?`);
 
       return {
         rounds,

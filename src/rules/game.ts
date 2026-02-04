@@ -487,6 +487,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     selectedDogTargets?: Map<string, string>; // attackerId -> targetId for Attack Dog
     // Medical Kit healing: dice discarded per combatant this round
     healingDiceUsed?: Map<string, number>; // combatantId -> dice discarded
+    // Track which attackers have had their before-attack healing phase processed
+    beforeAttackHealingProcessed?: Set<string>; // attackerId set
     // MERC-dice: Combat dice UI state
     pendingHitAllocation?: {
       attackerId: string;
@@ -526,6 +528,30 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       dyingCombatantName: string;
       dyingCombatantSide: 'rebel' | 'dictator';
       availableSavers: Array<{ combatantId: number; combatantName: string }>;
+    };
+    // Before-attack healing - pause before a MERC's attack to allow healing
+    // Per rules: "On your initiative, before your attack, discard 1 combat dice to heal"
+    pendingBeforeAttackHealing?: {
+      attackerId: string;
+      attackerName: string;
+      // All allied MERCs with healing items (attacker or squadmates)
+      availableHealers: Array<{
+        healerId: string;
+        healerName: string;
+        healingItemId: string;
+        itemName: string;
+        usesRemaining: number;
+        dicePerHeal: number;
+        healPerUse: number;
+      }>;
+      // Damaged allies that can be healed
+      damagedAllies: Array<{
+        id: string;
+        name: string;
+        currentHealth: number;
+        maxHealth: number;
+        damage: number;
+      }>;
     };
     // Flag indicating combat is complete but UI is still animating
     // Flow system exits combat loop when this is true

@@ -54,6 +54,9 @@ import {
   createCombatSelectTargetAction,
   createCombatAssignAttackDogAction,
   createCombatHealAction,
+  createCombatSurgeonHealAction,
+  createCombatBeforeAttackHealAction,
+  createCombatSkipBeforeAttackHealAction,
   createCombatAllocateHitsAction,
   createCombatBasicRerollAction,
   createCombatAllocateWolverineSixesAction,
@@ -154,6 +157,9 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatSelectTargetAction(game)); // MERC-t5k: Target selection
   game.registerAction(createCombatAssignAttackDogAction(game)); // MERC-l09: Attack Dog assignment
   game.registerAction(createCombatHealAction(game)); // Medical Kit / First Aid Kit healing
+  game.registerAction(createCombatSurgeonHealAction(game)); // Surgeon's heal ability (human-controlled)
+  game.registerAction(createCombatBeforeAttackHealAction(game)); // Before-attack healing (correct timing per rules)
+  game.registerAction(createCombatSkipBeforeAttackHealAction(game)); // Skip before-attack healing
   // MERC-dice: Combat hit allocation actions
   game.registerAction(createCombatAllocateHitsAction(game));
   game.registerAction(createCombatBasicRerollAction(game));

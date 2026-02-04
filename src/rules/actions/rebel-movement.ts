@@ -280,9 +280,10 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         const primaryAdjacent = game.getAdjacentSectors(primarySector);
         const secondaryAdjacent = game.getAdjacentSectors(secondarySector);
 
-        // Find common targets (sectors adjacent to both squads)
+        // Find common targets (sectors adjacent to both squads) WITH enemies
         const commonTargets = primaryAdjacent.filter(s =>
-          secondaryAdjacent.some(s2 => s2.sectorId === s.sectorId)
+          secondaryAdjacent.some(s2 => s2.sectorId === s.sectorId) &&
+          hasEnemies(game, s, player)
         );
 
         return commonTargets.length > 0;
@@ -304,9 +305,10 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         const primaryAdjacent = game.getAdjacentSectors(primarySector);
         const secondaryAdjacent = game.getAdjacentSectors(secondarySector);
 
-        // Must be adjacent to both squads
+        // Must be adjacent to both squads AND have enemies
         return primaryAdjacent.some(s => s.sectorId === sector.sectorId) &&
-          secondaryAdjacent.some(s => s.sectorId === sector.sectorId);
+          secondaryAdjacent.some(s => s.sectorId === sector.sectorId) &&
+          hasEnemies(game, sector, player);
       },
       boardRef: (element) => ({ id: asSector(element).id }),
     })

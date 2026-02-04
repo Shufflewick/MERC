@@ -300,6 +300,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }
                 }),
 
+                // Before-attack healing - "On your initiative, before your attack, discard dice to heal"
+                loop({
+                  name: 'combat-before-attack-healing',
+                  while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
+                  maxIterations: 50,
+                  do: actionStep({
+                    name: 'before-attack-heal',
+                    actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
+                    skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
+                  }),
+                }),
+
                 // MERC-l09: Attack Dog assignment - when player needs to choose dog target
                 loop({
                   name: 'combat-attack-dog-selection',
@@ -360,12 +372,14 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }),
                 }),
 
-                // MERC-n1f: Combat continue/retreat - only when no target selection or hit allocation pending
+                // MERC-n1f: Combat continue/retreat - only when no pending decisions
                 // Also skip when combatComplete (UI is animating)
                 loop({
                   name: 'combat-decision',
                   while: () => game.activeCombat !== null &&
                               !game.activeCombat.combatComplete &&
+                              game.activeCombat.pendingBeforeAttackHealing == null &&
+                              game.activeCombat.pendingAttackDogSelection == null &&
                               game.activeCombat.pendingTargetSelection == null &&
                               game.activeCombat.pendingHitAllocation == null &&
                               game.activeCombat.pendingWolverineSixes == null &&
@@ -377,6 +391,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     actions: ['combatContinue', 'combatRetreat'],
                     skipIf: () => game.isFinished() || game.activeCombat === null ||
                                   game.activeCombat.combatComplete ||
+                                  game.activeCombat.pendingBeforeAttackHealing != null ||
+                                  game.activeCombat.pendingAttackDogSelection != null ||
                                   game.activeCombat.pendingTargetSelection != null ||
                                   game.activeCombat.pendingHitAllocation != null ||
                                   game.activeCombat.pendingWolverineSixes != null ||
@@ -434,8 +450,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             do: sequence(
               execute(() => {
                 // Safety: Clear any stale rebel combat state (shouldn't happen but defensive)
-                // Note: With flush:'sync' watcher, UI receives events before this clear happens
-                if (game.activeCombat) {
+                // Only clear if NOT combatComplete - let UI clear via clearCombatAnimations action
+                // combatComplete means combat just finished and UI needs to show results/animations
+                if (game.activeCombat && !game.activeCombat.combatComplete) {
                   game.message('Warning: Clearing stale combat state');
                   clearActiveCombat(game);
                 }
@@ -479,6 +496,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Combat handling after tactics card (e.g., Fodder triggers immediate combat)
+              // Before-attack healing loop
+              loop({
+                name: 'tactics-combat-before-attack-healing',
+                while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'before-attack-heal',
+                  actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
+                }),
+              }),
+
               // Attack Dog assignment loop
               loop({
                 name: 'tactics-combat-attack-dog-selection',
@@ -545,6 +574,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 name: 'tactics-combat-decision',
                 while: () => game.activeCombat !== null &&
                             !game.activeCombat.combatComplete &&
+                            game.activeCombat.pendingBeforeAttackHealing == null &&
+                            game.activeCombat.pendingAttackDogSelection == null &&
                             game.activeCombat.pendingTargetSelection == null &&
                             game.activeCombat.pendingHitAllocation == null &&
                             game.activeCombat.pendingWolverineSixes == null &&
@@ -556,6 +587,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   actions: ['combatContinue', 'combatRetreat'],
                   skipIf: () => game.isFinished() || game.activeCombat === null ||
                                 game.activeCombat.combatComplete ||
+                                game.activeCombat.pendingBeforeAttackHealing != null ||
+                                game.activeCombat.pendingAttackDogSelection != null ||
                                 game.activeCombat.pendingTargetSelection != null ||
                                 game.activeCombat.pendingHitAllocation != null ||
                                 game.activeCombat.pendingWolverineSixes != null ||
@@ -594,6 +627,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       }
                       game.pendingCombat = null;
                     }
+                  }),
+
+                  // Before-attack healing loop
+                  loop({
+                    name: 'dictator-combat-before-attack-healing',
+                    while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
+                    maxIterations: 50,
+                    do: actionStep({
+                      name: 'before-attack-heal',
+                      actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
+                      skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
+                    }),
                   }),
 
                   // Attack Dog assignment loop
@@ -662,6 +707,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     name: 'dictator-combat-decision',
                     while: () => game.activeCombat !== null &&
                                 !game.activeCombat.combatComplete &&
+                                game.activeCombat.pendingBeforeAttackHealing == null &&
+                                game.activeCombat.pendingAttackDogSelection == null &&
                                 game.activeCombat.pendingTargetSelection == null &&
                                 game.activeCombat.pendingHitAllocation == null &&
                                 game.activeCombat.pendingWolverineSixes == null &&
@@ -673,6 +720,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       actions: ['combatContinue', 'combatRetreat'],
                       skipIf: () => game.isFinished() || game.activeCombat === null ||
                                     game.activeCombat.combatComplete ||
+                                    game.activeCombat.pendingBeforeAttackHealing != null ||
+                                    game.activeCombat.pendingAttackDogSelection != null ||
                                     game.activeCombat.pendingTargetSelection != null ||
                                     game.activeCombat.pendingHitAllocation != null ||
                                     game.activeCombat.pendingWolverineSixes != null ||
@@ -730,6 +779,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Combat handling after Kim's militia placement ability
+              // Before-attack healing loop
+              loop({
+                name: 'kim-militia-combat-before-attack-healing',
+                while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'before-attack-heal',
+                  actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
+                  skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
+                }),
+              }),
+
               // Attack Dog assignment loop
               loop({
                 name: 'kim-militia-combat-attack-dog-selection',
@@ -796,6 +857,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 name: 'kim-militia-combat-decision',
                 while: () => game.activeCombat !== null &&
                             !game.activeCombat.combatComplete &&
+                            game.activeCombat.pendingBeforeAttackHealing == null &&
+                            game.activeCombat.pendingAttackDogSelection == null &&
                             game.activeCombat.pendingTargetSelection == null &&
                             game.activeCombat.pendingHitAllocation == null &&
                             game.activeCombat.pendingWolverineSixes == null &&
@@ -807,6 +870,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   actions: ['combatContinue', 'combatRetreat'],
                   skipIf: () => game.isFinished() || game.activeCombat === null ||
                                 game.activeCombat.combatComplete ||
+                                game.activeCombat.pendingBeforeAttackHealing != null ||
+                                game.activeCombat.pendingAttackDogSelection != null ||
                                 game.activeCombat.pendingTargetSelection != null ||
                                 game.activeCombat.pendingHitAllocation != null ||
                                 game.activeCombat.pendingWolverineSixes != null ||

@@ -105,23 +105,11 @@ function selectDie(dieIndex: number) {
   emit('select-die', dieIndex);
 }
 
-// Handle allocating to a target (called from parent)
-function allocateToTarget(targetId: string) {
+// Handle adding a hit to a target (called from parent)
+function addHitToTarget(targetId: string) {
   // When dice data is available, use dice-based allocation
   if (hasDiceData.value) {
-    // Check if any die is already allocated to this target - if so, deselect it
-    const allocatedToTarget = [...allocatedHits.value.entries()]
-      .filter(([_, tid]) => tid === targetId);
-
-    if (allocatedToTarget.length > 0) {
-      // Remove the last allocation to this target and select that die
-      const [dieIndex] = allocatedToTarget[allocatedToTarget.length - 1];
-      allocatedHits.value.delete(dieIndex);
-      selectedDieIndex.value = dieIndex;
-      return;
-    }
-
-    // Normal allocation
+    // Need a selected die to allocate
     if (selectedDieIndex.value === null) return;
 
     allocatedHits.value.set(selectedDieIndex.value, targetId);
@@ -132,19 +120,39 @@ function allocateToTarget(targetId: string) {
     selectedDieIndex.value = nextUnallocated?.index ?? null;
   } else {
     // Fallback mode: no dice data, just track allocations by count
-    // Check for deselection first
-    const lastIndex = fallbackAllocations.value.lastIndexOf(targetId);
-    if (lastIndex !== -1) {
-      fallbackAllocations.value.splice(lastIndex, 1);
-      return;
-    }
-
     const totalHits = props.pendingAllocation.hits || 0;
     if (fallbackAllocations.value.length >= totalHits) return;
 
     fallbackAllocations.value.push(targetId);
     emit('allocate-hit', targetId);
   }
+}
+
+// Handle removing a hit from a target (called from parent)
+function removeHitFromTarget(targetId: string) {
+  if (hasDiceData.value) {
+    // Find a die allocated to this target
+    const allocatedToTarget = [...allocatedHits.value.entries()]
+      .filter(([_, tid]) => tid === targetId);
+
+    if (allocatedToTarget.length > 0) {
+      // Remove the last allocation to this target and select that die
+      const [dieIndex] = allocatedToTarget[allocatedToTarget.length - 1];
+      allocatedHits.value.delete(dieIndex);
+      selectedDieIndex.value = dieIndex;
+    }
+  } else {
+    // Fallback mode: remove last allocation to this target
+    const lastIndex = fallbackAllocations.value.lastIndexOf(targetId);
+    if (lastIndex !== -1) {
+      fallbackAllocations.value.splice(lastIndex, 1);
+    }
+  }
+}
+
+// Legacy method - now just adds hits (click on target adds a hit)
+function allocateToTarget(targetId: string) {
+  addHitToTarget(targetId);
 }
 
 // Build allocation strings from current allocatedHits
@@ -181,9 +189,11 @@ function handleReroll() {
   emit('reroll');
 }
 
-// Expose allocateToTarget for parent to call
+// Expose methods for parent to call
 defineExpose({
   allocateToTarget,
+  addHitToTarget,
+  removeHitFromTarget,
   selectedDieIndex,
   allocatedHits,
 });
