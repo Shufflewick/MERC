@@ -78,9 +78,9 @@ export interface SectorStateDependencies {
   /** Get secondary squad for rebel player */
   getSecondarySquad: () => { sectorId: string; mercs: any[] } | undefined;
   /** Get dictator primary squad */
-  getDictatorPrimarySquad: () => { sectorId: string } | undefined;
+  getDictatorPrimarySquad: () => { sectorId: string; mercs?: any[] } | undefined;
   /** Get dictator secondary squad */
-  getDictatorSecondarySquad: () => { sectorId: string } | undefined;
+  getDictatorSecondarySquad: () => { sectorId: string; mercs?: any[] } | undefined;
   /** Get dictator card (for checking if in sector) */
   getDictatorCard: () => { sectorId: string; inPlay: boolean } | undefined;
   /** Convert seat to color name */
@@ -361,7 +361,13 @@ export function useSectorState(
   });
 
   // Ability flags - helper to get all mercs in current player's squads
+  // Returns dictator squads when dictator is current player
   const getMercsInSquads = () => {
+    if (deps.isCurrentPlayerDictator()) {
+      const primary = deps.getDictatorPrimarySquad?.();
+      const secondary = deps.getDictatorSecondarySquad?.();
+      return [...(primary?.mercs || []), ...(secondary?.mercs || [])];
+    }
     const primarySquad = deps.getPrimarySquad();
     const secondarySquad = deps.getSecondarySquad();
     return [...(primarySquad?.mercs || []), ...(secondarySquad?.mercs || [])];
@@ -387,15 +393,23 @@ export function useSectorState(
     );
   });
 
-  // Check if player has mortar equipped
+  // Check if player has mortar equipped (in accessory slot or bandolier)
   const hasMortar = computed<boolean>(() => {
     const allMercsInSquads = getMercsInSquads();
+
     return allMercsInSquads.some((m: any) => {
-      const weapon = getAttrPure<{ equipmentName?: string } | null>(m, 'weaponSlot', null);
-      const accessory = getAttrPure<{ equipmentName?: string } | null>(m, 'accessorySlot', null);
-      const weaponName = weapon?.equipmentName?.toLowerCase() || '';
+      // Check accessory slot - try Data version (serialized) first, then direct
+      const accessory = getAttrPure<{ equipmentName?: string } | null>(m, 'accessorySlotData', null) ||
+                        getAttrPure<{ equipmentName?: string } | null>(m, 'accessorySlot', null);
       const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
-      return weaponName.includes('mortar') || accessoryName.includes('mortar');
+      if (accessoryName.includes('mortar')) return true;
+
+      // Check bandolier slots - use Data version (serialized)
+      const bandolierSlots = getAttrPure<any[]>(m, 'bandolierSlotsData', []);
+      return bandolierSlots.some((e: any) => {
+        const name = e?.equipmentName?.toLowerCase() || '';
+        return name.includes('mortar');
+      });
     });
   });
 
@@ -427,7 +441,9 @@ export function useSectorState(
     );
     if (!squidhead) return false;
 
-    const accessory = getAttrPure<{ equipmentName?: string } | null>(squidhead, 'accessorySlot', null);
+    // Check accessory slot - try Data version (serialized) first, then direct
+    const accessory = getAttrPure<{ equipmentName?: string } | null>(squidhead, 'accessorySlotData', null) ||
+                      getAttrPure<{ equipmentName?: string } | null>(squidhead, 'accessorySlot', null);
     const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
     return (
       accessoryName.includes('land mine') || accessoryName.includes('landmine')

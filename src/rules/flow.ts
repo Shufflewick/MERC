@@ -426,6 +426,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'hagnessDraw', // MERC-jrph: Hagness draw equipment
                     'armsDealer',
                     'repairKit', // MERC-3po: Repair Kit retrieve from discard
+                    'mortar', // Mortar attack on adjacent sector
                     'assignToSquad', // Free action available anytime
                     'endTurn',
                   ],

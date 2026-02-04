@@ -1323,7 +1323,8 @@ function countEnemyTargetsInSector(game: MERCGame, sector: Sector, player: any):
  */
 function getMercsWithMortars(game: MERCGame, player: any): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
-    return (player as RebelPlayer).team.filter(m =>
+    const team = (player as RebelPlayer).team;
+    return team.filter(m =>
       !m.isDead && m.actionsRemaining >= 1 && hasMortar(m)
     );
   }
@@ -1381,7 +1382,9 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
           const sector = findUnitSector(merc, ctx.player, game);
           if (!sector) continue;
           const targets = getMortarTargets(game, sector, ctx.player);
-          if (targets.length > 0) return true;
+          if (targets.length > 0) {
+            return true;
+          }
         }
         return false;
       },
@@ -1402,6 +1405,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       },
     })
     .chooseFrom<string>('targetSectorName', {
+      dependsOn: 'unitId', // Target selection depends on which unit is firing
       prompt: 'Select sector to bombard',
       choices: (ctx) => {
         // Find the selected unit

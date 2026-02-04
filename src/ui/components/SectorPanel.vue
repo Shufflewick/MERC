@@ -88,8 +88,8 @@ const props = defineProps<{
   hasDamagedMercs?: boolean;
   hasLandMinesInStash?: boolean;
   squidheadHasLandMine?: boolean;
-  // Dictator info
-  hasDictatorForces?: boolean;
+  // Enemy forces (for mortar targeting - perspective-aware)
+  hasEnemyForces?: boolean;
   isBase?: boolean;
   hasExplosivesComponents?: boolean;
   // Militia bonuses (from dictator tactics)
@@ -550,7 +550,8 @@ const adjacentActions = computed(() => {
   if (props.availableActions.includes('move')) {
     actions.push({ name: 'move', label: 'Move Here', icon: '🚶' });
   }
-  if (props.hasMortar && props.hasDictatorForces && props.availableActions.includes('mortar')) {
+
+  if (props.hasMortar && props.hasEnemyForces && props.availableActions.includes('mortar')) {
     actions.push({ name: 'mortar', label: 'Mortar', icon: '💥' });
   }
   if (props.availableActions.includes('coordinatedAttack')) {
@@ -581,7 +582,15 @@ const isInActionFlow = computed(() => {
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'reEquipContinue', // Chained from reEquip
     'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
+    'mortar',
   ];
+
+  // Actions that are explicitly started from this panel - check FIRST before squad check
+  // This is critical for actions like mortar that are started from a target sector
+  // where the player's squad is not present
+  if (activeActionFromPanel.value !== null && currentAction === activeActionFromPanel.value) {
+    return true;
+  }
 
   // Check if action args reference this sector (e.g., collectEquipment from dictator explore)
   // This handles cases where the acting unit (like dictator) isn't in a squad
@@ -603,11 +612,6 @@ const isInActionFlow = computed(() => {
 
   // Must have a squad in this sector for other checks
   if (!hasSquadInSector.value) return false;
-
-  // Actions that are explicitly started from this panel
-  if (activeActionFromPanel.value !== null && currentAction === activeActionFromPanel.value) {
-    return true;
-  }
 
   if (sectorRelevantActions.includes(currentAction)) {
     return true;
@@ -1128,6 +1132,42 @@ async function handleAction(actionName: string) {
     await props.actionController.fill('destination', props.sector.id);
     // Close panel since destination is filled and squad will auto-select if only one valid
     emit('close');
+    return;
+  }
+
+  if (actionName === 'mortar') {
+    // Mortar action: user clicked on a target sector, start the action
+    // and watch for unit selection to complete, then auto-fill target sector
+    activeActionFromPanel.value = actionName;
+    await props.actionController.start(actionName);
+
+    // Store the target sector name for auto-fill after unit selection
+    const targetSectorName = props.sector.sectorName;
+
+    // Watch for targetSectorName selection AND choices to be available
+    // Choices load asynchronously, so we need to watch for both conditions
+    const unwatch = watch(
+      () => ({
+        pick: props.actionController.currentPick.value,
+        choices: props.actionController.currentPick.value?.name === 'targetSectorName'
+          ? props.actionController.getChoices(props.actionController.currentPick.value)
+          : [],
+      }),
+      async ({ pick, choices }) => {
+        if (pick?.name === 'targetSectorName' && choices.length > 0) {
+          unwatch(); // Stop watching
+          const match = choices.find((c: any) => {
+            const display = c.display || String(c.value || c);
+            return display.startsWith(targetSectorName);
+          });
+          if (match) {
+            await props.actionController.fill(pick.name, match.value ?? match);
+            emit('close');
+          }
+        }
+      },
+      { immediate: true }
+    );
     return;
   }
 

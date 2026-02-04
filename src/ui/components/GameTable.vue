@@ -235,15 +235,34 @@ const {
 // SECTOR-SPECIFIC STATE (not extracted to composables)
 // ============================================================================
 
-const selectedSectorHasDictatorForces = computed(() => {
-  if (!activeSector.value) return false;
-  if (activeSector.value.dictatorMilitia > 0) return true;
+// Check if active sector has enemy forces (for mortar targeting)
+// Dictator targets rebel forces; Rebels target dictator forces
+const selectedSectorHasEnemyForces = computed(() => {
+  if (!activeSector.value) {
+    return false;
+  }
 
-  // Check for dictator MERCs in sector
-  const dictatorMercsInSector = allMercs.value.filter(
-    (m) => m.sectorId === activeSector.value?.sectorId && m.playerColor === 'dictator'
-  );
-  return dictatorMercsInSector.length > 0;
+  if (currentPlayerIsDictator.value) {
+    // Dictator targets rebel forces
+    const hasRebelMilitia = Object.values(activeSector.value.rebelMilitia || {})
+      .some(count => (count as number) > 0);
+    if (hasRebelMilitia) return true;
+
+    // Check for rebel MERCs in sector (any non-dictator player)
+    const rebelMercsInSector = allMercs.value.filter(
+      (m) => m.sectorId === activeSector.value?.sectorId &&
+             m.playerColor !== 'dictator' &&
+             m.playerColor !== ''
+    );
+    return rebelMercsInSector.length > 0;
+  } else {
+    // Rebels target dictator forces
+    const hasDictatorMilitia = activeSector.value.dictatorMilitia > 0;
+    const dictatorUnitsInSector = allMercs.value.filter(
+      (m) => m.sectorId === activeSector.value?.sectorId && m.playerColor === 'dictator'
+    );
+    return hasDictatorMilitia || dictatorUnitsInSector.length > 0;
+  }
 });
 
 // Check if active sector is the dictator base
@@ -1225,7 +1244,7 @@ const clickableSectors = computed(() => {
       :has-damaged-mercs="hasDamagedMercs"
       :has-land-mines-in-stash="hasLandMinesInStash"
       :squidhead-has-land-mine="squidheadHasLandMine"
-      :has-dictator-forces="selectedSectorHasDictatorForces"
+      :has-enemy-forces="selectedSectorHasEnemyForces"
       :is-base="selectedSectorIsBase"
       :has-explosives-components="hasExplosivesComponents"
       :militia-bonuses="militiaBonuses"
