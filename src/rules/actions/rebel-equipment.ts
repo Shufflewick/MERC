@@ -676,9 +676,12 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       prompt: 'Select equipment from discard pile',
       elementClass: Equipment,
       display: (eq) => `${eq.equipmentName} (${eq.equipmentType})`,
-      filter: () => {
-        // All equipment in discard piles is valid
-        return true;
+      filter: (element) => {
+        // Only show equipment that's actually in a discard pile
+        const inWeaponDiscard = game.weaponsDiscard?.all(Equipment).some(e => e.id === element.id) ?? false;
+        const inArmorDiscard = game.armorDiscard?.all(Equipment).some(e => e.id === element.id) ?? false;
+        const inAccessoryDiscard = game.accessoriesDiscard?.all(Equipment).some(e => e.id === element.id) ?? false;
+        return inWeaponDiscard || inArmorDiscard || inAccessoryDiscard;
       },
     })
     .execute((args, ctx) => {
