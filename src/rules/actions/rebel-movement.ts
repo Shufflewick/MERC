@@ -15,7 +15,7 @@ import { Action, type ActionDefinition, type GameElement, type ActionContext, de
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Squad, CombatantModel } from '../elements.js';
 import { hasEnemies, executeCombat } from '../combat.js';
-import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit } from './helpers.js';
+import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 
 // =============================================================================
 // Move Action Helpers (work for both player types)
@@ -114,7 +114,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
   return Action.create('move')
     .prompt('Move')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has squad that can move': (ctx) => getMovableSquads(ctx.player, game).length > 0,
     })
@@ -797,7 +797,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
   return Action.create('assignToSquad')
     .prompt('Assign to squad')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'day 2 or later': () => game.currentDay >= 2,
       'has assignable combatants': (ctx) => getAssignableCombatants(ctx.player, game).length > 0,
     })

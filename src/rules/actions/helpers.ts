@@ -514,5 +514,22 @@ export function equipNewHire(
 // Type exports for convenience
 // =============================================================================
 
+// =============================================================================
+// Combat State Helpers
+// =============================================================================
+
+/**
+ * Check if the game is NOT in active combat.
+ * Returns true if:
+ * - No active combat at all (activeCombat is null)
+ * - Combat has completed (combatComplete is true)
+ *
+ * This allows actions to be available after combat victory while
+ * still blocking them during active combat rounds.
+ */
+export function isNotInActiveCombat(game: MERCGame): boolean {
+  return game.activeCombat === null || game.activeCombat.combatComplete === true;
+}
+
 export type { MERCGame, RebelPlayer, DictatorPlayer, MERCPlayer } from '../game.js';
 export type { Sector, Equipment, Squad, TacticsCard, CombatantModel } from '../elements.js';

@@ -21,6 +21,7 @@ import {
   getCachedValue,
   setCachedValue,
   clearCachedValue,
+  isNotInActiveCombat,
 } from './helpers.js';
 import { isLandMine, isRepairKit, hasRangedAttack, getRangedRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
 import { hasMortar } from '../ai-helpers.js';
@@ -136,7 +137,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
   return Action.create('reEquip')
     .prompt('Equip')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit that can re-equip': (ctx) => canAnyUnitReEquip(ctx.player, game),
     })
@@ -460,7 +461,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
   return Action.create('dropEquipment')
     .prompt('Unequip')
     .condition({
-      'not in combat': (ctx) => !(ctx.game as MERCGame).activeCombat,
+      'not in combat': (ctx) => isNotInActiveCombat(ctx.game as MERCGame),
       'is rebel or dictator player': (ctx) => {
         const g = ctx.game as MERCGame;
         return g.isRebelPlayer(ctx.player) || g.isDictatorPlayer(ctx.player);
@@ -601,7 +602,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
   return Action.create('docHeal')
     .prompt('Doc: Heal squad (free)')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'has living Doc with damaged squad members': (ctx) => {
         // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
@@ -1151,7 +1152,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
   return Action.create('repairKit')
     .prompt('Use Repair Kit')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'has combatant with repair kit': (ctx) => getCombatantsWithRepairKit(ctx.player, game).length > 0,
       'has equipment in discard piles': () => getDiscardPileEquipment(game).length > 0,
     })
@@ -1377,7 +1378,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
   return Action.create('mortar')
     .prompt('Fire Mortar')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit with mortar and valid targets': (ctx) => {
         const mercsWithMortars = getMercsWithMortars(game, ctx.player);
@@ -1576,7 +1577,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
   return Action.create('detonateExplosives')
     .prompt('Detonate Explosives (Win Game)')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'dictator base revealed': () => game.dictatorPlayer?.baseRevealed && game.dictatorPlayer?.baseSectorId != null,
       'has merc in base with explosives components': (ctx) => {

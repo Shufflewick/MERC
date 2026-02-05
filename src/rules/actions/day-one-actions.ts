@@ -19,7 +19,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat } from './helpers.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -70,7 +70,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
     .notUndoable() // Involves randomness (drawing cards)
     .condition({
       'is Day 1': () => game.currentDay === 1,
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
       'has landed': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
@@ -183,7 +183,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
     .notUndoable()
     .condition({
       'is Day 1': () => game.currentDay === 1,
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
       'has 1 MERC and 2+ remaining to hire': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
@@ -310,7 +310,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
     .notUndoable()
     .condition({
       'is Day 1': () => game.currentDay === 1,
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
       'Teresa bonus: can hire third MERC': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
@@ -491,7 +491,7 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
   return Action.create('placeLanding')
     .prompt('Choose your landing zone')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is Day 1': () => game.currentDay === 1,
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
       'has not landed yet': (ctx) => {

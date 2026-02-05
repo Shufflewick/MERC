@@ -30,6 +30,7 @@ import {
   setCachedValue,
   clearCachedValue,
   equipNewHire,
+  isNotInActiveCombat,
 } from './helpers.js';
 
 
@@ -59,7 +60,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireMerc')
     .prompt('Hire mercenaries')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'can hire MERC': (ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
@@ -314,7 +315,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
     .prompt('Explore')
     .notUndoable() // Involves randomness (drawing equipment)
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit that can explore': (ctx) => {
         const livingUnits = getPlayerUnitsForExplore(ctx.player, game);
@@ -724,7 +725,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
   return Action.create('train')
     .prompt('Train')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit that can train': (ctx) => {
         const livingUnits = getPlayerUnitsForTrain(ctx.player, game);
@@ -895,7 +896,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
   return Action.create('hospital')
     .prompt('Visit hospital')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'in sector with hospital': (ctx) => {
         const sector = findMercSectorForCity(ctx.player, game);
@@ -981,7 +982,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
   return Action.create('armsDealer')
     .prompt('Visit arms dealer')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'in sector with arms dealer': (ctx) => {
         const sector = findMercSectorForCity(ctx.player, game);
@@ -1146,7 +1147,7 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
   return Action.create('endTurn')
     .prompt('End turn')
     .condition({
-      'not in combat': () => !game.activeCombat,
+      'not in combat': () => isNotInActiveCombat(game),
       'day 2 or later': () => game.currentDay >= 2,
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
     })

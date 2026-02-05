@@ -509,6 +509,44 @@ function betterWeapons(game: MERCGame): TacticsEffectResult {
 }
 
 /**
+ * Generalisimo: Reveals base AND dictator gives combat bonus to all units at base
+ * The dictator fights alongside forces at the base, giving +1 combat to all friendly units there.
+ */
+function generalisimo(game: MERCGame): TacticsEffectResult {
+  // First reveal the base
+  const baseResult = revealBase(game);
+
+  // Set the permanent combat bonus flag for base defenders
+  game.generalisimoActive = true;
+  game.message('Generalisimo: Dictator inspires forces at base (+1 combat to all units at base)');
+
+  return {
+    success: baseResult.success,
+    message: `${baseResult.message}. Dictator combat bonus active at base`,
+    data: { ...baseResult.data, generalisimoBonus: true },
+  };
+}
+
+/**
+ * Lockdown: Reveals base AND provides defensive bonuses at base
+ * Prepare defenses for the final battle - all units at base get +1 armor.
+ */
+function lockdown(game: MERCGame): TacticsEffectResult {
+  // First reveal the base
+  const baseResult = revealBase(game);
+
+  // Set the permanent defensive bonus flag for base
+  game.lockdownActive = true;
+  game.message('Lockdown: Base defenses prepared (+1 armor to all units at base)');
+
+  return {
+    success: baseResult.success,
+    message: `${baseResult.message}. Defensive bonuses active at base`,
+    data: { ...baseResult.data, lockdownBonus: true },
+  };
+}
+
+/**
  * Oil Reserves: Permanent effect - free move for oil controller
  * This sets a game flag
  */
@@ -629,8 +667,10 @@ export function executeTacticsEffect(game: MERCGame, card: TacticsCard): Tactics
       return veteranMilitia(game);
 
     case 'generalisimo':
+      return generalisimo(game);
+
     case 'lockdown':
-      return revealBase(game);
+      return lockdown(game);
 
     case 'family-threat':
       return familyThreat(game);
