@@ -163,6 +163,49 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         },
       }) as (element: GameElement, context: ActionContext) => boolean,
     })
+    .chooseFrom<number>('militiaCount', {
+      prompt: 'How many militia should Sonia bring?',
+      dependsOn: 'squad',
+      choices: (ctx: ActionContext) => {
+        if (!game.isRebelPlayer(ctx.player)) return [0];
+        const squad = ctx.args?.squad as Squad | undefined;
+        if (!squad?.sectorId) return [0];
+
+        const mercs = squad.getLivingMercs();
+        const hasSonia = mercs.some(m => m.combatantId === 'sonia');
+        if (!hasSonia) return [0];
+
+        const player = asRebelPlayer(ctx.player);
+        const sourceSector = game.getSector(squad.sectorId);
+        if (!sourceSector) return [0];
+
+        const playerId = `${player.seat}`;
+        const available = sourceSector.getRebelMilitia(playerId);
+        if (available === 0) return [0];
+
+        // Return choices 0 up to min(2, available)
+        const max = Math.min(2, available);
+        return Array.from({ length: max + 1 }, (_, i) => i);
+      },
+      display: (n: number) => n === 0 ? 'None' : `${n} militia`,
+      skipIf: (ctx: ActionContext) => {
+        if (!game.isRebelPlayer(ctx.player)) return true;
+        const squad = ctx.args?.squad as Squad | undefined;
+        if (!squad?.sectorId) return true;
+
+        const mercs = squad.getLivingMercs();
+        const hasSonia = mercs.some(m => m.combatantId === 'sonia');
+        if (!hasSonia) return true;
+
+        const player = asRebelPlayer(ctx.player);
+        const sourceSector = game.getSector(squad.sectorId);
+        if (!sourceSector) return true;
+
+        const playerId = `${player.seat}`;
+        return sourceSector.getRebelMilitia(playerId) === 0;
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .execute((args, ctx) => {
       const squad = asSquad(args.squad);
       const destination = asSector(args.destination);
@@ -178,15 +221,15 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       // Log action consumption for debugging
       game.message(`(${mercs.length} action(s) consumed)`);
 
-      // MERC-iz7: Sonia can bring up to 2 militia when moving (rebel only)
+      // MERC-iz7: Sonia can bring militia when moving (rebel only)
       let militiaMoved = 0;
       if (isRebel && sourceSector) {
         const player = asRebelPlayer(ctx.player);
         const hasSonia = mercs.some(m => m.combatantId === 'sonia');
         if (hasSonia) {
           const playerId = `${player.seat}`;
-          const militiaAvailable = sourceSector.getRebelMilitia(playerId);
-          militiaMoved = Math.min(2, militiaAvailable);
+          // Use the selected count (default 0 if not set)
+          militiaMoved = (args.militiaCount as number) ?? 0;
           if (militiaMoved > 0) {
             sourceSector.removeRebelMilitia(playerId, militiaMoved);
             destination.addRebelMilitia(playerId, militiaMoved);
