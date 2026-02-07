@@ -852,51 +852,87 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
-// Hagness Draw Action
+// Hagness Draw Actions (Two-Step Flow)
 // =============================================================================
 
-// Settings key prefix for Hagness equipment cache (keyed by `prefix:playerId:equipmentType`)
-const HAGNESS_EQUIPMENT_KEY = 'hagnessDrawnEquipmentId';
+// Settings key for Hagness equipment cache: `hagnessDrawn:${playerId}`
+// Stores: { equipmentId, equipmentType, equipmentData (for UI) }
+const HAGNESS_CACHE_PREFIX = 'hagnessDrawn';
 
-// Helper to get cache key for Hagness equipment (combines playerId and equipmentType)
-function getHagnessCacheKey(playerId: string, equipmentType: string): string {
-  return `${playerId}:${equipmentType}`;
-}
-
-// Helper to get Equipment element from cached ID
-function getHagnessEquipment(game: MERCGame, playerId: string, equipmentType: string): Equipment | undefined {
-  const compositeKey = getHagnessCacheKey(playerId, equipmentType);
-  const id = getCachedValue<number>(game, HAGNESS_EQUIPMENT_KEY, compositeKey);
-  if (id === undefined) return undefined;
-  return game.getElementById(id) as Equipment | undefined;
-}
-
-// Helper to clear all cache entries for a player (used on action completion/failure)
-function clearHagnessCache(game: MERCGame, playerId: string): void {
-  const prefix = `${HAGNESS_EQUIPMENT_KEY}:${playerId}:`;
-  for (const key of Object.keys(game.settings)) {
-    if (key.startsWith(prefix)) {
-      delete game.settings[key];
-    }
-  }
+/**
+ * Get the cache key for a player's pending Hagness equipment.
+ */
+function getHagnessCacheKey(playerId: string): string {
+  return `${HAGNESS_CACHE_PREFIX}:${playerId}`;
 }
 
 /**
- * MERC-jrph: Hagness can draw equipment for squad
- * Cost: 1 action
- * Per rules: "Spend 1 action to draw 3 pieces of equipment, choose 1 and give it to any member of his squad."
- *
- * Flow:
- * 1. Choose equipment type (Weapon, Armor, or Accessory)
- * 2. Draw 1 equipment of that type (simplified from original 3)
- * 3. See the drawn equipment and choose which squad member gets it
+ * Type for cached Hagness equipment data.
  */
-export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
-  return Action.create('hagnessDraw')
+interface HagnessEquipmentCache {
+  equipmentId: number;
+  equipmentType: string;
+  equipmentData: {
+    equipmentId: number;
+    equipmentName: string;
+    equipmentType: string;
+    description: string;
+    combatBonus: number;
+    initiative: number;
+    training: number;
+    targets: number;
+    armorBonus: number;
+    negatesArmor: boolean;
+    serial: number;
+    image: string;
+  };
+}
+
+/**
+ * Get cached Hagness equipment for a player.
+ */
+function getHagnessCache(game: MERCGame, playerId: string): HagnessEquipmentCache | undefined {
+  const cacheKey = getHagnessCacheKey(playerId);
+  return (game.settings as Record<string, unknown>)[cacheKey] as HagnessEquipmentCache | undefined;
+}
+
+/**
+ * Set cached Hagness equipment for a player.
+ */
+function setHagnessCache(game: MERCGame, playerId: string, cache: HagnessEquipmentCache): void {
+  const cacheKey = getHagnessCacheKey(playerId);
+  (game.settings as Record<string, unknown>)[cacheKey] = cache;
+  // Also store in hagnessDrawnEquipmentData for UI to access
+  game.hagnessDrawnEquipmentData[playerId] = cache.equipmentData;
+}
+
+/**
+ * Clear cached Hagness equipment for a player.
+ */
+function clearHagnessCache(game: MERCGame, playerId: string): void {
+  const cacheKey = getHagnessCacheKey(playerId);
+  delete (game.settings as Record<string, unknown>)[cacheKey];
+  delete game.hagnessDrawnEquipmentData[playerId];
+}
+
+/**
+ * MERC-jrph: Hagness Draw Type Action (Step 1)
+ *
+ * First action in the Hagness draw flow:
+ * 1. Choose equipment type (Weapon, Armor, or Accessory)
+ * 2. Draw 1 equipment of that type
+ * 3. Subtract 1 action from Hagness
+ * 4. Store equipment in settings for the give action
+ * 5. Chain to hagnessGiveEquipment via followUp
+ *
+ * This separation ensures equipment is drawn and synced to clients BEFORE
+ * the recipient selection UI appears.
+ */
+export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
+  return Action.create('hagnessDrawType')
     .prompt('Hagness: Draw equipment for squad')
     .condition({
       'has living Hagness with actions': (ctx) => {
-        // Works for both rebel and dictator players
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
         const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
@@ -907,179 +943,178 @@ export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
       prompt: 'Choose equipment type to draw',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('recipient', {
-      prompt: 'Give to which squad member?',
-      dependsOn: 'equipmentType', // Wait for equipmentType to be selected before showing choices
-      // Note: Cannot use defer:true because ActionPanel doesn't fetch deferred choices for 2nd+ selections
-      choices: (ctx) => {
-        // Works for both rebel and dictator players
-        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) {
-          return ['(select equipment type first)'];
-        }
+    .execute((args, ctx) => {
+      const player = ctx.player as MERCPlayer;
+      const playerId = `${player.seat}`;
+      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
+
+      // Draw equipment
+      const equipment = game.drawEquipment(equipmentType);
+      if (!equipment) {
+        return { success: false, message: `No ${equipmentType} cards in deck` };
+      }
+
+      // Store equipment in settings for the give action and UI
+      const cache: HagnessEquipmentCache = {
+        equipmentId: equipment.id,
+        equipmentType,
+        equipmentData: {
+          equipmentId: equipment.id,
+          equipmentName: equipment.equipmentName,
+          equipmentType: equipment.equipmentType,
+          description: equipment.description || '',
+          combatBonus: equipment.combatBonus || 0,
+          initiative: equipment.initiative || 0,
+          training: equipment.training || 0,
+          targets: equipment.targets || 0,
+          armorBonus: equipment.armorBonus || 0,
+          negatesArmor: equipment.negatesArmor || false,
+          serial: equipment.serial || 0,
+          image: equipment.image || '',
+        },
+      };
+      setHagnessCache(game, playerId, cache);
+
+      // Subtract action from Hagness
+      hagness.useAction(1);
+
+      // Chain to the give action
+      return {
+        success: true,
+        message: `Drew ${equipment.equipmentName}`,
+        followUp: {
+          action: 'hagnessGiveEquipment',
+          args: { equipmentId: equipment.id },
+          display: { equipmentId: equipment.equipmentName },
+        },
+      };
+    });
+}
+
+/**
+ * MERC-jrph: Hagness Give Equipment Action (Step 2)
+ *
+ * Second action in the Hagness draw flow (chained via followUp):
+ * 1. Retrieve drawn equipment from settings
+ * 2. Show equipment card and recipient choices
+ * 3. Equip to selected recipient
+ *
+ * If cancelled (no recipient selected), equipment drops in Hagness's sector.
+ */
+export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefinition {
+  return Action.create('hagnessGiveEquipment')
+    .prompt('Give equipment to squad member')
+    .condition({
+      'has pending equipment': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
         const player = ctx.player as MERCPlayer;
         const playerId = `${player.seat}`;
-        const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory' | undefined;
-
-        // During availability check, equipmentType won't be set - return placeholder
-        if (!equipmentType) {
-          return ['(select equipment type first)'];
-        }
-
-        // Use typed cache key to ensure we draw fresh for each equipment type
-        const cacheKey = getHagnessCacheKey(playerId, equipmentType);
-
-        // IMPORTANT: Don't draw equipment during speculative calls!
-        // BoardSmith calls choices() for ALL equipment types to precompute options.
-        // We only want to draw once per type, and never clear other types' cache.
-        type HagnessEquipmentData = {
-          equipmentId: number;
-          equipmentName: string;
-          equipmentType: string;
-          description: string;
-          combatBonus: number;
-          initiative: number;
-          training: number;
-          targets: number;
-          armorBonus: number;
-          negatesArmor: boolean;
-          serial: number;
-          image: string;
-        };
-        let equipmentData: HagnessEquipmentData | null = null;
-
-        // If recipient is already set, the user already clicked - don't redraw!
-        const recipientAlreadySet = ctx.args?.recipient !== undefined;
-
-        const compositeKey = getHagnessCacheKey(playerId, equipmentType);
-        if (getCachedValue<number>(game, HAGNESS_EQUIPMENT_KEY, compositeKey) === undefined && !recipientAlreadySet) {
-          const eq = game.drawEquipment(equipmentType);
-          if (eq) {
-            setCachedValue(game, HAGNESS_EQUIPMENT_KEY, compositeKey, eq.id);
-            equipmentData = {
-              equipmentId: eq.id,
-              equipmentName: eq.equipmentName,
-              equipmentType: eq.equipmentType,
-              description: eq.description || '',
-              combatBonus: eq.combatBonus || 0,
-              initiative: eq.initiative || 0,
-              training: eq.training || 0,
-              targets: eq.targets || 0,
-              armorBonus: eq.armorBonus || 0,
-              negatesArmor: eq.negatesArmor || false,
-              serial: eq.serial || 0,
-              image: eq.image || '',
-            };
-            // Store with typed key to avoid overwriting other equipment types
-            const stateKey = `${playerId}:${equipmentType}`;
-            game.hagnessDrawnEquipmentData[stateKey] = equipmentData;
-          }
-        } else {
-          const eq = getHagnessEquipment(game, playerId, equipmentType)!;
-          equipmentData = {
-            equipmentId: eq.id,
-            equipmentName: eq.equipmentName,
-            equipmentType: eq.equipmentType,
-            description: eq.description || '',
-            combatBonus: eq.combatBonus || 0,
-            initiative: eq.initiative || 0,
-            training: eq.training || 0,
-            targets: eq.targets || 0,
-            armorBonus: eq.armorBonus || 0,
-            negatesArmor: eq.negatesArmor || false,
-            serial: eq.serial || 0,
-            image: eq.image || '',
-          };
-        }
-
-        // Get hagness and squad mates
-        const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
-        if (!hagness) {
+        return getHagnessCache(game, playerId) != null;
+      },
+    })
+    .chooseFrom<string>('recipient', {
+      prompt: 'Give to which squad member?',
+      optional: true, // Allow cancel to drop in sector
+      choices: (ctx) => {
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) {
           return [];
         }
+        const player = ctx.player as MERCPlayer;
+        const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
+        if (!hagness) return [];
 
         const hagnessSquad = player.getSquadContaining(hagness);
-        if (!hagnessSquad) {
-          return [];
-        }
+        if (!hagnessSquad) return [];
 
         const squadMates = hagnessSquad.getLivingMercs();
-
-        // Return just the names
         return squadMates.map(m => capitalize(m.combatantName));
       },
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
       const playerId = `${player.seat}`;
-      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-      const cacheKey = getHagnessCacheKey(playerId, equipmentType);
-      const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
+      const cache = getHagnessCache(game, playerId);
 
-      // Handle recipient - might be string or object {value, display, equipment}
+      if (!cache) {
+        return { success: false, message: 'No pending equipment' };
+      }
+
+      const equipment = game.getElementById(cache.equipmentId) as Equipment | undefined;
+      if (!equipment) {
+        clearHagnessCache(game, playerId);
+        return { success: false, message: 'Equipment not found' };
+      }
+
+      const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
+      if (!hagness) {
+        clearHagnessCache(game, playerId);
+        return { success: false, message: 'Hagness not found' };
+      }
+
+      // Handle cancel - drop equipment in sector
       const recipientArg = args.recipient;
-      let recipientName: string;
-      if (typeof recipientArg === 'string') {
-        recipientName = recipientArg;
-      } else if (recipientArg && typeof recipientArg === 'object') {
-        // Extract name from object format
-        const recipientObj = recipientArg as { value?: string; display?: string };
-        recipientName = recipientObj.value || recipientObj.display || String(recipientArg);
-      } else {
-        recipientName = String(recipientArg || '');
+      if (!recipientArg) {
+        const hagnessSquad = player.getSquadContaining(hagness);
+        if (hagnessSquad?.sectorId) {
+          const sector = game.getSector(hagnessSquad.sectorId);
+          if (sector) {
+            sector.addToStash(equipment);
+            game.message(`${equipment.equipmentName} dropped in ${sector.sectorName}`);
+          }
+        }
+        clearHagnessCache(game, playerId);
+        return { success: true, message: 'Equipment dropped in sector' };
       }
 
       // Find recipient MERC
       const hagnessSquad = player.getSquadContaining(hagness);
       if (!hagnessSquad) {
         clearHagnessCache(game, playerId);
-        for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
-          if (key.startsWith(`${playerId}:`)) delete game.hagnessDrawnEquipmentData[key];
-        }
         return { success: false, message: 'Hagness squad not found' };
       }
 
-      const recipient = hagnessSquad.getLivingMercs().find(m => capitalize(m.combatantName) === recipientName);
+      // Handle recipient - might be string or object
+      let recipientName: string;
+      if (typeof recipientArg === 'string') {
+        recipientName = recipientArg;
+      } else if (recipientArg && typeof recipientArg === 'object') {
+        const recipientObj = recipientArg as { value?: string; display?: string };
+        recipientName = recipientObj.value || recipientObj.display || String(recipientArg);
+      } else {
+        recipientName = String(recipientArg || '');
+      }
+
+      const recipient = hagnessSquad.getLivingMercs().find(m =>
+        capitalize(m.combatantName) === recipientName
+      );
+
       if (!recipient) {
         clearHagnessCache(game, playerId);
-        for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
-          if (key.startsWith(`${playerId}:`)) delete game.hagnessDrawnEquipmentData[key];
-        }
         return { success: false, message: 'Recipient not found' };
       }
 
-      // Get cached equipment element using typed key
-      const equipment = getHagnessEquipment(game, playerId, equipmentType);
-      if (!equipment) {
-        clearHagnessCache(game, playerId);
-        for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
-          if (key.startsWith(`${playerId}:`)) delete game.hagnessDrawnEquipmentData[key];
-        }
-        return { success: false, message: 'No equipment available' };
-      }
-
-      // Equip the drawn equipment to recipient
+      // Equip
       const replaced = recipient.equip(equipment);
-
-      // Discard any replaced equipment
       if (replaced) {
         const discard = game.getEquipmentDiscard(replaced.equipmentType);
         if (discard) replaced.putInto(discard);
       }
 
-      // Clean up caches
+      // Clear cache
       clearHagnessCache(game, playerId);
-      // Clean up all typed state keys for this player
-      for (const key of Object.keys(game.hagnessDrawnEquipmentData)) {
-        if (key.startsWith(`${playerId}:`)) {
-          delete game.hagnessDrawnEquipmentData[key];
-        }
-      }
 
-      hagness.useAction(1);
       game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.combatantName}`);
-
       return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.combatantName}` };
     });
+}
+
+/**
+ * Legacy action name for backwards compatibility.
+ * Redirects to hagnessDrawType.
+ */
+export function createHagnessDrawAction(game: MERCGame): ActionDefinition {
+  return createHagnessDrawTypeAction(game);
 }
 
 // =============================================================================

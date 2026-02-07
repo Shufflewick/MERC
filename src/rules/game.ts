@@ -613,9 +613,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   pendingLootMap = this.persistentMap<string, number[]>('pendingLootMap');
 
   // Hagness ability staging - holds drawn equipment during selection
-  // Plain object to ensure it serializes to clients
-  // Key: player seat (string), Value: serialized equipment data for UI display
-  hagnessDrawnEquipmentData: Record<string, {
+  // Stored in settings to ensure it serializes to clients
+  // Key: player seat:equipmentType (string), Value: serialized equipment data for UI display
+  get hagnessDrawnEquipmentData(): Record<string, {
     equipmentId: number;
     equipmentName: string;
     equipmentType: string;
@@ -628,7 +628,26 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     negatesArmor: boolean;
     serial: number;
     image: string;
-  }> = {};
+  }> {
+    const settings = this.settings as Record<string, unknown>;
+    if (!settings.hagnessDrawnEquipmentData) {
+      settings.hagnessDrawnEquipmentData = {};
+    }
+    return settings.hagnessDrawnEquipmentData as Record<string, {
+      equipmentId: number;
+      equipmentName: string;
+      equipmentType: string;
+      description: string;
+      combatBonus: number;
+      initiative: number;
+      training: number;
+      targets: number;
+      armorBonus: number;
+      negatesArmor: boolean;
+      serial: number;
+      image: string;
+    }>;
+  }
 
   // Static reference data loaded from JSON - stored in settings to survive HMR
   // These are loaded once during initializeGame() and don't change during gameplay

@@ -117,6 +117,7 @@ export interface SectorChoice {
 export interface HagnessSquadMate {
   displayName: string;
   combatantId: string;
+  image: string;
   choice: { value: string };
 }
 
@@ -155,7 +156,7 @@ export function useActionState(
     return props.actionArgs || {};
   });
 
-  // Get action metadata for the current action (hiring, hagnessDraw, or explore)
+  // Get action metadata for the current action (hiring, hagness, or explore)
   const currentActionMetadata = computed(() => {
     const metadata = props.state?.state?.actionMetadata;
     if (!metadata) return null;
@@ -170,9 +171,9 @@ export function useActionState(
     }
 
     // Check for Hagness draw action FIRST (when user is actively interacting with it)
-    // This takes precedence over explore since hagnessDraw requires specific user action
+    // This takes precedence over explore since Hagness requires specific user action
     if (isHagnessDrawActive.value) {
-      return metadata.hagnessDraw;
+      return metadata.hagnessDrawType || metadata.hagnessGiveEquipment;
     }
 
     // Check for explore action
@@ -217,7 +218,7 @@ export function useActionState(
     return true;
   });
 
-  // Get current action name that needs custom UI handling (hiring, hagnessDraw, or explore)
+  // Get current action name that needs custom UI handling (hiring, hagness, or explore)
   function getCurrentActionName(): string | null {
     if (props.availableActions.includes('selectDictator')) return 'selectDictator';
     if (props.availableActions.includes('hireFirstMerc')) return 'hireFirstMerc';
@@ -225,10 +226,10 @@ export function useActionState(
     if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
     if (props.actionController.currentAction.value === 'castroBonusHire') return 'castroBonusHire';
     if (props.actionController.currentAction.value === 'selectDictator') return 'selectDictator';
-    // Check hagnessDraw FIRST (when user is actively interacting with it)
-    if (isHagnessDrawActive.value && props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
+    // Check Hagness actions (when user is actively interacting with them)
+    if (isHagnessDrawActive.value) return 'hagnessDrawType';
     if (props.availableActions.includes('explore')) return 'explore';
-    if (props.availableActions.includes('hagnessDraw')) return 'hagnessDraw';
+    if (props.availableActions.includes('hagnessDrawType')) return 'hagnessDrawType';
     return null;
   }
 
@@ -276,9 +277,11 @@ export function useActionState(
     return false;
   });
 
-  // Use actionController to detect when hagnessDraw action is active
+  // Use actionController to detect when Hagness draw action is active
+  // Both hagnessDrawType (step 1) and hagnessGiveEquipment (step 2) are part of the flow
   const isHagnessDrawActive = computed(() => {
-    return props.actionController.currentAction.value === 'hagnessDraw';
+    const action = props.actionController.currentAction.value;
+    return action === 'hagnessDrawType' || action === 'hagnessGiveEquipment';
   });
 
   // Check if we're in landing placement mode
@@ -325,26 +328,14 @@ export function useActionState(
     !quickReassignInProgress.value
   );
 
-  // Check if Hagness is selecting equipment type (first step)
+  // Check if Hagness is selecting equipment type (step 1: hagnessDrawType action)
   const isHagnessSelectingType = computed(() => {
-    if (!isHagnessDrawActive.value) return false;
-    const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-    if (!metadata?.selections?.length) return false;
-    // Check if equipmentType selection exists and is unfilled
-    const equipmentTypeSelection = metadata.selections.find((s: any) => s.name === 'equipmentType');
-    return equipmentTypeSelection && props.actionArgs['equipmentType'] === undefined;
+    return props.actionController.currentAction.value === 'hagnessDrawType';
   });
 
-  // Check if Hagness is selecting recipient (second step - after equipment drawn)
+  // Check if Hagness is selecting recipient (step 2: hagnessGiveEquipment action)
   const isHagnessSelectingRecipient = computed(() => {
-    if (!isHagnessDrawActive.value) return false;
-    const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-    if (!metadata?.selections?.length) return false;
-    // Check if recipient selection exists and is unfilled (and equipmentType is filled)
-    const recipientSelection = metadata.selections.find((s: any) => s.name === 'recipient');
-    return recipientSelection &&
-           props.actionArgs['equipmentType'] !== undefined &&
-           props.actionArgs['recipient'] === undefined;
+    return props.actionController.currentAction.value === 'hagnessGiveEquipment';
   });
 
   // ============================================================================
@@ -554,8 +545,7 @@ export function useActionState(
   // Get Hagness equipment type choices
   const hagnessEquipmentTypeChoices = computed<Array<{ value: string; label: string }>>(() => {
     if (!isHagnessSelectingType.value) return [];
-    const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-    const selection = metadata?.selections?.find((s: any) => s.name === 'equipmentType');
+    const selection = currentPick.value;
     if (!selection) return [];
     // Use actionController getter (not selection.choices)
     const choices = props.actionController.getChoices(selection) || [];
@@ -567,95 +557,78 @@ export function useActionState(
     });
   });
 
-  // Get Hagness's drawn equipment from choices or game state
+  // Get Hagness's drawn equipment from settings
+  // Equipment is stored in settings.hagnessDrawnEquipmentData[playerId] after hagnessDrawType executes
   const hagnessDrawnEquipment = computed(() => {
-    if (!isHagnessDrawActive.value) return null;
+    if (!isHagnessSelectingRecipient.value) return null;
 
-    // First, try to get from fetched deferred choices
-    const key = 'hagnessDraw:recipient';
-    let choices: any[] = fetchedDeferredChoices[key] || [];
-
-    // If no fetched choices, try actionController getter
-    if (choices.length === 0) {
-      const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
-      const recipientSelection = metadata?.selections?.find((s: any) => s.name === 'recipient');
-      if (recipientSelection) {
-        choices = props.actionController.getChoices(recipientSelection) || [];
-      }
-    }
-
-    if (choices.length > 0) {
-      // Equipment might be nested in choice.value.equipment or choice.equipment
-      const choice = choices[0];
-      const equipment = choice.value?.equipment || choice.equipment;
-      if (equipment) {
-        return equipment;
-      }
-    }
-
-    // Fallback to game state locations
     const playerKey = `${props.playerSeat}`;
-    const equipmentType = props.actionArgs['equipmentType'] as string | undefined;
 
-    // Try typed key first (playerKey:equipmentType), then plain playerKey for backwards compat
-    const typedKey = equipmentType ? `${playerKey}:${equipmentType}` : playerKey;
+    // Use getGameView() for reactivity if available
+    const gameView = props.getGameView ? props.getGameView() : props.gameView;
 
-    // Try multiple locations where the data might be
-    // 1. Direct on gameView (plain object should serialize here)
-    let data = props.gameView?.hagnessDrawnEquipmentData?.[typedKey] ||
-               props.gameView?.hagnessDrawnEquipmentData?.[playerKey];
+    // Try to find hagnessDrawnEquipmentData in settings (stored by hagnessDrawType action)
+    const settings = gameView?.settings || gameView?.attributes?.settings || props.state?.state?.settings;
 
-    // 2. In attributes (BoardSmith element structure)
-    if (!data) {
-      data = props.gameView?.attributes?.hagnessDrawnEquipmentData?.[typedKey] ||
-             props.gameView?.attributes?.hagnessDrawnEquipmentData?.[playerKey];
+    // New simplified key: just the player seat (no equipment type needed since only one can be pending)
+    const data = settings?.hagnessDrawnEquipmentData?.[playerKey];
+    if (data) {
+      return data;
     }
 
-    // 3. In state
-    if (!data) {
-      data = props.state?.state?.hagnessDrawnEquipmentData?.[typedKey] ||
-             props.state?.state?.hagnessDrawnEquipmentData?.[playerKey];
-    }
-
-    return data || null;
+    return null;
   });
 
-  // Get Hagness's squad mates from fetched choices or directly from squad data
+  // Get Hagness's squad mates - get choice values from currentPick, but look up image from squad data
   const hagnessSquadMates = computed<HagnessSquadMate[]>(() => {
     if (!isHagnessSelectingRecipient.value) return [];
 
-    // Try to get choices from fetchedDeferredChoices (populated by watcher if metadata available)
-    const key = 'hagnessDraw:recipient';
-    const choices = fetchedDeferredChoices[key] || [];
-
-    if (choices.length > 0) {
-      // Extract MERC names from choices - each choice has { value: "MercName", display: "MercName <- Equipment" }
-      return choices.map((choice: any) => {
-        const displayName = typeof choice.value === 'string' ? choice.value : (choice.value?.value || choice.display?.split(' <-')[0] || 'Unknown');
-        // Try to get combatantId from choice metadata if available
-        const combatantId = choice.combatantId || displayName.toLowerCase();
-        return { displayName, combatantId, choice }; // Keep the full choice for when user clicks
-      }).sort((a: HagnessSquadMate, b: HagnessSquadMate) => a.displayName.localeCompare(b.displayName));
-    }
-
-    // Fallback: Get mercs directly from squad data
+    // Build a lookup map of merc images from squad data
     const allSquadMercs = [
       ...(primarySquad.value?.mercs || []),
       ...(secondarySquad.value?.mercs || []),
     ];
+    const mercImageMap = new Map<string, string>();
+    const mercIdMap = new Map<string, string>();
+    for (const merc of allSquadMercs) {
+      const name = (getAttr(merc, 'combatantName', '') || '').toLowerCase();
+      const id = getAttr(merc, 'combatantId', '') || '';
+      const image = getAttr(merc, 'image', '') || '';
+      if (name) {
+        mercImageMap.set(name, image);
+        mercIdMap.set(name, id);
+      }
+    }
 
+    // Get choices from currentPick - choices only have {value, display} from BoardSmith
+    const selection = currentPick.value;
+    if (selection) {
+      const choices = props.actionController.getChoices(selection) || [];
+      if (choices.length > 0) {
+        return choices.map((choice: any) => {
+          const displayName = typeof choice.value === 'string' ? choice.value : (choice.display || 'Unknown');
+          const nameLower = displayName.toLowerCase();
+          // Look up image and id from squad data
+          const combatantId = mercIdMap.get(nameLower) || nameLower;
+          const image = mercImageMap.get(nameLower) || '';
+          return { displayName, combatantId, image, choice };
+        }).sort((a: HagnessSquadMate, b: HagnessSquadMate) => a.displayName.localeCompare(b.displayName));
+      }
+    }
+
+    // Fallback: No choices yet, create from squad data directly
     if (allSquadMercs.length === 0) return [];
 
-    // Create choice-like objects from squad mercs
     return allSquadMercs.map((merc: any) => {
       const combatantId = getAttr(merc, 'combatantId', '') || '';
       const combatantName = getAttr(merc, 'combatantName', '') || combatantId || 'Unknown';
-      // Capitalize first letter of each word
+      const image = getAttr(merc, 'image', '') || '';
       const displayName = combatantName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
       return {
         displayName,
         combatantId,
-        choice: { value: displayName }, // Simple choice object for selection
+        image,
+        choice: { value: displayName },
       };
     }).sort((a: HagnessSquadMate, b: HagnessSquadMate) => a.displayName.localeCompare(b.displayName));
   });

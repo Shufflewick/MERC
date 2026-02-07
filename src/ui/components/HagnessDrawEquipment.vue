@@ -7,6 +7,7 @@ import CombatantIcon from './CombatantIcon.vue';
 export interface HagnessSquadMate {
   displayName: string;
   combatantId: string;
+  image: string;
   choice: { value: string };
 }
 
@@ -74,6 +75,7 @@ function handleRecipientSelect(choice: { value: string }) {
             :key="mate.displayName"
             :combatant-id="mate.combatantId"
             :combatant-name="mate.displayName"
+            :image="mate.image"
             :player-color="playerColor"
             size="large"
             clickable

@@ -85,7 +85,8 @@ import {
   createFeedbackDiscardAction,
   createSquidheadDisarmAction,
   createSquidheadArmAction,
-  createHagnessDrawAction,
+  createHagnessDrawTypeAction,
+  createHagnessGiveEquipmentAction,
   createRepairKitAction,
   createMortarAction,
   createDetonateExplosivesAction,
@@ -139,7 +140,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createFeedbackDiscardAction(game)); // MERC-24h: Feedback discard retrieval
   game.registerAction(createSquidheadDisarmAction(game)); // MERC-4qd: Squidhead disarm mines
   game.registerAction(createSquidheadArmAction(game)); // MERC-4qd: Squidhead arm mines
-  game.registerAction(createHagnessDrawAction(game)); // MERC-jrph: Hagness draw equipment
+  game.registerAction(createHagnessDrawTypeAction(game)); // MERC-jrph: Hagness draw equipment (step 1)
+  game.registerAction(createHagnessGiveEquipmentAction(game)); // MERC-jrph: Hagness give equipment (step 2)
   game.registerAction(createRepairKitAction(game)); // Repair Kit from stash
   game.registerAction(createMortarAction(game)); // Rebel mortar attack
   game.registerAction(createDetonateExplosivesAction(game)); // Explosives win condition

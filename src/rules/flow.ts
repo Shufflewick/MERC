@@ -423,7 +423,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'feedbackDiscard', // MERC-24h: Feedback discard retrieval
                     'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
                     'squidheadArm', // MERC-4qd: Squidhead arm mines
-                    'hagnessDraw', // MERC-jrph: Hagness draw equipment
+                    'hagnessDrawType', // MERC-jrph: Hagness draw equipment (step 1)
+                    'hagnessGiveEquipment', // MERC-jrph: Hagness give equipment (step 2, via followUp)
                     'armsDealer',
                     'repairKit', // MERC-3po: Repair Kit retrieve from discard
                     'mortar', // Mortar attack on adjacent sector
@@ -744,7 +745,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'feedbackDiscard', // MERC-24h: Feedback discard retrieval
                       'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
                       'squidheadArm', // MERC-4qd: Squidhead arm mines
-                      'hagnessDraw', // MERC-jrph: Hagness draw equipment
+                      'hagnessDrawType', // MERC-jrph: Hagness draw equipment (step 1)
+                      'hagnessGiveEquipment', // MERC-jrph: Hagness give equipment (step 2, via followUp)
                       'armsDealer',
                       'repairKit',
                       'mortar',
