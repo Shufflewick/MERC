@@ -2373,6 +2373,21 @@ export function executeCombat(
 
     // MERC-b65: AI detonates land mines before combat begins
     detonateLandMines(game, sector, { name: attackingPlayer.name ?? 'Unknown' });
+
+    // Initialize activeCombat so executeCombatRound can safely set pending states
+    // (pendingHitAllocation, pendingBeforeAttackHealing) without null dereference
+    game.activeCombat = {
+      sectorId: sector.sectorId,
+      attackingPlayerId: `${attackingPlayer.seat}`,
+      attackingPlayerIsRebel,
+      round: startRound,
+      rebelCombatants: rebels,
+      dictatorCombatants: dictator,
+      rebelCasualties: allRebelCasualties,
+      dictatorCasualties: allDictatorCasualties,
+      dogAssignments: Array.from(dogState.assignments.entries()),
+      dogs: dogState.dogs,
+    };
   }
 
   let retreatSector: Sector | undefined;
