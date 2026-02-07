@@ -944,6 +944,7 @@ const selectableItems = computed(() => {
         armorBonus: attrs.armorBonus || 0,
         targets: attrs.targets || 0,
         negatesArmor: attrs.negatesArmor || false,
+        disabled: c.disabled, // Preserve disabled state from BoardSmith
         _choiceValue: c.value ?? elementId,
         _choiceDisplay: c.display,
         _parsedName: parsedName,
@@ -1043,6 +1044,7 @@ const selectableItems = computed(() => {
           equipmentType: attrs.equipmentType || parsedType,
           description: attrs.description || '',
           image: attrs.image,
+          disabled: ve.disabled, // Preserve disabled state from BoardSmith
           _choiceValue: elementId,
           _choiceDisplay: ve.display,
           _parsedName: parsedName,
@@ -1477,9 +1479,13 @@ const hasContentToShow = computed(() => {
                     v-for="(item, index) in selectableItems"
                     :key="getAttr(item, 'id', '') || index"
                     class="equipment-row"
-                    :class="{ 'is-hovered': pendingEquipmentId === (item._choiceValue ?? item.id) }"
-                    @click="selectEquipment(item)"
-                    @mouseenter="pendingEquipmentId = item._choiceValue ?? item.id"
+                    :class="{
+                      'is-hovered': pendingEquipmentId === (item._choiceValue ?? item.id),
+                      'is-disabled': !!item.disabled
+                    }"
+                    :title="item.disabled || undefined"
+                    @click="!item.disabled && selectEquipment(item)"
+                    @mouseenter="!item.disabled && (pendingEquipmentId = item._choiceValue ?? item.id)"
                     @mouseleave="pendingEquipmentId = null"
                   >
                     <td class="equip-image-cell">
@@ -1850,8 +1856,17 @@ const hasContentToShow = computed(() => {
   border-bottom: 1px solid v-bind('UI_COLORS.border');
 }
 
-.equipment-row:hover {
+.equipment-row:hover:not(.is-disabled) {
   background: rgba(212, 168, 75, 0.15);
+}
+
+.equipment-row.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.equipment-row.is-disabled:hover {
+  background: transparent;
 }
 
 .equipment-row:last-child {

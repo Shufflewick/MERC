@@ -480,15 +480,15 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
         if (!(element instanceof Equipment)) return false;
         const sector = getSector(ctx);
         if (!sector) return false;
-        const inStash = sector.stash.some(e => e.id === element.id);
-        if (!inStash) return false;
-
-        // MERC-70a: Filter out grenades/mortars if Apeiron
+        return sector.stash.some(e => e.id === element.id);
+      },
+      // MERC-70a: Show grenades/mortars as disabled for Apeiron
+      disabled: (element, ctx) => {
         const unit = getUnit(ctx);
-        if (unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element)) {
-          return false;
+        if (unit?.isMerc && unit.combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
+          return 'Apeiron cannot use explosives';
         }
-        return true;
+        return false;
       },
     })
     .execute((args, ctx) => {
@@ -597,14 +597,24 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         const sector = game.getSector(game.lastExplorer.sectorId);
         if (!sector || sector.stash.length === 0) return ['Done'];
 
-        // MERC-70a: Filter out grenades/mortars if Apeiron
-        const unit = findExplorerUnit(ctx);
-        const isApeiron = unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron';
-
         const equipmentChoices = sector.stash
-          .filter(e => !isApeiron || !isGrenadeOrMortar(e))
           .map(e => `${e.equipmentName} (${e.equipmentType})`);
         return [...equipmentChoices, 'Done'];
+      },
+      // MERC-70a: Show grenades/mortars as disabled for Apeiron
+      disabled: (choice, ctx) => {
+        if (choice === 'Done') return false;
+        const unit = findExplorerUnit(ctx);
+        if (!unit?.isMerc || unit.combatantId !== 'apeiron') return false;
+
+        // Parse equipment name from choice format "Name (Type)"
+        const equipName = choice.replace(/ \((?:Weapon|Armor|Accessory)\)$/, '');
+        const sector = game.getSector(game.lastExplorer?.sectorId || '');
+        const equipment = sector?.stash.find(e => e.equipmentName === equipName);
+        if (equipment && isGrenadeOrMortar(equipment)) {
+          return 'Apeiron cannot use explosives';
+        }
+        return false;
       },
     })
     .execute((args, ctx) => {
@@ -1034,15 +1044,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         // Get all units for this player type (mercs + dictator combatant)
         const playerUnits = getPlayerUnitsForCity(ctx.player, game);
 
-        // MERC-70a: Filter out Apeiron if equipment is a grenade/mortar
-        const eligibleUnits = playerUnits.filter(u => {
-          if (u.isMerc && u.combatantId === 'apeiron' && drawnEquip && isGrenadeOrMortar(drawnEquip)) {
-            return false;
-          }
-          return true;
-        });
-
-        const choices = eligibleUnits.map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
+        const choices = playerUnits.map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
         choices.push('skip');
         return choices;
       },
@@ -1050,6 +1052,31 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         if (value === 'skip') return 'Skip (add to stash)';
         const [, name] = value.split(':');
         return capitalize(name);
+      },
+      // MERC-70a: Show Apeiron as disabled when equipment is a grenade/mortar
+      disabled: (value, ctx) => {
+        if (value === 'skip') return false;
+        const parts = value.split(':');
+        const unitId = parseInt(parts[0], 10);
+        const isDictatorUnit = parts[parts.length - 1] === 'true';
+
+        // Only check Apeiron (who is always a merc, not dictator)
+        if (isDictatorUnit) return false;
+
+        // Find the unit to check combatantId
+        const unit = game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === unitId);
+        if (!unit || unit.combatantId !== 'apeiron') return false;
+
+        // Check if drawn equipment is a grenade/mortar
+        const playerId = getArmsDealerPlayerId(ctx.player, game);
+        const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
+        const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
+        const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
+
+        if (drawnEquip && isGrenadeOrMortar(drawnEquip)) {
+          return 'Apeiron cannot use explosives';
+        }
+        return false;
       },
     })
     .execute((args, ctx) => {

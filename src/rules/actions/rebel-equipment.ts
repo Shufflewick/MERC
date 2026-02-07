@@ -174,14 +174,15 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         if (!sector) return false;
 
         // Check if this equipment is in the sector's stash
-        const inStash = sector.stash.some(e => e.id === element.id);
-        if (!inStash) return false;
-
-        // MERC-70a: Filter out grenades/mortars if Apeiron
-        if (unit.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
-          return false;
+        return sector.stash.some(e => e.id === element.id);
+      },
+      // MERC-70a: Show grenades/mortars as disabled for Apeiron
+      disabled: (element, ctx) => {
+        const unit = getUnit(ctx);
+        if (unit?.isMerc && unit.combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
+          return 'Apeiron cannot use explosives';
         }
-        return true;
+        return false;
       },
     })
     .execute((args, ctx) => {
@@ -319,13 +320,15 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
         if (lastReplacedId && element.id === lastReplacedId) {
           return false;
         }
-
-        // MERC-70a: Filter out grenades/mortars if Apeiron
-        const unit = getUnit(ctx);
-        if (unit?.isMerc && (unit as CombatantModel).combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
-          return false;
-        }
         return true;
+      },
+      // MERC-70a: Show grenades/mortars as disabled for Apeiron
+      disabled: (element, ctx) => {
+        const unit = getUnit(ctx);
+        if (unit?.isMerc && unit.combatantId === 'apeiron' && isGrenadeOrMortar(element as Equipment)) {
+          return 'Apeiron cannot use explosives';
+        }
+        return false;
       },
     })
     .execute((args, ctx) => {

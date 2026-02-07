@@ -4,6 +4,8 @@ Quick reference for navigating the MERC board game codebase.
 
 ## Hard Rules
 - Do not ever start a server unless I tell you to. And if you do start a server, kill it before coming back to me. Don't leave it running for me, I do not want it.
+- Do not create work arounds, shims, or half-measures. 
+- If you find a bug that is a problem with BoardSmith write up a bug report or a feature request.
 
 ## Overview
 
