@@ -1,5 +1,58 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.9 BoardSmith v3.0 Animation Timeline Migration (Shipped: 2026-02-08)
+
+**Delivered:** Migrated CombatPanel from removed BoardSmith theatre view system to 100% event-driven animation player with pure data events, combat-panel snapshots, and simplified lifecycle.
+
+**Phases completed:** 42-46 (7 plans total)
+
+**Key accomplishments:**
+
+- Removed all BoardSmith v2 theatre view dead code (7 API references across 5 files)
+- Built pure data combat event architecture — 13 animate callbacks extracted, combat-panel snapshot emitted at all 8 decision cycle points
+- Rebuilt CombatPanel as self-contained animation player — renders 100% from events, state machine deleted (-110 lines)
+- Cleaned GameTable combat wiring — ~246 lines of fallback chains deleted, combat section reduced from ~150 to ~15 lines
+- Verified with 21 automated tests covering snapshots, animation events, decision context, and lifecycle
+
+**Stats:**
+
+- 7 source files changed (+893/-733 lines)
+- 38,441 lines of TypeScript/Vue
+- 5 phases, 7 plans
+- 2 days (2026-02-07 → 2026-02-08)
+- 623 tests passing
+
+**Git range:** `feat(42-01)` → `docs(46)`
+
+**What's next:** TBD — next milestone via `/gsd:new-milestone`
+
+---
+
+## v1.8 Unified Stat Ability System (Shipped: 2026-02-03)
+
+**Delivered:** Single source of truth for 18 stat-modifying MERC abilities — define once in registry, calculate once in stat computation, display once in UI breakdown.
+
+**Phases completed:** 37-41 (8 plans total)
+
+**Key accomplishments:**
+
+- Extended ability registry with statModifiers interface for all 18 stat-modifying MERCs
+- Unified server-side stat calculation path (single applyAbilityStatModifiers function)
+- Generated UI breakdown from activeStatModifiers, removed hardcoded ability checks
+- Removed duplicate bonus functions from combat.ts
+- Integration tests covering all 18 stat-modifying abilities
+
+**Stats:**
+
+- 5 phases, 8 plans
+- 599 tests passing
+
+**Git range:** `feat(37-01)` → `docs(41)`
+
+**What's next:** BoardSmith v3.0 Animation Timeline Migration (v1.9)
+
+---
+
 ## v1.7 GameBoard Component Refactor (Shipped: 2026-01-19)
 
 **Delivered:** Refactored GameBoard.vue (3,368 lines) into focused, testable components with clean boundaries. Extracted state derivation to composables, UI flows to components, and reduced GameBoard to thin orchestrator role.
