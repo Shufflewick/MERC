@@ -1,167 +1,202 @@
-# v1.8 Requirements: Unified Stat Ability System
+# v1.9 Requirements: BoardSmith v3.0 Animation Timeline Migration
+
+**Defined:** 2026-02-07
+**Core Value:** Ship Confidence — deterministic combat animation playback via event-driven CombatPanel
 
 ## Problem Statement
 
-Stat-modifying abilities are currently implemented in **three separate paths**:
-1. **Server-side** (`elements.ts`): 20+ explicit bonus fields stored on CombatantBase
-2. **Combat-time** (`combat.ts`): Runtime-only bonus functions that recalculate everything
-3. **UI-side** (`CombatantCard.vue`): Hardcoded checks for each bonus field PLUS a fallback calculation
+BoardSmith v3.0 removed the theatre view system (frozen snapshots, mutation capture, acknowledgment protocol). MERC's CombatPanel was built on that system and references multiple removed APIs. The panel must be rebuilt as a 100% event-driven animation player — no vestigial code, no workarounds, no dead references.
 
-This causes:
-- **Double display bug**: UI shows both "Ability +2" (fallback) AND "Mayhem's Ability +2" (explicit check)
-- **Maintenance nightmare**: Adding a new ability requires changes in 3+ files
-- **Inconsistent behavior**: Combat stats calculated differently than display stats
+**Design Principle:** CombatPanel is a self-contained animation player. It renders entirely from animation event data. The rest of the game UI uses truth directly. Combat events carry full snapshots per decision cycle so refresh/late-join always works.
 
-## Affected MERCs (18 total with stat bonuses)
-
-| Type | MERCs |
-|------|-------|
-| **Equipment-conditional** | Bouba, Mayhem, Rozeske, Stumpy, Vandradi, Dutch, Moe, Ra |
-| **Squad-conditional** | Haarg, Sarge, Tack, Valkyrie, Snake, Tavisto |
-| **Passive (always-on)** | Shooter, Juicer, Ewok |
-| **Combat-only** | Max, Walter, Vulture |
+**Decision Cycle Pattern:**
+1. `combat-panel` event — full combatant snapshot (health, images, stats, casualties, decision context)
+2. Animation events (`combat-roll`, `combat-damage`, `combat-death`) — animate changes on that snapshot
+3. Animations finish — panel state matches truth — player makes decision via actionController
+4. New `combat-panel` snapshot + animation events for next cycle
+5. Repeat until `combat-end`
 
 ---
 
-## STAT-01: Unified Ability Registry
+## DELETE — Remove Old Theatre View System
 
-**Goal:** All stat-modifying abilities defined declaratively in `merc-abilities.ts` with standard `StatModifier` interface.
+### DELETE-01: Remove useCurrentView Usage
 
 **Acceptance Criteria:**
-- [x] `StatModifier` interface added to `merc-abilities.ts` with: stat, bonus, condition, label, target
-- [x] `statModifiers` field added to `MercAbility` interface
-- [x] All 18 stat-modifying MERCs have their bonuses defined in registry (19 total found)
-- [x] `getActiveStatModifiers(merc, context)` function returns active modifiers for a combatant
+- [ ] Delete `useCurrentView` import from CombatPanel.vue
+- [ ] Delete `useCurrentView` import from GameTable.vue
+- [ ] Delete `currentView` variable and all code that references it in both files
+- [ ] Delete `truthCombatComplete` computed in CombatPanel.vue
+- [ ] Delete `truthActiveCombat` computed in GameTable.vue
+- [ ] Zero references to `useCurrentView` or `CURRENT_VIEW_KEY` anywhere in src/
 
-**Status:** Complete (Phase 37)
-
-**Key Changes:**
-- `src/rules/merc-abilities.ts` - Extend registry with StatModifier interface and data
-
----
-
-## STAT-02: Single Server-Side Calculation
-
-**Goal:** One function `calculateStatModifiers()` that reads from registry and computes all active bonuses.
+### DELETE-02: Remove Acknowledgment Protocol
 
 **Acceptance Criteria:**
-- [x] `calculateStatModifiers(merc, squad)` function added to elements.ts
-- [x] Function reads from ability registry (not hardcoded logic)
-- [x] `activeStatModifiers` computed property on CombatantModel
-- [x] `updateComputedStats()` uses unified calculation
-- [x] Remove duplicate `updateXBonus()` methods (replace with single `updateAbilityBonuses()`)
+- [ ] Delete `createAcknowledgeAnimationsAction` function from rebel-combat.ts
+- [ ] Delete its registration in the action definitions
+- [ ] Delete `acknowledge` callback from `createAnimationEvents` in App.vue
+- [ ] Delete the `controller.execute('acknowledgeAnimations')` call in App.vue
+- [ ] Delete `game.acknowledgeAnimationEvents()` calls if any remain
+- [ ] Zero references to `acknowledgeAnimations` anywhere in src/
 
-**Status:** Complete (Phase 38)
-
-**Key Changes:**
-- `src/rules/elements.ts` - Replace 20+ bonus fields with unified calculation
-
----
-
-## STAT-03: Unified UI Display
-
-**Goal:** `CombatantCard.vue` reads from ability data, no hardcoded bonus field checks, no fallback calculation.
+### DELETE-03: Remove CombatPanel State Machine
 
 **Acceptance Criteria:**
-- [x] Remove all hardcoded bonus field checks from `CombatantCard.vue`
-- [x] Read `activeStatModifiers` from merc data
-- [x] Generate breakdown items from modifier list
-- [x] Remove "Ability +X" fallback logic entirely
-- [x] No duplicate display of ability bonuses
+- [ ] Delete `CombatPanelState` type and `panelState` ref
+- [ ] Delete `computeNextState()` and `transitionState()` functions
+- [ ] Delete `sawCombatEndEvent` ref
+- [ ] Delete all watchers that drive the state machine (isAnimating, pendingCount, combatComplete, truthCombatComplete, activeCombat null check)
+- [ ] Zero references to `panelState`, `sawCombatEndEvent`, `computeNextState`, `transitionState`
 
-**Status:** Complete (Phase 39)
-
-**Key Changes:**
-- `src/ui/components/CombatantCard.vue` - Unified breakdown generation via getAbilityModifiersForStat()
-- `src/rules/elements.ts` - Self-modifier labels use `${combatantName}'s Ability` pattern
-
----
-
-## STAT-04: Combat Consistency
-
-**Goal:** Combat stats read from cached values, no duplicate calculation functions.
+### DELETE-04: Remove GameTable Combat Fallback Logic
 
 **Acceptance Criteria:**
-- [x] Remove duplicate `applyXBonus()` functions from `combat.ts`
-- [x] Combat reads from cached stat values (already calculated server-side)
-- [x] Combat-only effects (Max's debuff to enemies) applied at combat time
-- [x] Combat stats match displayed stats exactly
+- [ ] Delete `combatEventSeen` ref and its watcher
+- [ ] Delete `lastCombatEventId` ref
+- [ ] Delete `cachedCombat` ref and its watchers
+- [ ] Delete `activeCombatForPanel` computed
+- [ ] Delete `theatreActiveCombat` computed
+- [ ] Delete `truthActiveCombat` computed
+- [ ] Delete animation pause-until-mount workaround (paused.value watcher)
+- [ ] Delete `combatPanelReady` ref and related logic
+- [ ] Zero fallback chains for combat state in GameTable
 
-**Status:** Complete (Phase 40)
-
-**Key Changes:**
-- `src/rules/combat.ts` - Remove duplicate calculations (14 applyXBonus functions, 20+ helpers removed, -610 lines)
-- `src/rules/elements.ts` - Unified targets getter with getAbilityBonus('targets')
-
----
-
-## STAT-05: Test Coverage
-
-**Goal:** Integration tests verify all 18 stat-modifying abilities display and calculate correctly.
+### DELETE-05: Remove displayHealth Manual Tracking
 
 **Acceptance Criteria:**
-- [x] Test each equipment-conditional ability (Bouba, Mayhem, Rozeske, Stumpy, Vandradi, Dutch, Moe, Ra)
-- [x] Test each squad-conditional ability (Haarg, Sarge, Tack, Valkyrie, Snake, Tavisto)
-- [x] Test each passive ability (Shooter, Juicer, Ewok)
-- [x] Test combat-only abilities (Max, Walter, Vulture)
-- [x] Visual verification: start game, equip Stumpy with Mortar, verify no duplicate display
-
-**Status:** Complete (Phase 41)
-
-**Key Changes:**
-- `tests/merc-abilities-integration.test.ts` - Extended with 36 new tests covering all 18+ MERCs
+- [ ] Delete `displayHealth` ref from CombatPanel.vue
+- [ ] Delete `initializeDisplayHealth()` function
+- [ ] Delete watcher on `activeCombat.sectorId` that calls initializeDisplayHealth
+- [ ] Health rendering driven entirely by animation event data (`combat-panel` snapshot + `combat-damage` deltas)
 
 ---
 
-## Architecture
+## SERVER — Combat Event Architecture
 
-### Single Source of Truth: `merc-abilities.ts`
+### SRV-01: Combat-Panel Snapshot Event
 
-```typescript
-interface StatModifier {
-  stat: 'combat' | 'training' | 'initiative' | 'health' | 'targets' | 'actions';
-  bonus: number;
-  condition?: AbilityCondition;
-  label?: string;  // For UI display (defaults to "[Name]'s Ability")
-  target?: 'self' | 'squadMates' | 'allSquad' | 'enemyMercs' | 'militia';
-}
+**Acceptance Criteria:**
+- [ ] `combat-panel` event emitted at start of each decision cycle in combat.ts
+- [ ] Snapshot contains: sectorId, sectorName, round, all rebel combatants, all dictator combatants, rebel casualties, dictator casualties
+- [ ] Each combatant in snapshot has: id, name, image, health, maxHealth, isMerc, isMilitia, isAttackDog, isDictator, playerColor, combatantId
+- [ ] Snapshot includes dog assignments if any
+- [ ] Snapshot is assembled from live game state at emission time
 
-interface MercAbility {
-  id: string;
-  statModifiers?: StatModifier[];  // NEW: unified stat bonuses
-  // ... existing fields
-}
-```
+### SRV-02: Decision Context in Snapshots
 
-### Unified Calculation Path
+**Acceptance Criteria:**
+- [ ] `combat-panel` snapshot includes `pendingTargetSelection` when applicable (attackerId, attackerName, validTargets, maxTargets)
+- [ ] Includes `pendingHitAllocation` when applicable
+- [ ] Includes `pendingWolverineSixes` when applicable
+- [ ] Includes `pendingAttackDogSelection` when applicable
+- [ ] Includes `pendingBeforeAttackHealing` when applicable
+- [ ] Includes `combatComplete` flag when combat ends
+- [ ] Decision context matches what CombatPanel needs — no extra lookups required
 
-```
-                    merc-abilities.ts
-                    (single source)
-                          │
-          ┌───────────────┴───────────────┐
-          ▼                               ▼
-   elements.ts                      CombatantCard.vue
-   (server-side cache)              (UI breakdown)
-          │                               │
-          ▼                               │
-   combat.ts                              │
-   (reads cached values)                  │
-          │                               │
-          └───────────────┬───────────────┘
-                          ▼
-                    Consistent display
-```
+### SRV-03: Pure Data Animation Events
+
+**Acceptance Criteria:**
+- [ ] All `game.animate()` calls are pure data — no callbacks
+- [ ] `combat-roll` events carry: attackerName, attackerId, attackerImage, targetNames, targetIds, diceRolls, hits, hitThreshold
+- [ ] `combat-damage` events carry: attackerName, attackerId, targetName, targetId, targetImage, damage, healthBefore, healthAfter
+- [ ] `combat-death` events carry: targetName, targetId, targetImage
+- [ ] `combat-end` events carry: rebelVictory, dictatorVictory
+- [ ] `combat-heal` events carry: targetId, targetName, healerName, healthBefore, healthAfter
+- [ ] `combat-attack-dog` events carry existing data
+- [ ] `combat-round-start` events carry round number
+- [ ] Mutations happen as normal code after `game.animate()` calls, not inside callbacks
 
 ---
 
-## Verification
+## UI — CombatPanel Rebuild
 
-1. **Unit tests**: Run `npm test` - all existing tests pass
-2. **Visual verification**: Start game, equip Stumpy with Mortar, verify:
-   - Combat shows 8 (Base 2 + Mortar +5 + Ability +1)
-   - Tooltip shows exactly 3 lines (no duplication)
-3. **Combat verification**: Enter combat with Mayhem+Uzi, verify combat dice match displayed value
+### UI-01: Event-Driven Combatant Rendering
+
+**Acceptance Criteria:**
+- [ ] CombatPanel stores latest `combat-panel` snapshot in local state
+- [ ] Rebel and dictator combatant lists rendered from snapshot data
+- [ ] Health values come from snapshot, updated by `combat-damage` events
+- [ ] Casualties rendered from snapshot casualty lists
+- [ ] No `activeCombat` prop used for combatant rendering
+- [ ] No `gameView` prop used for combatant rendering
+
+### UI-02: Event-Driven Decision Prompts
+
+**Acceptance Criteria:**
+- [ ] Target selection reads from `combat-panel` snapshot's pendingTargetSelection
+- [ ] Hit allocation reads from snapshot's pendingHitAllocation
+- [ ] Wolverine sixes reads from snapshot's pendingWolverineSixes
+- [ ] Attack dog assignment reads from snapshot's pendingAttackDogSelection
+- [ ] Before-attack healing reads from snapshot's pendingBeforeAttackHealing
+- [ ] Player actions still submitted via actionController (emit events unchanged)
+
+### UI-03: Simplified Panel Lifecycle
+
+**Acceptance Criteria:**
+- [ ] Panel opens when first `combat-panel` event is received
+- [ ] Panel closes after `combat-end` animation finishes
+- [ ] No state machine — just presence/absence of combat snapshot
+- [ ] Animation handlers remain: combat-roll, combat-damage, combat-death, combat-end, combat-attack-dog, combat-heal, combat-round-start
+- [ ] Fast-forward still works
+
+### UI-04: GameTable Clean Wiring
+
+**Acceptance Criteria:**
+- [ ] Combat panel visibility driven by animation event presence (has combat snapshot = show panel)
+- [ ] No theatre/truth fallback chains
+- [ ] No cached combat state
+- [ ] No pause-until-mount workaround
+- [ ] Clean, readable combat section in GameTable
 
 ---
-*Created: 2026-02-03 for v1.8 milestone*
+
+## TEST — Verification
+
+### TEST-01: Combat Animation Flow Tests
+
+**Acceptance Criteria:**
+- [ ] Test that combat emits `combat-panel` snapshot with correct combatant data
+- [ ] Test that snapshot includes decision context when at decision point
+- [ ] Test that animation events carry correct data (rolls, damage, deaths)
+- [ ] Test that `combat-panel` is emitted again after player decision with updated state
+- [ ] Test that `combat-end` is emitted when combat finishes
+- [ ] All existing tests pass (no regressions)
+
+---
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Changing how non-combat animations work | Only combat uses the event-driven pattern |
+| Refactoring actionController | Player action submission is unchanged |
+| Changing combat rules/logic | Only the event emission pattern changes, not combat mechanics |
+| MapGrid or other UI components | They use truth directly and are unaffected |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DELETE-01 | TBD | Pending |
+| DELETE-02 | TBD | Pending |
+| DELETE-03 | TBD | Pending |
+| DELETE-04 | TBD | Pending |
+| DELETE-05 | TBD | Pending |
+| SRV-01 | TBD | Pending |
+| SRV-02 | TBD | Pending |
+| SRV-03 | TBD | Pending |
+| UI-01 | TBD | Pending |
+| UI-02 | TBD | Pending |
+| UI-03 | TBD | Pending |
+| UI-04 | TBD | Pending |
+| TEST-01 | TBD | Pending |
+
+**Coverage:**
+- v1.9 requirements: 13 total
+- Mapped to phases: 0
+- Unmapped: 13
+
+---
+*Requirements defined: 2026-02-07*
+*Last updated: 2026-02-07 after initial definition*
