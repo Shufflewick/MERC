@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { UI_COLORS } from '../colors';
 import { useAnimationEvents } from 'boardsmith/ui';
 import type { AnimationEvent } from 'boardsmith';
@@ -35,71 +35,14 @@ interface AnimationDisplayState {
 }
 
 const props = defineProps<{
-  activeCombat: {
-    sectorId: string;
-    round: number;
-    rebelCombatants: any[];
-    dictatorCombatants: any[];
-    rebelCasualties: any[];
-    dictatorCasualties: any[];
-    pendingTargetSelection?: {
-      attackerId: string;
-      attackerName: string;
-      validTargets: Array<{
-        id: string;
-        name: string;
-        isMerc?: boolean;
-        isMilitia?: boolean;
-        health: number;
-        maxHealth?: number;
-      }>;
-      maxTargets: number;
-    };
-    pendingHitAllocation?: PendingHitAllocation;
-    pendingWolverineSixes?: {
-      attackerId: string;
-      attackerName: string;
-      sixCount: number;
-      bonusTargets: Array<{
-        id: string;
-        name: string;
-        isMerc: boolean;
-        currentHealth: number;
-        maxHealth: number;
-      }>;
-    };
-    pendingAttackDogSelection?: {
-      attackerId: string;
-      attackerName: string;
-      validTargets: AttackDogTarget[];
-    };
-    pendingBeforeAttackHealing?: {
-      attackerId: string;
-      attackerName: string;
-      availableHealers: Array<{
-        healerId: string;
-        healerName: string;
-        itemName: string;
-      }>;
-      damagedAllies: Array<{
-        id: string;
-        name: string;
-        damage: number;
-      }>;
-    };
-    dogAssignments?: Array<[string, any]>;
-    combatComplete?: boolean;
-  } | null;
+  combatSnapshot: Record<string, unknown> | null;
   isMyTurn: boolean;
   availableActions: string[];
-  sectorName: string;
   isSelectingRetreatSector?: boolean;
   retreatSectorChoices?: RetreatSector[];
 }>();
 
 const emit = defineEmits<{
-  (e: 'allocate-hit', targetId: string): void;
-  (e: 'allocate-wolverine-six', targetId: string): void;
   (e: 'reroll'): void;
   (e: 'confirm-allocation', allocations: string[]): void;
   (e: 'confirm-targets', targets: string[]): void;
@@ -108,7 +51,6 @@ const emit = defineEmits<{
   (e: 'select-retreat-sector', sectorId: string | number): void;
   (e: 'assign-attack-dog', targetId: string): void;
   (e: 'combat-finished'): void;
-  (e: 'panel-ready'): void;
   (e: 'use-medical-kit'): void;
   (e: 'use-surgeon-heal'): void;
   (e: 'use-before-attack-heal'): void;
@@ -146,7 +88,6 @@ const TIMING = {
 const currentEvent = ref<AnimationDisplayState | null>(null);
 const isPreRoll = ref(false);
 const isFastForward = ref(false);
-const combatSnapshot = ref<Record<string, unknown> | null>(null);
 const healthOverrides = ref<Map<string, number>>(new Map());
 
 // Use BoardSmith's animation events (injected by GameTable)
@@ -223,12 +164,6 @@ function mapEventToDisplayState(event: AnimationEvent): AnimationDisplayState {
 // By registering here, handlers exist before any reactive effects process events.
 
 if (animationEvents) {
-  // Snapshot handler — authoritative combatant data at each decision point
-  animationEvents.registerHandler('combat-panel', async (event) => {
-    combatSnapshot.value = event.data as Record<string, unknown>;
-    healthOverrides.value.clear(); // Snapshot health is authoritative at decision points
-  });
-
   // Roll event handler
   animationEvents.registerHandler('combat-roll', async (event) => {
     isPreRoll.value = true;
@@ -266,12 +201,11 @@ if (animationEvents) {
     await sleep(getTiming('pause'));
   });
 
-  // Combat end handler — close panel and signal GameTable
+  // Combat end handler — visual animation, then signal GameTable to clear snapshot
   animationEvents.registerHandler('combat-end', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('combat-end'));
-    // Close panel and signal GameTable
-    combatSnapshot.value = null;
+    // Cleanup UI state -- GameTable clears the snapshot via combat-finished handler
     healthOverrides.value.clear();
     healingCombatants.value.clear();
     resetAnimations();
@@ -308,10 +242,6 @@ if (animationEvents) {
     await sleep(getTiming('pause'));
   });
 }
-
-onMounted(() => {
-  emit('panel-ready');
-});
 
 // Fast forward function
 function fastForward(): void {
@@ -374,16 +304,21 @@ function findCombatantIdByName(name: string): string | null {
 // Combat Display — snapshot-driven rendering
 // =============================================================================
 
-const displayCombat = computed(() => combatSnapshot.value);
+const displayCombat = computed(() => props.combatSnapshot);
 
-watch(() => props.activeCombat, (newCombat, oldCombat) => {
-  if (newCombat && !oldCombat) {
-    // Combat starting — reset UI state
+// Sector name from snapshot
+const sectorName = computed(() => (props.combatSnapshot?.sectorName as string) ?? 'Unknown');
+
+watch(() => props.combatSnapshot, (newSnapshot, oldSnapshot) => {
+  if (newSnapshot && newSnapshot !== oldSnapshot) {
+    healthOverrides.value.clear(); // Snapshot health is authoritative at decision points
+  }
+  if (newSnapshot && !oldSnapshot) {
+    // New combat starting -- reset all UI state
     resetAnimations();
     healingCombatants.value.clear();
-    combatSnapshot.value = null;
   }
-}, { immediate: true });
+});
 
 
 // =============================================================================
@@ -405,7 +340,7 @@ const pendingRollEvent = ref<AnimationDisplayState | null>(null);
 
 // Get rebels to display — combine combatants + casualties from snapshot, dedup
 const livingRebels = computed(() => {
-  const snapshot = combatSnapshot.value;
+  const snapshot = props.combatSnapshot;
   if (!snapshot) return [];
   const combatants = (snapshot.rebelCombatants as any[]) || [];
   const casualties = (snapshot.rebelCasualties as any[]) || [];
@@ -423,7 +358,7 @@ const livingRebels = computed(() => {
 
 // Get dictator forces to display — combine combatants + casualties from snapshot, dedup
 const livingDictator = computed(() => {
-  const snapshot = combatSnapshot.value;
+  const snapshot = props.combatSnapshot;
   if (!snapshot) return [];
   const combatants = (snapshot.dictatorCombatants as any[]) || [];
   const casualties = (snapshot.dictatorCasualties as any[]) || [];
@@ -440,11 +375,11 @@ const livingDictator = computed(() => {
 });
 
 // Snapshot decision context computed helpers — used in script and template
-const snapshotTargetSelection = computed(() => combatSnapshot.value?.pendingTargetSelection as any);
-const snapshotHitAllocation = computed(() => combatSnapshot.value?.pendingHitAllocation as PendingHitAllocation | null);
-const snapshotWolverineSixes = computed(() => combatSnapshot.value?.pendingWolverineSixes as any);
-const snapshotAttackDogSelection = computed(() => combatSnapshot.value?.pendingAttackDogSelection as any);
-const snapshotBeforeAttackHealing = computed(() => combatSnapshot.value?.pendingBeforeAttackHealing as any);
+const snapshotTargetSelection = computed(() => props.combatSnapshot?.pendingTargetSelection as any);
+const snapshotHitAllocation = computed(() => props.combatSnapshot?.pendingHitAllocation as PendingHitAllocation | null);
+const snapshotWolverineSixes = computed(() => props.combatSnapshot?.pendingWolverineSixes as any);
+const snapshotAttackDogSelection = computed(() => props.combatSnapshot?.pendingAttackDogSelection as any);
+const snapshotBeforeAttackHealing = computed(() => props.combatSnapshot?.pendingBeforeAttackHealing as any);
 
 // Mode checks
 const isSelectingTargets = computed(() => {
@@ -578,8 +513,8 @@ function selectTarget(targetId: string) {
   }
 
   // Handle Wolverine's 6s allocation
+  // Wolverine 6s tracked via hit allocation panel -- no action needed on individual click
   if (isAllocatingWolverineSixes.value) {
-    emit('allocate-wolverine-six', normalized);
     return;
   }
 
@@ -612,7 +547,7 @@ function removeHitFromTarget(targetId: string) {
 }
 
 // Reset selected targets when snapshot target selection changes
-watch(() => combatSnapshot.value?.pendingTargetSelection, () => {
+watch(() => props.combatSnapshot?.pendingTargetSelection, () => {
   selectedTargets.value.clear();
 }, { immediate: true });
 
@@ -789,7 +724,6 @@ onUnmounted(() => {
       ref="hitAllocationRef"
       :pending-allocation="snapshotHitAllocation"
       :is-my-turn="isMyTurn"
-      @allocate-hit="emit('allocate-hit', $event)"
       @confirm-allocation="emit('confirm-allocation', $event)"
       @reroll="emit('reroll')"
     />
