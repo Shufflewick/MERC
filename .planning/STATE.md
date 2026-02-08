@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 44 of 46 (CombatPanel Rebuild)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-08 -- Completed 44-01-PLAN.md (Snapshot-Driven CombatPanel Rendering)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-08 -- Completed 44-02-PLAN.md (Decision Prompts from Snapshot + State Machine Removal)
 
-Progress: [█████░░░░░] 67% (4 of 6 plans complete)
+Progress: [██████░░░░] 83% (5 of 6 plans complete)
 
 ## Current Milestone
 
@@ -24,7 +24,7 @@ Progress: [█████░░░░░] 67% (4 of 6 plans complete)
 |-------|------|--------------|--------|
 | 42 | Remove Dead APIs | DELETE-01, DELETE-02 | Complete |
 | 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Complete |
-| 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | In progress (plan 01 complete) |
+| 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | Complete |
 | 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Not started |
 | 46 | Verification | TEST-01 | Not started |
 
@@ -47,8 +47,8 @@ Total: 41 phases, 83 plans, 9 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 86
-- Average duration: 9.2 min/plan
+- Total plans completed: 87
+- Average duration: 9.1 min/plan
 
 ## Accumulated Context
 
@@ -71,6 +71,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Epinephrine decision cycle has dedicated handler in executeCombat with state save (43-02)
 - getCombatantDisplay reads plain snapshot fields directly, no resolveCombatant/getAttr indirection (44-01)
 - healthOverrides cleared on each combat-panel snapshot -- snapshot health is authoritative at decision points (44-01)
+- Decision prompts accessed via 5 snapshot computed helpers, not inline template casts (44-02)
+- combat-end handler is sole lifecycle exit: clears state and emits combat-finished, replacing state machine (44-02)
 
 ### Deferred Issues
 
@@ -83,5 +85,5 @@ None for v1.9.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 44-01-PLAN.md (Snapshot-Driven CombatPanel Rendering)
+Stopped at: Completed 44-02-PLAN.md (Decision Prompts from Snapshot + State Machine Removal)
 Resume file: None
