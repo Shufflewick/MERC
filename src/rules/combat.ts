@@ -69,7 +69,7 @@ import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetr
 
 /**
  * Clear activeCombat state.
- * Animation events are handled by BoardSmith's game.emitAnimationEvent() system.
+ * Animation events are handled by BoardSmith's game.animate() theatre view system.
  */
 export function clearActiveCombat(game: MERCGame): void {
   game.activeCombat = null;
@@ -788,6 +788,30 @@ function applyBaseDefenseBonuses(
 // =============================================================================
 
 /**
+ * Queue combat to run through the flow system so UI can mount CombatPanel
+ * before resolution (prevents immediate resolve inside action execution).
+ */
+export function queuePendingCombat(
+  game: MERCGame,
+  sector: Sector,
+  rebel: RebelPlayer,
+  attackingPlayerIsRebel: boolean
+): void {
+  const entry = {
+    sectorId: sector.sectorId,
+    playerId: `${rebel.seat}`,
+    attackingPlayerIsRebel,
+  };
+
+  if (!game.pendingCombat && !game.activeCombat) {
+    game.pendingCombat = entry;
+    return;
+  }
+
+  game.pendingCombatQueue.push(entry);
+}
+
+/**
  * Get all combatants for a sector
  * Per rules (06-merc-actions.md lines 195-218): Coordinated attacks allow
  * multiple squads from same or different rebels to attack together.
@@ -1046,18 +1070,10 @@ function assignAttackDog(
   const sortedTargets = sortTargetsByAIPriority(validTargets, game.random);
   const target = sortedTargets[0];
 
-  // Create the dog combatant
+  // Create the dog combatant (not yet in game tree — just an object)
   const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex);
-  // Store target info for UI display
-  dog.attackDogAssignedTo = target.id;
-  dog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
 
-  // Track the assignment
-  dogState.assignments.set(target.id, dog);
-  dogState.dogs.push(dog);
-
-  // Emit animation event for UI
-  game.emitAnimationEvent('combat-attack-dog', {
+  game.animate('combat-attack-dog', {
     attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
     attackerId: attacker.id,
     attackerImage: attacker.image,
@@ -1067,12 +1083,13 @@ function assignAttackDog(
     dogId: dog.id,
     dogImage: dog.image,
   });
-
+  dog.attackDogAssignedTo = target.id;
+  dog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
+  dogState.assignments.set(target.id, dog);
+  dogState.dogs.push(dog);
+  attacker.hasAttackDog = false;
   game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
   game.message(`${target.name} must attack the dog before doing anything else.`);
-
-  // Mark attacker as having used their dog
-  attacker.hasAttackDog = false;
 
   return dog;
 }
@@ -1103,18 +1120,10 @@ function assignAttackDogToTarget(
 
   if (!target) return null;
 
-  // Create the dog combatant
+  // Create the dog combatant (not yet in game tree — just an object)
   const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex);
-  // Store target info for UI display
-  dog.attackDogAssignedTo = target.id;
-  dog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
 
-  // Track the assignment
-  dogState.assignments.set(target.id, dog);
-  dogState.dogs.push(dog);
-
-  // Emit animation event for UI
-  game.emitAnimationEvent('combat-attack-dog', {
+  game.animate('combat-attack-dog', {
     attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
     attackerId: attacker.id,
     attackerImage: attacker.image,
@@ -1124,12 +1133,13 @@ function assignAttackDogToTarget(
     dogId: dog.id,
     dogImage: dog.image,
   });
-
+  dog.attackDogAssignedTo = target.id;
+  dog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
+  dogState.assignments.set(target.id, dog);
+  dogState.dogs.push(dog);
+  attacker.hasAttackDog = false;
   game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
   game.message(`${target.name} must attack the dog before doing anything else.`);
-
-  // Mark attacker as having used their dog
-  attacker.hasAttackDog = false;
 
   return dog;
 }
@@ -1469,7 +1479,17 @@ function executeCombatRound(
           );
 
           if (target) {
-            // Assign target to existing dog
+            // Emit animation event and assign target to existing dog
+            game.animate('combat-attack-dog', {
+              attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+              attackerId: attacker.id,
+              attackerImage: attacker.image,
+              targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+              targetId: target.id,
+              targetImage: target.image,
+              dogId: existingDog.id,
+              dogImage: existingDog.image,
+            });
             existingDog.attackDogAssignedTo = target.id;
             existingDog.attackDogTargetName = target.name.charAt(0).toUpperCase() + target.name.slice(1);
             existingDog.attackDogPendingTarget = false;
@@ -1484,22 +1504,8 @@ function executeCombatRound(
               dogInCombatants.attackDogPendingTarget = false;
             }
 
-            // Emit animation event for UI
-            game.emitAnimationEvent('combat-attack-dog', {
-              attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
-              attackerId: attacker.id,
-              attackerImage: attacker.image,
-              targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
-              targetId: target.id,
-              targetImage: target.image,
-              dogId: existingDog.id,
-              dogImage: existingDog.image,
-            });
-
             game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
             game.message(`${target.name} must attack the dog before doing anything else.`);
-
-            // Mark attacker as having used their dog
             attacker.hasAttackDog = false;
           }
         } else {
@@ -1632,7 +1638,7 @@ function executeCombatRound(
     // Include target info so UI can highlight targets even on miss
     const attackerCombatantId = getCombatantId(attacker);
     const hitThreshold = attackerCombatantId ? getHitThreshold(attackerCombatantId) : CombatConstants.HIT_THRESHOLD;
-    game.emitAnimationEvent('combat-roll', {
+    game.animate('combat-roll', {
       attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
       attackerId: attacker.id,
       attackerImage: attacker.image,
@@ -1652,7 +1658,7 @@ function executeCombatRound(
       game.message(`${attacker.name} rerolls [${rolls.join(', ')}] - ${hits} hit(s)`);
 
       // Emit reroll event for UI animation (same targets as original roll)
-      game.emitAnimationEvent('combat-roll', {
+      game.animate('combat-roll', {
         attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
         attackerId: attacker.id,
         attackerImage: attacker.image,
@@ -1778,31 +1784,37 @@ function executeCombatRound(
     for (const target of expandedTargets) {
       if (remainingHits <= 0) break;
 
-      // Capture health BEFORE damage is applied (for UI animation sync)
+      // Pre-compute expected health damage for animation event data (matches applyDamage logic)
       const healthBefore = target.health;
+      const armorAbsorb = (!attacker.armorPiercing && target.armor > 0) ? Math.min(target.armor, remainingHits) : 0;
+      const expectedHealthDamage = Math.min(remainingHits - armorAbsorb, target.health);
 
-      // MERC-38e: Pass armorPiercing flag to applyDamage
-      const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
-      damageDealt.set(target.id, damage);
-
-      // Emit damage event for UI animation with health state
-      if (damage > 0) {
-        game.emitAnimationEvent('combat-damage', {
+      if (expectedHealthDamage > 0) {
+        // MERC-38e: Pass armorPiercing flag to applyDamage
+        game.animate('combat-damage', {
           attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
           attackerId: attacker.id,
           targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
           targetId: target.id,
           targetImage: target.image,
-          damage,
+          damage: expectedHealthDamage,
           healthBefore,
-          healthAfter: target.health,
+          healthAfter: healthBefore - expectedHealthDamage,
         });
-      }
-
-      // Sync damage to source merc immediately (so UI shows correct state during combat)
-      if (target.sourceElement?.isMerc) {
-        const merc = target.sourceElement;
-        merc.damage = merc.maxHealth - target.health;
+        applyDamage(target, remainingHits, game, attacker.armorPiercing);
+        damageDealt.set(target.id, expectedHealthDamage);
+        // Sync damage to source merc immediately (so UI shows correct state during combat)
+        if (target.sourceElement?.isMerc) {
+          const merc = target.sourceElement;
+          merc.damage = merc.maxHealth - target.health;
+        }
+      } else {
+        const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
+        damageDealt.set(target.id, damage);
+        if (target.sourceElement?.isMerc) {
+          const merc = target.sourceElement;
+          merc.damage = merc.maxHealth - target.health;
+        }
       }
 
       if (target.health <= 0) {
@@ -1825,24 +1837,22 @@ function executeCombatRound(
             game.message(`${attacker.name} converts ${target.name} to her side!`);
             // Don't add to casualties - militia is converted, not killed
           } else {
-            casualties.push(target);
-            game.message(`${attacker.name} kills ${target.name}!`);
-            // Emit death event
-            game.emitAnimationEvent('combat-death', {
+            game.animate('combat-death', {
               targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
               targetId: target.id,
               targetImage: target.image,
             });
+            casualties.push(target);
+            game.message(`${attacker.name} kills ${target.name}!`);
           }
         } else {
-          casualties.push(target);
-          game.message(`${attacker.name} kills ${target.name}!`);
-          // Emit death event
-          game.emitAnimationEvent('combat-death', {
+          game.animate('combat-death', {
             targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
             targetId: target.id,
             targetImage: target.image,
           });
+          casualties.push(target);
+          game.message(`${attacker.name} kills ${target.name}!`);
 
           // MERC-4ib: Handle MERC death immediately (so UI shows correct state during combat)
           if (target.sourceElement?.isMerc) {
@@ -1996,14 +2006,14 @@ function executeCombatRound(
           }
         }
       } else {
-        game.message(`${attacker.name} hits ${target.name} for ${damage} damage`);
+        game.message(`${attacker.name} hits ${target.name} for ${expectedHealthDamage} damage`);
       }
 
       // Militia and dogs die in one hit, MERCs can take multiple
       if (target.isMilitia || target.isAttackDog) {
         remainingHits--;
       } else {
-        remainingHits -= damage;
+        remainingHits -= expectedHealthDamage;
       }
     }
 
@@ -2426,7 +2436,7 @@ export function executeCombat(
     if (currentAttackerIndex === 0) {
       game.message(`--- Round ${round} ---`);
       // Emit round-start event for UI animation
-      game.emitAnimationEvent('combat-round-start', {
+      game.animate('combat-round-start', {
         round,
       });
       // Reset healing dice used for the new round
@@ -2735,14 +2745,7 @@ export function executeCombat(
 
   game.message(`=== Combat Complete ===`);
 
-  // Emit combat-end event for UI animation (BoardSmith v2.4 Animation Event System)
-  game.emitAnimationEvent('combat-end', {
-    rebelVictory: outcome.rebelVictory,
-    dictatorVictory: outcome.dictatorVictory,
-  });
-
-  // Set combatComplete flag - animation events are handled by BoardSmith's event system
-  game.activeCombat = {
+  const combatEndState = {
     sectorId: sector.sectorId,
     attackingPlayerId: `${attackingPlayer.seat}`,
     attackingPlayerIsRebel,
@@ -2755,6 +2758,15 @@ export function executeCombat(
     dogs: dogState.dogs,
     combatComplete: true,
   };
+
+  // Set combatComplete immediately so UI can close after animations finish.
+  game.activeCombat = combatEndState;
+
+  // Emit combat-end event for animation playback.
+  game.animate('combat-end', {
+    rebelVictory: outcome.rebelVictory,
+    dictatorVictory: outcome.dictatorVictory,
+  });
 
   return outcome;
 }
