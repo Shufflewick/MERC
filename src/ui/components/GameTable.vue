@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Vue core
-import { computed, ref, watch, inject, nextTick, toRef, onMounted } from 'vue';
+import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
 
 // External packages
 import { useBoardInteraction, type UseActionControllerReturn, useAnimationEvents, GameOverlay } from 'boardsmith/ui';
@@ -482,126 +482,19 @@ const showPlayedCardsModal = ref(false);
 const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null>(null);
 
 // ============================================================================
-// COMBAT PANEL - Show dice and hit allocation during combat
+// COMBAT PANEL - driven by animation events
 // ============================================================================
 
-const combatPanelReady = ref(false);
-
-// Animation events are provided by GameShell
 const animationEvents = useAnimationEvents();
+const combatSnapshot = ref<Record<string, unknown> | null>(null);
 
-const rawAnimationEvents = computed(() => {
-  return props.state?.state?.animationEvents ||
-    props.state?.animationEvents ||
-    [];
-});
+if (animationEvents) {
+  animationEvents.registerHandler('combat-panel', async (event) => {
+    combatSnapshot.value = event.data as Record<string, unknown>;
+  });
+}
 
-const combatEventSeen = ref(false);
-const lastCombatEventId = ref(0);
-
-watch(rawAnimationEvents, (events) => {
-  for (const event of events) {
-    if (typeof event?.type !== 'string') continue;
-    if (!event.type.startsWith('combat-')) continue;
-    const eventId = typeof event.id === 'number' ? event.id : 0;
-    if (eventId > lastCombatEventId.value) {
-      lastCombatEventId.value = eventId;
-      combatEventSeen.value = true;
-    }
-  }
-});
-
-const hasPendingCombatEvents = computed(() => {
-  return (animationEvents?.pendingCount.value ?? 0) > 0 ||
-    (animationEvents?.isAnimating.value ?? false);
-});
-
-// Get active combat state from gameView (theatre view)
-const theatreActiveCombat = computed(() => {
-  const combat = props.gameView?.activeCombat ||
-                 props.gameView?.attributes?.activeCombat;
-  if (!combat) return null;
-  return combat;
-});
-
-const activeCombat = computed(() => {
-  return theatreActiveCombat.value ?? null;
-});
-
-const cachedCombat = ref<any | null>(null);
-
-watch(activeCombat, (newCombat) => {
-  if (newCombat) {
-    cachedCombat.value = newCombat;
-  }
-});
-
-watch([activeCombat, hasPendingCombatEvents], ([newCombat, pendingCombatEvents]) => {
-  if (!newCombat && !pendingCombatEvents) {
-    cachedCombat.value = null;
-  }
-});
-
-const activeCombatForPanel = computed(() => {
-  if (activeCombat.value) return activeCombat.value;
-  if (hasPendingCombatEvents.value || combatEventSeen.value) return cachedCombat.value;
-  return null;
-});
-
-// ============================================================================
-// ANIMATION EVENTS SETUP (BoardSmith Theatre View)
-// ============================================================================
-
-// Check if there's active combat to show the panel
-// Theatre view keeps activeCombat non-null throughout animation playback
-const hasActiveCombat = computed(() => {
-  return activeCombatForPanel.value !== null || hasPendingCombatEvents.value || combatEventSeen.value;
-});
-
-// Pause animation processing briefly when combat begins so CombatPanel can mount
-watch(
-  [() => activeCombatForPanel.value, hasPendingCombatEvents, combatEventSeen],
-  ([newCombat, pendingCombatEvents, seenCombat], [oldCombat]) => {
-    if (!animationEvents) return;
-
-    if ((newCombat && !oldCombat) ||
-        (pendingCombatEvents && !combatPanelReady.value) ||
-        (seenCombat && !combatPanelReady.value)) {
-      combatPanelReady.value = false;
-      animationEvents.paused.value = true;
-      return;
-    }
-
-    if (!newCombat && !pendingCombatEvents) {
-      combatPanelReady.value = false;
-      animationEvents.paused.value = false;
-    }
-  }
-);
-
-watch(
-  [() => combatPanelReady.value, () => activeCombatForPanel.value, hasPendingCombatEvents, combatEventSeen],
-  ([ready, combat, pendingCombatEvents, seenCombat]) => {
-    if (!animationEvents) return;
-    if (!combat && !pendingCombatEvents && !seenCombat) return;
-    if (!ready) return;
-
-    nextTick(() => {
-      requestAnimationFrame(() => {
-        animationEvents.paused.value = false;
-      });
-    });
-  }
-);
-
-watch(
-  [hasPendingCombatEvents, () => activeCombatForPanel.value],
-  ([pendingCombatEvents, combat]) => {
-    if (!pendingCombatEvents && !combat) {
-      combatEventSeen.value = false;
-    }
-  }
-);
+const hasActiveCombat = computed(() => combatSnapshot.value !== null);
 
 // Delayed game over - waits for animations to complete before showing victory overlay
 const showGameOverOverlay = computed(() => {
@@ -614,34 +507,15 @@ const showGameOverOverlay = computed(() => {
   return true;
 });
 
-// Handler for when combat is truly finished (animations done AND combat marked complete)
-// This is emitted by CombatPanel after its state machine reaches COMPLETE
+// Handler for when combat is truly finished
+// Emitted by CombatPanel after combat-end animation finishes
 async function handleCombatFinished() {
-  // Tell the game to clear combat state
+  combatSnapshot.value = null;
   try {
     await props.actionController.execute('clearCombatAnimations', {});
   } catch {
-    // Action may fail if game already cleared activeCombat - that's fine
+    // Action may fail if game already cleared activeCombat
   }
-}
-
-// Get sector name for the combat
-const combatSectorName = computed(() => {
-  const combat = activeCombat.value;
-  if (!combat?.sectorId) return 'Unknown';
-  const sector = sectors.value.find(s => s.sectorId === combat.sectorId);
-  return sector?.sectorName || 'Unknown';
-});
-
-// Handle hit allocation from CombatPanel (per-hit tracking for UI)
-function handleAllocateHit(_targetId: string) {
-  // Individual hit allocation is tracked in CombatPanel state
-  // The final allocation is sent via handleConfirmAllocation
-}
-
-// Handle Wolverine 6s allocation
-function handleAllocateWolverineSix(_targetId: string) {
-  // Wolverine 6s allocation handled separately
 }
 
 // Handle Basic's reroll
@@ -712,16 +586,6 @@ async function handleUseBeforeAttackHeal() {
 async function handleSkipBeforeAttackHeal() {
   if (!props.availableActions.includes('combatSkipBeforeAttackHeal')) return;
   await props.actionController.start('combatSkipBeforeAttackHeal');
-}
-
-// Handle display phase completion (automated combat animation finished)
-async function handleDisplayComplete() {
-  if (!props.availableActions.includes('combatDisplayContinue')) return;
-  await props.actionController.execute('combatDisplayContinue', {});
-}
-
-function handleCombatPanelReady() {
-  combatPanelReady.value = true;
 }
 
 
@@ -1250,17 +1114,14 @@ const clickableSectors = computed(() => {
       </div>
     </GameOverlay>
 
-    <!-- Combat Panel - shown when there's active combat -->
+    <!-- Combat Panel - shown when combat snapshot is present -->
     <CombatPanel
       v-if="hasActiveCombat"
-      :active-combat="activeCombatForPanel"
+      :combat-snapshot="combatSnapshot"
       :is-my-turn="isMyTurn"
       :available-actions="availableActions"
-      :sector-name="combatSectorName"
       :is-selecting-retreat-sector="isSelectingRetreatSector"
       :retreat-sector-choices="retreatSectorChoices"
-      @allocate-hit="handleAllocateHit"
-      @allocate-wolverine-six="handleAllocateWolverineSix"
       @reroll="handleReroll"
       @confirm-allocation="handleConfirmAllocation"
       @confirm-targets="handleConfirmTargets"
@@ -1268,9 +1129,7 @@ const clickableSectors = computed(() => {
       @retreat-combat="handleRetreatCombat"
       @select-retreat-sector="handleSelectRetreatSector"
       @assign-attack-dog="handleAssignAttackDog"
-      @display-complete="handleDisplayComplete"
       @combat-finished="handleCombatFinished"
-      @panel-ready="handleCombatPanelReady"
       @use-medical-kit="handleUseMedicalKit"
       @use-surgeon-heal="handleUseSurgeonHeal"
       @use-before-attack-heal="handleUseBeforeAttackHeal"
