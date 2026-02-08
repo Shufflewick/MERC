@@ -1413,16 +1413,13 @@ function executeCombatRound(
     // Dictator-controlled includes MERCs, dictator card, AND militia when human player
     const isDictatorHumanControlled = (isDictatorMercOrDictator || isDictatorMilitia) && !game.dictatorPlayer?.isAI;
 
-    // Only pause for target selection if:
-    // 1. Unit is human controlled AND
-    // 2. Unit belongs to the attacking side (defending units auto-target to avoid cross-turn issues)
-    const isOnAttackingSide = attackingPlayerIsRebel ? !attacker.isDictatorSide : attacker.isDictatorSide;
+    // Pause for combat decisions if unit is human controlled (both sides get choices)
     const isHumanControlled = isRebelHumanControlled || isDictatorHumanControlled;
     const hasSelectedTargets = playerSelectedTargets?.has(attacker.id);
 
     // BEFORE-ATTACK HEALING: Check if we need to pause for healing before this attacker acts
-    // Only for human-controlled MERCs on the attacking side
-    if (interactive && isHumanControlled && isOnAttackingSide && !attacker.isMilitia && hasMercSource) {
+    // Only for human-controlled MERCs (both sides get the choice)
+    if (interactive && isHumanControlled && !attacker.isMilitia && hasMercSource) {
       // Check if we've already handled this attacker's healing phase
       const hasProcessedHealing = game.activeCombat?.beforeAttackHealingProcessed?.has(attacker.id);
 
@@ -1662,8 +1659,8 @@ function executeCombatRound(
     }
 
     // Target selection - comes AFTER attack dog assignment
-    // Only pause for target selection if unit is on attacking side (defending units auto-target)
-    if (interactive && isHumanControlled && isOnAttackingSide && !hasSelectedTargets) {
+    // Pause for target selection for all human-controlled units (both sides get choices)
+    if (interactive && isHumanControlled && !hasSelectedTargets) {
       // Check if dog forces targets (no player choice needed)
       const assignedDog = activeDogState.assignments.get(attacker.id);
       const dogForcesTarget = assignedDog && assignedDog.health > 0;

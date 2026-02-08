@@ -60,6 +60,30 @@ import { getGlobalCachedValue } from './actions/helpers.js';
  * - All rebels eliminated (dictator wins)
  */
 
+/** Resolve the player who controls the given combatant for combat decisions */
+function getCombatDecisionPlayer(game: MERCGame, attackerId: string, fallback: Player): Player {
+  const attacker = game.activeCombat?.rebelCombatants?.find(c => c.id === attackerId) ||
+                   game.activeCombat?.dictatorCombatants?.find(c => c.id === attackerId);
+  if (!attacker) return fallback;
+
+  if (attacker.isDictatorSide) {
+    return game.dictatorPlayer ?? fallback;
+  }
+
+  // Rebel unit — find owning player via sourceElement or ownerId
+  if (attacker.sourceElement) {
+    const owner = game.rebelPlayers.find(p =>
+      p.team.some(m => m.id === attacker.sourceElement!.id)
+    );
+    if (owner) return owner;
+  }
+  if (attacker.ownerId) {
+    const owner = game.rebelPlayers.find(p => `${p.seat}` === attacker.ownerId);
+    if (owner) return owner;
+  }
+  return fallback;
+}
+
 export function createGameFlow(game: MERCGame): FlowDefinition {
   return {
     root: sequence(
@@ -312,6 +336,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   maxIterations: 50,
                   do: actionStep({
                     name: 'before-attack-heal',
+                    player: (ctx) => {
+                      const pending = game.activeCombat?.pendingBeforeAttackHealing;
+                      if (!pending) return ctx.player!;
+                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                    },
                     actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
                     skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
                   }),
@@ -324,6 +353,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   maxIterations: 50,
                   do: actionStep({
                     name: 'assign-attack-dog',
+                    player: (ctx) => {
+                      const pending = game.activeCombat?.pendingAttackDogSelection;
+                      if (!pending) return ctx.player!;
+                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                    },
                     actions: ['combatAssignAttackDog'],
                     skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
                   }),
@@ -336,6 +370,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   maxIterations: 50,
                   do: actionStep({
                     name: 'select-targets',
+                    player: (ctx) => {
+                      const pending = game.activeCombat?.pendingTargetSelection;
+                      if (!pending) return ctx.player!;
+                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                    },
                     actions: ['combatSelectTarget'],
                     skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
                   }),
@@ -693,6 +732,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     maxIterations: 50,
                     do: actionStep({
                       name: 'before-attack-heal',
+                      player: (ctx) => {
+                        const pending = game.activeCombat?.pendingBeforeAttackHealing;
+                        if (!pending) return ctx.player!;
+                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                      },
                       actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
                       skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
                     }),
@@ -705,6 +749,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     maxIterations: 50,
                     do: actionStep({
                       name: 'assign-attack-dog',
+                      player: (ctx) => {
+                        const pending = game.activeCombat?.pendingAttackDogSelection;
+                        if (!pending) return ctx.player!;
+                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                      },
                       actions: ['combatAssignAttackDog'],
                       skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
                     }),
@@ -717,6 +766,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     maxIterations: 50,
                     do: actionStep({
                       name: 'select-targets',
+                      player: (ctx) => {
+                        const pending = game.activeCombat?.pendingTargetSelection;
+                        if (!pending) return ctx.player!;
+                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                      },
                       actions: ['combatSelectTarget'],
                       skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
                     }),

@@ -882,7 +882,15 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
     .prompt('Use healing item')
     .condition({
       'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'is controlling player': (ctx) => {
+        const pending = game.activeCombat?.pendingBeforeAttackHealing;
+        if (!pending) return false;
+        const attacker = game.activeCombat?.rebelCombatants?.find(c => c.id === pending.attackerId) ||
+                         game.activeCombat?.dictatorCombatants?.find(c => c.id === pending.attackerId);
+        if (!attacker) return false;
+        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
+        return isRebelPlayer(ctx.player);
+      },
     })
     .chooseFrom<string>('healer', {
       prompt: 'Select MERC to use healing item',
@@ -1036,7 +1044,15 @@ export function createCombatSkipBeforeAttackHealAction(game: MERCGame): ActionDe
     .prompt('Skip healing')
     .condition({
       'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'is controlling player': (ctx) => {
+        const pending = game.activeCombat?.pendingBeforeAttackHealing;
+        if (!pending) return false;
+        const attacker = game.activeCombat?.rebelCombatants?.find(c => c.id === pending.attackerId) ||
+                         game.activeCombat?.dictatorCombatants?.find(c => c.id === pending.attackerId);
+        if (!attacker) return false;
+        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
+        return isRebelPlayer(ctx.player);
+      },
     })
     .execute(() => {
       if (!game.activeCombat?.pendingBeforeAttackHealing) {
