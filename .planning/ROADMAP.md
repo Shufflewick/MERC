@@ -69,7 +69,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 42-01-PLAN.md -- Remove useCurrentView, truthCombatComplete, truthActiveCombat, and acknowledgment protocol from 5 files
+- [x] 42-01-PLAN.md -- Remove useCurrentView, truthCombatComplete, truthActiveCombat, and acknowledgment protocol from 5 files
 
 #### Phase 43: Combat Event Architecture
 **Goal**: Combat emits a complete, self-contained event stream -- `combat-panel` snapshots with full combatant data and decision context at each decision cycle, plus pure data animation events with no mutation callbacks
@@ -138,7 +138,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 42. Remove Dead APIs | 0/1 | Not started | - |
+| 42. Remove Dead APIs | 1/1 | ✓ Complete | 2026-02-08 |
 | 43. Combat Event Architecture | 0/TBD | Not started | - |
 | 44. CombatPanel Rebuild | 0/TBD | Not started | - |
 | 45. GameTable Clean Wiring | 0/TBD | Not started | - |
