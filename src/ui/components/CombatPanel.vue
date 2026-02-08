@@ -266,11 +266,16 @@ if (animationEvents) {
     await sleep(getTiming('pause'));
   });
 
-  // Combat end handler
+  // Combat end handler — close panel and signal GameTable
   animationEvents.registerHandler('combat-end', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
-    sawCombatEndEvent.value = true;
     await sleep(getTiming('combat-end'));
+    // Close panel and signal GameTable
+    combatSnapshot.value = null;
+    healthOverrides.value.clear();
+    healingCombatants.value.clear();
+    resetAnimations();
+    emit('combat-finished');
   });
 
   // Attack Dog assignment handler
@@ -321,9 +326,6 @@ function resetAnimations(): void {
   healthOverrides.value.clear();
 }
 
-function resetForNewCombat(): void {
-  resetAnimations();
-}
 
 // =============================================================================
 // Composables
@@ -490,24 +492,9 @@ const dogTargetNames = computed(() => {
 // Methods
 // =============================================================================
 
-function capitalize(str: string): string {
-  if (!str) return str;
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
 function normalizeId(id: unknown): string | null {
   if (id === null || id === undefined) return null;
   return String(id);
-}
-
-function getCombatantId(combatant: any): string | null {
-  const rawId =
-    combatant?.id ||
-    combatant?.sourceElement?.id ||
-    combatant?.__elementRef ||
-    combatant?.attributes?.id ||
-    null;
-  return normalizeId(rawId);
 }
 
 function getCombatantDisplay(combatant: any) {
@@ -624,95 +611,6 @@ function removeHitFromTarget(targetId: string) {
   hitAllocationRef.value.removeHitFromTarget(normalized);
 }
 
-// =============================================================================
-// Combat Panel State Machine
-// =============================================================================
-// States: IDLE | ANIMATING | WAITING_FOR_INPUT | COMPLETE
-//
-// Transitions:
-//   IDLE → ANIMATING: Animation events playing
-//   ANIMATING → WAITING_FOR_INPUT: Animations done, combatComplete is false
-//   ANIMATING → COMPLETE: Animations done AND (combatComplete is true OR saw combat-end event)
-//   WAITING_FOR_INPUT → ANIMATING: New events arrive
-//   COMPLETE → (emit combat-finished, panel closes)
-//
-// This is event-driven - BoardSmith's useAnimationEvents handles the queue.
-
-type CombatPanelState = 'IDLE' | 'ANIMATING' | 'WAITING_FOR_INPUT' | 'COMPLETE';
-const panelState = ref<CombatPanelState>('IDLE');
-
-// Track if we've seen a combat-end event (definitive signal that combat is over)
-// This is set by the combat-end handler
-const sawCombatEndEvent = ref(false);
-
-// Derive state from current conditions
-function computeNextState(): CombatPanelState {
-  const animationsPlaying = isAnimating.value;
-  const hasPendingEvents = (animationEvents?.pendingCount.value ?? 0) > 0;
-  const combatComplete = props.activeCombat?.combatComplete === true;
-
-  // If we're playing animations
-  if (animationsPlaying || hasPendingEvents) {
-    return 'ANIMATING';
-  }
-
-  // Combat is ONLY complete when we have definitive evidence:
-  // 1. combatComplete flag is true, OR
-  // 2. We've seen a combat-end event in the queue
-  // NOT just because activeCombat became null (game might clear it prematurely)
-  if (combatComplete || sawCombatEndEvent.value) {
-    return 'COMPLETE';
-  }
-
-  // Waiting for more events or user input
-  return 'WAITING_FOR_INPUT';
-}
-
-// Handle state transitions
-function transitionState() {
-  const newState = computeNextState();
-  const oldState = panelState.value;
-
-  if (newState !== oldState) {
-    panelState.value = newState;
-
-    // Handle state entry actions
-    if (newState === 'COMPLETE') {
-      healingCombatants.value.clear();
-      resetAnimations();
-      emit('combat-finished');
-    }
-  }
-}
-
-// Watch animation activity to drive state machine transitions
-watch([isAnimating, () => animationEvents?.pendingCount.value ?? 0], () => {
-  transitionState();
-});
-
-// Also check state when combatComplete changes
-watch(() => props.activeCombat?.combatComplete, () => {
-  transitionState();
-});
-
-// Also check state when activeCombat becomes null
-watch(() => props.activeCombat, (newVal, oldVal) => {
-  if (oldVal && !newVal) {
-    // Don't force close here - let the state machine handle it based on sawCombatEndEvent
-    transitionState();
-  }
-});
-
-// Reset on new combat
-watch(() => props.activeCombat?.sectorId, (newSectorId, oldSectorId) => {
-  if (newSectorId && newSectorId !== oldSectorId) {
-    healingCombatants.value.clear();
-    resetForNewCombat();
-    sawCombatEndEvent.value = false;
-    panelState.value = 'IDLE';
-  }
-});
-
 // Reset selected targets when snapshot target selection changes
 watch(() => combatSnapshot.value?.pendingTargetSelection, () => {
   selectedTargets.value.clear();
@@ -787,7 +685,7 @@ watch(isPreRoll, (preRoll, wasPreRoll) => {
 
 // Cleanup
 onUnmounted(() => {
-  resetForNewCombat();
+  resetAnimations();
   healingCombatants.value.clear();
 });
 </script>
