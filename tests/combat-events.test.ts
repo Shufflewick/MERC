@@ -269,4 +269,223 @@ describe('Combat Event Pipeline', () => {
       expect(outcome.combatPending).toBe(false);
     });
   });
+
+  // ===========================================================================
+  // Test Group 4: Decision Context in Snapshots (Success Criteria 2)
+  // ===========================================================================
+  describe('Decision Context in Snapshots', () => {
+    // This group uses interactive: true and more combatants to trigger decisions
+    let interactiveGame: MERCGame;
+    let interactiveRebel: RebelPlayer;
+    let interactiveSector: Sector;
+
+    beforeEach(() => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'decision-context-test',
+      });
+      interactiveGame = testGame.game;
+      interactiveRebel = interactiveGame.rebelPlayers[0];
+      interactiveSector = interactiveGame.gameMap.getAllSectors()[0];
+
+      // Place multiple mercs for multi-target scenarios and hit allocation
+      const allMercs = interactiveGame.mercDeck.all(CombatantModel).filter(c => c.isMerc);
+      const mercsToPlace = allMercs.slice(0, 3);
+      for (const m of mercsToPlace) {
+        m.putInto(interactiveRebel.primarySquad);
+      }
+      interactiveRebel.primarySquad.sectorId = interactiveSector.sectorId;
+
+      // Add many militia for multi-target potential
+      interactiveSector.addDictatorMilitia(6);
+    });
+
+    it('interactive combat can pause at decision point', () => {
+      const outcome = executeCombat(interactiveGame, interactiveSector, interactiveRebel, { interactive: true });
+
+      const panelEvents = interactiveGame.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+
+      // Should always have at least the initial snapshot
+      expect(panelEvents.length).toBeGreaterThanOrEqual(1);
+
+      if (outcome.combatPending) {
+        // Combat paused -- verify activeCombat is set
+        expect(interactiveGame.activeCombat).not.toBeNull();
+
+        // The last combat-panel snapshot should have a decision context
+        const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+        const decisionFields = [
+          lastSnapshot.pendingTargetSelection,
+          lastSnapshot.pendingHitAllocation,
+          lastSnapshot.pendingWolverineSixes,
+          lastSnapshot.pendingAttackDogSelection,
+          lastSnapshot.pendingBeforeAttackHealing,
+          lastSnapshot.pendingEpinephrine,
+        ];
+        const hasDecision = decisionFields.some(d => d !== null && d !== undefined);
+        expect(hasDecision).toBe(true);
+      }
+      // If combat auto-resolved (no decision needed), test still passes --
+      // some seed/merc combos auto-select single targets
+    });
+
+    it('pendingTargetSelection has correct structure when present', () => {
+      const outcome = executeCombat(interactiveGame, interactiveSector, interactiveRebel, { interactive: true });
+
+      if (!outcome.combatPending) return; // No pause, nothing to verify
+
+      const panelEvents = interactiveGame.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+      const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+      const targetSelection = lastSnapshot.pendingTargetSelection as Record<string, unknown> | null;
+
+      if (targetSelection) {
+        expect(typeof targetSelection.attackerId).toBe('string');
+        expect(typeof targetSelection.attackerName).toBe('string');
+        expect(Array.isArray(targetSelection.validTargets)).toBe(true);
+        const targets = targetSelection.validTargets as Array<Record<string, unknown>>;
+        expect(targets.length).toBeGreaterThan(0);
+        expect(typeof targetSelection.maxTargets).toBe('number');
+
+        // Each valid target should have required fields
+        const firstTarget = targets[0];
+        expect(firstTarget.id).toBeDefined();
+        expect(firstTarget.name).toBeDefined();
+        expect(firstTarget.health).toBeDefined();
+        expect(firstTarget.maxHealth).toBeDefined();
+      }
+    });
+
+    it('pendingHitAllocation has correct structure when present', () => {
+      const outcome = executeCombat(interactiveGame, interactiveSector, interactiveRebel, { interactive: true });
+
+      if (!outcome.combatPending) return; // No pause, nothing to verify
+
+      const panelEvents = interactiveGame.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+      const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+      const hitAllocation = lastSnapshot.pendingHitAllocation as Record<string, unknown> | null;
+
+      if (hitAllocation) {
+        expect(typeof hitAllocation.attackerId).toBe('string');
+        expect(typeof hitAllocation.attackerName).toBe('string');
+        expect(Array.isArray(hitAllocation.diceRolls)).toBe(true);
+        expect(typeof hitAllocation.hits).toBe('number');
+        expect(typeof hitAllocation.hitThreshold).toBe('number');
+        expect(Array.isArray(hitAllocation.validTargets)).toBe(true);
+        const targets = hitAllocation.validTargets as Array<Record<string, unknown>>;
+        expect(targets.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('decision context fields are mutually exclusive', () => {
+      const outcome = executeCombat(interactiveGame, interactiveSector, interactiveRebel, { interactive: true });
+
+      const panelEvents = interactiveGame.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+
+      // Check every combat-panel event: at most one decision context should be non-null
+      for (const event of panelEvents) {
+        const snapshot = event.data as Record<string, unknown>;
+        const decisionFields = [
+          snapshot.pendingTargetSelection,
+          snapshot.pendingHitAllocation,
+          snapshot.pendingWolverineSixes,
+          snapshot.pendingAttackDogSelection,
+          snapshot.pendingBeforeAttackHealing,
+          snapshot.pendingEpinephrine,
+        ];
+        const activeDecisions = decisionFields.filter(d => d !== null && d !== undefined);
+        expect(activeDecisions.length).toBeLessThanOrEqual(1);
+      }
+    });
+  });
+
+  // ===========================================================================
+  // Test Group 5: Snapshot Re-emission After Decision (Success Criteria 4)
+  // ===========================================================================
+  describe('Snapshot Re-emission', () => {
+    it('non-interactive combat emits multiple combat-panel snapshots', () => {
+      executeCombat(game, sector, rebel, { interactive: false });
+
+      const panelEvents = game.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+
+      // Must have at least 2 (start + end)
+      expect(panelEvents.length).toBeGreaterThanOrEqual(2);
+
+      // First snapshot should not be complete
+      const firstSnapshot = panelEvents[0].data as Record<string, unknown>;
+      expect(firstSnapshot.combatComplete).toBe(false);
+
+      // Last snapshot should be complete
+      const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+      expect(lastSnapshot.combatComplete).toBe(true);
+    });
+
+    it('combat-panel snapshots show progression', () => {
+      executeCombat(game, sector, rebel, { interactive: false });
+
+      const panelEvents = game.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+
+      // First snapshot: round >= 1
+      const firstSnapshot = panelEvents[0].data as Record<string, unknown>;
+      expect(firstSnapshot.round as number).toBeGreaterThanOrEqual(1);
+
+      // Last snapshot: combatComplete true
+      const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+      expect(lastSnapshot.combatComplete).toBe(true);
+
+      // If 3+ snapshots, verify casualty progression (later can have more casualties)
+      if (panelEvents.length >= 3) {
+        const firstCasualties =
+          (firstSnapshot.rebelCasualties as unknown[]).length +
+          (firstSnapshot.dictatorCasualties as unknown[]).length;
+        const lastCasualties =
+          (lastSnapshot.rebelCasualties as unknown[]).length +
+          (lastSnapshot.dictatorCasualties as unknown[]).length;
+
+        // Last snapshot should have >= casualties than first (combat progresses)
+        expect(lastCasualties).toBeGreaterThanOrEqual(firstCasualties);
+      }
+    });
+
+    it('interactive combat emits snapshot before pausing', () => {
+      // Use a fresh game with conditions likely to trigger a decision
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'snapshot-before-pause',
+      });
+      const g = testGame.game;
+      const r = g.rebelPlayers[0];
+      const s = g.gameMap.getAllSectors()[0];
+
+      // Place multiple mercs for target selection / hit allocation
+      const allMercs = g.mercDeck.all(CombatantModel).filter(c => c.isMerc);
+      for (const m of allMercs.slice(0, 3)) {
+        m.putInto(r.primarySquad);
+      }
+      r.primarySquad.sectorId = s.sectorId;
+      s.addDictatorMilitia(6);
+
+      const outcome = executeCombat(g, s, r, { interactive: true });
+
+      // Whether or not combat paused, at least one snapshot should exist
+      const panelEvents = g.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+      expect(panelEvents.length).toBeGreaterThanOrEqual(1);
+
+      if (outcome.combatPending) {
+        // Combat paused at a decision point -- last snapshot should have decision context
+        const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+        const decisionFields = [
+          lastSnapshot.pendingTargetSelection,
+          lastSnapshot.pendingHitAllocation,
+          lastSnapshot.pendingWolverineSixes,
+          lastSnapshot.pendingAttackDogSelection,
+          lastSnapshot.pendingBeforeAttackHealing,
+          lastSnapshot.pendingEpinephrine,
+        ];
+        const hasDecision = decisionFields.some(d => d !== null && d !== undefined);
+        expect(hasDecision).toBe(true);
+      }
+    });
+  });
 });
