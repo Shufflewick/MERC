@@ -1253,7 +1253,6 @@ const clickableSectors = computed(() => {
     <!-- Combat Panel - shown when there's active combat -->
     <CombatPanel
       v-if="hasActiveCombat"
-      :game-view="gameView"
       :active-combat="activeCombatForPanel"
       :is-my-turn="isMyTurn"
       :available-actions="availableActions"
