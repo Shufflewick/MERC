@@ -804,57 +804,56 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
         game.activeCombat.healingDiceUsed = new Map();
       }
 
-      // Track dice discarded
-      game.activeCombat.healingDiceUsed.set(
-        healerCombatant.id,
-        diceUsedAlready + healingEffect.dicePerHeal
-      );
-
-      // Heal the target (both combatant and source merc)
+      // Pre-compute heal values for event data
       const healAmount = Math.min(healingEffect.healPerUse, targetCombatant.maxHealth - targetCombatant.health);
-      targetCombatant.health += healAmount;
-      targetMerc.heal(healAmount);
+      const healthAfter = targetCombatant.health + healAmount;
 
-      // Emit healing animation event
-      game.emitAnimationEvent('combat-heal', {
+      game.animate('combat-heal', {
         healerName: capitalize(healerMerc.combatantName),
         healerId: healerCombatant.id,
         targetName: capitalize(targetMerc.combatantName),
         targetId: targetCombatant.id,
         healAmount,
-        healthAfter: targetCombatant.health,
+        healthAfter,
         itemName: healingItem.equipmentName,
-      });
+      }, () => {
+        // Track dice discarded
+        game.activeCombat!.healingDiceUsed.set(
+          healerCombatant.id,
+          diceUsedAlready + healingEffect.dicePerHeal
+        );
 
-      // Use up the healing item
-      if (healingItem.usesRemaining === undefined) {
-        healingItem.usesRemaining = healingEffect.totalUses;
-      }
-      healingItem.usesRemaining--;
+        // Heal the target (both combatant and source merc)
+        targetCombatant.health += healAmount;
+        targetMerc.heal(healAmount);
 
-      // If uses exhausted, discard the item
-      if (healingItem.usesRemaining <= 0) {
-        // Find which slot this is in and remove it
-        if (healerMerc.accessorySlot?.id === healingItem.id) {
-          healerMerc.unequip('Accessory');
-        } else {
-          // Find in bandolier slots
-          const bIdx = healerMerc.bandolierSlots.findIndex(e => e.id === healingItem.id);
-          if (bIdx >= 0) {
-            healerMerc.unequipBandolierSlot(bIdx);
+        // Use up the healing item
+        if (healingItem.usesRemaining === undefined) {
+          healingItem.usesRemaining = healingEffect.totalUses;
+        }
+        healingItem.usesRemaining--;
+
+        // If uses exhausted, discard the item
+        if (healingItem.usesRemaining <= 0) {
+          if (healerMerc.accessorySlot?.id === healingItem.id) {
+            healerMerc.unequip('Accessory');
+          } else {
+            const bIdx = healerMerc.bandolierSlots.findIndex(e => e.id === healingItem.id);
+            if (bIdx >= 0) {
+              healerMerc.unequipBandolierSlot(bIdx);
+            }
           }
-        }
 
-        // Discard the item
-        const discard = game.getEquipmentDiscard('Accessory');
-        if (discard) {
-          healingItem.putInto(discard);
-        }
+          const discard = game.getEquipmentDiscard('Accessory');
+          if (discard) {
+            healingItem.putInto(discard);
+          }
 
-        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} - item exhausted!`);
-      } else {
-        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
-      }
+          game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} - item exhausted!`);
+        } else {
+          game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
+        }
+      });
 
       return {
         success: true,
@@ -959,53 +958,55 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         game.activeCombat.healingDiceUsed = new Map();
       }
 
-      // Track dice discarded
+      // Pre-compute heal values for event data
       const diceUsed = game.activeCombat.healingDiceUsed.get(healerCombatant.id) ?? 0;
-      game.activeCombat.healingDiceUsed.set(healerCombatant.id, diceUsed + healerData.dicePerHeal);
-
-      // Heal the target
       const healAmount = Math.min(healerData.healPerUse, targetCombatant.maxHealth - targetCombatant.health);
-      targetCombatant.health += healAmount;
-      targetMerc.heal(healAmount);
+      const healthAfter = targetCombatant.health + healAmount;
 
-      // Emit healing animation event
-      game.emitAnimationEvent('combat-heal', {
+      game.animate('combat-heal', {
         healerName: capitalize(healerMerc.combatantName),
         healerId: healerCombatant.id,
         targetName: capitalize(targetMerc.combatantName),
         targetId: targetCombatant.id,
         healAmount,
-        healthAfter: targetCombatant.health,
+        healthAfter,
         itemName: healingItem.equipmentName,
-      });
+      }, () => {
+        // Track dice discarded
+        game.activeCombat!.healingDiceUsed.set(healerCombatant.id, diceUsed + healerData.dicePerHeal);
 
-      // Use up the healing item
-      if (healingItem.usesRemaining === undefined) {
-        const effect = getHealingEffect(healingItem.equipmentId);
-        healingItem.usesRemaining = effect?.totalUses ?? 1;
-      }
-      healingItem.usesRemaining--;
+        // Heal the target
+        targetCombatant.health += healAmount;
+        targetMerc.heal(healAmount);
 
-      // If uses exhausted, discard the item
-      if (healingItem.usesRemaining <= 0) {
-        if (healerMerc.accessorySlot?.id === healingItem.id) {
-          healerMerc.unequip('Accessory');
-        } else {
-          const bIdx = healerMerc.bandolierSlots.findIndex(e => e.id === healingItem!.id);
-          if (bIdx >= 0) {
-            healerMerc.unequipBandolierSlot(bIdx);
+        // Use up the healing item
+        if (healingItem.usesRemaining === undefined) {
+          const effect = getHealingEffect(healingItem.equipmentId);
+          healingItem.usesRemaining = effect?.totalUses ?? 1;
+        }
+        healingItem.usesRemaining--;
+
+        // If uses exhausted, discard the item
+        if (healingItem.usesRemaining <= 0) {
+          if (healerMerc.accessorySlot?.id === healingItem.id) {
+            healerMerc.unequip('Accessory');
+          } else {
+            const bIdx = healerMerc.bandolierSlots.findIndex(e => e.id === healingItem!.id);
+            if (bIdx >= 0) {
+              healerMerc.unequipBandolierSlot(bIdx);
+            }
           }
-        }
 
-        const discard = game.getEquipmentDiscard('Accessory');
-        if (discard) {
-          healingItem.putInto(discard);
-        }
+          const discard = game.getEquipmentDiscard('Accessory');
+          if (discard) {
+            healingItem.putInto(discard);
+          }
 
-        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} - item exhausted!`);
-      } else {
-        game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
-      }
+          game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} - item exhausted!`);
+        } else {
+          game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
+        }
+      });
 
       // Mark this attacker's healing phase as processed and clear the pending state
       if (!game.activeCombat.beforeAttackHealingProcessed) {
@@ -1236,30 +1237,32 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         game.activeCombat.healingDiceUsed = new Map();
       }
 
-      // Track dice sacrificed (1 die for 1 heal)
-      const diceUsedAlready = game.activeCombat.healingDiceUsed.get(surgeonCombatant.id) ?? 0;
-      game.activeCombat.healingDiceUsed.set(surgeonCombatant.id, diceUsedAlready + 1);
-
-      // Also reduce the combatant's combat stat for this round
-      surgeonCombatant.combat--;
-
-      // Heal the target (both combatant and source merc)
+      // Pre-compute heal values for event data
       const healAmount = 1; // Surgeon heals 1 per die
-      targetCombatant.health = Math.min(targetCombatant.health + healAmount, targetCombatant.maxHealth);
-      targetMerc.heal(healAmount);
+      const healthAfter = Math.min(targetCombatant.health + healAmount, targetCombatant.maxHealth);
+      const diceUsedAlready = game.activeCombat.healingDiceUsed.get(surgeonCombatant.id) ?? 0;
 
-      // Emit healing animation event
-      game.emitAnimationEvent('combat-heal', {
+      game.animate('combat-heal', {
         healerName: capitalize(surgeonMerc.combatantName),
         healerId: surgeonCombatant.id,
         targetName: capitalize(targetMerc.combatantName),
         targetId: targetCombatant.id,
         healAmount,
-        healthAfter: targetCombatant.health,
+        healthAfter,
         isSurgeonAbility: true,
-      });
+      }, () => {
+        // Track dice sacrificed (1 die for 1 heal)
+        game.activeCombat!.healingDiceUsed.set(surgeonCombatant.id, diceUsedAlready + 1);
 
-      game.message(`${surgeonMerc.combatantName} sacrifices a combat die to heal ${targetMerc.combatantName} for ${healAmount}`);
+        // Also reduce the combatant's combat stat for this round
+        surgeonCombatant.combat--;
+
+        // Heal the target (both combatant and source merc)
+        targetCombatant.health = Math.min(targetCombatant.health + healAmount, targetCombatant.maxHealth);
+        targetMerc.heal(healAmount);
+
+        game.message(`${surgeonMerc.combatantName} sacrifices a combat die to heal ${targetMerc.combatantName} for ${healAmount}`);
+      });
 
       return {
         success: true,
@@ -1594,40 +1597,4 @@ export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinit
     });
 }
 
-/**
- * Acknowledge animation events up to a given ID
- * Called by UI animation system to acknowledge events have been played.
- * Uses BoardSmith v2.4's animation event system.
- *
- * Note: This action has no selection steps - it receives upToId directly
- * from the actionController.execute() call.
- *
- * The condition ensures this action only appears available when there are
- * unacknowledged animation events, preventing it from interfering with turn flow.
- */
-export function createAcknowledgeAnimationsAction(game: MERCGame): ActionDefinition {
-  return Action.create('acknowledgeAnimations')
-    .prompt('Acknowledge animations')
-    .condition({
-      'has unacknowledged animation events': () => {
-        // Check if there are any animation events that haven't been acknowledged
-        const events = game.pendingAnimationEvents;
-        return events && events.length > 0;
-      },
-    })
-    .execute((args) => {
-      const upToId = args.upToId as number;
-      if (typeof upToId !== 'number') {
-        return {
-          success: false,
-          message: 'upToId must be a number',
-        };
-      }
-      game.acknowledgeAnimationEvents(upToId);
-      return {
-        success: true,
-        message: `Acknowledged animations up to event ${upToId}`,
-      };
-    });
-}
 

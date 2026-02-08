@@ -25,15 +25,6 @@ const animationEventsFromState = computed(() => {
 // Create animation events context - uses the reactive refs
 const animationEvents = createAnimationEvents({
   events: () => animationEventsFromState.value,
-  acknowledge: (upToId) => {
-    // Execute the acknowledgeAnimations action to tell the server we've processed events
-    const controller = slotActionController.value;
-    if (controller) {
-      controller.execute('acknowledgeAnimations', { upToId }).catch(() => {
-        // Ignore errors - action may fail if already acknowledged or not available
-      });
-    }
-  },
 });
 
 // Provide animation events so ActionPanel and child components can access them

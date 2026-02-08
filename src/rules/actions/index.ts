@@ -62,7 +62,6 @@ import {
   createCombatUseEpinephrineAction,
   createCombatDeclineEpinephrineAction,
   createClearCombatAnimationsAction,
-  createAcknowledgeAnimationsAction,
 } from './rebel-combat.js';
 
 import {
@@ -171,9 +170,6 @@ export function registerAllActions(game: MERCGame): void {
 
   // Clear combat state after UI animations complete
   game.registerAction(createClearCombatAnimationsAction(game));
-
-  // Acknowledge animation events (BoardSmith v2.4 Animation Event System)
-  game.registerAction(createAcknowledgeAnimationsAction(game));
 
   // MERC-lw9r: Artillery Barrage hit allocation (stub until Plan 04)
   game.registerAction(createArtilleryAllocateHitsAction(game));
