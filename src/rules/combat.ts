@@ -76,6 +76,63 @@ export function clearActiveCombat(game: MERCGame): void {
 }
 
 // =============================================================================
+// Combat Panel Snapshot Helpers
+// =============================================================================
+
+/**
+ * Serialize a Combatant to a plain data object for combat-panel animation events.
+ * Provides all fields CombatPanel needs without element ref resolution.
+ */
+function serializeCombatant(c: Combatant): Record<string, unknown> {
+  return {
+    id: c.id,
+    name: c.name,
+    image: c.image,
+    health: c.health,
+    maxHealth: c.maxHealth,
+    isMerc: !c.isMilitia && !c.isDictator && !c.isAttackDog,
+    isMilitia: c.isMilitia,
+    isAttackDog: c.isAttackDog,
+    isDictator: c.isDictator,
+    isDictatorSide: c.isDictatorSide,
+    playerColor: c.playerColor,
+    combatantId: c.combatantId,
+    // Attack dog specific
+    attackDogAssignedTo: c.attackDogAssignedTo,
+    attackDogTargetName: c.attackDogTargetName,
+    attackDogPendingTarget: c.attackDogPendingTarget,
+  };
+}
+
+/**
+ * Build a complete combat-panel snapshot from game.activeCombat.
+ * Contains full combatant data for both sides, casualties, and decision context.
+ * Emitted at every decision cycle point so CombatPanel can render entirely from events.
+ */
+function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
+  const ac = game.activeCombat!;
+  return {
+    sectorId: ac.sectorId,
+    sectorName: game.getSector(ac.sectorId)?.sectorName,
+    round: ac.round,
+    rebelCombatants: (ac.rebelCombatants as Combatant[]).map(c => serializeCombatant(c)),
+    dictatorCombatants: (ac.dictatorCombatants as Combatant[]).map(c => serializeCombatant(c)),
+    rebelCasualties: ((ac.rebelCasualties ?? []) as Combatant[]).map(c => serializeCombatant(c)),
+    dictatorCasualties: ((ac.dictatorCasualties ?? []) as Combatant[]).map(c => serializeCombatant(c)),
+    dogAssignments: ac.dogAssignments,
+    combatComplete: ac.combatComplete ?? false,
+    // Decision context -- at most one active at a time
+    // Include the full decision data so CombatPanel needs no extra lookups
+    pendingTargetSelection: ac.pendingTargetSelection ?? null,
+    pendingHitAllocation: ac.pendingHitAllocation ?? null,
+    pendingWolverineSixes: ac.pendingWolverineSixes ?? null,
+    pendingAttackDogSelection: ac.pendingAttackDogSelection ?? null,
+    pendingBeforeAttackHealing: ac.pendingBeforeAttackHealing ?? null,
+    pendingEpinephrine: ac.pendingEpinephrine ?? null,
+  };
+}
+
+// =============================================================================
 // Combat Helpers
 // =============================================================================
 
