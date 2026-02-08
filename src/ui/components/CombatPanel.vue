@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { UI_COLORS } from '../colors';
 import { useAnimationEvents } from 'boardsmith/ui';
 import type { AnimationEvent } from 'boardsmith';
-import { useDeathAnimationCoordinator } from '../composables/useDeathAnimationCoordinator';
 import { useCombatSequence } from '../composables/useCombatSequence';
+import { useGameViewHelpers, getAttr } from '../composables/useGameViewHelpers';
 import CombatPanelCombatant from './CombatPanelCombatant.vue';
 import DiceRollDisplay from './DiceRollDisplay.vue';
 import HitAllocationPanel, { type PendingHitAllocation } from './HitAllocationPanel.vue';
@@ -36,6 +36,7 @@ interface AnimationDisplayState {
 }
 
 const props = defineProps<{
+  gameView?: any;
   activeCombat: {
     sectorId: string;
     round: number;
@@ -96,17 +97,10 @@ const props = defineProps<{
   sectorName: string;
   isSelectingRetreatSector?: boolean;
   retreatSectorChoices?: RetreatSector[];
-  pendingAnimationEvents?: Array<{
-    type: string;
-    data?: {
-      targetId?: string;
-      healthBefore?: number;
-      healthAfter?: number;
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  }>;
 }>();
+
+// GameView helpers for resolving combatants from element refs
+const { findElementById } = useGameViewHelpers(() => props.gameView);
 
 const emit = defineEmits<{
   (e: 'allocate-hit', targetId: string): void;
@@ -116,10 +110,10 @@ const emit = defineEmits<{
   (e: 'confirm-targets', targets: string[]): void;
   (e: 'continue-combat'): void;
   (e: 'retreat-combat'): void;
-  (e: 'select-retreat-sector', sectorId: string): void;
+  (e: 'select-retreat-sector', sectorId: string | number): void;
   (e: 'assign-attack-dog', targetId: string): void;
-  (e: 'animating', isAnimating: boolean): void;
   (e: 'combat-finished'): void;
+  (e: 'panel-ready'): void;
   (e: 'use-medical-kit'): void;
   (e: 'use-surgeon-heal'): void;
   (e: 'use-before-attack-heal'): void;
@@ -157,28 +151,14 @@ const TIMING = {
 const currentEvent = ref<AnimationDisplayState | null>(null);
 const isPreRoll = ref(false);
 const isFastForward = ref(false);
+const displayHealth = ref<Map<string, number>>(new Map());
 
 // Use BoardSmith's animation events (injected by GameTable)
 const animationEvents = useAnimationEvents();
 const isAnimating = computed(() => animationEvents?.isAnimating.value ?? false);
 
-// NOTE: Removed isProcessingAnimations - the system is purely event-driven.
-// displayHealth is the single source of truth during combat, updated only by events.
 
-// =============================================================================
-// Display Health Tracking (Event-Driven)
-// =============================================================================
-// Instead of computing health backwards from future events, we initialize from
-// combat state when combat starts, then update health as damage events arrive.
-// The events now include healthBefore/healthAfter so we just use those values.
-
-// Map from combatant ID to their display health (what the theatre shows)
-const displayHealth = ref<Map<string, number>>(new Map());
-
-// Track combatants who have died during this combat - once dead, always dead
-const deadCombatants = ref<Set<string>>(new Set());
-
-// Track combatants currently being healed (for animation)
+// Track combatants currently being healed (for UI visual effect)
 const healingCombatants = ref<Set<string>>(new Set());
 
 // Helper to get timing based on fast-forward state
@@ -257,23 +237,28 @@ if (animationEvents) {
     await sleep(getTiming('post-roll')); // Keep dice results visible for 1 second
   });
 
-  // Damage event handler - update display health from event data
+  // Damage event handler — theatre view updates health automatically when event is acknowledged
   animationEvents.registerHandler('combat-damage', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
-
-    // Update display health directly from event (no backwards computation needed)
     const data = event.data as Record<string, unknown>;
-    const targetId = data.targetId as string | undefined;
-    const healthAfter = data.healthAfter as number | undefined;
-    if (targetId && healthAfter !== undefined) {
-      displayHealth.value.set(targetId, healthAfter);
-      if (healthAfter <= 0) {
-        deadCombatants.value.add(targetId);
+    const targetId = normalizeId(data.targetId);
+    const healthAfter = typeof data.healthAfter === 'number'
+      ? data.healthAfter
+      : undefined;
+    const damage = typeof data.damage === 'number'
+      ? data.damage
+      : undefined;
+    if (targetId) {
+      if (typeof healthAfter === 'number') {
+        displayHealth.value.set(targetId, healthAfter);
+      } else if (typeof damage === 'number') {
+        const current = displayHealth.value.get(targetId);
+        if (typeof current === 'number') {
+          displayHealth.value.set(targetId, Math.max(0, current - damage));
+        }
       }
     }
-
     await sleep(getTiming('damage'));
-    await sleep(getTiming('pause'));
   });
 
   // Death event handler
@@ -303,23 +288,18 @@ if (animationEvents) {
     currentEvent.value = null; // Explicitly clear after display
   });
 
-  // Healing event handler - update display health and show animation
+  // Healing event handler — theatre view updates health, we just track UI effect
   animationEvents.registerHandler('combat-heal', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
 
-    // Update display health from event data
     const data = event.data as Record<string, unknown>;
-    const targetId = data.targetId as string | undefined;
-    const healthAfter = data.healthAfter as number | undefined;
-    if (targetId && healthAfter !== undefined) {
-      displayHealth.value.set(targetId, healthAfter);
-      // Trigger healing animation
+    const targetId = normalizeId(data.targetId);
+    if (targetId) {
       healingCombatants.value.add(targetId);
     }
 
     await sleep(getTiming('heal'));
 
-    // Clear healing animation
     if (targetId) {
       healingCombatants.value.delete(targetId);
     }
@@ -327,6 +307,10 @@ if (animationEvents) {
     await sleep(getTiming('pause'));
   });
 }
+
+onMounted(() => {
+  emit('panel-ready');
+});
 
 // Fast forward function
 function fastForward(): void {
@@ -338,6 +322,7 @@ function resetAnimations(): void {
   currentEvent.value = null;
   isPreRoll.value = false;
   isFastForward.value = false;
+  displayHealth.value.clear();
 }
 
 function resetForNewCombat(): void {
@@ -347,12 +332,6 @@ function resetForNewCombat(): void {
 // =============================================================================
 // Composables
 // =============================================================================
-
-// Death animation coordinator
-const {
-  setCombatAnimationActive,
-  triggerDeathByName,
-} = useDeathAnimationCoordinator();
 
 // Combat sequence (attacker/target highlighting)
 const {
@@ -370,152 +349,68 @@ const {
 } = useCombatSequence();
 
 // =============================================================================
-// Display Health Functions
+// Helper Functions
 // =============================================================================
-
-/**
- * Initialize display health from combat state when combat starts.
- * Uses healthBefore from pending animation events to show correct starting health,
- * since combat state already has damage applied.
- */
-function initializeDisplayHealth(combat: typeof props.activeCombat): void {
-  if (!combat) return;
-  displayHealth.value.clear();
-
-  // Build a map of starting health from pending damage events.
-  // These events have healthBefore captured BEFORE damage was applied.
-  // IMPORTANT: BoardSmith AnimationEvent stores data in event.data, not directly on event.
-  const startingHealth = new Map<string, number>();
-
-  if (props.pendingAnimationEvents) {
-    for (const event of props.pendingAnimationEvents) {
-      const data = event.data as Record<string, unknown> | undefined;
-      if (event.type === 'combat-damage' && data?.targetId && data?.healthBefore !== undefined) {
-        const targetId = data.targetId as string;
-        const healthBefore = data.healthBefore as number;
-        // Only use the FIRST healthBefore for each target (their starting health)
-        if (!startingHealth.has(targetId)) {
-          startingHealth.set(targetId, healthBefore);
-        }
-      }
-    }
-  }
-
-  // Initialize display health - prefer healthBefore from events, fall back to combat state
-  const allCombatants = [
-    ...(combat.rebelCombatants || []),
-    ...(combat.dictatorCombatants || []),
-  ];
-
-  for (const c of allCombatants) {
-    const id = c.id || c.sourceElement?.id;
-    if (id) {
-      // Use healthBefore from pending events if available, otherwise use current state
-      const health = startingHealth.get(id) ?? c.health ?? 1;
-      displayHealth.value.set(id, health);
-    }
-  }
-}
-
-/**
- * Get the display health for a combatant.
- * Always returns displayHealth during combat - this is the single source of truth.
- * displayHealth is initialized when combat starts and updated only by animation events.
- */
-function getDisplayHealth(combatantId: string, actualHealth: number): number {
-  // Dead combatants always show 0
-  if (deadCombatants.value.has(combatantId)) {
-    return 0;
-  }
-
-  // displayHealth is the source of truth during combat - always use it
-  if (displayHealth.value.has(combatantId)) {
-    return displayHealth.value.get(combatantId)!;
-  }
-
-  // If we don't have a displayHealth entry, combat hasn't properly initialized this combatant
-  return actualHealth;
-}
 
 /**
  * Find combatant ID by name (case-insensitive).
  */
 function findCombatantIdByName(name: string): string | null {
-  if (!name || !displayCombat.value) return null;
+  if (!name || !props.activeCombat) return null;
   const lowerName = name.toLowerCase();
 
   const allCombatants = [
-    ...(displayCombat.value.rebelCombatants || []),
-    ...(displayCombat.value.dictatorCombatants || []),
-    ...(displayCombat.value.rebelCasualties || []),
-    ...(displayCombat.value.dictatorCasualties || []),
+    ...(props.activeCombat.rebelCombatants || []),
+    ...(props.activeCombat.dictatorCombatants || []),
+    ...(props.activeCombat.rebelCasualties || []),
+    ...(props.activeCombat.dictatorCasualties || []),
   ];
 
   for (const c of allCombatants) {
     if (!c) continue;
-    const cName = (c.name || '').toLowerCase();
+    const resolved = resolveCombatant(c);
+    const cName = (getAttr(resolved, 'name', '') || '').toLowerCase();
     if (cName === lowerName || cName.includes(lowerName) || lowerName.includes(cName)) {
-      return c.id || c.sourceElement?.id || null;
+      return getCombatantId(resolved) || getCombatantId(c) || null;
     }
   }
   return null;
 }
 
-/**
- * Reset display health state for new combat.
- */
-function resetDisplayHealthState(): void {
-  displayHealth.value.clear();
-  deadCombatants.value.clear();
-  healingCombatants.value.clear();
-}
-
 // =============================================================================
-// Combat Data Caching
+// Combat Display — theatre view provides progressive state directly
 // =============================================================================
 
-const cachedCombatData = ref<typeof props.activeCombat | null>(null);
-
-const displayCombat = computed(() => {
-  if (props.activeCombat) {
-    return props.activeCombat;
-  }
-  // Use cached data when activeCombat is cleared during animations
-  if (isAnimating.value && cachedCombatData.value) {
-    return cachedCombatData.value;
-  }
-  return null;
-});
+const displayCombat = computed(() => props.activeCombat);
 
 watch(() => props.activeCombat, (newCombat, oldCombat) => {
   if (newCombat && !oldCombat) {
-    // Combat starting - activate coordinator IMMEDIATELY before any state changes propagate.
-    // This ensures deaths are suppressed until combat-death events play, preventing the
-    // map death animation from firing immediately when combat panel opens.
-    setCombatAnimationActive(true);
+    // Combat starting — reset UI state
+    resetAnimations();
+    healingCombatants.value.clear();
   }
-  if (newCombat) {
-    cachedCombatData.value = JSON.parse(JSON.stringify(newCombat));
-    // Only initialize health when combat STARTS (not on mid-combat state updates)
-    if (!oldCombat) {
-      initializeDisplayHealth(newCombat);
+}, { immediate: true });
+
+function initializeDisplayHealth(combat: any | null): void {
+  if (!combat) return;
+  const combatants = [
+    ...(combat.rebelCombatants || []),
+    ...(combat.dictatorCombatants || []),
+  ];
+  const next = new Map<string, number>();
+  for (const combatant of combatants) {
+    const id = getCombatantId(combatant);
+    if (!id) continue;
+    if (typeof combatant.health === 'number') {
+      next.set(id, combatant.health);
     }
   }
-  if (!newCombat && oldCombat) {
-    // Combat ending - deactivate coordinator
-    setCombatAnimationActive(false);
-  }
-}, { deep: true, immediate: true });
+  displayHealth.value = next;
+}
 
-watch(isAnimating, (animating) => {
-  if (!animating && !props.activeCombat) {
-    setTimeout(() => {
-      if (!props.activeCombat) {
-        cachedCombatData.value = null;
-      }
-    }, 500);
-  }
-});
+watch(() => props.activeCombat?.sectorId, () => {
+  initializeDisplayHealth(props.activeCombat);
+}, { immediate: true });
 
 // =============================================================================
 // Local State
@@ -534,19 +429,18 @@ const pendingRollEvent = ref<AnimationDisplayState | null>(null);
 // Computed
 // =============================================================================
 
-// Get rebels to display - always include all combatants (living + casualties)
-// Death state is controlled by the deadCombatants set, updated by combat-death events
+// Get rebels to display — combine combatants + casualties, dedup
+// Theatre view provides progressive health; dead combatants have health <= 0
 const livingRebels = computed(() => {
   const combat = displayCombat.value;
   if (!combat) return [];
   const allRebels = (combat.rebelCombatants || []).filter((c: any) => c != null);
   const casualties = (combat.rebelCasualties || []).filter((c: any) => c != null);
 
-  // Always show all combatants - death animations are event-driven via deadCombatants set
   const seen = new Set<string>();
   const combined: any[] = [];
   for (const c of [...allRebels, ...casualties]) {
-    const id = c.id || c.sourceElement?.id;
+    const id = getCombatantId(c);
     if (id && !seen.has(id)) {
       seen.add(id);
       combined.push(c);
@@ -555,19 +449,17 @@ const livingRebels = computed(() => {
   return combined;
 });
 
-// Get dictator forces to display - always include all combatants (living + casualties)
-// Death state is controlled by the deadCombatants set, updated by combat-death events
+// Get dictator forces to display — combine combatants + casualties, dedup
 const livingDictator = computed(() => {
   const combat = displayCombat.value;
   if (!combat) return [];
   const allDictator = (combat.dictatorCombatants || []).filter((c: any) => c != null);
   const casualties = (combat.dictatorCasualties || []).filter((c: any) => c != null);
 
-  // Always show all combatants - death animations are event-driven via deadCombatants set
   const seen = new Set<string>();
   const combined: any[] = [];
   for (const c of [...allDictator, ...casualties]) {
-    const id = c.id || c.sourceElement?.id;
+    const id = getCombatantId(c);
     if (id && !seen.has(id)) {
       seen.add(id);
       combined.push(c);
@@ -608,13 +500,13 @@ const dogTargetNames = computed(() => {
 
   for (const [targetId, dog] of assignments) {
     if (dog) {
-      const dogId = dog.id || dog.sourceElement?.id;
+      const dogId = getCombatantId(dog);
       // Use stored attackDogTargetName directly, fall back to lookup
-      let targetName = dog.attackDogTargetName;
+      let targetName = getAttr(dog, 'attackDogTargetName', undefined);
       if (!targetName) {
         const allCombatants = [...livingRebels.value, ...livingDictator.value];
-        const target = allCombatants.find((c: any) => (c.id || c.sourceElement?.id) === targetId);
-        targetName = target?.name || 'Unknown';
+        const target = allCombatants.find((c: any) => getCombatantId(c) === targetId);
+        targetName = getAttr(target, 'name', 'Unknown');
       }
       if (dogId && targetName) {
         nameMap.set(dogId, targetName);
@@ -626,12 +518,12 @@ const dogTargetNames = computed(() => {
   const dogs = props.activeCombat?.dogs || [];
   for (const dog of dogs) {
     if (dog) {
-      const dogId = dog.id || dog.sourceElement?.id;
+      const dogId = getCombatantId(dog);
       if (dogId && !nameMap.has(dogId)) {
-        if (dog.attackDogPendingTarget) {
+        if (getAttr(dog, 'attackDogPendingTarget', false)) {
           nameMap.set(dogId, 'Selecting...');
-        } else if (dog.attackDogTargetName) {
-          nameMap.set(dogId, dog.attackDogTargetName);
+        } else if (getAttr(dog, 'attackDogTargetName', undefined)) {
+          nameMap.set(dogId, getAttr(dog, 'attackDogTargetName', ''));
         }
       }
     }
@@ -649,42 +541,87 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function getCombatantDisplay(combatant: any) {
-  const isAttackDogUnit = combatant.isAttackDog === true;
-  const isMerc = !combatant.isMilitia && !isAttackDogUnit && !!(combatant.combatantId || combatant.isDictator);
+function normalizeId(id: unknown): string | null {
+  if (id === null || id === undefined) return null;
+  return String(id);
+}
 
-  let name = combatant.name;
-  if (combatant.isMilitia) {
+function getCombatantId(combatant: any): string | null {
+  const rawId =
+    combatant?.id ||
+    combatant?.sourceElement?.id ||
+    combatant?.__elementRef ||
+    combatant?.attributes?.id ||
+    null;
+  return normalizeId(rawId);
+}
+
+function resolveCombatant(combatant: any): any {
+  const id = getCombatantId(combatant);
+  if (!id) return combatant;
+  return findElementById(id) ?? combatant;
+}
+
+function getCombatantDisplay(combatant: any) {
+  const resolved = resolveCombatant(combatant);
+  const resolvedCombatant = resolved ?? combatant;
+
+  const isAttackDogUnit = getAttr(resolvedCombatant, 'isAttackDog', false) === true ||
+    getAttr(combatant, 'isAttackDog', false) === true;
+  const isMilitia = getAttr(resolvedCombatant, 'isMilitia', false) === true ||
+    getAttr(combatant, 'isMilitia', false) === true;
+  const isDictator = getAttr(resolvedCombatant, 'isDictator', false) === true ||
+    getAttr(combatant, 'isDictator', false) === true;
+
+  const displayCombatant = isMilitia || isAttackDogUnit ? combatant : resolvedCombatant;
+  const combatantIdAttr = getAttr(displayCombatant, 'combatantId', '');
+  const isMerc = !isMilitia && !isAttackDogUnit && !!(combatantIdAttr || isDictator);
+
+  let name = getAttr(displayCombatant, 'name', '');
+  if (isMilitia) {
     name = 'Militia';
   } else if (isAttackDogUnit) {
     name = 'Attack Dog';
   } else if (isMerc) {
-    name = capitalize(combatant.name || 'MERC');
+    name = capitalize(name || 'MERC');
   }
 
-  const image = combatant.image || null;
+  const image = getAttr(displayCombatant, 'image', null);
   const defaultMaxHealth = isMerc ? 3 : isAttackDogUnit ? 3 : 1;
-  const actualHealth = combatant.health ?? (isAttackDogUnit ? 3 : 1);
-  const maxHealth = combatant.maxHealth ?? defaultMaxHealth;
+  const rawMaxHealth = getAttr(displayCombatant, 'maxHealth', defaultMaxHealth);
+  const rawEffectiveMax = getAttr(displayCombatant, 'effectiveMaxHealth', undefined);
+  const maxHealth = rawEffectiveMax ?? rawMaxHealth;
+  const rawDamage = getAttr(displayCombatant, 'damage', 0);
+  const serializedHealth = getAttr<number | undefined>(displayCombatant, 'health', undefined);
+  const fallbackHealth = typeof combatant?.health === 'number' ? combatant.health : undefined;
+  const mappedHealth = combatantId ? displayHealth.value.get(combatantId) : undefined;
+  const actualHealth = typeof mappedHealth === 'number'
+    ? mappedHealth
+    : typeof serializedHealth === 'number'
+      ? serializedHealth
+      : typeof fallbackHealth === 'number'
+        ? fallbackHealth
+        : Math.max(0, maxHealth - rawDamage);
 
-  const combatantId = combatant.id || combatant.sourceElement?.id;
-  const health = getDisplayHealth(combatantId, actualHealth);
+  const combatantId = getCombatantId(displayCombatant) || getCombatantId(combatant);
+  // Theatre view provides progressive health — no manual tracking needed
+  const health = actualHealth;
 
   return {
     id: combatantId,
     name,
     isMerc,
     isAttackDog: isAttackDogUnit,
-    isMilitia: combatant.isMilitia,
+    isMilitia,
     health,
     maxHealth,
-    combatantId: combatant.combatantId,
+    combatantId: combatantIdAttr,
     image,
     isDead: health <= 0,
-    playerColor: combatant.playerColor,
+    playerColor: getAttr(displayCombatant, 'playerColor', undefined),
     // Include dog target info directly from combatant for reliable lookup
-    attackDogTargetName: isAttackDogUnit ? combatant.attackDogTargetName : undefined,
-    attackDogPendingTarget: isAttackDogUnit ? combatant.attackDogPendingTarget : undefined,
+    attackDogTargetName: isAttackDogUnit ? getAttr(displayCombatant, 'attackDogTargetName', undefined) : undefined,
+    attackDogPendingTarget: isAttackDogUnit ? getAttr(displayCombatant, 'attackDogPendingTarget', undefined) : undefined,
   };
 }
 
@@ -693,42 +630,57 @@ function findCombatantId(name: string): string | null {
 }
 
 function isValidTarget(targetId: string): boolean {
+  const normalized = normalizeId(targetId);
+  if (!normalized) return false;
   if (isSelectingTargets.value) {
-    return props.activeCombat?.pendingTargetSelection?.validTargets.some(t => t.id === targetId) ?? false;
+    return props.activeCombat?.pendingTargetSelection?.validTargets
+      .some(t => normalizeId(t.id) === normalized) ?? false;
   }
   if (isAllocatingWolverineSixes.value) {
-    return props.activeCombat?.pendingWolverineSixes?.bonusTargets.some(t => t.id === targetId) ?? false;
+    return props.activeCombat?.pendingWolverineSixes?.bonusTargets
+      .some(t => normalizeId(t.id) === normalized) ?? false;
   }
-  return props.activeCombat?.pendingHitAllocation?.validTargets.some(t => t.id === targetId) ?? false;
+  return props.activeCombat?.pendingHitAllocation?.validTargets
+    .some(t => normalizeId(t.id) === normalized) ?? false;
 }
 
 function isTargetSelected(targetId: string): boolean {
-  return selectedTargets.value.has(targetId);
+  const normalized = normalizeId(targetId);
+  if (!normalized) return false;
+  return selectedTargets.value.has(normalized);
 }
 
 function getAllocatedHitsForTarget(targetId: string): number {
   if (!hitAllocationRef.value) return 0;
+  const normalized = normalizeId(targetId);
+  if (!normalized) return 0;
   let count = 0;
   hitAllocationRef.value.allocatedHits.forEach((tid: string) => {
-    if (tid === targetId) count++;
+    if (normalizeId(tid) === normalized) count++;
   });
   return count;
 }
 
 function isHealingCombatant(combatantId: string): boolean {
-  return healingCombatants.value.has(combatantId);
+  const normalized = normalizeId(combatantId);
+  if (!normalized) return false;
+  return healingCombatants.value.has(normalized);
 }
 
 function selectTarget(targetId: string) {
+  const normalized = normalizeId(targetId);
+  if (!normalized) return;
   // Handle target selection mode (before rolling)
   if (isSelectingTargets.value) {
-    const validTargetIds = props.activeCombat?.pendingTargetSelection?.validTargets.map(t => t.id) ?? [];
-    if (!validTargetIds.includes(targetId)) return;
+    const validTargetIds = props.activeCombat?.pendingTargetSelection?.validTargets
+      .map(t => normalizeId(t.id))
+      .filter((id): id is string => !!id) ?? [];
+    if (!validTargetIds.includes(normalized)) return;
 
-    if (selectedTargets.value.has(targetId)) {
-      selectedTargets.value.delete(targetId);
+    if (selectedTargets.value.has(normalized)) {
+      selectedTargets.value.delete(normalized);
     } else if (selectedTargets.value.size < maxTargets.value) {
-      selectedTargets.value.add(targetId);
+      selectedTargets.value.add(normalized);
     }
     selectedTargets.value = new Set(selectedTargets.value);
     return;
@@ -736,43 +688,37 @@ function selectTarget(targetId: string) {
 
   // Handle Wolverine's 6s allocation
   if (isAllocatingWolverineSixes.value) {
-    emit('allocate-wolverine-six', targetId);
+    emit('allocate-wolverine-six', normalized);
     return;
   }
 
   // Handle hit allocation mode - clicking adds a hit
   if (isAllocating.value && hitAllocationRef.value) {
-    const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets.map(t => t.id) ?? [];
-    if (!validTargetIds.includes(targetId)) return;
-    hitAllocationRef.value.addHitToTarget(targetId);
+    const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets
+      .map(t => normalizeId(t.id))
+      .filter((id): id is string => !!id) ?? [];
+    if (!validTargetIds.includes(normalized)) return;
+    hitAllocationRef.value.addHitToTarget(normalized);
   }
 }
 
 function addHitToTarget(targetId: string) {
   if (!isAllocating.value || !hitAllocationRef.value) return;
-  const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets.map(t => t.id) ?? [];
-  if (!validTargetIds.includes(targetId)) return;
-  hitAllocationRef.value.addHitToTarget(targetId);
+  const normalized = normalizeId(targetId);
+  if (!normalized) return;
+  const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets
+    .map(t => normalizeId(t.id))
+    .filter((id): id is string => !!id) ?? [];
+  if (!validTargetIds.includes(normalized)) return;
+  hitAllocationRef.value.addHitToTarget(normalized);
 }
 
 function removeHitFromTarget(targetId: string) {
   if (!isAllocating.value || !hitAllocationRef.value) return;
-  hitAllocationRef.value.removeHitFromTarget(targetId);
+  const normalized = normalizeId(targetId);
+  if (!normalized) return;
+  hitAllocationRef.value.removeHitFromTarget(normalized);
 }
-
-// =============================================================================
-// Watchers
-// =============================================================================
-
-// Coordinate death animations when death events play
-watch(currentEvent, (event) => {
-  if (!event) return;
-
-  // Coordinate death animations
-  if (event.type === 'death' && event.targetName) {
-    triggerDeathByName(event.targetName);
-  }
-});
 
 // =============================================================================
 // Combat Panel State Machine
@@ -828,24 +774,15 @@ function transitionState() {
 
     // Handle state entry actions
     if (newState === 'COMPLETE') {
-      resetDisplayHealthState();
+      healingCombatants.value.clear();
       resetAnimations();
       emit('combat-finished');
     }
   }
 }
 
-// Coordinate with death animation system
-// Watch both isAnimating and pendingCount to properly track all animation activity
-// NOTE: setCombatAnimationActive is now handled in the activeCombat watcher (activated when
-// combat starts, deactivated when combat ends). This ensures deaths are suppressed for the
-// entire duration of combat, not just while animations are playing.
-watch([isAnimating, () => animationEvents?.pendingCount.value ?? 0], ([animating, pendingCount]) => {
-  // Emit animating state for parent components
-  const isActive = animating || pendingCount > 0;
-  emit('animating', isActive);
-
-  // Trigger state transition check
+// Watch animation activity to drive state machine transitions
+watch([isAnimating, () => animationEvents?.pendingCount.value ?? 0], () => {
   transitionState();
 });
 
@@ -865,7 +802,7 @@ watch(() => props.activeCombat, (newVal, oldVal) => {
 // Reset on new combat
 watch(() => props.activeCombat?.sectorId, (newSectorId, oldSectorId) => {
   if (newSectorId && newSectorId !== oldSectorId) {
-    resetDisplayHealthState();
+    healingCombatants.value.clear();
     resetForNewCombat();
     sawCombatEndEvent.value = false;
     panelState.value = 'IDLE';
@@ -946,8 +883,8 @@ watch(isPreRoll, (preRoll, wasPreRoll) => {
 
 // Cleanup
 onUnmounted(() => {
-  resetForNewCombat();  // Full cleanup on unmount
-  deadCombatants.value.clear();
+  resetForNewCombat();
+  healingCombatants.value.clear();
 });
 </script>
 

@@ -485,70 +485,139 @@ const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null
 // COMBAT PANEL - Show dice and hit allocation during combat
 // ============================================================================
 
-// Get active combat state from gameView
-const activeCombat = computed(() => {
+const combatPanelReady = ref(false);
+
+// Animation events are provided by GameShell
+const animationEvents = useAnimationEvents();
+
+const rawAnimationEvents = computed(() => {
+  return props.state?.state?.animationEvents ||
+    props.state?.animationEvents ||
+    [];
+});
+
+const combatEventSeen = ref(false);
+const lastCombatEventId = ref(0);
+
+watch(rawAnimationEvents, (events) => {
+  for (const event of events) {
+    if (typeof event?.type !== 'string') continue;
+    if (!event.type.startsWith('combat-')) continue;
+    const eventId = typeof event.id === 'number' ? event.id : 0;
+    if (eventId > lastCombatEventId.value) {
+      lastCombatEventId.value = eventId;
+      combatEventSeen.value = true;
+    }
+  }
+});
+
+const hasPendingCombatEvents = computed(() => {
+  return (animationEvents?.pendingCount.value ?? 0) > 0 ||
+    (animationEvents?.isAnimating.value ?? false);
+});
+
+// Get active combat state from gameView (theatre view)
+const theatreActiveCombat = computed(() => {
   const combat = props.gameView?.activeCombat ||
                  props.gameView?.attributes?.activeCombat;
   if (!combat) return null;
   return combat;
 });
 
-// Track if CombatPanel is still animating (keeps panel visible after activeCombat clears)
-const isCombatAnimating = ref(false);
-
-// ============================================================================
-// ANIMATION EVENTS SETUP (BoardSmith v2.4 Animation Event System)
-// ============================================================================
-
-// Animation events are provided by App.vue - inject them here for hasActiveCombat check
-const animationEvents = useAnimationEvents();
-
-// Get pending animation events from state for CombatPanel theatre health initialization
-const pendingAnimationEvents = computed(() => {
-  return props.state?.state?.animationEvents || props.state?.animationEvents || [];
+const activeCombat = computed(() => {
+  return theatreActiveCombat.value ?? null;
 });
+
+const cachedCombat = ref<any | null>(null);
+
+watch(activeCombat, (newCombat) => {
+  if (newCombat) {
+    cachedCombat.value = newCombat;
+  }
+});
+
+watch([activeCombat, hasPendingCombatEvents], ([newCombat, pendingCombatEvents]) => {
+  if (!newCombat && !pendingCombatEvents) {
+    cachedCombat.value = null;
+  }
+});
+
+const activeCombatForPanel = computed(() => {
+  if (activeCombat.value) return activeCombat.value;
+  if (hasPendingCombatEvents.value || combatEventSeen.value) return cachedCombat.value;
+  return null;
+});
+
+// ============================================================================
+// ANIMATION EVENTS SETUP (BoardSmith Theatre View)
+// ============================================================================
 
 // Check if there's active combat to show the panel
-// Keep panel mounted while animations are playing even if activeCombat is null
+// Theatre view keeps activeCombat non-null throughout animation playback
 const hasActiveCombat = computed(() => {
-  return activeCombat.value !== null ||
-         isCombatAnimating.value ||
-         (animationEvents?.isAnimating.value ?? false);
+  return activeCombatForPanel.value !== null || hasPendingCombatEvents.value || combatEventSeen.value;
 });
+
+// Pause animation processing briefly when combat begins so CombatPanel can mount
+watch(
+  [() => activeCombatForPanel.value, hasPendingCombatEvents, combatEventSeen],
+  ([newCombat, pendingCombatEvents, seenCombat], [oldCombat]) => {
+    if (!animationEvents) return;
+
+    if ((newCombat && !oldCombat) ||
+        (pendingCombatEvents && !combatPanelReady.value) ||
+        (seenCombat && !combatPanelReady.value)) {
+      combatPanelReady.value = false;
+      animationEvents.paused.value = true;
+      return;
+    }
+
+    if (!newCombat && !pendingCombatEvents) {
+      combatPanelReady.value = false;
+      animationEvents.paused.value = false;
+    }
+  }
+);
+
+watch(
+  [() => combatPanelReady.value, () => activeCombatForPanel.value, hasPendingCombatEvents, combatEventSeen],
+  ([ready, combat, pendingCombatEvents, seenCombat]) => {
+    if (!animationEvents) return;
+    if (!combat && !pendingCombatEvents && !seenCombat) return;
+    if (!ready) return;
+
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        animationEvents.paused.value = false;
+      });
+    });
+  }
+);
+
+watch(
+  [hasPendingCombatEvents, () => activeCombatForPanel.value],
+  ([pendingCombatEvents, combat]) => {
+    if (!pendingCombatEvents && !combat) {
+      combatEventSeen.value = false;
+    }
+  }
+);
 
 // Delayed game over - waits for animations to complete before showing victory overlay
 const showGameOverOverlay = computed(() => {
   if (!isGameOver.value) return false;
 
-  // Don't show while combat animations are playing
-  if (isCombatAnimating.value) return false;
+  // Don't show while animations are playing
   if (animationEvents?.isAnimating.value) return false;
   if ((animationEvents?.pendingCount.value ?? 0) > 0) return false;
 
   return true;
 });
 
-// Watch for activeCombat becoming null - game logic may clear it before animations finish
-// The CombatPanel's state machine will detect this and transition to COMPLETE
-watch(activeCombat, (newCombat, oldCombat) => {
-  if (oldCombat && !newCombat) {
-    // Don't reset isCombatAnimating here - let CombatPanel's state machine handle it
-  }
-});
-
-// Handler for CombatPanel animation state changes
-function handleCombatAnimating(animating: boolean) {
-  isCombatAnimating.value = animating;
-}
-
 // Handler for when combat is truly finished (animations done AND combat marked complete)
-// This is emitted by CombatPanel after a small delay to handle race conditions
+// This is emitted by CombatPanel after its state machine reaches COMPLETE
 async function handleCombatFinished() {
-  // Panel is closing - reset our tracking flag
-  isCombatAnimating.value = false;
-
   // Tell the game to clear combat state
-  // Animation events are acknowledged automatically by the animation events composable
   try {
     await props.actionController.execute('clearCombatAnimations', {});
   } catch {
@@ -601,9 +670,6 @@ async function handleConfirmTargets(targetIds: string[]) {
 // Handle continue combat from CombatPanel
 async function handleContinueCombat() {
   if (!props.availableActions.includes('combatContinue')) return;
-  // Keep panel mounted while action executes - prevents race condition where
-  // activeCombat becomes null before new animation events are queued
-  isCombatAnimating.value = true;
   await props.actionController.execute('combatContinue', {});
 }
 
@@ -652,6 +718,10 @@ async function handleSkipBeforeAttackHeal() {
 async function handleDisplayComplete() {
   if (!props.availableActions.includes('combatDisplayContinue')) return;
   await props.actionController.execute('combatDisplayContinue', {});
+}
+
+function handleCombatPanelReady() {
+  combatPanelReady.value = true;
 }
 
 
@@ -1183,13 +1253,13 @@ const clickableSectors = computed(() => {
     <!-- Combat Panel - shown when there's active combat -->
     <CombatPanel
       v-if="hasActiveCombat"
-      :active-combat="activeCombat"
+      :game-view="gameView"
+      :active-combat="activeCombatForPanel"
       :is-my-turn="isMyTurn"
       :available-actions="availableActions"
       :sector-name="combatSectorName"
       :is-selecting-retreat-sector="isSelectingRetreatSector"
       :retreat-sector-choices="retreatSectorChoices"
-      :pending-animation-events="pendingAnimationEvents"
       @allocate-hit="handleAllocateHit"
       @allocate-wolverine-six="handleAllocateWolverineSix"
       @reroll="handleReroll"
@@ -1200,8 +1270,8 @@ const clickableSectors = computed(() => {
       @select-retreat-sector="handleSelectRetreatSector"
       @assign-attack-dog="handleAssignAttackDog"
       @display-complete="handleDisplayComplete"
-      @animating="handleCombatAnimating"
       @combat-finished="handleCombatFinished"
+      @panel-ready="handleCombatPanelReady"
       @use-medical-kit="handleUseMedicalKit"
       @use-surgeon-heal="handleUseSurgeonHeal"
       @use-before-attack-heal="handleUseBeforeAttackHeal"
