@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 42 of 46 (Remove Dead APIs)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-08 -- Completed 42-01-PLAN.md (Remove Dead APIs)
+Phase: 43 of 46 (Combat Event Architecture)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-08 -- Completed 43-01-PLAN.md (Extract Animate Callbacks)
 
-Progress: [██░░░░░░░░] 20% (1 of 5 phases complete)
+Progress: [███░░░░░░░] 30% (2 of 6 plans complete)
 
 ## Current Milestone
 
@@ -23,7 +23,7 @@ Progress: [██░░░░░░░░] 20% (1 of 5 phases complete)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 42 | Remove Dead APIs | DELETE-01, DELETE-02 | Complete |
-| 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Not started |
+| 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Plan 1/2 complete |
 | 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | Not started |
 | 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Not started |
 | 46 | Verification | TEST-01 | Not started |
@@ -42,13 +42,13 @@ Progress: [██░░░░░░░░] 20% (1 of 5 phases complete)
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
 - v1.8 Unified Stat Ability System (Phases 37-41) - 7 plans
 
-Total: 41 phases, 82 plans, 9 milestones shipped
+Total: 41 phases, 83 plans, 9 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 83
-- Average duration: 9.5 min/plan
+- Total plans completed: 84
+- Average duration: 9.4 min/plan
 
 ## Accumulated Context
 
@@ -65,6 +65,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 **v1.9 Decisions (confirmed by execution):**
 - activeCombat sourced from theatre view only, no truth view fallback (42-01)
 - Animation events are fire-and-forget, no acknowledgment protocol needed (42-01)
+- All 13 combat animate calls are pure data -- mutations after call, not in callback (43-01)
+- combat-heal events carry healthBefore/healthAfter/healAmount for CombatPanel (43-01)
 
 ### Deferred Issues
 
@@ -77,5 +79,5 @@ None for v1.9.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 42-01-PLAN.md (Remove Dead APIs - DELETE-01, DELETE-02)
+Stopped at: Completed 43-01-PLAN.md (Extract Animate Callbacks - SRV-03)
 Resume file: None
