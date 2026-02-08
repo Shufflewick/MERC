@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 44 of 46 (CombatPanel Rebuild)
-Plan: 2 of 2 in current phase
+Phase: 45 of 46 (GameTable Clean Wiring)
+Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-02-08 -- Completed 44-02-PLAN.md (Decision Prompts from Snapshot + State Machine Removal)
+Last activity: 2026-02-08 -- Completed 45-01-PLAN.md (GameTable Clean Wiring)
 
-Progress: [██████░░░░] 83% (5 of 6 plans complete)
+Progress: [████████░░] 86% (6 of 7 plans complete)
 
 ## Current Milestone
 
@@ -25,7 +25,7 @@ Progress: [██████░░░░] 83% (5 of 6 plans complete)
 | 42 | Remove Dead APIs | DELETE-01, DELETE-02 | Complete |
 | 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Complete |
 | 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | Complete |
-| 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Not started |
+| 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Complete |
 | 46 | Verification | TEST-01 | Not started |
 
 **Target:** CombatPanel renders 100% from animation events, zero vestigial theatre view code
@@ -47,7 +47,7 @@ Total: 41 phases, 83 plans, 9 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 87
+- Total plans completed: 88
 - Average duration: 9.1 min/plan
 
 ## Accumulated Context
@@ -73,6 +73,9 @@ All decisions captured in PROJECT.md Key Decisions table.
 - healthOverrides cleared on each combat-panel snapshot -- snapshot health is authoritative at decision points (44-01)
 - Decision prompts accessed via 5 snapshot computed helpers, not inline template casts (44-02)
 - combat-end handler is sole lifecycle exit: clears state and emits combat-finished, replacing state machine (44-02)
+- combat-panel handler in GameTable (always-mounted parent) eliminates chicken-and-egg mounting problem without pause/resume (45-01)
+- CombatPanel snapshot watcher clears healthOverrides on every new snapshot, replacing internal handler clearing (45-01)
+- Wolverine 6s individual click emit removed -- allocation tracked internally via hit allocation panel (45-01)
 
 ### Deferred Issues
 
@@ -85,5 +88,5 @@ None for v1.9.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 44-02-PLAN.md (Decision Prompts from Snapshot + State Machine Removal)
+Stopped at: Completed 45-01-PLAN.md (GameTable Clean Wiring)
 Resume file: None
