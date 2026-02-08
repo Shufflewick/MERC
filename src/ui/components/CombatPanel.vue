@@ -51,6 +51,7 @@ const emit = defineEmits<{
   (e: 'select-retreat-sector', sectorId: string | number): void;
   (e: 'assign-attack-dog', targetId: string): void;
   (e: 'combat-finished'): void;
+  (e: 'combat-death-signal', payload: { combatantId: string }): void;
   (e: 'use-medical-kit'): void;
   (e: 'use-surgeon-heal'): void;
   (e: 'use-before-attack-heal'): void;
@@ -192,6 +193,11 @@ if (animationEvents) {
   animationEvents.registerHandler('combat-death', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('death'));
+    // Signal MapGrid to play the map death animation after the panel death flash
+    const data = event.data as Record<string, unknown>;
+    if (typeof data.combatantId === 'string') {
+      emit('combat-death-signal', { combatantId: data.combatantId });
+    }
     await sleep(getTiming('pause'));
   });
 

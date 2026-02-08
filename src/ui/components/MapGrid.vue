@@ -6,7 +6,7 @@ import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
 import CombatantDeathAnimation from './CombatantDeathAnimation.vue';
 import CombatantMoveAnimation from './CombatantMoveAnimation.vue';
 import EquipmentDropAnimation from './EquipmentDropAnimation.vue';
-import { useDeathAnimationCoordinator } from '../composables/useDeathAnimationCoordinator';
+// Death animation data (local to MapGrid — suppressed during combat, released by CombatPanel signals)
 
 interface SectorData {
   sectorId: string;
@@ -107,6 +107,8 @@ const props = defineProps<{
   canDropEquipment?: boolean;
   dictatorBaseSectorId?: string; // Sector where dictator's base is (if revealed)
   dictatorColor?: string; // Dictator player color for base icon styling
+  combatActive?: boolean; // Whether combat panel is active (suppresses auto death animations)
+  combatDeathSignals?: { combatantId: string }[]; // Signals from CombatPanel timeline to play death animations
 }>();
 
 const emit = defineEmits<{
@@ -325,16 +327,31 @@ function getSectorWithDisplayMilitia(sector: SectorData): SectorData {
 // Active combatant entry animations
 const activeCombatantAnimations = ref<CombatantAnimation[]>([]);
 
-// Death animation coordinator - coordinates with CombatPanel
-const {
-  pendingDeaths,
-  isCombatAnimating,
-  queueDeath,
-  removePendingDeath,
-} = useDeathAnimationCoordinator();
+// Local death animation tracking — deaths suppressed during combat until CombatPanel signals
+interface DeathAnimationData {
+  id: string;
+  combatantId: string;
+  combatantName: string;
+  image?: string;
+  playerColor?: string;
+  sectorId: string;
+}
+let deathIdCounter = 0;
+const pendingDeaths = ref<DeathAnimationData[]>([]);
+
+// Deaths suppressed during combat, keyed by combatantId — released by CombatPanel signals
+const suppressedDeaths = new Map<string, DeathAnimationData>();
 
 // Active combatant move animations
 const activeMoveAnimations = ref<CombatantMoveAnimationData[]>([]);
+
+// Moves suppressed during combat — released when combat ends
+const suppressedMoves: CombatantMoveAnimationData[] = [];
+
+// Track whether combat was already active before the current mercs watcher tick.
+// Movement into the combat sector and combatActive becoming true arrive in the same
+// reactive flush, so we use this to avoid suppressing the entry movement.
+let combatWasActive = false;
 
 // Active equipment drop animations
 const activeEquipmentAnimations = ref<EquipmentAnimationData[]>([]);
@@ -395,39 +412,94 @@ function handleCombatantAnimationComplete(animationId: string) {
   activeCombatantAnimations.value = activeCombatantAnimations.value.filter(a => a.id !== animationId);
 }
 
-// Queue a combatant death animation through the coordinator
-// If combat is active, the death will be suppressed until CombatPanel triggers it
-function queueDeathAnimation(merc: MercData, source: 'combat' | 'tactics' | 'mortar' | 'mine' | 'other' = 'combat') {
+function buildDeathData(merc: MercData): DeathAnimationData {
+  return {
+    id: `death-${Date.now()}-${++deathIdCounter}`,
+    combatantId: merc.combatantId,
+    combatantName: merc.combatantName || merc.combatantId,
+    image: merc.image,
+    playerColor: merc.playerColor,
+    sectorId: merc.sectorId!,
+  };
+}
+
+// Queue a combatant death animation — suppressed during combat until CombatPanel signals
+function queueDeathAnimation(merc: MercData) {
   if (!merc.sectorId) return;
 
+  const data = buildDeathData(merc);
+
+  if (props.combatActive) {
+    // Suppress: hold until CombatPanel's timeline emits the signal
+    suppressedDeaths.set(data.combatantId, data);
+    return;
+  }
+
   nextTick(() => {
-    queueDeath({
-      combatantId: merc.combatantId,
-      combatantName: merc.combatantName || merc.combatantId,
-      image: merc.image,
-      playerColor: merc.playerColor,
-      sectorId: merc.sectorId!,
-    }, source);
+    pendingDeaths.value.push(data);
   });
 }
 
 // Handle combatant death animation complete
 function handleDeathAnimationComplete(deathId: string) {
-  removePendingDeath(deathId);
+  pendingDeaths.value = pendingDeaths.value.filter(d => d.id !== deathId);
 }
 
-// Queue a combatant move animation
-function queueMoveAnimation(merc: MercData, fromSectorId: string, toSectorId: string) {
-  nextTick(() => {
-    activeMoveAnimations.value.push({
-      id: getAnimationId('move'),
-      combatantId: merc.combatantId,
-      combatantName: merc.combatantName || merc.combatantId,
-      image: merc.image,
-      playerColor: merc.playerColor,
-      fromSectorId,
-      toSectorId,
+// Release suppressed deaths when CombatPanel signals
+watch(() => props.combatDeathSignals?.length, () => {
+  const signals = props.combatDeathSignals;
+  if (!signals || signals.length === 0) return;
+
+  // Process the latest signal (array grows by one each time)
+  const latest = signals[signals.length - 1];
+  const suppressed = suppressedDeaths.get(latest.combatantId);
+  if (suppressed) {
+    suppressedDeaths.delete(latest.combatantId);
+    nextTick(() => {
+      pendingDeaths.value.push(suppressed);
     });
+  }
+});
+
+// Release all suppressed animations when combat ends
+watch(() => props.combatActive, (active, wasActive) => {
+  if (!wasActive || active) return;
+
+  if (suppressedDeaths.size > 0) {
+    const remainingDeaths = [...suppressedDeaths.values()];
+    suppressedDeaths.clear();
+    nextTick(() => {
+      pendingDeaths.value.push(...remainingDeaths);
+    });
+  }
+
+  if (suppressedMoves.length > 0) {
+    const remainingMoves = suppressedMoves.splice(0);
+    nextTick(() => {
+      activeMoveAnimations.value.push(...remainingMoves);
+    });
+  }
+});
+
+// Queue a combatant move animation — suppressed during combat until combat ends
+function queueMoveAnimation(merc: MercData, fromSectorId: string, toSectorId: string) {
+  const data: CombatantMoveAnimationData = {
+    id: getAnimationId('move'),
+    combatantId: merc.combatantId,
+    combatantName: merc.combatantName || merc.combatantId,
+    image: merc.image,
+    playerColor: merc.playerColor,
+    fromSectorId,
+    toSectorId,
+  };
+
+  if (combatWasActive) {
+    suppressedMoves.push(data);
+    return;
+  }
+
+  nextTick(() => {
+    activeMoveAnimations.value.push(data);
   });
 }
 
@@ -592,6 +664,9 @@ watch(
       previousMercData.value.set(merc.combatantId, merc);
       previousMercEquipment.value.set(merc.combatantId, buildEquipmentIdMap(merc));
     }
+
+    // Snapshot combat state so the next tick knows whether combat was already active
+    combatWasActive = props.combatActive ?? false;
   },
   { deep: true }
 );
@@ -692,7 +767,7 @@ function handleSectorClick(sectorId: string) {
       @complete="handleCombatantAnimationComplete(anim.id)"
     />
 
-    <!-- Combatant Death Animations (coordinated with CombatPanel) -->
+    <!-- Combatant Death Animations (suppressed during combat, released by CombatPanel signals) -->
     <CombatantDeathAnimation
       v-for="death in pendingDeaths"
       :key="death.id"

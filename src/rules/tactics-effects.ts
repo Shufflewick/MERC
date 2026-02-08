@@ -10,7 +10,7 @@
 import type { MERCGame, RebelPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
-import { executeCombat } from './combat.js';
+import { queuePendingCombat } from './combat.js';
 import { selectAIBaseLocation } from './ai-helpers.js';
 
 // =============================================================================
@@ -270,7 +270,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
       if (placed > 0) {
         combatsTriggered.push(targetSector.sectorName);
         // Trigger combat - dictator initiated
-        executeCombat(game, targetSector, rebel, { attackingPlayerIsRebel: false });
+        queuePendingCombat(game, targetSector, rebel, false);
       }
     }
   }
@@ -309,7 +309,7 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
           game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
           combatsTriggered.push(sector.sectorName);
           // Dictator initiated combat
-          executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+          queuePendingCombat(game, sector, rebel, false);
           break; // Only trigger combat once per sector
         }
       }
@@ -457,7 +457,7 @@ export function applyConscriptsEffect(game: MERCGame): void {
           if (hasSquad || hasMilitia) {
             game.message(`Conscripts triggered combat at ${sector.sectorName}!`);
             // Dictator initiated combat
-            executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+            queuePendingCombat(game, sector, rebel, false);
             break; // Only trigger combat once per sector
           }
         }

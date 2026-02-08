@@ -7,7 +7,7 @@
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
-import { executeCombat, hasEnemies } from '../combat.js';
+import { queuePendingCombat, hasEnemies } from '../combat.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
 import {
   hasMortar,
@@ -298,15 +298,14 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
 
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          // Dictator initiated combat, so only dictator side gets target selection
-          const outcome = executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+          // Dictator initiated combat, queue it so UI can mount CombatPanel
+          queuePendingCombat(game, sector, rebel, false);
           return {
             success: true,
             message: `Reinforced with ${placed} militia and engaged in combat`,
             data: {
               combatTriggered: true,
-              rebelVictory: outcome.rebelVictory,
-              dictatorVictory: outcome.dictatorVictory,
+              combatQueued: true,
             },
           };
         }
@@ -576,15 +575,14 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
 
         if (hasSquad || hasMilitia) {
           game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-          // Dictator initiated combat, so only dictator side gets target selection
-          const outcome = executeCombat(game, targetSector, rebel, { attackingPlayerIsRebel: false });
+          // Dictator initiated combat, queue it so UI can mount CombatPanel
+          queuePendingCombat(game, targetSector, rebel, false);
           return {
             success: true,
             message: `Placed ${placed} militia and engaged in combat`,
             data: {
               combatTriggered: true,
-              rebelVictory: outcome.rebelVictory,
-              dictatorVictory: outcome.dictatorVictory,
+              combatQueued: true,
             },
           };
         }
@@ -593,4 +591,3 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       return { success: true, message: `Placed ${placed} militia` };
     });
 }
-

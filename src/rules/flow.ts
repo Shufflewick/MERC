@@ -274,7 +274,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // MERC-t5k: Keep player in loop while combat is active or pending
                 // BUT exit if combatComplete is true (UI is animating, player can continue)
                 if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
-                if (game.pendingCombat !== null) return true; // Combat about to start
+                if (game.pendingCombat !== null || game.pendingCombatQueue.length > 0) return true; // Combat about to start
                 // Check if current player has any MERCs with actions remaining
                 const player = ctx?.player as RebelPlayer | undefined;
                 if (player) {
@@ -288,13 +288,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // MERC-t5k: Check for pending combat (from move action) and initiate it
                 // This execute step runs BEFORE the action step, ensuring UI refresh
                 execute((ctx) => {
+                  if (!game.pendingCombat && game.pendingCombatQueue.length > 0) {
+                    game.pendingCombat = game.pendingCombatQueue.shift() || null;
+                  }
                   if (game.pendingCombat && !game.activeCombat) {
                     const sector = game.getSector(game.pendingCombat.sectorId);
                     const player = game.rebelPlayers.find(
                       p => `${p.seat}` === game.pendingCombat!.playerId
                     );
                     if (sector && player) {
-                      executeCombat(game, sector, player);
+                      executeCombat(game, sector, player, {
+                        attackingPlayerIsRebel: game.pendingCombat.attackingPlayerIsRebel ?? true,
+                      });
                     }
                     game.pendingCombat = null;
                   }
@@ -400,6 +405,27 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }),
                 }),
 
+                // Wait for UI to play combat animations before clearing.
+                // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
+                execute(() => {
+                  if (game.activeCombat?.combatComplete &&
+                      game.dictatorPlayer?.isAI &&
+                      game.rebelPlayers.every(p => p.isAI)) {
+                    clearActiveCombat(game);
+                  }
+                }),
+                loop({
+                  name: 'rebel-combat-animation-wait',
+                  while: () => game.activeCombat?.combatComplete === true &&
+                    !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
+                  maxIterations: 5,
+                  do: actionStep({
+                    name: 'wait-for-combat-animations',
+                    actions: ['clearCombatAnimations'],
+                    skipIf: () => !game.activeCombat?.combatComplete,
+                  }),
+                }),
+
                 // Regular action step - only runs when not in combat
                 actionStep({
                   name: 'rebel-action',
@@ -451,15 +477,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             filter: (player) => game.isDictatorPlayer(player) && !game.isFinished(),
             do: sequence(
               execute(() => {
-                // Safety: Clear any stale rebel combat state (shouldn't happen but defensive)
-                // Only clear if NOT combatComplete - let UI clear via clearCombatAnimations action
-                // combatComplete means combat just finished and UI needs to show results/animations
-                if (game.activeCombat && !game.activeCombat.combatComplete) {
-                  game.message('Warning: Clearing stale combat state');
+                // Safety: Clear any stale combat state from rebel turn
+                if (game.activeCombat) {
+                  if (!game.activeCombat.combatComplete) {
+                    game.message('Warning: Clearing stale combat state');
+                  }
                   clearActiveCombat(game);
                 }
                 if (game.pendingCombat) {
                   game.pendingCombat = null;
+                }
+                if (game.pendingCombatQueue.length > 0) {
+                  game.pendingCombatQueue = [];
                 }
                 game.message('--- Dictator Turn ---');
 
@@ -598,6 +627,27 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               }),
 
+              // Wait for UI to play combat animations before clearing.
+              // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
+              execute(() => {
+                if (game.activeCombat?.combatComplete &&
+                    game.dictatorPlayer?.isAI &&
+                    game.rebelPlayers.every(p => p.isAI)) {
+                  clearActiveCombat(game);
+                }
+              }),
+              loop({
+                name: 'tactics-combat-animation-wait',
+                while: () => game.activeCombat?.combatComplete === true &&
+                  !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
+                maxIterations: 5,
+                do: actionStep({
+                  name: 'wait-for-combat-animations',
+                  actions: ['clearCombatAnimations'],
+                  skipIf: () => !game.activeCombat?.combatComplete,
+                }),
+              }),
+
               // Step 2: Dictator MERC actions (if any MERCs)
               // Uses unified action names (same as rebels)
               loop({
@@ -607,7 +657,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // MERC-combat-flow: Keep loop active while combat is active or pending
                   // But exit if combatComplete (UI is animating)
                   if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
-                  if (game.pendingCombat !== null) return true;
+                  if (game.pendingCombat !== null || game.pendingCombatQueue.length > 0) return true;
                   // Continue while any dictator MERC has actions
                   const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
                   const dictator = game.dictatorPlayer?.dictator;
@@ -619,13 +669,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: sequence(
                   // Check for pending combat (from move action) and initiate it
                   execute((ctx) => {
+                    if (!game.pendingCombat && game.pendingCombatQueue.length > 0) {
+                      game.pendingCombat = game.pendingCombatQueue.shift() || null;
+                    }
                     if (game.pendingCombat && !game.activeCombat) {
                       const sector = game.getSector(game.pendingCombat.sectorId);
                       const player = game.rebelPlayers.find(
                         p => `${p.seat}` === game.pendingCombat!.playerId
                       );
                       if (sector && player) {
-                        executeCombat(game, sector, player);
+                        executeCombat(game, sector, player, {
+                          attackingPlayerIsRebel: game.pendingCombat.attackingPlayerIsRebel ?? true,
+                        });
                       }
                       game.pendingCombat = null;
                     }
@@ -730,6 +785,27 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                     game.activeCombat.pendingEpinephrine != null,
                     }),
                   }),
+
+                    // Wait for UI to play combat animations before clearing.
+                    // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
+                    execute(() => {
+                      if (game.activeCombat?.combatComplete &&
+                          game.dictatorPlayer?.isAI &&
+                          game.rebelPlayers.every(p => p.isAI)) {
+                        clearActiveCombat(game);
+                      }
+                    }),
+                    loop({
+                      name: 'dictator-combat-animation-wait',
+                      while: () => game.activeCombat?.combatComplete === true &&
+                        !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
+                      maxIterations: 5,
+                      do: actionStep({
+                        name: 'wait-for-combat-animations',
+                        actions: ['clearCombatAnimations'],
+                        skipIf: () => !game.activeCombat?.combatComplete,
+                      }),
+                    }),
 
                   // Regular action step - only runs when not in combat
                   actionStep({
@@ -881,6 +957,27 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                 game.activeCombat.pendingEpinephrine != null,
                 }),
               }),
+
+                // Wait for UI to play combat animations before clearing.
+                // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
+                execute(() => {
+                  if (game.activeCombat?.combatComplete &&
+                      game.dictatorPlayer?.isAI &&
+                      game.rebelPlayers.every(p => p.isAI)) {
+                    clearActiveCombat(game);
+                  }
+                }),
+                loop({
+                  name: 'kim-militia-combat-animation-wait',
+                  while: () => game.activeCombat?.combatComplete === true &&
+                    !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
+                  maxIterations: 5,
+                  do: actionStep({
+                    name: 'wait-for-combat-animations',
+                    actions: ['clearCombatAnimations'],
+                    skipIf: () => !game.activeCombat?.combatComplete,
+                  }),
+                }),
 
               // Apply end-of-turn effects (Conscripts)
               execute(() => {

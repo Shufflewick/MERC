@@ -14,7 +14,7 @@
 import { Action, type ActionDefinition, type GameElement, type ActionContext, dependentFilter } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Squad, CombatantModel } from '../elements.js';
-import { hasEnemies, executeCombat } from '../combat.js';
+import { hasEnemies, queuePendingCombat } from '../combat.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 
 // =============================================================================
@@ -273,15 +273,14 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
 
           if (hasSquad || hasMilitia) {
             game.message(`Rebels detected at ${destination.sectorName} - combat begins!`);
-            // Dictator initiated combat, so only dictator side gets target selection
-            const outcome = executeCombat(game, destination, rebel, { attackingPlayerIsRebel: false });
+            // Dictator initiated combat, queue it so UI can mount CombatPanel
+            queuePendingCombat(game, destination, rebel, false);
             return {
               success: true,
               message: `Moved to ${destination.sectorName} and engaged in combat`,
               data: {
                 combatTriggered: true,
-                rebelVictory: outcome.rebelVictory,
-                dictatorVictory: outcome.dictatorVictory,
+                combatQueued: true,
               },
             };
           }

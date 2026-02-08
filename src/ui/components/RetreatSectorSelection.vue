@@ -18,11 +18,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'select', sectorId: string): void;
+  (e: 'select', sectorId: string | number): void;
 }>();
 
 function handleSelect(sector: RetreatSector) {
-  emit('select', String(sector.id));
+  emit('select', sector.id);
 }
 </script>
 

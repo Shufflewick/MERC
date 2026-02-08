@@ -16,7 +16,7 @@ import {
   selectMilitiaPlacementSector,
   getRebelControlledSectors,
 } from './ai-helpers.js';
-import { executeCombat } from './combat.js';
+import { queuePendingCombat } from './combat.js';
 import { equipNewHire } from './actions/helpers.js';
 
 // =============================================================================
@@ -223,8 +223,8 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
 
     if (hasSquad || hasMilitia) {
       game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-      // Dictator initiated combat, so only dictator side gets target selection
-      const outcome = executeCombat(game, targetSector, rebel, { attackingPlayerIsRebel: false });
+      // Dictator initiated combat, queue it so UI can mount CombatPanel
+      queuePendingCombat(game, targetSector, rebel, false);
       return {
         success: true,
         message: `Placed ${placed} militia and engaged in combat`,
@@ -232,8 +232,7 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
           militiaPlaced: placed,
           targetSector: targetSector.sectorName,
           combatTriggered: true,
-          rebelVictory: outcome.rebelVictory,
-          dictatorVictory: outcome.dictatorVictory,
+          combatQueued: true,
         },
       };
     }

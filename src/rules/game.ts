@@ -568,7 +568,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   pendingCombat: {
     sectorId: string;
     playerId: string;
+    attackingPlayerIsRebel?: boolean;
   } | null = null;
+
+  // Queue for multiple pending combats triggered by a single action (e.g., tactics effects)
+  pendingCombatQueue: Array<{
+    sectorId: string;
+    playerId: string;
+    attackingPlayerIsRebel?: boolean;
+  }> = [];
 
   // Explosives victory - set when rebels detonate explosives in palace
   explosivesVictory: boolean = false;

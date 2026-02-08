@@ -9,7 +9,7 @@ import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
-import { executeCombat } from '../combat.js';
+import { queuePendingCombat } from '../combat.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -802,14 +802,13 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         // Check if dictator has units at this sector and trigger combat
         if (sector.dictatorMilitia > 0) {
           game.message(`Dictator militia detected at ${sector.sectorName} - combat begins!`);
-          const outcome = executeCombat(game, sector, player);
+          queuePendingCombat(game, sector, player, true);
           return {
             success: true,
             message: `Trained ${trained} militia and engaged in combat`,
             data: {
               combatTriggered: true,
-              rebelVictory: outcome.rebelVictory,
-              dictatorVictory: outcome.dictatorVictory,
+              combatQueued: true,
             },
           };
         }
@@ -828,14 +827,13 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
 
           if (hasSquad || hasMilitia) {
             game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-            const outcome = executeCombat(game, sector, rebel);
+            queuePendingCombat(game, sector, rebel, false);
             return {
               success: true,
               message: `Trained ${trained} militia and engaged in combat`,
               data: {
                 combatTriggered: true,
-                rebelVictory: outcome.rebelVictory,
-                dictatorVictory: outcome.dictatorVictory,
+                combatQueued: true,
               },
             };
           }

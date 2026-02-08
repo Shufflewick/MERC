@@ -661,7 +661,7 @@ function militiaToCombatants(
   for (let i = 0; i < count; i++) {
     combatants.push({
       id: `militia-${isDictatorSide ? 'dictator' : ownerId}-${i}`,
-      name: isDictatorSide ? 'Dictator Militia' : 'Rebel Militia',
+      name: 'Militia',
       initiative,
       combat: CombatConstants.MILITIA_COMBAT,
       health: CombatConstants.MILITIA_HEALTH,
@@ -1898,6 +1898,7 @@ function executeCombatRound(
               targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
               targetId: target.id,
               targetImage: target.image,
+              combatantId: getCombatantId(target),
             });
             casualties.push(target);
             game.message(`${attacker.name} kills ${target.name}!`);
@@ -1907,6 +1908,7 @@ function executeCombatRound(
             targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
             targetId: target.id,
             targetImage: target.image,
+            combatantId: getCombatantId(target),
           });
           casualties.push(target);
           game.message(`${attacker.name} kills ${target.name}!`);
@@ -2908,12 +2910,35 @@ export function executeCombatRetreat(
     applyCombatResults(game, combatSector, rebels, dictator, attackingPlayer);
   }
 
-  // Clear combat state and animation events buffer
   const rebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
   const dictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
-  clearActiveCombat(game);
 
   game.message(`=== Combat Complete (Retreated) ===`);
+
+  // Build combatEndState and emit animation events so CombatPanel can close.
+  // Mirrors the pattern in executeCombat() — clearActiveCombat is handled by
+  // the flow engine's clearCombatAnimations action step.
+  const combatEndState = {
+    sectorId: game.activeCombat.sectorId,
+    attackingPlayerId: game.activeCombat.attackingPlayerId,
+    attackingPlayerIsRebel: game.activeCombat.attackingPlayerIsRebel,
+    round: 1,
+    rebelCombatants: rebels,
+    dictatorCombatants: dictator,
+    rebelCasualties,
+    dictatorCasualties,
+    dogAssignments: game.activeCombat.dogAssignments,
+    dogs: game.activeCombat.dogs,
+    combatComplete: true,
+  };
+
+  game.activeCombat = combatEndState;
+  game.animate('combat-panel', buildCombatPanelSnapshot(game));
+
+  game.animate('combat-end', {
+    rebelVictory: false,
+    dictatorVictory: false,
+  });
 
   return {
     rounds: [],
