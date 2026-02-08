@@ -84,8 +84,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 43-01-PLAN.md -- Extract mutations from all 13 animate callbacks into pure data events (SRV-03)
-- [ ] 43-02-PLAN.md -- Add combat-panel snapshot emission at all decision cycle points (SRV-01, SRV-02)
+- [x] 43-01-PLAN.md -- Extract mutations from all 13 animate callbacks into pure data events (SRV-03)
+- [x] 43-02-PLAN.md -- Add combat-panel snapshot emission at all decision cycle points (SRV-01, SRV-02)
 
 #### Phase 44: CombatPanel Rebuild
 **Goal**: CombatPanel is a self-contained animation player that renders 100% from event data -- no gameView reads, no activeCombat prop for rendering, no state machine, no manual health tracking
@@ -139,7 +139,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 42. Remove Dead APIs | 1/1 | ✓ Complete | 2026-02-08 |
-| 43. Combat Event Architecture | 0/2 | Not started | - |
+| 43. Combat Event Architecture | 2/2 | ✓ Complete | 2026-02-08 |
 | 44. CombatPanel Rebuild | 0/TBD | Not started | - |
 | 45. GameTable Clean Wiring | 0/TBD | Not started | - |
 | 46. Verification | 0/TBD | Not started | - |
