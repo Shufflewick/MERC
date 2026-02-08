@@ -111,10 +111,10 @@ Plans:
   1. Combat panel visibility in GameTable is driven by a single condition: presence of a combat snapshot from animation events
   2. Zero references to `combatEventSeen`, `lastCombatEventId`, `cachedCombat`, `activeCombatForPanel`, `theatreActiveCombat`, `truthActiveCombat`, `combatPanelReady`, or `paused` workaround in GameTable.vue
   3. The combat section of GameTable is under 20 lines of template and under 10 lines of script logic
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 45-01: TBD
+- [ ] 45-01-PLAN.md -- Move snapshot ownership to GameTable, delete fallback chains, update CombatPanel to receive snapshot as prop (UI-04, DELETE-04)
 
 #### Phase 46: Verification
 **Goal**: Automated tests confirm the combat event pipeline works end-to-end -- snapshot contents, decision context, animation event data, and the full cycle of snapshot-events-decision-snapshot
@@ -141,5 +141,5 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46
 | 42. Remove Dead APIs | 1/1 | ✓ Complete | 2026-02-08 |
 | 43. Combat Event Architecture | 2/2 | ✓ Complete | 2026-02-08 |
 | 44. CombatPanel Rebuild | 2/2 | ✓ Complete | 2026-02-08 |
-| 45. GameTable Clean Wiring | 0/TBD | Not started | - |
+| 45. GameTable Clean Wiring | 0/1 | Not started | - |
 | 46. Verification | 0/TBD | Not started | - |
