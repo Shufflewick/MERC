@@ -2455,6 +2455,7 @@ export function executeCombat(
       dogAssignments: Array.from(dogState.assignments.entries()),
       dogs: dogState.dogs,
     };
+    game.animate('combat-panel', buildCombatPanelSnapshot(game));
   }
 
   let retreatSector: Sector | undefined;
@@ -2551,6 +2552,7 @@ export function executeCombat(
 
       // MERC-t5k: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       game.message(`${pause.attackerName} is ready to attack. Select targets.`);
 
@@ -2592,6 +2594,7 @@ export function executeCombat(
 
       // MERC-dice: Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       const attacker = game.activeCombat.pendingHitAllocation?.attackerName ?? 'MERC';
       game.message(`${attacker} rolled! Allocate hits to targets.`);
@@ -2634,8 +2637,47 @@ export function executeCombat(
 
       // Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       game.message(`${pause.attackerName}'s turn. Use healing items before attacking?`);
+
+      return {
+        rounds,
+        rebelVictory: false,
+        dictatorVictory: false,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        retreated: false,
+        combatPending: true,
+        canRetreat: false,
+      };
+    }
+
+    // Check if round paused for epinephrine decision
+    if (!roundResult.complete && roundResult.pausedForEpinephrine) {
+      // pendingEpinephrine is already set on game.activeCombat by executeCombatRound
+      // Save the rest of combat state for resuming
+      game.activeCombat = {
+        ...game.activeCombat!,
+        sectorId: sector.sectorId,
+        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerIsRebel,
+        round,
+        rebelCombatants: rebels,
+        dictatorCombatants: dictator,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        dogAssignments: Array.from(dogState.assignments.entries()),
+        dogs: dogState.dogs,
+        selectedTargets: playerSelectedTargets,
+        selectedDogTargets: playerSelectedDogTargets,
+        currentAttackerIndex: roundResult.currentAttackerIndex,
+        roundResults: roundResult.round.results,
+        roundCasualties: roundResult.round.casualties,
+      };
+
+      syncMilitiaCasualties(game, sector, rebels, dictator);
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       return {
         rounds,
@@ -2686,6 +2728,7 @@ export function executeCombat(
 
       // Sync militia casualties so UI reflects kills during combat
       syncMilitiaCasualties(game, sector, rebels, dictator);
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       game.message(`${pause.attackerName} has Attack Dog. Choose a target.`);
 
@@ -2754,6 +2797,7 @@ export function executeCombat(
         dogAssignments: Array.from(dogState.assignments.entries()),
         dogs: dogState.dogs,
       };
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
       combatPending = true;
       game.message(`Round ${round} complete. You may retreat or continue fighting.`);
       break;
@@ -2818,6 +2862,7 @@ export function executeCombat(
 
   // Set combatComplete immediately so UI can close after animations finish.
   game.activeCombat = combatEndState;
+  game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
   // Emit combat-end event for animation playback.
   game.animate('combat-end', {
