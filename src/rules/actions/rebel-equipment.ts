@@ -1492,6 +1492,46 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       const mortarDamage = 1;
 
       const unitDisplayName = (unit as CombatantModel).combatantName;
+
+      // Pre-compute animation data before mutations
+      const hitCombatantIds: string[] = [];
+      let animMilitiaKilled = 0;
+
+      if (isRebel) {
+        const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
+          m.sectorId === targetSector.sectorId && !m.isDead
+        ) ?? [];
+        for (const m of dictatorMercs) {
+          hitCombatantIds.push(m.combatantId);
+        }
+        const dictator = game.dictatorPlayer?.dictator;
+        if (dictator?.sectorId === targetSector.sectorId && dictator.inPlay) {
+          hitCombatantIds.push(dictator.combatantId);
+        }
+        if (targetSector.dictatorMilitia > 0) {
+          animMilitiaKilled = Math.min(mortarDamage, targetSector.dictatorMilitia);
+        }
+      } else {
+        for (const rebel of game.rebelPlayers) {
+          const rebelMercs = rebel.team.filter(m =>
+            m.sectorId === targetSector.sectorId && !m.isDead
+          );
+          for (const m of rebelMercs) {
+            hitCombatantIds.push(m.combatantId);
+          }
+          const rebelMilitia = targetSector.getRebelMilitia(`${rebel.seat}`);
+          if (rebelMilitia > 0) {
+            animMilitiaKilled += Math.min(mortarDamage, rebelMilitia);
+          }
+        }
+      }
+
+      game.animate('mortar-strike', {
+        targetSectorId: targetSector.sectorId,
+        hitCombatantIds,
+        militiaKilled: animMilitiaKilled,
+      });
+
       game.message(`${unitDisplayName} fires mortar at ${targetSector.sectorName}!`);
 
       let totalDamage = 0;

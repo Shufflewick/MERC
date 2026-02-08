@@ -814,7 +814,7 @@ const mercWithPendingEquipment = computed(() => {
   if (!pendingEquip) return baseMerc;
 
   // Determine which slot this equipment would go into
-  const equipType = getAttr(pendingEquip, 'equipmentType', '');
+  const equipType: string = getAttr(pendingEquip, 'equipmentType', '');
 
   // Create a copy with the pending equipment in the appropriate slot
   const previewMerc = { ...baseMerc };
@@ -857,7 +857,7 @@ const pendingSlotType = computed((): 'Weapon' | 'Armor' | 'Accessory' | null => 
 
   if (!pendingEquip) return null;
 
-  const equipType = getAttr(pendingEquip, 'equipmentType', '');
+  const equipType: string = getAttr(pendingEquip, 'equipmentType', '');
   if (equipType === 'Weapon' || equipType === 'Armor' || equipType === 'Accessory') {
     return equipType as 'Weapon' | 'Armor' | 'Accessory';
   }
@@ -1565,7 +1565,7 @@ const hasContentToShow = computed(() => {
           v-if="selectedMerc"
           :merc="selectedMerc"
           :player-color="selectedMercPlayerColor"
-          :squad-name="selectedMercSquadName"
+          :squad-name="selectedMercSquadName ?? undefined"
           :sector-name="sector?.sectorName"
           :show-equipment="true"
           :can-drop-equipment="canDropEquipmentForSelectedMerc"

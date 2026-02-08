@@ -183,7 +183,7 @@ const equipmentTypeChoices = computed(() => {
 
 // Note: Castro's hire is now handled by the main hiring UI in GameTable.vue
 // This panel only handles Kim's militia placement
-const selectableMercs = computed(() => {
+const selectableMercs = computed<any[]>(() => {
   // Castro's hire uses the main hiring UI - return empty
   return [];
 });

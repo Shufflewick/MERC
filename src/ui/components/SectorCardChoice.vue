@@ -5,8 +5,8 @@ import { UI_COLORS } from '../colors';
 export interface SectorChoice {
   sectorName: string;
   sectorId?: string;
-  image: string;
-  value?: number;
+  image?: string;
+  value?: number | string;
   value_points?: number;
   weaponLoot?: number;
   armorLoot?: number;

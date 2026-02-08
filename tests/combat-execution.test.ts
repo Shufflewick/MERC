@@ -6,6 +6,7 @@ import {
   getCombatants,
   executeCombat,
   getValidTargetsForPlayer,
+  hasEnemies,
   type Combatant,
   type CombatOutcome,
 } from '../src/rules/combat.js';
@@ -769,6 +770,117 @@ describe('Combat Execution Tests', () => {
           expect(militia.armor).toBe(0); // Base militia armor, no bonus
         }
       }
+    });
+  });
+
+  // =========================================================================
+  // Dictator Presence in Combat
+  // =========================================================================
+  describe('Dictator presence in combat', () => {
+    let game: MERCGame;
+
+    beforeEach(() => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'dictator-presence-test',
+      });
+      game = testGame.game;
+      // Ensure dictator card exists
+      if (!game.dictatorPlayer.dictator) {
+        game.setupDictator();
+      }
+    });
+
+    it('Dictator in baseSquad found by getCombatants', () => {
+      const baseSector = game.gameMap.getAllSectors()[0];
+      const dictatorCard = game.dictatorPlayer.dictator!;
+
+      // Set up dictator at base
+      game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      game.dictatorPlayer.baseRevealed = true;
+      dictatorCard.inPlay = true;
+      dictatorCard.putInto(game.dictatorPlayer.baseSquad);
+      game.dictatorPlayer.baseSquad.sectorId = baseSector.sectorId;
+
+      // Place rebel in same sector
+      const rebel = game.rebelPlayers[0];
+      rebel.primarySquad.sectorId = baseSector.sectorId;
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
+      if (merc) merc.putInto(rebel.primarySquad);
+
+      const { dictator } = getCombatants(game, baseSector, rebel);
+      const hasDictatorCard = dictator.some(c => c.isDictator);
+      expect(hasDictatorCard).toBe(true);
+    });
+
+    it('Dictator in baseSquad with desynced sectorId still found', () => {
+      const baseSector = game.gameMap.getAllSectors()[0];
+      const otherSector = game.gameMap.getAllSectors()[1];
+      const dictatorCard = game.dictatorPlayer.dictator!;
+
+      // Set up dictator at base
+      game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      game.dictatorPlayer.baseRevealed = true;
+      dictatorCard.inPlay = true;
+      dictatorCard.putInto(game.dictatorPlayer.baseSquad);
+
+      // Corrupt baseSquad.sectorId — simulates the retreat drift bug
+      game.dictatorPlayer.baseSquad.sectorId = otherSector.sectorId;
+
+      // Place rebel in the base sector
+      const rebel = game.rebelPlayers[0];
+      rebel.primarySquad.sectorId = baseSector.sectorId;
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
+      if (merc) merc.putInto(rebel.primarySquad);
+
+      // isDictatorInSector should find dictator via baseSectorId fallback
+      expect(game.isDictatorInSector(baseSector)).toBe(true);
+
+      const { dictator } = getCombatants(game, baseSector, rebel);
+      const hasDictatorCard = dictator.some(c => c.isDictator);
+      expect(hasDictatorCard).toBe(true);
+    });
+
+    it('hasEnemies and getCombatants agree on dictator presence', () => {
+      const baseSector = game.gameMap.getAllSectors()[0];
+      const dictatorCard = game.dictatorPlayer.dictator!;
+
+      // Set up dictator at base with no militia
+      game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      game.dictatorPlayer.baseRevealed = true;
+      dictatorCard.inPlay = true;
+      dictatorCard.putInto(game.dictatorPlayer.baseSquad);
+      game.dictatorPlayer.baseSquad.sectorId = baseSector.sectorId;
+
+      const rebel = game.rebelPlayers[0];
+      rebel.primarySquad.sectorId = baseSector.sectorId;
+      const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
+      if (merc) merc.putInto(rebel.primarySquad);
+
+      // Both should agree the dictator is present
+      expect(hasEnemies(game, baseSector, rebel)).toBe(true);
+      const { dictator } = getCombatants(game, baseSector, rebel);
+      expect(dictator.some(c => c.isDictator)).toBe(true);
+    });
+
+    it('Dictator who moved away is NOT found at base', () => {
+      const baseSector = game.gameMap.getAllSectors()[0];
+      const otherSector = game.gameMap.getAllSectors()[1];
+      const dictatorCard = game.dictatorPlayer.dictator!;
+
+      // Set up dictator but move to primary squad at different sector
+      game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+      game.dictatorPlayer.baseRevealed = true;
+      dictatorCard.inPlay = true;
+      dictatorCard.putInto(game.dictatorPlayer.primarySquad);
+      game.dictatorPlayer.primarySquad.sectorId = otherSector.sectorId;
+
+      // Dictator should NOT be at base sector
+      expect(game.isDictatorInSector(baseSector)).toBe(false);
+
+      // But should be at the other sector
+      expect(game.isDictatorInSector(otherSector)).toBe(true);
     });
   });
 });

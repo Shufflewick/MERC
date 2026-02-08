@@ -48,12 +48,12 @@ const animationsRegistered = ref(false);
 const actionAnimations = useActionAnimations({
   gameView: gameViewRef,
   animations: [
-    {
+    ({
       action: 'assignToSquad',
       elementSelection: 'combatantName',
       elementSelector: '[data-combatant="{combatantName}"]',
       // Use function-based selector because targetSquad values are like "Create Primary Squad" or "Primary Squad at X"
-      destinationSelector: (args) => {
+      destinationSelector: (args: Record<string, unknown>) => {
         const targetSquad = args.targetSquad as string;
         if (!targetSquad) return null;
 
@@ -78,7 +78,7 @@ const actionAnimations = useActionAnimations({
 
         return result;
       },
-      getElementData: (el) => {
+      getElementData: (el: Element) => {
         // Extract full data from the CombatantCard element
         const nameEl = el.querySelector('.merc-name');
         const iconEl = el.querySelector('.combatant-icon-small img') as HTMLImageElement;
@@ -126,7 +126,7 @@ const actionAnimations = useActionAnimations({
           accessory,
         };
       },
-      onStart: (args) => {
+      onStart: (args: Record<string, unknown>) => {
         flyingCombatantName.value = args.combatantName as string;
       },
       onComplete: () => {
@@ -137,7 +137,7 @@ const actionAnimations = useActionAnimations({
       },
       duration: 500,
       elementSize: { width: 280, height: 340 },
-    },
+    }) as any,
   ],
 });
 
@@ -192,6 +192,11 @@ function openCombatantModal(combatant: any, playerColor: string, squadName: stri
 function closeHeaderCombatantModal() {
   headerCombatantData.value = null;
 }
+
+function handleAnimationContextReady(s: any, ac: UseActionControllerReturn) {
+  slotState.value = s;
+  slotActionController.value = ac;
+}
 </script>
 
 <template>
@@ -212,7 +217,7 @@ function closeHeaderCombatantModal() {
         :state="state"
         :flying-combatant-name="flyingCombatantName"
         :header-combatant-data="headerCombatantData"
-        @animation-context-ready="(s, ac) => { slotState = s; slotActionController = ac; }"
+        @animation-context-ready="handleAnimationContextReady"
         @vue:mounted="setupAnimations(actionController, gameView)"
         @vue:updated="syncGameView(gameView)"
         @close-header-combatant-modal="closeHeaderCombatantModal"
@@ -228,10 +233,10 @@ function closeHeaderCombatantModal() {
               <div class="flying-card-icon-wrapper">
                 <img
                   v-if="card.cardData.image"
-                  :src="card.cardData.image"
-                  :alt="card.cardData.name"
+                  :src="(card.cardData.image as string)"
+                  :alt="(card.cardData.name as string)"
                   class="flying-card-icon"
-                  :style="{ borderColor: card.cardData.iconBorderColor }"
+                  :style="{ borderColor: (card.cardData.iconBorderColor as string) }"
                 />
               </div>
               <div class="flying-card-name-section">
@@ -242,7 +247,7 @@ function closeHeaderCombatantModal() {
                 <span
                   v-if="card.cardData.squadBadge"
                   class="flying-card-badge"
-                  :style="{ backgroundColor: card.cardData.badgeColor }"
+                  :style="{ backgroundColor: (card.cardData.badgeColor as string) }"
                 >
                   {{ card.cardData.squadBadge }}
                 </span>

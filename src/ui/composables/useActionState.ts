@@ -11,12 +11,12 @@ export interface ActionStateProps {
   availableActions: string[];
   actionController: {
     currentAction: Ref<string | null>;
-    currentPick: Ref<any>;
-    currentArgs: Ref<Record<string, unknown> | undefined>;
+    currentPick: Ref<any> | ComputedRef<any>;
+    currentArgs: Ref<Record<string, unknown> | undefined> | Ref<Record<string, unknown>>;
     getChoices: (selection: any) => any[];
-    fill: (selectionName: string, value: any) => Promise<void>;
-    start: (actionName: string, args?: Record<string, unknown> & { prefill?: Record<string, unknown> }) => Promise<void>;
-    execute: (actionName: string, args?: Record<string, unknown>) => Promise<void>;
+    fill: (selectionName: string, value: any) => Promise<any>;
+    start: (actionName: string, options?: Record<string, unknown>) => Promise<void>;
+    execute: (actionName: string, args?: Record<string, unknown>) => Promise<any>;
     [key: string]: any; // Allow additional properties from UseActionControllerReturn
   };
   actionArgs: Record<string, unknown>;

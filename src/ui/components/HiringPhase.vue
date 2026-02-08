@@ -3,7 +3,8 @@ import { UI_COLORS } from '../colors';
 import { GameOverlay } from 'boardsmith/ui';
 import CombatantCard from './CombatantCard.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
-import SectorCardChoice, { type SectorChoice } from './SectorCardChoice.vue';
+import SectorCardChoice from './SectorCardChoice.vue';
+import type { SectorChoice } from '../composables/useActionState';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import ModalContent from './ModalContent.vue';
 
@@ -19,7 +20,7 @@ interface Props {
   hirableMercs: any[];
   hasSkipOption: boolean;
   equipmentTypeChoices: Array<{ value: string; label: string }>;
-  sectorChoices: Array<SectorChoice & { value: string; label: string }>;
+  sectorChoices: SectorChoice[];
 
   // Selected MERC state (for equipment/sector selection context)
   selectedMercForEquipment: any | null;

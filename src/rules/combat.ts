@@ -948,13 +948,10 @@ export function getCombatants(
     dictator.push(mercToCombatant(merc, true, dictatorColor));
   }
 
-  // Add dictator card if in this sector (base revealed and dictator actually present)
-  if (game.dictatorPlayer.baseRevealed) {
-    const dictatorCard = game.dictatorPlayer.dictator;
-    // Dictator must be alive AND actually in this sector
-    if (dictatorCard && !dictatorCard.isDead && dictatorCard.sectorId === sector.sectorId) {
-      dictator.push(dictatorToCombatant(dictatorCard, dictatorColor));
-    }
+  // Add dictator card if in this sector
+  if (game.isDictatorInSector(sector)) {
+    const dictatorCard = game.dictatorPlayer.dictator!;
+    dictator.push(dictatorToCombatant(dictatorCard, dictatorColor));
   }
 
   return { rebels, dictator };
@@ -1895,6 +1892,10 @@ function executeCombatRound(
           damage: expectedHealthDamage,
           healthBefore,
           healthAfter: healthBefore - expectedHealthDamage,
+          armorAbsorb,
+          armorImage: armorAbsorb > 0
+            ? target.sourceElement?.isMerc ? target.sourceElement.armorSlot?.image : undefined
+            : undefined,
         });
         applyDamage(target, remainingHits, game, attacker.armorPiercing);
         damageDealt.set(target.id, expectedHealthDamage);
@@ -1904,6 +1905,21 @@ function executeCombatRound(
           merc.damage = merc.maxHealth - target.health;
         }
       } else {
+        // Armor soaked all damage — emit visual feedback
+        const armorImage = target.sourceElement?.isMerc
+          ? target.sourceElement.armorSlot?.image
+          : undefined;
+
+        game.animate('combat-armor-soak', {
+          attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
+          attackerId: attacker.id,
+          targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
+          targetId: target.id,
+          targetImage: target.image,
+          armorAbsorb,
+          armorImage,
+        });
+
         const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
         damageDealt.set(target.id, damage);
         if (target.sourceElement?.isMerc) {
@@ -2470,6 +2486,13 @@ export function executeCombat(
     game.message(`Rebels: ${rebels.length} units`);
     game.message(`Dictator: ${dictator.length} units`);
 
+    if (dictator.length === 0 && rebels.length > 0) {
+      const dp = game.dictatorPlayer;
+      game.message(`[WARN] 0 dictator units in combat. baseSectorId=${dp?.baseSectorId}, ` +
+        `dictatorSectorId=${dp?.dictator?.sectorId}, militia=${sector.dictatorMilitia}, ` +
+        `baseRevealed=${dp?.baseRevealed}, baseSquadSectorId=${dp?.baseSquad?.sectorId}`);
+    }
+
     // Log initiative order for transparency
     const allUnits = sortByInitiative([...rebels, ...dictator]);
     const initiativeOrder = allUnits
@@ -3003,10 +3026,8 @@ export function hasEnemies(game: MERCGame, sector: Sector, player: RebelPlayer):
   const dictatorMercs = game.getDictatorMercsInSector(sector);
   if (dictatorMercs.length > 0) return true;
 
-  // Check for dictator card at revealed base
-  if (game.dictatorPlayer.baseRevealed &&
-      game.dictatorPlayer.baseSectorId === sector.sectorId &&
-      !game.dictatorPlayer.dictator?.isDead) {
+  // Check for dictator card at this sector
+  if (game.isDictatorInSector(sector)) {
     return true;
   }
 

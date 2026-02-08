@@ -6,12 +6,13 @@ import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
 import CombatantDeathAnimation from './CombatantDeathAnimation.vue';
 import CombatantMoveAnimation from './CombatantMoveAnimation.vue';
 import EquipmentDropAnimation from './EquipmentDropAnimation.vue';
+import MortarStrikeAnimation from './MortarStrikeAnimation.vue';
 // Death animation data (local to MapGrid — suppressed during combat, released by CombatPanel signals)
 
 interface SectorData {
   sectorId: string;
   sectorName: string;
-  sectorType: 'Wilderness' | 'City' | 'Industry';
+  sectorType: string;
   value: number;
   row: number;
   col: number;
@@ -48,7 +49,8 @@ interface MercData {
 }
 
 interface PlayerData {
-  position: number;
+  position?: number;
+  seat?: number;
   playerColor?: string;
   isDictator?: boolean;
 }
@@ -109,11 +111,17 @@ const props = defineProps<{
   dictatorColor?: string; // Dictator player color for base icon styling
   combatActive?: boolean; // Whether combat panel is active (suppresses auto death animations)
   combatDeathSignals?: { combatantId: string }[]; // Signals from CombatPanel timeline to play death animations
+  mortarStrike?: {
+    targetSectorId: string;
+    hitCombatantIds: string[];
+    militiaKilled: number;
+  } | null;
 }>();
 
 const emit = defineEmits<{
   sectorClick: [sectorId: string];
   dropEquipment: [combatantElementId: number, equipmentId: number];
+  mortarStrikeComplete: [];
 }>();
 
 function handleDropEquipment(combatantElementId: number, equipmentId: number) {
@@ -553,6 +561,19 @@ function handleEquipmentAnimationComplete(animationId: string) {
   activeEquipmentAnimations.value = activeEquipmentAnimations.value.filter(a => a.id !== animationId);
 }
 
+// ============================================================================
+// MORTAR STRIKE ANIMATION
+// ============================================================================
+
+const mortarStrikeRect = computed(() => {
+  if (!props.mortarStrike) return null;
+  return getSectorRect(props.mortarStrike.targetSectorId);
+});
+
+function handleMortarStrikeComplete() {
+  emit('mortarStrikeComplete');
+}
+
 // Helper to build equipment ID map for a merc
 function buildEquipmentIdMap(merc: MercData): Map<string, string> {
   const idMap = new Map<string, string>();
@@ -803,6 +824,16 @@ function handleSectorClick(sectorId: string) {
       :combatant-id="anim.combatantId"
       :direction="anim.direction"
       @complete="handleEquipmentAnimationComplete(anim.id)"
+    />
+
+    <!-- Mortar Strike Animation -->
+    <MortarStrikeAnimation
+      v-if="mortarStrike && mortarStrikeRect"
+      :sector-rect="mortarStrikeRect"
+      :sector-id="mortarStrike.targetSectorId"
+      :hit-combatant-ids="mortarStrike.hitCombatantIds"
+      :militia-killed="mortarStrike.militiaKilled"
+      @complete="handleMortarStrikeComplete"
     />
   </div>
 </template>

@@ -1280,13 +1280,34 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     );
   }
 
+  /**
+   * Single source of truth for whether the dictator card is present at a sector.
+   * Checks both the dictator's squad-derived sectorId AND the baseSectorId fallback
+   * (when dictator is in baseSquad but baseSquad.sectorId has drifted from baseSectorId).
+   */
+  isDictatorInSector(sector: Sector): boolean {
+    if (!this.dictatorPlayer?.baseRevealed) return false;
+    const dictatorCard = this.dictatorPlayer.dictator;
+    if (!dictatorCard || dictatorCard.isDead || !dictatorCard.inPlay) return false;
+
+    // Primary: dictator's computed sectorId from parent squad
+    if (dictatorCard.sectorId === sector.sectorId) return true;
+
+    // Fallback: dictator is in baseSquad but baseSquad.sectorId drifted from baseSectorId
+    if (this.dictatorPlayer.baseSectorId === sector.sectorId) {
+      const baseSquad = this.dictatorPlayer.baseSquad;
+      if (baseSquad?.all(CombatantModel).some(
+        c => c.isDictator && c.combatantId === dictatorCard.combatantId
+      )) return true;
+    }
+
+    return false;
+  }
+
   getDictatorUnitsInSector(sector: Sector): number {
     const militia = sector.dictatorMilitia;
     const mercs = this.getDictatorMercsInSector(sector).length;
-    // Count dictator card if in play at this sector
-    const dictatorCard = this.dictatorPlayer?.dictator;
-    const dictatorInSector = dictatorCard?.inPlay &&
-      this.dictatorPlayer?.baseSectorId === sector.sectorId ? 1 : 0;
+    const dictatorInSector = this.isDictatorInSector(sector) ? 1 : 0;
     return militia + mercs + dictatorInSector;
   }
 

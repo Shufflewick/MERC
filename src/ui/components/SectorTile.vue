@@ -10,7 +10,7 @@ import ModalContent from './ModalContent.vue';
 interface SectorData {
   sectorId: string;
   sectorName: string;
-  sectorType: 'Wilderness' | 'City' | 'Industry';
+  sectorType: string;
   value: number;
   image?: string;
   explored: boolean;

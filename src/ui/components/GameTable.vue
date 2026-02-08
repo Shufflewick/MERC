@@ -283,8 +283,8 @@ const hasExplosivesComponents = computed(() => {
   let hasExplosives = false;
 
   for (const merc of allMercsInSquads) {
-    const weapon = getAttr(merc, 'weaponSlot', null);
-    const accessory = getAttr(merc, 'accessorySlot', null);
+    const weapon = getAttr(merc, 'weaponSlot', null) as { equipmentName?: string } | null;
+    const accessory = getAttr(merc, 'accessorySlot', null) as { equipmentName?: string } | null;
 
     const weaponName = weapon?.equipmentName?.toLowerCase() || '';
     const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
@@ -489,7 +489,35 @@ const animationEvents = useAnimationEvents();
 const combatSnapshot = ref<Record<string, unknown> | null>(null);
 const combatDeathSignals = ref<{ combatantId: string }[]>([]);
 
+// MORTAR STRIKE - driven by animation events
+const activeMortarStrike = ref<{
+  targetSectorId: string;
+  hitCombatantIds: string[];
+  militiaKilled: number;
+} | null>(null);
+let mortarStrikeResolve: (() => void) | null = null;
+
+function handleMortarStrikeComplete() {
+  activeMortarStrike.value = null;
+  if (mortarStrikeResolve) {
+    mortarStrikeResolve();
+    mortarStrikeResolve = null;
+  }
+}
+
 if (animationEvents) {
+  animationEvents.registerHandler('mortar-strike', async (event) => {
+    const data = event.data as {
+      targetSectorId: string;
+      hitCombatantIds: string[];
+      militiaKilled: number;
+    };
+    activeMortarStrike.value = data;
+    await new Promise<void>((resolve) => {
+      mortarStrikeResolve = resolve;
+    });
+  });
+
   animationEvents.registerHandler('combat-panel', async (event) => {
     combatSnapshot.value = event.data as Record<string, unknown>;
   });
@@ -921,7 +949,7 @@ async function handleReassignCombatant(combatantName: string) {
   // This prevents showing the AssignToSquadPanel when auto-completing
   quickReassignInProgress.value = true;
 
-  await props.actionController.start('assignToSquad', { combatantName });
+  await props.actionController.start('assignToSquad', { prefill: { combatantName } });
 
   // After action starts, check if we're still on a selection (not auto-completed)
   // If so, the panel should be shown and we should scroll to it
@@ -1089,7 +1117,7 @@ const clickableSectors = computed(() => {
       const elementSectorId = element.ref?.id;
       if (elementSectorId) {
         // Find the sector by its sectorId
-        const sector = sectors.value.find(s => s.sectorId === elementSectorId);
+        const sector = sectors.value.find(s => s.sectorId === String(elementSectorId));
         if (sector) {
           validSectorIds.push(sector.sectorId);
         }
@@ -1266,8 +1294,10 @@ const clickableSectors = computed(() => {
           :dictator-color="dictatorPlayerColor"
           :combat-active="hasActiveCombat"
           :combat-death-signals="combatDeathSignals"
+          :mortar-strike="activeMortarStrike"
           @sector-click="handleSectorClick"
           @drop-equipment="handleDropEquipment"
+          @mortar-strike-complete="handleMortarStrikeComplete"
         />
       </div>
 

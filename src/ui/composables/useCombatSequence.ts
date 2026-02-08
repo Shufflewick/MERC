@@ -20,6 +20,14 @@ export interface AttackTargetInfo {
 }
 
 /**
+ * Armor soak info for a combatant.
+ */
+export interface ArmorSoakInfo {
+  count: number;
+  armorImage?: string;
+}
+
+/**
  * Return type for useCombatSequence composable.
  */
 export interface CombatSequenceReturn {
@@ -40,6 +48,8 @@ export interface CombatSequenceReturn {
   isCurrentTarget: (combatantId: string) => boolean;
   getTargetHits: (combatantId: string) => number;
   addDisplayedDamage: (targetId: string, damage: number) => void;
+  addDisplayedArmorSoak: (targetId: string, soakCount: number, armorImage?: string) => void;
+  getArmorSoaks: (combatantId: string) => ArmorSoakInfo | null;
   markTargetDead: (targetId: string) => void;
   scheduleMissShake: () => void;
   getBulletHolePosition: (combatantId: string, hitIndex: number) => { top: string; left: string };
@@ -69,6 +79,9 @@ export function useCombatSequence(): CombatSequenceReturn {
   // Track damage that has actually been animated (not pre-computed)
   // This is separate from activeTargets so bullet holes only show when damage events play
   const displayedDamage = ref<Map<string, number>>(new Map());
+
+  // Track armor soaks that have been animated (for blue armor-backed bullet holes)
+  const displayedArmorSoaks = ref<Map<string, ArmorSoakInfo>>(new Map());
 
   // Computed: whether current attack missed
   const attackMissed = computed(() => activeAttackMissed.value);
@@ -127,6 +140,7 @@ export function useCombatSequence(): CombatSequenceReturn {
     activeTargets.value = new Map();
     activeAttackMissed.value = false;
     displayedDamage.value.clear();
+    displayedArmorSoaks.value.clear();
 
     // Clear shake state and cancel any pending shake timer
     showMissShake.value = false;
@@ -164,6 +178,24 @@ export function useCombatSequence(): CombatSequenceReturn {
   function addDisplayedDamage(targetId: string, damage: number): void {
     const current = displayedDamage.value.get(targetId) || 0;
     displayedDamage.value.set(targetId, current + damage);
+  }
+
+  /**
+   * Add displayed armor soak for a target (when armor absorbs hits).
+   */
+  function addDisplayedArmorSoak(targetId: string, soakCount: number, armorImage?: string): void {
+    const current = displayedArmorSoaks.value.get(targetId);
+    displayedArmorSoaks.value.set(targetId, {
+      count: (current?.count || 0) + soakCount,
+      armorImage: armorImage || current?.armorImage,
+    });
+  }
+
+  /**
+   * Get armor soak info for a combatant.
+   */
+  function getArmorSoaks(combatantId: string): ArmorSoakInfo | null {
+    return displayedArmorSoaks.value.get(combatantId) ?? null;
   }
 
   /**
@@ -243,6 +275,8 @@ export function useCombatSequence(): CombatSequenceReturn {
     isCurrentTarget,
     getTargetHits,
     addDisplayedDamage,
+    addDisplayedArmorSoak,
+    getArmorSoaks,
     markTargetDead,
     scheduleMissShake,
     getBulletHolePosition,

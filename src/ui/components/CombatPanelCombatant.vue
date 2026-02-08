@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CombatantIcon from './CombatantIcon.vue';
+import type { ArmorSoakInfo } from '../composables/useCombatSequence';
 
 const props = defineProps<{
   // Combatant data
@@ -28,6 +29,7 @@ const props = defineProps<{
   // Display data
   allocatedHits?: number;
   targetHits?: number;
+  armorSoaks?: ArmorSoakInfo | null;
   dogTargetName?: string;
   showHitControls?: boolean;
 
@@ -70,6 +72,15 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
     return props.getBulletHolePosition(props.combatantId, hitIndex);
   }
   return getDefaultBulletHolePosition(props.combatantId, hitIndex);
+}
+
+function getArmorSoakPosition(soakIndex: number): { top: string; left: string } {
+  // Offset by targetHits + 100 to avoid overlapping with health-damage bullet holes
+  const offsetIndex = (props.targetHits || 0) + soakIndex + 100;
+  if (props.getBulletHolePosition) {
+    return props.getBulletHolePosition(props.combatantId, offsetIndex);
+  }
+  return getDefaultBulletHolePosition(props.combatantId, offsetIndex);
 }
 </script>
 
@@ -140,6 +151,22 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
         class="bullet-hole"
         :style="getBulletPosition(n)"
       >◎</span>
+    </div>
+    <!-- Armor soak indicators — blue bullet holes with armor image backdrop -->
+    <div v-if="armorSoaks && armorSoaks.count > 0" class="bullet-holes">
+      <span
+        v-for="n in armorSoaks.count"
+        :key="'soak-' + n"
+        class="armor-soak"
+        :style="getArmorSoakPosition(n)"
+      >
+        <img
+          v-if="armorSoaks.armorImage"
+          :src="armorSoaks.armorImage"
+          class="armor-soak-image"
+        />
+        <span class="deflect-symbol">◎</span>
+      </span>
     </div>
     <!-- Healing animation - white + symbols floating upward -->
     <div v-if="isHealing" class="healing-particles">
@@ -404,6 +431,51 @@ function getBulletPosition(hitIndex: number): { top: string; left: string } {
   }
   50% {
     transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Armor soak styles — blue bullet holes with armor image */
+.armor-soak {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  animation: armor-deflect 0.4s ease-out;
+}
+
+.armor-soak-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 4px rgba(100, 181, 246, 0.8));
+}
+
+.deflect-symbol {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #64B5F6;
+  text-shadow: 0 0 4px rgba(100, 181, 246, 0.8);
+}
+
+@keyframes armor-deflect {
+  0% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1.3);
   }
   100% {
     transform: translate(-50%, -50%) scale(1);

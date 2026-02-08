@@ -47,8 +47,7 @@ export function getValidRetreatSectors(
     // MERC-4bp: Check for ALL dictator forces (militia, MERCs, and dictator card)
     const hasDictatorForces = sector.dictatorMilitia > 0 ||
       game.getDictatorMercsInSector(sector).length > 0 ||
-      (game.dictatorPlayer.baseRevealed &&
-       game.dictatorPlayer.baseSectorId === sector.sectorId);
+      game.isDictatorInSector(sector);
 
     if (!hasDictatorForces) {
       return true;
@@ -151,6 +150,9 @@ export function executeRetreat(
     // Update squad sectorIds - MERCs inherit via computed getter
     dictatorPlayer.primarySquad.sectorId = toSector.sectorId;
     dictatorPlayer.secondarySquad.sectorId = toSector.sectorId;
+    if (dictatorPlayer.baseSquad?.sectorId === fromSector.sectorId) {
+      dictatorPlayer.baseSquad.sectorId = toSector.sectorId;
+    }
 
     // Note: Dictator militia do NOT retreat (per rules: "Militia cannot retreat")
     return;

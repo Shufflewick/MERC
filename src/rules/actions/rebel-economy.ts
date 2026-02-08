@@ -854,17 +854,18 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
 // Type for units that can use city facilities (mercs or dictator combatant)
 // Using CombatantModel as it represents both merc and dictator combatants
 
-// Helper to get living units for any player type (for hospital/armsDealer)
-// Returns mercs + dictator combatant if applicable
-function getPlayerUnitsForCity(player: unknown, game: MERCGame): CombatantModel[] {
+// Helper to get living units that are in the given city sector
+// Only returns units physically present in the sector
+function getPlayerUnitsInSector(player: unknown, game: MERCGame, sector: Sector): CombatantModel[] {
   if (game.isRebelPlayer(player)) {
-    return asRebelPlayer(player).team.filter(m => !m.isDead);
+    return game.getMercsInSector(sector, asRebelPlayer(player)).filter(m => !m.isDead);
   }
   if (game.isDictatorPlayer(player)) {
-    const units: CombatantModel[] = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
-    // Include dictator combatant if in play
+    const units: CombatantModel[] = game.getDictatorMercsInSector(sector);
+    // Include dictator combatant if in play and at this sector
     const dictatorCard = game.dictatorPlayer?.dictator;
-    if (dictatorCard?.inPlay && !dictatorCard.isDead) {
+    if (dictatorCard?.inPlay && !dictatorCard.isDead &&
+        game.dictatorPlayer?.baseSectorId === sector.sectorId) {
       units.push(dictatorCard);
     }
     return units;
@@ -873,23 +874,32 @@ function getPlayerUnitsForCity(player: unknown, game: MERCGame): CombatantModel[
 }
 
 
-// Helper to find sector where player's MERC is located (for hospital/armsDealer)
-function findMercSectorForCity(player: unknown, game: MERCGame): Sector | null {
+// Helper to find a city sector where the player has units
+// Checks all squads, returns the first city sector found
+function findCitySectorForPlayer(player: unknown, game: MERCGame): Sector | null {
   if (game.isRebelPlayer(player)) {
     const rebelPlayer = asRebelPlayer(player);
-    const squad = rebelPlayer.primarySquad;
-    if (squad?.sectorId) {
-      return game.getSector(squad.sectorId) || null;
+    for (const squad of [rebelPlayer.primarySquad, rebelPlayer.secondarySquad]) {
+      if (squad?.sectorId) {
+        const sector = game.getSector(squad.sectorId);
+        if (sector?.isCity) return sector;
+      }
     }
   }
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
-    // Find first hired merc's sector
     const mercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
     for (const merc of mercs) {
       const squad = game.dictatorPlayer.getSquadContaining(merc);
       if (squad?.sectorId) {
-        return game.getSector(squad.sectorId) || null;
+        const sector = game.getSector(squad.sectorId);
+        if (sector?.isCity) return sector;
       }
+    }
+    // Check dictator combatant's base sector
+    const dictatorCard = game.dictatorPlayer.dictator;
+    if (dictatorCard?.inPlay && !dictatorCard.isDead && game.dictatorPlayer.baseSectorId) {
+      const sector = game.getSector(game.dictatorPlayer.baseSectorId);
+      if (sector?.isCity) return sector;
     }
   }
   return null;
@@ -907,18 +917,22 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'in sector with hospital': (ctx) => {
-        const sector = findMercSectorForCity(ctx.player, game);
+        const sector = findCitySectorForPlayer(ctx.player, game);
         return !!sector?.hasHospital;
       },
       'has damaged unit with actions': (ctx) => {
-        const units = getPlayerUnitsForCity(ctx.player, game);
+        const sector = findCitySectorForPlayer(ctx.player, game);
+        if (!sector) return false;
+        const units = getPlayerUnitsInSector(ctx.player, game, sector);
         return units.some(u => u.damage > 0 && u.actionsRemaining >= ACTION_COSTS.HOSPITAL);
       },
     })
     .chooseFrom<string>('actingUnit', {
       prompt: 'Select unit to heal',
       choices: (ctx: ActionContext) => {
-        const units = getPlayerUnitsForCity(ctx.player, game);
+        const sector = findCitySectorForPlayer(ctx.player, game);
+        if (!sector) return [];
+        const units = getPlayerUnitsInSector(ctx.player, game, sector);
         return units
           .filter(u => u.damage > 0 && u.actionsRemaining >= ACTION_COSTS.HOSPITAL)
           .map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
@@ -993,18 +1007,22 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'in sector with arms dealer': (ctx) => {
-        const sector = findMercSectorForCity(ctx.player, game);
+        const sector = findCitySectorForPlayer(ctx.player, game);
         return !!sector?.hasArmsDealer;
       },
       'has unit with actions': (ctx) => {
-        const units = getPlayerUnitsForCity(ctx.player, game);
+        const sector = findCitySectorForPlayer(ctx.player, game);
+        if (!sector) return false;
+        const units = getPlayerUnitsInSector(ctx.player, game, sector);
         return units.some(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
       },
     })
     .chooseFrom<string>('actingUnit', {
       prompt: 'Which unit visits the dealer?',
       choices: (ctx: ActionContext) => {
-        const units = getPlayerUnitsForCity(ctx.player, game);
+        const sector = findCitySectorForPlayer(ctx.player, game);
+        if (!sector) return [];
+        const units = getPlayerUnitsInSector(ctx.player, game, sector);
         return units
           .filter(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER)
           .map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
@@ -1039,8 +1057,9 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
         const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
 
-        // Get all units for this player type (mercs + dictator combatant)
-        const playerUnits = getPlayerUnitsForCity(ctx.player, game);
+        // Only units in the city sector can receive equipment
+        const sector = findCitySectorForPlayer(ctx.player, game);
+        const playerUnits = sector ? getPlayerUnitsInSector(ctx.player, game, sector) : [];
 
         const choices = playerUnits.map(u => `${u.id}:${getUnitName(u)}:${u.isDictator}`);
         choices.push('skip');
@@ -1080,7 +1099,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const actingUnitStr = args.actingUnit as string;
       const playerId = getArmsDealerPlayerId(ctx.player, game);
-      const sector = findMercSectorForCity(ctx.player, game);
+      const sector = findCitySectorForPlayer(ctx.player, game);
 
       // Parse acting unit string format: "id:name:isDictator"
       const actingParts = actingUnitStr.split(':');

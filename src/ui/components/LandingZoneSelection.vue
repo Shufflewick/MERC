@@ -6,7 +6,7 @@ export interface LandingSector {
   sectorId: string;
   sectorName: string;
   sectorType: string;
-  image: string;
+  image?: string;
   value: number;
   weaponLoot: number;
   armorLoot: number;
@@ -46,7 +46,7 @@ function handleSectorClick(sector: LandingSector) {
         :sector="{
           sectorName: sector.sectorName,
           sectorId: sector.sectorId,
-          image: sector.image,
+          image: sector.image || '',
           value: sector.value,
           weaponLoot: sector.weaponLoot,
           armorLoot: sector.armorLoot,

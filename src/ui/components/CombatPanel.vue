@@ -30,6 +30,9 @@ interface AnimationDisplayState {
   round?: number;
   rebelVictory?: boolean;
   dictatorVictory?: boolean;
+  // Armor soak
+  armorAbsorb?: number;
+  armorImage?: string;
   // Attack Dog animation
   dogId?: string;
   dogImage?: string;
@@ -149,6 +152,8 @@ function mapEventToDisplayState(event: AnimationEvent): AnimationDisplayState {
     hits: data.hits as number | undefined,
     hitThreshold: data.hitThreshold as number | undefined,
     damage: data.damage as number | undefined,
+    armorAbsorb: data.armorAbsorb as number | undefined,
+    armorImage: data.armorImage as string | undefined,
     round: data.round as number | undefined,
     rebelVictory: data.rebelVictory as boolean | undefined,
     dictatorVictory: data.dictatorVictory as boolean | undefined,
@@ -187,6 +192,12 @@ if (animationEvents) {
     if (targetId && typeof healthAfter === 'number') {
       healthOverrides.value.set(targetId, healthAfter);
     }
+    await sleep(getTiming('damage'));
+  });
+
+  // Armor soak event handler — armor absorbed all hits, no health damage
+  animationEvents.registerHandler('combat-armor-soak', async (event) => {
+    currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('damage'));
   });
 
@@ -278,6 +289,8 @@ const {
   isCurrentTarget,
   getTargetHits,
   addDisplayedDamage,
+  addDisplayedArmorSoak,
+  getArmorSoaks,
   markTargetDead,
   scheduleMissShake,
   getBulletHolePosition,
@@ -608,8 +621,15 @@ watch(currentEvent, (event, oldEvent) => {
       const targetId = event.targetId || findCombatantId(event.targetName);
       if (targetId) {
         addDisplayedDamage(targetId, event.damage);
+        if (event.armorAbsorb && event.armorAbsorb > 0) {
+          addDisplayedArmorSoak(targetId, event.armorAbsorb, event.armorImage);
+        }
       }
       // Display health is now updated in the combat-damage event handler via healthAfter
+    }
+
+    if (event.type === 'armor-soak' && event.targetId && event.armorAbsorb) {
+      addDisplayedArmorSoak(event.targetId, event.armorAbsorb, event.armorImage);
     }
 
     if (event.type === 'death' && event.targetName) {
@@ -719,6 +739,7 @@ onUnmounted(() => {
             :is-healing="isHealingCombatant(getCombatantDisplay(combatant).id)"
             :allocated-hits="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id)"
             :target-hits="getTargetHits(getCombatantDisplay(combatant).id)"
+            :armor-soaks="getArmorSoaks(getCombatantDisplay(combatant).id)"
             :show-hit-controls="isAllocating"
             :dog-target-name="getCombatantDisplay(combatant).attackDogTargetName ||
                               (getCombatantDisplay(combatant).attackDogPendingTarget ? 'Selecting...' : dogTargetNames.get(getCombatantDisplay(combatant).id))"
@@ -762,6 +783,7 @@ onUnmounted(() => {
             :is-healing="isHealingCombatant(getCombatantDisplay(combatant).id)"
             :allocated-hits="getAllocatedHitsForTarget(getCombatantDisplay(combatant).id)"
             :target-hits="getTargetHits(getCombatantDisplay(combatant).id)"
+            :armor-soaks="getArmorSoaks(getCombatantDisplay(combatant).id)"
             :show-hit-controls="isAllocating"
             :dog-target-name="getCombatantDisplay(combatant).attackDogTargetName ||
                               (getCombatantDisplay(combatant).attackDogPendingTarget ? 'Selecting...' : dogTargetNames.get(getCombatantDisplay(combatant).id))"
