@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 42 of 46 (Remove Dead APIs)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 -- Roadmap created for v1.9 milestone
+Plan: 1 of 1 in current phase
+Status: Phase complete
+Last activity: 2026-02-08 -- Completed 42-01-PLAN.md (Remove Dead APIs)
 
-Progress: [░░░░░░░░░░] 0% (0 of 5 phases complete)
+Progress: [██░░░░░░░░] 20% (1 of 5 phases complete)
 
 ## Current Milestone
 
@@ -22,7 +22,7 @@ Progress: [░░░░░░░░░░] 0% (0 of 5 phases complete)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 42 | Remove Dead APIs | DELETE-01, DELETE-02 | Not started |
+| 42 | Remove Dead APIs | DELETE-01, DELETE-02 | Complete |
 | 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Not started |
 | 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | Not started |
 | 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Not started |
@@ -47,8 +47,8 @@ Total: 41 phases, 82 plans, 9 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 82
-- Average duration: 9.6 min/plan
+- Total plans completed: 83
+- Average duration: 9.5 min/plan
 
 ## Accumulated Context
 
@@ -62,16 +62,20 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Mutations out of animate callbacks -- pure data events + normal mutations after
 - ActionController stays for player decisions -- decisions submitted through existing action system
 
+**v1.9 Decisions (confirmed by execution):**
+- activeCombat sourced from theatre view only, no truth view fallback (42-01)
+- Animation events are fire-and-forget, no acknowledgment protocol needed (42-01)
+
 ### Deferred Issues
 
 - Vendor tarballs missing compiled `dist` folders - blocks build and integration tests
 
 ### Blockers/Concerns
 
-None yet for v1.9.
+None for v1.9.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Created v1.9 roadmap (5 phases, 13 requirements)
+Last session: 2026-02-08
+Stopped at: Completed 42-01-PLAN.md (Remove Dead APIs - DELETE-01, DELETE-02)
 Resume file: None
