@@ -97,6 +97,7 @@ function serializeCombatant(c: Combatant): Record<string, unknown> {
     isDictatorSide: c.isDictatorSide,
     playerColor: c.playerColor,
     combatantId: c.combatantId,
+    initiative: c.initiative,
     // Attack dog specific
     attackDogAssignedTo: c.attackDogAssignedTo,
     attackDogTargetName: c.attackDogTargetName,
@@ -111,6 +112,41 @@ function serializeCombatant(c: Combatant): Record<string, unknown> {
  */
 function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
   const ac = game.activeCombat!;
+
+  // Build initiative order from all living combatants, sorted
+  const allLiving = sortByInitiative([
+    ...(ac.rebelCombatants as Combatant[]),
+    ...(ac.dictatorCombatants as Combatant[]),
+  ]);
+  const allCasualties = [
+    ...((ac.rebelCasualties ?? []) as Combatant[]),
+    ...((ac.dictatorCasualties ?? []) as Combatant[]),
+  ];
+  const deadIds = new Set(allCasualties.map(c => c.id));
+  const initiativeOrder = allLiving
+    .filter(c => !c.isAttackDog)
+    .map(c => ({
+      id: c.id,
+      name: c.name,
+      image: c.image,
+      combatantId: c.combatantId,
+      isDictatorSide: c.isDictatorSide,
+      playerColor: c.playerColor,
+      initiative: c.initiative,
+      isMilitia: c.isMilitia,
+      isDead: deadIds.has(c.id) || c.health <= 0,
+    }));
+
+  // Derive current attacker from whichever pending decision context is active
+  const currentAttackerId =
+    (ac.pendingTargetSelection as any)?.attackerId ??
+    (ac.pendingHitAllocation as any)?.attackerId ??
+    (ac.pendingWolverineSixes as any)?.attackerId ??
+    (ac.pendingAttackDogSelection as any)?.attackerId ??
+    (ac.pendingBeforeAttackHealing as any)?.attackerId ??
+    (ac.pendingEpinephrine as any)?.attackerId ??
+    null;
+
   return {
     sectorId: ac.sectorId,
     sectorName: game.getSector(ac.sectorId)?.sectorName,
@@ -121,6 +157,8 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
     dictatorCasualties: ((ac.dictatorCasualties ?? []) as Combatant[]).map(c => serializeCombatant(c)),
     dogAssignments: ac.dogAssignments,
     combatComplete: ac.combatComplete ?? false,
+    initiativeOrder,
+    currentAttackerId,
     // Decision context -- at most one active at a time
     // Include the full decision data so CombatPanel needs no extra lookups
     pendingTargetSelection: ac.pendingTargetSelection ?? null,

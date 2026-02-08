@@ -10,6 +10,7 @@ import HitAllocationPanel, { type PendingHitAllocation } from './HitAllocationPa
 import TargetSelectionPanel from './TargetSelectionPanel.vue';
 import AttackDogAssignmentPanel, { type AttackDogTarget } from './AttackDogAssignmentPanel.vue';
 import RetreatSectorSelection, { type RetreatSector } from './RetreatSectorSelection.vue';
+import CombatantIconSmall from './CombatantIconSmall.vue';
 
 // Animation display state for UI
 interface AnimationDisplayState {
@@ -412,6 +413,32 @@ const isHealingBeforeAttack = computed(() => {
   return !!snapshotBeforeAttackHealing.value && props.isMyTurn;
 });
 
+// Initiative tracker
+interface InitiativeSlot {
+  id: string;
+  name: string;
+  image?: string;
+  combatantId?: string;
+  isDictatorSide: boolean;
+  playerColor?: string;
+  initiative: number;
+  isMilitia: boolean;
+  isDead: boolean;
+}
+
+const initiativeOrder = computed<InitiativeSlot[]>(() => {
+  const snapshot = props.combatSnapshot;
+  if (!snapshot) return [];
+  return (snapshot.initiativeOrder as InitiativeSlot[]) ?? [];
+});
+
+const currentAttackerId = computed<string | null>(() => {
+  // During animations, prefer the animation event's attacker
+  if (currentEvent.value?.attackerId) return currentEvent.value.attackerId;
+  // Otherwise use snapshot's pending decision context
+  return (props.combatSnapshot?.currentAttackerId as string) ?? null;
+});
+
 // Dog target names map — reads directly from snapshot combatant fields
 const dogTargetNames = computed(() => {
   const nameMap = new Map<string, string>();
@@ -637,6 +664,29 @@ onUnmounted(() => {
     <div class="combat-header">
       <h2>Combat - {{ sectorName }}</h2>
       <div class="round-indicator">Round {{ displayCombat?.round ?? 1 }}</div>
+    </div>
+
+    <!-- Initiative tracker -->
+    <div v-if="initiativeOrder.length > 0" class="initiative-tracker">
+      <div
+        v-for="unit in initiativeOrder"
+        :key="unit.id"
+        class="initiative-slot"
+        :class="{
+          'is-current': unit.id === currentAttackerId,
+          'is-dead': unit.isDead,
+          'is-dictator-side': unit.isDictatorSide,
+        }"
+      >
+        <div v-if="unit.id === currentAttackerId" class="turn-arrow">&#x25BC;</div>
+        <CombatantIconSmall
+          :combatant-id="unit.combatantId"
+          :image="unit.image"
+          :alt="unit.name"
+          :player-color="unit.playerColor"
+          :size="32"
+        />
+      </div>
     </div>
 
     <!-- Main battle area -->
@@ -921,6 +971,53 @@ onUnmounted(() => {
   border-radius: 12px;
   font-weight: bold;
   font-size: 0.9rem;
+}
+
+/* Initiative Tracker */
+.initiative-tracker {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+}
+
+.initiative-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding-top: 16px;
+  transition: opacity 0.3s, filter 0.3s;
+}
+
+.initiative-slot.is-dead {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.initiative-slot.is-current {
+  opacity: 1;
+  filter: none;
+}
+
+.turn-arrow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #d4a84b;
+  font-size: 0.7rem;
+  line-height: 1;
+  animation: pulse-turn-arrow 1s ease-in-out infinite;
+}
+
+@keyframes pulse-turn-arrow {
+  0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.3); }
 }
 
 .battle-area {
