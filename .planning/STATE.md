@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 43 of 46 (Combat Event Architecture)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-08 -- Completed 43-02-PLAN.md (Combat Panel Snapshot Events)
+Phase: 44 of 46 (CombatPanel Rebuild)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-08 -- Completed 44-01-PLAN.md (Snapshot-Driven CombatPanel Rendering)
 
-Progress: [████░░░░░░] 50% (3 of 6 plans complete)
+Progress: [█████░░░░░] 67% (4 of 6 plans complete)
 
 ## Current Milestone
 
@@ -24,7 +24,7 @@ Progress: [████░░░░░░] 50% (3 of 6 plans complete)
 |-------|------|--------------|--------|
 | 42 | Remove Dead APIs | DELETE-01, DELETE-02 | Complete |
 | 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Complete |
-| 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | Not started |
+| 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | In progress (plan 01 complete) |
 | 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Not started |
 | 46 | Verification | TEST-01 | Not started |
 
@@ -47,8 +47,8 @@ Total: 41 phases, 83 plans, 9 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 85
-- Average duration: 9.3 min/plan
+- Total plans completed: 86
+- Average duration: 9.2 min/plan
 
 ## Accumulated Context
 
@@ -69,6 +69,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 - combat-heal events carry healthBefore/healthAfter/healAmount for CombatPanel (43-01)
 - combat-panel snapshot emitted at all 8 decision cycle points with full combatant data and decision context (43-02)
 - Epinephrine decision cycle has dedicated handler in executeCombat with state save (43-02)
+- getCombatantDisplay reads plain snapshot fields directly, no resolveCombatant/getAttr indirection (44-01)
+- healthOverrides cleared on each combat-panel snapshot -- snapshot health is authoritative at decision points (44-01)
 
 ### Deferred Issues
 
@@ -81,5 +83,5 @@ None for v1.9.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 43-02-PLAN.md (Combat Panel Snapshot Events - SRV-01, SRV-02)
+Stopped at: Completed 44-01-PLAN.md (Snapshot-Driven CombatPanel Rendering)
 Resume file: None
