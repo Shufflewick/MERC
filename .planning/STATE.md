@@ -9,16 +9,16 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 45 of 46 (GameTable Clean Wiring)
+Phase: 46 of 46 (Verification)
 Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-08 -- Completed 45-01-PLAN.md (GameTable Clean Wiring)
+Status: Milestone complete
+Last activity: 2026-02-08 -- Completed 46-01-PLAN.md (Combat Event Pipeline Verification)
 
-Progress: [████████░░] 86% (6 of 7 plans complete)
+Progress: [██████████] 100% (7 of 7 plans complete)
 
 ## Current Milestone
 
-**v1.9 BoardSmith v3.0 Animation Timeline Migration** - IN PROGRESS
+**v1.9 BoardSmith v3.0 Animation Timeline Migration** - COMPLETE
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
@@ -26,7 +26,7 @@ Progress: [████████░░] 86% (6 of 7 plans complete)
 | 43 | Combat Event Architecture | SRV-01, SRV-02, SRV-03 | Complete |
 | 44 | CombatPanel Rebuild | UI-01, UI-02, UI-03, DELETE-03, DELETE-05 | Complete |
 | 45 | GameTable Clean Wiring | UI-04, DELETE-04 | Complete |
-| 46 | Verification | TEST-01 | Not started |
+| 46 | Verification | TEST-01 | Complete |
 
 **Target:** CombatPanel renders 100% from animation events, zero vestigial theatre view code
 
@@ -41,26 +41,21 @@ Progress: [████████░░] 86% (6 of 7 plans complete)
 - v1.6 Final ID Cleanup (Phases 28-30) - 5 plans
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
 - v1.8 Unified Stat Ability System (Phases 37-41) - 7 plans
+- v1.9 BoardSmith v3.0 Animation Timeline Migration (Phases 42-46) - 7 plans
 
-Total: 41 phases, 83 plans, 9 milestones shipped
+Total: 46 phases, 89 plans, 10 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 88
-- Average duration: 9.1 min/plan
+- Total plans completed: 89
+- Average duration: 9.0 min/plan
 
 ## Accumulated Context
 
 ### Decisions
 
 All decisions captured in PROJECT.md Key Decisions table.
-
-**v1.9 Decisions (pending):**
-- CombatPanel 100% event-driven -- animation events carry all data, no gameView/truth reads
-- Full snapshot per decision cycle -- handles refresh/late-join without history
-- Mutations out of animate callbacks -- pure data events + normal mutations after
-- ActionController stays for player decisions -- decisions submitted through existing action system
 
 **v1.9 Decisions (confirmed by execution):**
 - activeCombat sourced from theatre view only, no truth view fallback (42-01)
@@ -76,6 +71,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - combat-panel handler in GameTable (always-mounted parent) eliminates chicken-and-egg mounting problem without pause/resume (45-01)
 - CombatPanel snapshot watcher clears healthOverrides on every new snapshot, replacing internal handler clearing (45-01)
 - Wolverine 6s individual click emit removed -- allocation tracked internally via hit allocation panel (45-01)
+- Combat event pipeline verified by 21 automated tests covering snapshots, events, decisions, and lifecycle (46-01)
 
 ### Deferred Issues
 
@@ -83,10 +79,10 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 ### Blockers/Concerns
 
-None for v1.9.
+None.
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 45-01-PLAN.md (GameTable Clean Wiring)
+Stopped at: Completed 46-01-PLAN.md (Combat Event Pipeline Verification) -- v1.9 milestone complete
 Resume file: None
