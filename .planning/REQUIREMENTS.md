@@ -178,25 +178,25 @@ BoardSmith v3.0 removed the theatre view system (frozen snapshots, mutation capt
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DELETE-01 | TBD | Pending |
-| DELETE-02 | TBD | Pending |
-| DELETE-03 | TBD | Pending |
-| DELETE-04 | TBD | Pending |
-| DELETE-05 | TBD | Pending |
-| SRV-01 | TBD | Pending |
-| SRV-02 | TBD | Pending |
-| SRV-03 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
-| TEST-01 | TBD | Pending |
+| DELETE-01 | Phase 42 | Pending |
+| DELETE-02 | Phase 42 | Pending |
+| DELETE-03 | Phase 44 | Pending |
+| DELETE-04 | Phase 45 | Pending |
+| DELETE-05 | Phase 44 | Pending |
+| SRV-01 | Phase 43 | Pending |
+| SRV-02 | Phase 43 | Pending |
+| SRV-03 | Phase 43 | Pending |
+| UI-01 | Phase 44 | Pending |
+| UI-02 | Phase 44 | Pending |
+| UI-03 | Phase 44 | Pending |
+| UI-04 | Phase 45 | Pending |
+| TEST-01 | Phase 46 | Pending |
 
 **Coverage:**
 - v1.9 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after initial definition*
+*Last updated: 2026-02-07 after roadmap creation*
