@@ -129,7 +129,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 46-01-PLAN.md -- Combat event pipeline tests: snapshots, animation events, decision context, lifecycle (TEST-01)
+- [x] 46-01-PLAN.md -- Combat event pipeline tests: snapshots, animation events, decision context, lifecycle (TEST-01)
 
 ## Progress
 
@@ -142,4 +142,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46
 | 43. Combat Event Architecture | 2/2 | ✓ Complete | 2026-02-08 |
 | 44. CombatPanel Rebuild | 2/2 | ✓ Complete | 2026-02-08 |
 | 45. GameTable Clean Wiring | 1/1 | ✓ Complete | 2026-02-08 |
-| 46. Verification | 0/1 | Not started | - |
+| 46. Verification | 1/1 | ✓ Complete | 2026-02-08 |
