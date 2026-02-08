@@ -100,8 +100,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 44-01-PLAN.md -- Register combat-panel handler, rewire combatant rendering to snapshot, remove displayHealth/gameView/resolveCombatant (UI-01, DELETE-05)
-- [ ] 44-02-PLAN.md -- Rewire decision prompts to snapshot, remove state machine, add event-driven lifecycle (UI-02, UI-03, DELETE-03)
+- [x] 44-01-PLAN.md -- Register combat-panel handler, rewire combatant rendering to snapshot, remove displayHealth/gameView/resolveCombatant (UI-01, DELETE-05)
+- [x] 44-02-PLAN.md -- Rewire decision prompts to snapshot, remove state machine, add event-driven lifecycle (UI-02, UI-03, DELETE-03)
 
 #### Phase 45: GameTable Clean Wiring
 **Goal**: GameTable's combat panel section is simple and readable -- panel visibility driven by event presence, no fallback chains, no cached state, no workarounds
@@ -140,6 +140,6 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46
 |-------|---------------|--------|-----------|
 | 42. Remove Dead APIs | 1/1 | ✓ Complete | 2026-02-08 |
 | 43. Combat Event Architecture | 2/2 | ✓ Complete | 2026-02-08 |
-| 44. CombatPanel Rebuild | 0/2 | Not started | - |
+| 44. CombatPanel Rebuild | 2/2 | ✓ Complete | 2026-02-08 |
 | 45. GameTable Clean Wiring | 0/TBD | Not started | - |
 | 46. Verification | 0/TBD | Not started | - |

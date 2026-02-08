@@ -180,15 +180,15 @@ BoardSmith v3.0 removed the theatre view system (frozen snapshots, mutation capt
 |-------------|-------|--------|
 | DELETE-01 | Phase 42 | Complete |
 | DELETE-02 | Phase 42 | Complete |
-| DELETE-03 | Phase 44 | Pending |
+| DELETE-03 | Phase 44 | Complete |
 | DELETE-04 | Phase 45 | Pending |
-| DELETE-05 | Phase 44 | Pending |
+| DELETE-05 | Phase 44 | Complete |
 | SRV-01 | Phase 43 | Complete |
 | SRV-02 | Phase 43 | Complete |
 | SRV-03 | Phase 43 | Complete |
-| UI-01 | Phase 44 | Pending |
-| UI-02 | Phase 44 | Pending |
-| UI-03 | Phase 44 | Pending |
+| UI-01 | Phase 44 | Complete |
+| UI-02 | Phase 44 | Complete |
+| UI-03 | Phase 44 | Complete |
 | UI-04 | Phase 45 | Pending |
 | TEST-01 | Phase 46 | Pending |
 
@@ -199,4 +199,4 @@ BoardSmith v3.0 removed the theatre view system (frozen snapshots, mutation capt
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-08 after Phase 43 execution*
+*Last updated: 2026-02-08 after Phase 44 execution*
