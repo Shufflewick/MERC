@@ -8,10 +8,23 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 
 **Ship Confidence** - tests and debug cleanup so the game can release with confidence that it won't crash or behave unexpectedly.
 
+## Current Milestone: v1.9 BoardSmith v3.0 Animation Timeline Migration
+
+**Goal:** Migrate MERC's combat UI from BoardSmith's removed theatre view system to the new v3.0 animation timeline, making CombatPanel a 100% event-driven animation player.
+
+**Target features:**
+- CombatPanel driven entirely by animation events (no gameView/truth reads)
+- Full combatant snapshot emitted per decision cycle (refresh-safe)
+- Pure data `game.animate()` calls — mutations moved out of callbacks
+- Remove all theatre view / acknowledgment protocol code
+- Simplified panel lifecycle (no state machine)
+- Interactive decisions (target selection, hit allocation, continue/retreat) embedded in animation event data
+- Player actions still submitted via actionController
+
 ## Current State
 
-**Current:** v1.8 Unified Stat Ability System (In Progress)
-**Shipped:** v1.7 GameBoard Component Refactor (2026-01-19)
+**Current:** v1.9 BoardSmith v3.0 Animation Timeline Migration (In Progress)
+**Shipped:** v1.8 Unified Stat Ability System (2026-02-03)
 
 - 32,090 lines of TypeScript/Vue (modular structure)
 - Zero `as any` casts in src/rules/
@@ -21,7 +34,7 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - Single combatants.json data file (54 entries)
 - CombatantCard.vue component for rendering any combatant
 - CLAUDE.md architecture guide for AI navigation
-- 524 tests passing (81+ for error conditions and edge cases)
+- 599 tests passing
 
 ## Requirements
 
@@ -61,21 +74,25 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Extract state derivation to composables (usePlayerState, useSectorState, useSquadState, useActionState) — v1.7
 - ✓ GameBoard.vue reduced to thin orchestrator (3,368 → 1,393 lines, 59% reduction) — v1.7
 
-### v1.8 Unified Stat Ability System (In Progress)
+### v1.9 BoardSmith v3.0 Animation Timeline Migration (In Progress)
 
-- [ ] STAT-01: Unified Ability Registry — all stat-modifying abilities defined declaratively in merc-abilities.ts
-- [ ] STAT-02: Single Server-Side Calculation — one calculateStatModifiers() function from registry
-- [ ] STAT-03: Unified UI Display — CombatantCard.vue reads from ability data, no hardcoded checks
-- [ ] STAT-04: Combat Consistency — combat stats read from cached values, no duplicate calculations
-- [ ] STAT-05: Test Coverage — integration tests for all 18 stat-modifying abilities
+- [ ] ANIM-01: Remove all theatre view / acknowledgment protocol code (useCurrentView, acknowledgeAnimations action, acknowledge callback)
+- [ ] ANIM-02: Restructure combat.ts to emit `combat-panel` snapshot events with full combatant data per decision cycle
+- [ ] ANIM-03: Move mutations out of game.animate() callbacks — pure data events followed by normal mutations
+- [ ] ANIM-04: CombatPanel reads 100% from animation events — no gameView/truth/activeCombat prop reads
+- [ ] ANIM-05: Decision context (pendingTargetSelection, pendingHitAllocation, etc.) embedded in combat-panel events
+- [ ] ANIM-06: Simplified panel lifecycle — opens on combat events, closes after combat-end, no state machine
+- [ ] ANIM-07: GameTable combat wiring updated — no theatre/truth view fallback logic
+- [ ] ANIM-08: Test coverage — combat animation flow tests verifying snapshot + event sequences
 
 <!-- Existing working functionality inferred from codebase -->
 
+- ✓ Unified stat ability system — single source of truth for 18 stat-modifying abilities — v1.8
 - ✓ Game logic layer with combat system, MERC abilities, equipment effects — existing
 - ✓ Action layer: movement, economy, equipment, combat, dictator actions — existing
 - ✓ Vue 3 UI with GameBoard, panels, cards, map components — existing
 - ✓ Data layer with JSON configuration for MERCs, equipment, sectors, tactics — existing
-- ✓ Test suite covering combat, abilities, equipment (3,933 lines across 8 files) — existing
+- ✓ Test suite covering combat, abilities, equipment — existing
 - ✓ BoardSmith framework integration (engine, session, ui, runtime) — existing
 
 ### Out of Scope
@@ -87,12 +104,19 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 **Codebase State:**
 - Brownfield project with working game implementation
 - TypeScript 5.7.0 with strict mode enabled
-- Built on @boardsmith/* monorepo packages (engine, session, ui, runtime)
+- BoardSmith v3.0 installed (animation timeline replaces theatre view)
 - 32,090 lines of TypeScript/Vue code
 - Comprehensive test coverage for combat, abilities, equipment, conditions, state persistence, and error handling
 - Clean class hierarchy: CombatantBase → CombatantModel (concrete)
 - Architecture documented in CLAUDE.md
 - Zero legacy ID patterns (mercId/mercName/dictatorId/dictatorName eradicated)
+
+**BoardSmith v3.0 Breaking Changes:**
+- Theatre view system removed (no more frozen snapshots, mutation capture, or view split)
+- `useCurrentView()` composable removed — single truth view via `gameView`
+- `acknowledgeAnimationEvents()` removed — no server-side animation tracking
+- `game.animate(type, data, callback?)` still works but callback is just normal code (no mutation capture)
+- Animation playback is 100% client-owned — server broadcasts truth immediately
 
 **Codebase Map:**
 - `.planning/codebase/CONCERNS.md` - Full list of identified issues
@@ -136,7 +160,11 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | Shared composables for action state | Reduce prop drilling, components import state directly | ✓ Good |
 | Watch both availableActions AND currentAction | Auto-start watcher needs to fire when previous action completes | ✓ Good |
 | Match choices by display name, fill with element ID | ActionPanel pattern - choices have display/value structure | ✓ Good |
-| Unified stat ability system | Single source of truth for ability bonuses - define once, calculate once, display once | Pending |
+| Unified stat ability system | Single source of truth for ability bonuses - define once, calculate once, display once | ✓ Good |
+| CombatPanel 100% event-driven | Animation events carry all data — no gameView/truth reads for combat | — Pending |
+| Full snapshot per decision cycle | Handles refresh/late-join — no history needed | — Pending |
+| Mutations out of animate callbacks | Pure data events + normal mutations after — cleaner separation | — Pending |
+| ActionController stays for player decisions | Decisions submitted through existing action system | — Pending |
 
 ---
-*Last updated: 2026-02-03 v1.8 milestone initialized*
+*Last updated: 2026-02-07 v1.9 milestone initialized*
