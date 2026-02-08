@@ -437,29 +437,36 @@ const livingDictator = computed(() => {
   return combined;
 });
 
+// Snapshot decision context computed helpers — used in script and template
+const snapshotTargetSelection = computed(() => combatSnapshot.value?.pendingTargetSelection as any);
+const snapshotHitAllocation = computed(() => combatSnapshot.value?.pendingHitAllocation as PendingHitAllocation | null);
+const snapshotWolverineSixes = computed(() => combatSnapshot.value?.pendingWolverineSixes as any);
+const snapshotAttackDogSelection = computed(() => combatSnapshot.value?.pendingAttackDogSelection as any);
+const snapshotBeforeAttackHealing = computed(() => combatSnapshot.value?.pendingBeforeAttackHealing as any);
+
 // Mode checks
 const isSelectingTargets = computed(() => {
-  return !!props.activeCombat?.pendingTargetSelection && props.isMyTurn;
+  return !!snapshotTargetSelection.value && props.isMyTurn;
 });
 
 const maxTargets = computed(() => {
-  return props.activeCombat?.pendingTargetSelection?.maxTargets ?? 0;
+  return snapshotTargetSelection.value?.maxTargets ?? 0;
 });
 
 const isAllocating = computed(() => {
-  return !!props.activeCombat?.pendingHitAllocation && props.isMyTurn;
+  return !!snapshotHitAllocation.value && props.isMyTurn;
 });
 
 const isAllocatingWolverineSixes = computed(() => {
-  return !!props.activeCombat?.pendingWolverineSixes && props.isMyTurn;
+  return !!snapshotWolverineSixes.value && props.isMyTurn;
 });
 
 const isAssigningAttackDog = computed(() => {
-  return !!props.activeCombat?.pendingAttackDogSelection && props.isMyTurn;
+  return !!snapshotAttackDogSelection.value && props.isMyTurn;
 });
 
 const isHealingBeforeAttack = computed(() => {
-  return !!props.activeCombat?.pendingBeforeAttackHealing && props.isMyTurn;
+  return !!snapshotBeforeAttackHealing.value && props.isMyTurn;
 });
 
 // Dog target names map — reads directly from snapshot combatant fields
@@ -533,15 +540,12 @@ function isValidTarget(targetId: string): boolean {
   const normalized = normalizeId(targetId);
   if (!normalized) return false;
   if (isSelectingTargets.value) {
-    return props.activeCombat?.pendingTargetSelection?.validTargets
-      .some(t => normalizeId(t.id) === normalized) ?? false;
+    return snapshotTargetSelection.value?.validTargets?.some((t: any) => normalizeId(t.id) === normalized) ?? false;
   }
   if (isAllocatingWolverineSixes.value) {
-    return props.activeCombat?.pendingWolverineSixes?.bonusTargets
-      .some(t => normalizeId(t.id) === normalized) ?? false;
+    return snapshotWolverineSixes.value?.bonusTargets?.some((t: any) => normalizeId(t.id) === normalized) ?? false;
   }
-  return props.activeCombat?.pendingHitAllocation?.validTargets
-    .some(t => normalizeId(t.id) === normalized) ?? false;
+  return snapshotHitAllocation.value?.validTargets?.some((t: any) => normalizeId(t.id) === normalized) ?? false;
 }
 
 function isTargetSelected(targetId: string): boolean {
@@ -572,9 +576,9 @@ function selectTarget(targetId: string) {
   if (!normalized) return;
   // Handle target selection mode (before rolling)
   if (isSelectingTargets.value) {
-    const validTargetIds = props.activeCombat?.pendingTargetSelection?.validTargets
-      .map(t => normalizeId(t.id))
-      .filter((id): id is string => !!id) ?? [];
+    const validTargetIds = (snapshotTargetSelection.value?.validTargets ?? [])
+      .map((t: any) => normalizeId(t.id))
+      .filter((id: string | null): id is string => !!id);
     if (!validTargetIds.includes(normalized)) return;
 
     if (selectedTargets.value.has(normalized)) {
@@ -594,9 +598,9 @@ function selectTarget(targetId: string) {
 
   // Handle hit allocation mode - clicking adds a hit
   if (isAllocating.value && hitAllocationRef.value) {
-    const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets
-      .map(t => normalizeId(t.id))
-      .filter((id): id is string => !!id) ?? [];
+    const validTargetIds = (snapshotHitAllocation.value?.validTargets ?? [])
+      .map((t: any) => normalizeId(t.id))
+      .filter((id: string | null): id is string => !!id);
     if (!validTargetIds.includes(normalized)) return;
     hitAllocationRef.value.addHitToTarget(normalized);
   }
@@ -606,9 +610,9 @@ function addHitToTarget(targetId: string) {
   if (!isAllocating.value || !hitAllocationRef.value) return;
   const normalized = normalizeId(targetId);
   if (!normalized) return;
-  const validTargetIds = props.activeCombat?.pendingHitAllocation?.validTargets
-    .map(t => normalizeId(t.id))
-    .filter((id): id is string => !!id) ?? [];
+  const validTargetIds = (snapshotHitAllocation.value?.validTargets ?? [])
+    .map((t: any) => normalizeId(t.id))
+    .filter((id: string | null): id is string => !!id);
   if (!validTargetIds.includes(normalized)) return;
   hitAllocationRef.value.addHitToTarget(normalized);
 }
@@ -709,8 +713,8 @@ watch(() => props.activeCombat?.sectorId, (newSectorId, oldSectorId) => {
   }
 });
 
-// Reset selected targets
-watch(() => props.activeCombat?.pendingTargetSelection, () => {
+// Reset selected targets when snapshot target selection changes
+watch(() => combatSnapshot.value?.pendingTargetSelection, () => {
   selectedTargets.value.clear();
 }, { immediate: true });
 
@@ -815,7 +819,7 @@ onUnmounted(() => {
             :health="getCombatantDisplay(combatant).health"
             :max-health="getCombatantDisplay(combatant).maxHealth"
             :is-dead="getCombatantDisplay(combatant).isDead"
-            :is-attacking="activeCombat?.pendingHitAllocation?.attackerId === getCombatantDisplay(combatant).id"
+            :is-attacking="snapshotHitAllocation?.attackerId === getCombatantDisplay(combatant).id"
             :is-targetable="isValidTarget(getCombatantDisplay(combatant).id)"
             :is-selected="hitAllocationRef?.selectedDieIndex !== null && isValidTarget(getCombatantDisplay(combatant).id)"
             :is-target-selected="isSelectingTargets && isTargetSelected(getCombatantDisplay(combatant).id)"
@@ -883,9 +887,9 @@ onUnmounted(() => {
 
     <!-- Hit allocation panel -->
     <HitAllocationPanel
-      v-if="activeCombat?.pendingHitAllocation && !isAnimating"
+      v-if="snapshotHitAllocation && !isAnimating"
       ref="hitAllocationRef"
-      :pending-allocation="activeCombat.pendingHitAllocation"
+      :pending-allocation="snapshotHitAllocation"
       :is-my-turn="isMyTurn"
       @allocate-hit="emit('allocate-hit', $event)"
       @confirm-allocation="emit('confirm-allocation', $event)"
@@ -943,10 +947,10 @@ onUnmounted(() => {
     </div>
 
     <!-- Wolverine's 6s allocation -->
-    <div v-if="activeCombat?.pendingWolverineSixes && !isAnimating" class="wolverine-area">
+    <div v-if="snapshotWolverineSixes && !isAnimating" class="wolverine-area">
       <div class="wolverine-info">
-        <strong>{{ activeCombat.pendingWolverineSixes.attackerName }}</strong> - Wolverine's Ability!
-        <span class="six-count">{{ activeCombat.pendingWolverineSixes.sixCount }} bonus target(s) from 6s</span>
+        <strong>{{ snapshotWolverineSixes?.attackerName }}</strong> - Wolverine's Ability!
+        <span class="six-count">{{ snapshotWolverineSixes?.sixCount }} bonus target(s) from 6s</span>
       </div>
       <div class="allocation-hint">
         Click additional targets to allocate Wolverine's bonus hits
@@ -956,15 +960,15 @@ onUnmounted(() => {
     <!-- Attack Dog assignment -->
     <AttackDogAssignmentPanel
       v-if="isAssigningAttackDog && !isAnimating"
-      :attacker-name="activeCombat?.pendingAttackDogSelection?.attackerName ?? ''"
-      :valid-targets="activeCombat?.pendingAttackDogSelection?.validTargets ?? []"
+      :attacker-name="snapshotAttackDogSelection?.attackerName ?? ''"
+      :valid-targets="snapshotAttackDogSelection?.validTargets ?? []"
       @assign="emit('assign-attack-dog', $event)"
     />
 
     <!-- Before-attack healing phase -->
     <div v-if="isHealingBeforeAttack && !isAnimating" class="healing-phase-panel">
       <div class="healing-header">
-        <strong>{{ activeCombat?.pendingBeforeAttackHealing?.attackerName }}</strong>'s Turn - Healing Phase
+        <strong>{{ snapshotBeforeAttackHealing?.attackerName }}</strong>'s Turn - Healing Phase
       </div>
       <div class="healing-hint">
         Use Medical Kit/First Aid Kit to heal an ally before attacking
@@ -972,14 +976,14 @@ onUnmounted(() => {
       <div class="healing-options">
         <div class="healers-available">
           <span class="label">Available healers:</span>
-          <span v-for="healer in activeCombat?.pendingBeforeAttackHealing?.availableHealers"
+          <span v-for="healer in snapshotBeforeAttackHealing?.availableHealers"
                 :key="healer.healerId" class="healer-badge">
             {{ healer.healerName }} ({{ healer.itemName }})
           </span>
         </div>
         <div class="damaged-allies">
           <span class="label">Can heal:</span>
-          <span v-for="ally in activeCombat?.pendingBeforeAttackHealing?.damagedAllies"
+          <span v-for="ally in snapshotBeforeAttackHealing?.damagedAllies"
                 :key="ally.id" class="ally-badge">
             {{ ally.name }} ({{ ally.damage }} damage)
           </span>
@@ -998,7 +1002,7 @@ onUnmounted(() => {
     <!-- Target selection -->
     <TargetSelectionPanel
       v-if="isSelectingTargets && !isAnimating"
-      :attacker-name="activeCombat?.pendingTargetSelection?.attackerName ?? ''"
+      :attacker-name="snapshotTargetSelection?.attackerName ?? ''"
       :max-targets="maxTargets"
       :selected-count="selectedTargets.size"
       @confirm-targets="emit('confirm-targets', Array.from(selectedTargets))"
