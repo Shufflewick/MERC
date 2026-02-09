@@ -135,6 +135,16 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
     return { success: true, message: 'Artillery Barrage: All misses or no targets' };
   }
 
+  // Pure UI signal — mutations happen through the allocation flow
+  game.animate('tactic-artillery-barrage', {
+    cardName: 'Artillery Barrage',
+    sectorsTargeted: sectorsWithTargets.map(s => ({
+      sectorId: s.sector.sectorId,
+      sectorName: s.sector.sectorName,
+      hits: s.hits,
+    })),
+  }, () => {});
+
   // Build pending state for first sector
   const firstSector = sectorsWithTargets[0];
   const validTargets = buildArtilleryTargets(game, firstSector.sector);
@@ -227,17 +237,40 @@ function revealBase(game: MERCGame): TacticsEffectResult {
  * Family Threat: Each rebel sector loses 2 militia
  */
 function familyThreat(game: MERCGame): TacticsEffectResult {
-  let totalRemoved = 0;
-
+  // Pre-compute affected sectors before animation
+  const affectedSectors: Array<{ sectorId: string; sectorName: string; removed: number }> = [];
   for (const sector of game.gameMap.getAllSectors()) {
+    let sectorRemoved = 0;
     for (const rebel of game.rebelPlayers) {
-      const removed = sector.removeRebelMilitia(`${rebel.seat}`, 2);
-      if (removed > 0) {
-        totalRemoved += removed;
-        game.message(`${removed} militia fled from ${sector.sectorName}`);
-      }
+      const available = sector.getRebelMilitia(`${rebel.seat}`);
+      const toRemove = Math.min(2, available);
+      sectorRemoved += toRemove;
+    }
+    if (sectorRemoved > 0) {
+      affectedSectors.push({
+        sectorId: sector.sectorId,
+        sectorName: sector.sectorName,
+        removed: sectorRemoved,
+      });
     }
   }
+
+  let totalRemoved = 0;
+
+  game.animate('tactic-family-threat', {
+    cardName: 'Family Threat',
+    affectedSectors,
+  }, () => {
+    for (const sector of game.gameMap.getAllSectors()) {
+      for (const rebel of game.rebelPlayers) {
+        const removed = sector.removeRebelMilitia(`${rebel.seat}`, 2);
+        if (removed > 0) {
+          totalRemoved += removed;
+          game.message(`${removed} militia fled from ${sector.sectorName}`);
+        }
+      }
+    }
+  });
 
   return {
     success: true,
@@ -250,10 +283,18 @@ function familyThreat(game: MERCGame): TacticsEffectResult {
  * Fodder: Send militia to rebel sectors with most militia, then combat
  */
 function fodder(game: MERCGame): TacticsEffectResult {
-  const combatsTriggered: string[] = [];
+  // Pre-compute targets before animation
+  const targets: Array<{
+    rebelName: string;
+    sectorId: string;
+    sectorName: string;
+    rebelMilitia: number;
+    militiaSent: number;
+    rebel: InstanceType<typeof game.rebelPlayers[0]>;
+    sector: Sector;
+  }> = [];
 
   for (const rebel of game.rebelPlayers) {
-    // Find sector with most rebel militia for this player
     let maxMilitia = 0;
     let targetSector: Sector | null = null;
 
@@ -266,18 +307,39 @@ function fodder(game: MERCGame): TacticsEffectResult {
     }
 
     if (targetSector && maxMilitia > 0) {
-      // Send half (round up) of their militia as dictator militia
-      const toSend = Math.ceil(maxMilitia / 2);
-      const placed = targetSector.addDictatorMilitia(toSend);
-      game.message(`Dictator sends ${placed} militia to attack ${rebel.name} at ${targetSector.sectorName}`);
-
-      if (placed > 0) {
-        combatsTriggered.push(targetSector.sectorName);
-        // Trigger combat - dictator initiated
-        queuePendingCombat(game, targetSector, rebel, false);
-      }
+      targets.push({
+        rebelName: rebel.name,
+        sectorId: targetSector.sectorId,
+        sectorName: targetSector.sectorName,
+        rebelMilitia: maxMilitia,
+        militiaSent: Math.ceil(maxMilitia / 2),
+        rebel,
+        sector: targetSector,
+      });
     }
   }
+
+  const combatsTriggered: string[] = [];
+
+  game.animate('tactic-fodder', {
+    cardName: 'Fodder',
+    targets: targets.map(t => ({
+      sectorId: t.sectorId,
+      sectorName: t.sectorName,
+      rebelName: t.rebelName,
+      militiaSent: t.militiaSent,
+    })),
+  }, () => {
+    for (const target of targets) {
+      const placed = target.sector.addDictatorMilitia(target.militiaSent);
+      game.message(`Dictator sends ${placed} militia to attack ${target.rebelName} at ${target.sectorName}`);
+
+      if (placed > 0) {
+        combatsTriggered.push(target.sectorName);
+        queuePendingCombat(game, target.sector, target.rebel, false);
+      }
+    }
+  });
 
   return {
     success: true,
@@ -297,28 +359,36 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
   let totalPlaced = 0;
   const combatsTriggered: string[] = [];
 
-  for (const sector of industries) {
-    const placed = sector.addDictatorMilitia(game.rebelCount);
-    totalPlaced += placed;
-    if (placed > 0) {
-      game.message(`Reinforced ${sector.sectorName} with ${placed} militia`);
+  game.animate('tactic-reinforcements', {
+    cardName: 'Reinforcements',
+    sectors: industries.map(s => ({
+      sectorId: s.sectorId,
+      sectorName: s.sectorName,
+      militiaAdded: game.rebelCount,
+    })),
+  }, () => {
+    for (const sector of industries) {
+      const placed = sector.addDictatorMilitia(game.rebelCount);
+      totalPlaced += placed;
+      if (placed > 0) {
+        game.message(`Reinforced ${sector.sectorName} with ${placed} militia`);
 
-      // Check for combat with any rebel in this sector
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
+        // Check for combat with any rebel in this sector
+        for (const rebel of game.rebelPlayers) {
+          const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+            rebel.secondarySquad.sectorId === sector.sectorId;
+          const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
 
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          combatsTriggered.push(sector.sectorName);
-          // Dictator initiated combat
-          queuePendingCombat(game, sector, rebel, false);
-          break; // Only trigger combat once per sector
+          if (hasSquad || hasMilitia) {
+            game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+            combatsTriggered.push(sector.sectorName);
+            queuePendingCombat(game, sector, rebel, false);
+            break; // Only trigger combat once per sector
+          }
         }
       }
     }
-  }
+  });
 
   return {
     success: true,
@@ -347,20 +417,28 @@ function seizure(game: MERCGame): TacticsEffectResult {
   let sectorsFlipped = 0;
   let totalMilitiaPlaced = 0;
 
-  for (const sector of sectorsToFlip) {
-    sector.explore();
-    sectorsFlipped++;
-    game.message(`Seizure: ${sector.sectorName} is now explored`);
+  game.animate('tactic-seizure', {
+    cardName: 'Seizure',
+    sectors: sectorsToFlip.map(s => ({
+      sectorId: s.sectorId,
+      sectorName: s.sectorName,
+      militiaAdded: militiaToAdd,
+    })),
+  }, () => {
+    for (const sector of sectorsToFlip) {
+      sector.explore();
+      sectorsFlipped++;
+      game.message(`Seizure: ${sector.sectorName} is now explored`);
 
-    // Add X-1 militia to the sector
-    if (militiaToAdd > 0) {
-      const placed = sector.addDictatorMilitia(militiaToAdd);
-      totalMilitiaPlaced += placed;
-      if (placed > 0) {
-        game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
+      if (militiaToAdd > 0) {
+        const placed = sector.addDictatorMilitia(militiaToAdd);
+        totalMilitiaPlaced += placed;
+        if (placed > 0) {
+          game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
+        }
       }
     }
-  }
+  });
 
   return {
     success: true,
@@ -374,10 +452,10 @@ function seizure(game: MERCGame): TacticsEffectResult {
  */
 function sentry(game: MERCGame): TacticsEffectResult {
   const militiaToAdd = Math.ceil(game.rebelCount / 2);
-  let totalPlaced = 0;
 
+  // Pre-compute uncontrolled sectors
+  const uncontrolledSectors: Sector[] = [];
   for (const sector of game.gameMap.getAllSectors()) {
-    // Check if sector is uncontrolled
     const dictatorControls = sector.dictatorMilitia > 0;
     const rebelControls = sector.getTotalRebelMilitia() > 0 ||
       game.rebelPlayers.some(r =>
@@ -386,13 +464,28 @@ function sentry(game: MERCGame): TacticsEffectResult {
       );
 
     if (!dictatorControls && !rebelControls) {
+      uncontrolledSectors.push(sector);
+    }
+  }
+
+  let totalPlaced = 0;
+
+  game.animate('tactic-sentry', {
+    cardName: 'Sentry',
+    sectors: uncontrolledSectors.map(s => ({
+      sectorId: s.sectorId,
+      sectorName: s.sectorName,
+      militiaAdded: militiaToAdd,
+    })),
+  }, () => {
+    for (const sector of uncontrolledSectors) {
       const placed = sector.addDictatorMilitia(militiaToAdd);
       totalPlaced += placed;
       if (placed > 0) {
         game.message(`Sentry: ${placed} militia placed at ${sector.sectorName}`);
       }
     }
-  }
+  });
 
   return {
     success: true,
@@ -408,39 +501,49 @@ function sentry(game: MERCGame): TacticsEffectResult {
 function blockTrade(game: MERCGame): TacticsEffectResult {
   const allCities = game.gameMap.getAllSectors().filter(s => s.isCity);
   const unexploredCities = allCities.filter(s => !s.explored);
-
-  // Step 1: Flip unexplored cities to explored
-  for (const city of unexploredCities) {
-    city.explore();
-    game.message(`${city.sectorName} is now explored (trade blocked)`);
-  }
-
-  // Step 2: Place militia on ALL cities (not just flipped ones)
   const militiaPerCity = Math.ceil(game.rebelCount / 2);
+
   let totalPlaced = 0;
   const combatsTriggered: string[] = [];
 
-  for (const city of allCities) {
-    const placed = city.addDictatorMilitia(militiaPerCity);
-    totalPlaced += placed;
-    if (placed > 0) {
-      game.message(`${placed} militia placed at ${city.sectorName}`);
+  game.animate('tactic-block-trade', {
+    cardName: 'Block Trade',
+    cities: allCities.map(c => ({
+      sectorId: c.sectorId,
+      sectorName: c.sectorName,
+      wasUnexplored: !c.explored,
+      militiaAdded: militiaPerCity,
+    })),
+  }, () => {
+    // Step 1: Flip unexplored cities to explored
+    for (const city of unexploredCities) {
+      city.explore();
+      game.message(`${city.sectorName} is now explored (trade blocked)`);
+    }
 
-      // Check for combat with any rebel in this sector
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === city.sectorId ||
-          rebel.secondarySquad.sectorId === city.sectorId;
-        const hasMilitia = city.getRebelMilitia(`${rebel.seat}`) > 0;
+    // Step 2: Place militia on ALL cities (not just flipped ones)
+    for (const city of allCities) {
+      const placed = city.addDictatorMilitia(militiaPerCity);
+      totalPlaced += placed;
+      if (placed > 0) {
+        game.message(`${placed} militia placed at ${city.sectorName}`);
 
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${city.sectorName} - combat begins!`);
-          combatsTriggered.push(city.sectorName);
-          queuePendingCombat(game, city, rebel, false);
-          break; // Only trigger combat once per sector
+        // Check for combat with any rebel in this sector
+        for (const rebel of game.rebelPlayers) {
+          const hasSquad = rebel.primarySquad.sectorId === city.sectorId ||
+            rebel.secondarySquad.sectorId === city.sectorId;
+          const hasMilitia = city.getRebelMilitia(`${rebel.seat}`) > 0;
+
+          if (hasSquad || hasMilitia) {
+            game.message(`Rebels detected at ${city.sectorName} - combat begins!`);
+            combatsTriggered.push(city.sectorName);
+            queuePendingCombat(game, city, rebel, false);
+            break; // Only trigger combat once per sector
+          }
         }
       }
     }
-  }
+  });
 
   return {
     success: true,
@@ -650,27 +753,60 @@ export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, reb
  */
 function taintedWater(game: MERCGame): TacticsEffectResult {
   const amount = Math.ceil(game.rebelCount / 2);
+
+  // Pre-compute affected sectors (those with rebel militia)
+  const affectedSectors: Array<{ sectorId: string; sectorName: string; militiaToRemove: number }> = [];
+  for (const sector of game.gameMap.getAllSectors()) {
+    let sectorTotal = 0;
+    for (const rebel of game.rebelPlayers) {
+      sectorTotal += Math.min(amount, sector.getRebelMilitia(`${rebel.seat}`));
+    }
+    if (sectorTotal > 0) {
+      affectedSectors.push({
+        sectorId: sector.sectorId,
+        sectorName: sector.sectorName,
+        militiaToRemove: sectorTotal,
+      });
+    }
+  }
+
+  // Pre-compute affected MERCs
+  const affectedMercs: Array<{ combatantId: string; combatantName: string }> = [];
+  for (const rebel of game.rebelPlayers) {
+    for (const merc of rebel.team) {
+      affectedMercs.push({
+        combatantId: merc.combatantId,
+        combatantName: merc.combatantName,
+      });
+    }
+  }
+
   let militiaRemoved = 0;
   let mercsDamaged = 0;
 
-  for (const sector of game.gameMap.getAllSectors()) {
-    // Remove rebel militia
+  game.animate('tactic-tainted-water', {
+    cardName: 'Tainted Water',
+    sectors: affectedSectors,
+    mercs: affectedMercs,
+  }, () => {
+    for (const sector of game.gameMap.getAllSectors()) {
+      for (const rebel of game.rebelPlayers) {
+        const removed = sector.removeRebelMilitia(`${rebel.seat}`, amount);
+        militiaRemoved += removed;
+      }
+    }
+
+    // Damage all rebel MERCs (ignores armor)
     for (const rebel of game.rebelPlayers) {
-      const removed = sector.removeRebelMilitia(`${rebel.seat}`, amount);
-      militiaRemoved += removed;
+      for (const merc of rebel.team) {
+        merc.damage += 1; // Direct damage, bypassing armor
+        mercsDamaged++;
+        game.message(`${merc.combatantName} poisoned by tainted water (1 damage)`);
+      }
     }
-  }
 
-  // Damage all rebel MERCs (ignores armor)
-  for (const rebel of game.rebelPlayers) {
-    for (const merc of rebel.team) {
-      merc.damage += 1; // Direct damage, bypassing armor
-      mercsDamaged++;
-      game.message(`${merc.combatantName} poisoned by tainted water (1 damage)`);
-    }
-  }
-
-  game.message(`Tainted water: ${militiaRemoved} militia killed, ${mercsDamaged} MERCs poisoned`);
+    game.message(`Tainted water: ${militiaRemoved} militia killed, ${mercsDamaged} MERCs poisoned`);
+  });
 
   return {
     success: true,
