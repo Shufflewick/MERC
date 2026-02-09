@@ -764,3 +764,84 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       return { success: true, message: `Hired ${selectedMerc.combatantName}` };
     });
 }
+
+// =============================================================================
+// Lockdown Militia Placement Action (Human Players)
+// =============================================================================
+
+/**
+ * Lockdown: Place militia on base or adjacent sectors.
+ * Per CSV: "Reveal base. Get 5 extra militia per rebel player. Place them on base or adjacent sectors."
+ * Human dictator picks sector and amount per iteration until all militia are placed.
+ */
+export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('lockdownPlaceMilitia')
+    .prompt('Lockdown: Place militia on base or adjacent sectors')
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'has pending militia': () => game.pendingLockdownMilitia != null && game.pendingLockdownMilitia.remaining > 0,
+      'is human player': () => !game.dictatorPlayer?.isAI,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose sector for militia placement',
+      choices: () => {
+        const pending = game.pendingLockdownMilitia;
+        if (!pending) return [];
+        return pending.validSectorIds
+          .map(id => game.gameMap.getAllSectors().find(s => s.sectorId === id))
+          .filter((s): s is Sector => s != null && s.dictatorMilitia < 10) // Respect 10 cap
+          .map(s => `${s.sectorName} (${s.dictatorMilitia}/10)`);
+      },
+    })
+    .chooseFrom<string>('amount', {
+      prompt: 'How many militia to place here?',
+      choices: () => {
+        const remaining = game.pendingLockdownMilitia?.remaining ?? 0;
+        const max = Math.min(remaining, 10);
+        return Array.from({ length: max }, (_, i) => `${i + 1}`);
+      },
+    })
+    .execute((args, ctx) => {
+      const pending = game.pendingLockdownMilitia;
+      if (!pending) return { success: false, message: 'No pending lockdown militia' };
+
+      // Parse sector from choice (strip militia count suffix)
+      const sectorChoice = args.targetSector as string;
+      const sectorName = sectorChoice.replace(/\s*\(\d+\/10\)$/, '').trim();
+      const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+      if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+
+      const requestedAmount = parseInt(args.amount as string, 10);
+      if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, message: 'Invalid amount' };
+
+      // Enforce actual sector cap: can only place up to (10 - current militia)
+      const sectorRoom = 10 - sector.dictatorMilitia;
+      const amount = Math.min(requestedAmount, sectorRoom, pending.remaining);
+      if (amount <= 0) return { success: false, message: `${sector.sectorName} is already at capacity (10 militia)` };
+
+      // Place militia
+      const placed = sector.addDictatorMilitia(amount);
+      pending.remaining -= placed;
+      game.message(`Lockdown: ${placed} militia placed at ${sector.sectorName} (${pending.remaining} remaining)`);
+
+      // Check for combat
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+          rebel.secondarySquad.sectorId === sector.sectorId;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+          queuePendingCombat(game, sector, rebel, false);
+          break; // Only trigger combat once per sector
+        }
+      }
+
+      // Clear pending if all placed
+      if (pending.remaining <= 0) {
+        game.pendingLockdownMilitia = null;
+      }
+
+      return { success: true, message: `Placed ${placed} militia` };
+    });
+}

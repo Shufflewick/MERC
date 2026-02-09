@@ -591,6 +591,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               }),
 
+              // Lockdown militia placement — dictator places militia on base/adjacent sectors
+              loop({
+                name: 'lockdown-militia-placement',
+                while: () => game.pendingLockdownMilitia != null && game.pendingLockdownMilitia.remaining > 0 && !game.isFinished(),
+                maxIterations: 50, // Safety: could be many placements
+                do: actionStep({
+                  name: 'lockdown-place-militia',
+                  actions: ['lockdownPlaceMilitia'],
+                  prompt: 'Lockdown: Place militia on base or adjacent sectors',
+                  skipIf: () => game.isFinished() || game.pendingLockdownMilitia == null || game.pendingLockdownMilitia.remaining <= 0,
+                }),
+              }),
+
               // Combat handling after tactics card (e.g., Fodder triggers immediate combat)
               // Before-attack healing loop
               loop({

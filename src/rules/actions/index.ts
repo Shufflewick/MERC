@@ -98,6 +98,7 @@ import {
   createCastroBonusHireAction,
   createKimBonusMilitiaAction,
   createGeneralissimoPickAction,
+  createLockdownPlaceMilitiaAction,
 } from './dictator-actions.js';
 
 import {
@@ -203,6 +204,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCastroBonusHireAction(game));
   game.registerAction(createKimBonusMilitiaAction(game));
   game.registerAction(createGeneralissimoPickAction(game)); // Generalissimo MERC hire
+  game.registerAction(createLockdownPlaceMilitiaAction(game)); // Lockdown militia placement
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions
