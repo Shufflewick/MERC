@@ -20,7 +20,6 @@ import { isEpinephrine } from './equipment-effects.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
   sortTargetsByAIPriority,
-  detonateLandMines,
   shouldUseEpinephrine,
   hasEpinephrineShot,
 } from './ai-helpers.js';
@@ -184,14 +183,14 @@ function rollDie(game: MERCGame): number {
 /**
  * Roll multiple dice using game's seeded random
  */
-function rollDice(count: number, game: MERCGame): number[] {
+export function rollDice(count: number, game: MERCGame): number[] {
   return Array.from({ length: count }, () => rollDie(game));
 }
 
 /**
  * Count hits from dice rolls (4+ is a hit)
  */
-function countHits(rolls: number[]): number {
+export function countHits(rolls: number[]): number {
   return rolls.filter(r => r >= CombatConstants.HIT_THRESHOLD).length;
 }
 
@@ -2498,9 +2497,6 @@ export function executeCombat(
       .join(' > ');
     game.message(`Initiative order: ${initiativeOrder}`);
 
-    // MERC-b65: AI detonates land mines before combat begins
-    detonateLandMines(game, sector, { name: attackingPlayer.name ?? 'Unknown' });
-
     // Initialize activeCombat so executeCombatRound can safely set pending states
     // (pendingHitAllocation, pendingBeforeAttackHealing) without null dereference
     game.activeCombat = {
@@ -2960,16 +2956,57 @@ export function executeCombatRetreat(
     p => `${p.seat}` === game.activeCombat!.attackingPlayerId
   );
 
-  // Apply combat results (casualties, etc.)
   const rebels = game.activeCombat.rebelCombatants as Combatant[];
   const dictator = game.activeCombat.dictatorCombatants as Combatant[];
-  // Use attacking player if found, otherwise skip applying results
+  const rebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
+  const dictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
+
+  // After retreat, check if both sides still have living combatants in the sector.
+  // Militia can't retreat (sourceElement is null, so they always pass the sector check).
+  // Retreated MERCs have updated sectorId via squad, so they filter out naturally.
+  const isStillInSector = (c: Combatant) =>
+    c.isMilitia || c.sourceElement?.sectorId === combatSector.sectorId;
+
+  const remainingRebels = rebels.filter(c => c.health > 0 && isStillInSector(c));
+  const remainingDictator = dictator.filter(c => c.health > 0 && isStillInSector(c));
+
+  // If both sides still have forces, combat continues (e.g. militia hold the line)
+  if (remainingRebels.length > 0 && remainingDictator.length > 0) {
+    game.message(`Dictator MERCs retreat, but militia hold the line!`);
+
+    // Update activeCombat with only the combatants still in the sector
+    game.activeCombat = {
+      sectorId: game.activeCombat.sectorId,
+      attackingPlayerId: game.activeCombat.attackingPlayerId,
+      attackingPlayerIsRebel: game.activeCombat.attackingPlayerIsRebel,
+      round: game.activeCombat.round,
+      rebelCombatants: rebels.filter(c => isStillInSector(c)),
+      dictatorCombatants: dictator.filter(c => isStillInSector(c)),
+      rebelCasualties,
+      dictatorCasualties,
+      dogAssignments: game.activeCombat.dogAssignments,
+      dogs: game.activeCombat.dogs,
+    };
+    game.animate('combat-panel', buildCombatPanelSnapshot(game));
+
+    return {
+      rounds: [],
+      rebelVictory: false,
+      dictatorVictory: false,
+      rebelCasualties,
+      dictatorCasualties,
+      retreated: true,
+      retreatSector,
+      combatPending: true,
+      canRetreat: false,
+    };
+  }
+
+  // One side is empty — combat is over
+  // Apply combat results (casualties, etc.)
   if (attackingPlayer) {
     applyCombatResults(game, combatSector, rebels, dictator, attackingPlayer);
   }
-
-  const rebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
-  const dictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
 
   game.message(`=== Combat Complete (Retreated) ===`);
 
