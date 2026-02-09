@@ -79,10 +79,13 @@ Plans:
   3. Generalissimo draws 6 mercs and lets the dictator pick 1 to add to either squad
   4. Better Weapons gives militia a persistent buff to hit on 3+ going forward
   5. Lockdown lets the dictator place 5 extra militia on base or adjacent sectors
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 50-01: TBD
+- [ ] 50-01-PLAN.md -- Remove fabricated base defense bonuses, fix Block Trade militia placement
+- [ ] 50-02-PLAN.md -- Add animations to all 11 working tactics effects + GameTable.vue handlers
+- [ ] 50-03-PLAN.md -- Rewrite Generalissimo: draw 6 MERCs, pick 1, add to squad
+- [ ] 50-04-PLAN.md -- Rewrite Lockdown: place 5*rebelCount militia on base/adjacent sectors
 
 ## Progress
 
@@ -93,4 +96,4 @@ Plans:
 | 47. Equipment Slot Cleanup | 2/2 | Complete | 2026-02-08 |
 | 48. Landmine System | 2/2 | Complete | 2026-02-08 |
 | 49. Sector Panel Audit | 1/1 | Complete | 2026-02-08 |
-| 50. Tactics Card Audit | 0/TBD | Not started | - |
+| 50. Tactics Card Audit | 0/4 | Not started | - |
