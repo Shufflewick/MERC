@@ -18,10 +18,10 @@
 
 ### Landmines
 
-- [ ] **MINE-01**: Landmine in sector stash triggers when enemy squad/combatant enters sector
-- [ ] **MINE-02**: Triggered landmine deals 1 damage to every enemy combatant in the sector
-- [ ] **MINE-03**: Triggered landmine is discarded from sector stash
-- [ ] **MINE-04**: Squidhead's ability prevents landmine detonation when present
+- [x] **MINE-01**: Landmine in sector stash triggers when enemy squad/combatant enters sector
+- [x] **MINE-02**: Triggered landmine deals 1 damage to every enemy combatant in the sector
+- [x] **MINE-03**: Triggered landmine is discarded from sector stash
+- [x] **MINE-04**: Squidhead's ability prevents landmine detonation when present
 
 ### Tactics Cards
 
@@ -55,10 +55,10 @@
 | SECT-01 | Phase 49 | Pending |
 | SECT-02 | Phase 49 | Pending |
 | SECT-03 | Phase 49 | Pending |
-| MINE-01 | Phase 48 | Pending |
-| MINE-02 | Phase 48 | Pending |
-| MINE-03 | Phase 48 | Pending |
-| MINE-04 | Phase 48 | Pending |
+| MINE-01 | Phase 48 | Complete |
+| MINE-02 | Phase 48 | Complete |
+| MINE-03 | Phase 48 | Complete |
+| MINE-04 | Phase 48 | Complete |
 | TACT-01 | Phase 50 | Pending |
 | TACT-02 | Phase 50 | Pending |
 | TACT-03 | Phase 50 | Pending |
@@ -75,4 +75,4 @@
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after Phase 47 complete*
+*Last updated: 2026-02-08 after Phase 48 complete*
