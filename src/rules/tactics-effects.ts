@@ -11,7 +11,8 @@ import type { MERCGame, RebelPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
 import { queuePendingCombat } from './combat.js';
-import { selectAIBaseLocation } from './ai-helpers.js';
+import { selectAIBaseLocation, selectNewMercLocation } from './ai-helpers.js';
+import { equipNewHire } from './actions/helpers.js';
 
 // =============================================================================
 // Types
@@ -660,21 +661,94 @@ function betterWeapons(game: MERCGame): TacticsEffectResult {
 }
 
 /**
- * Generalisimo: Reveals base AND dictator gives combat bonus to all units at base
- * The dictator fights alongside forces at the base, giving +1 combat to all friendly units there.
+ * Generalisimo: Reveals base AND draws 6 MERCs — dictator picks 1 to hire.
+ * Per CSV: "Reveal base. Draw 6 MERCs, pick 1 to add to either squad."
+ * AI auto-picks highest combat MERC. Human sets pending state for interactive flow.
  */
 function generalisimo(game: MERCGame): TacticsEffectResult {
   // First reveal the base
   const baseResult = revealBase(game);
 
-  // Set the permanent combat bonus flag for base defenders
-  game.generalisimoActive = true;
-  game.message('Generalisimo: Dictator inspires forces at base (+1 combat to all units at base)');
+  // Draw 6 MERCs from the merc deck
+  const drawnMercs: CombatantModel[] = [];
+  for (let i = 0; i < 6; i++) {
+    const m = game.drawMerc();
+    if (m) drawnMercs.push(m);
+  }
+
+  if (drawnMercs.length === 0) {
+    game.message('Generalissimo: No MERCs available to hire');
+    return {
+      success: baseResult.success,
+      message: `${baseResult.message}. No MERCs available to hire`,
+      data: { ...baseResult.data },
+    };
+  }
+
+  // AI dictator: auto-pick the highest combat MERC
+  if (game.dictatorPlayer.isAI) {
+    const bestMerc = drawnMercs.reduce((best, current) =>
+      current.baseCombat > best.baseCombat ? current : best
+    );
+
+    // Determine target squad and sector (same pattern as applyCastroTurnAbility)
+    const primarySquad = game.dictatorPlayer.primarySquad;
+    const secondarySquad = game.dictatorPlayer.secondarySquad;
+    const primaryMercs = primarySquad.getLivingMercs();
+
+    const targetSquad = primaryMercs.length < 3 ? primarySquad : secondarySquad;
+
+    bestMerc.putInto(targetSquad);
+
+    // Set squad location per AI rules
+    const targetSector = selectNewMercLocation(game);
+    if (targetSector && !targetSquad.sectorId) {
+      targetSquad.sectorId = targetSector.sectorId;
+    }
+
+    // Update squad-based ability bonuses
+    game.updateAllSargeBonuses();
+
+    // Give equipment — prioritize weapon
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (bestMerc.weaponSlot) {
+      equipType = bestMerc.armorSlot ? 'Accessory' : 'Armor';
+    }
+
+    game.animate('tactic-generalissimo', {
+      cardName: 'Generalissimo',
+      mercHired: bestMerc.combatantName,
+    }, () => {});
+
+    equipNewHire(game, bestMerc, equipType);
+
+    // Discard the rest
+    for (const merc of drawnMercs) {
+      if (merc !== bestMerc) {
+        merc.putInto(game.mercDiscard);
+      }
+    }
+
+    game.message(`Generalissimo: Hired ${bestMerc.combatantName} (chose from ${drawnMercs.length} MERCs)`);
+
+    return {
+      success: baseResult.success,
+      message: `${baseResult.message}. Hired ${bestMerc.combatantName}`,
+      data: { ...baseResult.data, mercHired: bestMerc.combatantName },
+    };
+  }
+
+  // Human dictator: set pending state for interactive flow step
+  game.pendingGeneralissimoHire = {
+    drawnMercIds: drawnMercs.map(m => m.id),
+  };
+
+  game.message(`Generalissimo: ${drawnMercs.length} MERCs drawn — choose one to hire`);
 
   return {
     success: baseResult.success,
-    message: `${baseResult.message}. Dictator combat bonus active at base`,
-    data: { ...baseResult.data, generalisimoBonus: true },
+    message: `${baseResult.message}. Choose a MERC to hire`,
+    data: { ...baseResult.data, pending: true, drawnCount: drawnMercs.length },
   };
 }
 

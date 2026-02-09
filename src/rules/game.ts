@@ -606,6 +606,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.pendingArtilleryAllocation !== null;
   }
 
+  // Pending Generalissimo hire — dictator picks 1 of 6 drawn MERCs
+  pendingGeneralissimoHire: {
+    drawnMercIds: number[];  // Element IDs of the 6 drawn MERCs
+  } | null = null;
+
+  get hasGeneralissimoPending(): boolean {
+    return this.pendingGeneralissimoHire !== null;
+  }
+
   /** Pending mortar attack hit allocation (attacker rolled dice, player chooses targets) */
   pendingMortarAttack: {
     attackerName: string;
