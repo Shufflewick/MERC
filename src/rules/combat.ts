@@ -832,51 +832,6 @@ function isVandal(combatant: Combatant): boolean {
   return false;
 }
 
-/**
- * Apply base defense bonuses from tactics cards (Generalisimo and Lockdown)
- * Only applies to dictator-side combatants at the base sector.
- *
- * Generalisimo: +1 combat to all dictator units at base
- * Lockdown: +1 armor to all dictator units at base
- */
-function applyBaseDefenseBonuses(
-  dictatorCombatants: Combatant[],
-  sector: Sector,
-  game: MERCGame
-): void {
-  // Only apply if combat is at the dictator's base
-  const baseSectorId = game.dictatorPlayer?.baseSectorId;
-  if (!baseSectorId || sector.sectorId !== baseSectorId) {
-    return;
-  }
-
-  // Check which bonuses are active
-  const hasGeneralisimo = game.generalisimoActive;
-  const hasLockdown = game.lockdownActive;
-
-  if (!hasGeneralisimo && !hasLockdown) {
-    return;
-  }
-
-  // Apply bonuses to all dictator-side combatants
-  for (const combatant of dictatorCombatants) {
-    if (hasGeneralisimo) {
-      combatant.combat += 1;
-    }
-    if (hasLockdown) {
-      combatant.armor += 1;
-    }
-  }
-
-  // Log the bonuses
-  if (hasGeneralisimo) {
-    game.message('Generalisimo: Dictator inspires troops (+1 combat to all defenders)');
-  }
-  if (hasLockdown) {
-    game.message('Lockdown: Base defenses (+1 armor to all defenders)');
-  }
-}
-
 // =============================================================================
 // Combat Execution
 // =============================================================================
@@ -2469,9 +2424,6 @@ export function executeCombat(
     startRound = 1;
     // Use the value from options (defaults to true = rebel initiated)
     attackingPlayerIsRebel = optionAttackingPlayerIsRebel;
-
-    // Apply base defense bonuses (Generalisimo, Lockdown)
-    applyBaseDefenseBonuses(dictator, sector, game);
 
     // MERC-l09: Initialize dog state
     dogState = {

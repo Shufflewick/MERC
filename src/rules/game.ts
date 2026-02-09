@@ -411,10 +411,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   betterWeaponsActive: boolean = false;  // +1 combat die per dictator militia
   veteranMilitiaActive: boolean = false; // +1 initiative for dictator militia
 
-  // Base defense bonus flags (from tactics cards)
-  generalisimoActive: boolean = false;   // Dictator gives +1 combat to all units at base
-  lockdownActive: boolean = false;       // All units at base get +1 armor
-
   // Tactics card state (permanent effects)
   conscriptsActive?: boolean;  // Conscripts card: add militia each turn
   conscriptsAmount?: number;   // Amount of militia to add per turn
@@ -609,6 +605,29 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   get hasArtilleryPending(): boolean {
     return this.pendingArtilleryAllocation !== null;
   }
+
+  /** Pending mortar attack hit allocation (attacker rolled dice, player chooses targets) */
+  pendingMortarAttack: {
+    attackerName: string;
+    attackerCombatantId: string;
+    attackerImage?: string;
+    targetSectorId: string;
+    targetSectorName: string;
+    diceRolls: number[];
+    hits: number;
+    hitThreshold: number;
+    attackingPlayerId: string;
+    validTargets: Array<{
+      id: string;
+      name: string;
+      type: 'merc' | 'dictator' | 'militia';
+      ownerId?: string;
+      currentHealth: number;
+      maxHealth: number;
+      image?: string;
+      playerColor?: string;
+    }>;
+  } | null = null;
 
   // Track last explorer for "Take from stash" action
   // Only the MERC who just explored can take from stash (until they do or action changes)
