@@ -547,6 +547,8 @@ const BANNER_TACTIC_EVENTS = [
   'tactic-veteran-militia',
   'tactic-conscripts',
   'tactic-oil-reserves',
+  'tactic-generalissimo',
+  'tactic-lockdown',
 ] as const;
 
 if (animationEvents) {
