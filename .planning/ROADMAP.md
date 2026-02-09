@@ -64,10 +64,10 @@ Plans:
   1. Every sector panel action prepopulates the selected sector as context (no manual re-selection)
   2. Sector panel actions show the same combatant options that the corresponding action panel shows
   3. All sector panel actions have been audited and any wiring inconsistencies fixed
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 49-01: TBD
+- [ ] 49-01-PLAN.md -- Fix auto-fill format mismatch, add coordinatedAttack pre-fill, remove debug logging
 
 ### Phase 50: Tactics Card Audit
 **Goal**: Every dictator tactics card is correctly implemented with visible animations
@@ -92,5 +92,5 @@ Plans:
 |-------|---------------|--------|-----------|
 | 47. Equipment Slot Cleanup | 2/2 | Complete | 2026-02-08 |
 | 48. Landmine System | 2/2 | Complete | 2026-02-08 |
-| 49. Sector Panel Audit | 0/TBD | Not started | - |
+| 49. Sector Panel Audit | 0/1 | Not started | - |
 | 50. Tactics Card Audit | 0/TBD | Not started | - |
