@@ -25,14 +25,14 @@
 
 ### Tactics Cards
 
-- [ ] **TACT-01**: Audit every dictator tactics card for correct implementation
-- [ ] **TACT-02**: Every dictator tactics card has a meaningful visible animation
-- [ ] **TACT-03**: Generalissimo — draw 6 mercs, pick 1 to add to either squad
-- [ ] **TACT-04**: Better Weapons — militia hit on 3+ going forward (persistent buff)
-- [ ] **TACT-05**: Lockdown — dictator places 5 extra militia on base or adjacent sectors
-- [ ] **TACT-06**: Artillery Barrage — visible explosion animation on targeted sectors
-- [ ] **TACT-07**: Family Threat — visible militia fleeing animation
-- [ ] **TACT-08**: Veteran Militia — visible +1 animation on dictator militia sectors
+- [x] **TACT-01**: Audit every dictator tactics card for correct implementation
+- [x] **TACT-02**: Every dictator tactics card has a meaningful visible animation
+- [x] **TACT-03**: Generalissimo — draw 6 mercs, pick 1 to add to either squad
+- [x] **TACT-04**: Better Weapons — militia hit on 3+ going forward (persistent buff)
+- [x] **TACT-05**: Lockdown — dictator places 5 extra militia on base or adjacent sectors
+- [x] **TACT-06**: Artillery Barrage — visible explosion animation on targeted sectors
+- [x] **TACT-07**: Family Threat — visible militia fleeing animation
+- [x] **TACT-08**: Veteran Militia — visible +1 animation on dictator militia sectors
 
 ## v2 Requirements
 
@@ -59,14 +59,14 @@
 | MINE-02 | Phase 48 | Complete |
 | MINE-03 | Phase 48 | Complete |
 | MINE-04 | Phase 48 | Complete |
-| TACT-01 | Phase 50 | Pending |
-| TACT-02 | Phase 50 | Pending |
-| TACT-03 | Phase 50 | Pending |
-| TACT-04 | Phase 50 | Pending |
-| TACT-05 | Phase 50 | Pending |
-| TACT-06 | Phase 50 | Pending |
-| TACT-07 | Phase 50 | Pending |
-| TACT-08 | Phase 50 | Pending |
+| TACT-01 | Phase 50 | Complete |
+| TACT-02 | Phase 50 | Complete |
+| TACT-03 | Phase 50 | Complete |
+| TACT-04 | Phase 50 | Complete |
+| TACT-05 | Phase 50 | Complete |
+| TACT-06 | Phase 50 | Complete |
+| TACT-07 | Phase 50 | Complete |
+| TACT-08 | Phase 50 | Complete |
 
 **Coverage:**
 - v1 requirements: 17 total
@@ -75,4 +75,4 @@
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after Phase 49 complete*
+*Last updated: 2026-02-09 after Phase 50 complete*

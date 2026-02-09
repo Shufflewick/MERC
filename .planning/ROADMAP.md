@@ -16,14 +16,14 @@ Fix gameplay bugs, missing implementations, and UI inconsistencies so the game p
 - v1.7 GameBoard Component Refactor (Phases 31-36) - shipped
 - v1.8 Unified Stat Ability System (Phases 37-41) - shipped
 - v1.9 BoardSmith v3.0 Animation Timeline Migration (Phases 42-46) - shipped
-- **v1.10 Grievances (Phases 47-50) - in progress**
+- **v1.10 Grievances (Phases 47-50) - shipped**
 
 ## Phases
 
 - [x] **Phase 47: Equipment Slot Cleanup** - Fix bandolier replacement dropping contents and phantom slot removal
 - [x] **Phase 48: Landmine System** - Implement landmine trigger, damage, discard, and Squidhead counter-ability
 - [x] **Phase 49: Sector Panel Audit** - Fix all sector panel actions for consistent context, options, and wiring
-- [ ] **Phase 50: Tactics Card Audit** - Audit and fix every dictator tactics card implementation and animation
+- [x] **Phase 50: Tactics Card Audit** - Audit and fix every dictator tactics card implementation and animation
 
 ## Phase Details
 
@@ -82,10 +82,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 50-01-PLAN.md -- Remove fabricated base defense bonuses, fix Block Trade militia placement
-- [ ] 50-02-PLAN.md -- Add animations to all 11 working tactics effects + GameTable.vue handlers
-- [ ] 50-03-PLAN.md -- Rewrite Generalissimo: draw 6 MERCs, pick 1, add to squad
-- [ ] 50-04-PLAN.md -- Rewrite Lockdown: place 5*rebelCount militia on base/adjacent sectors
+- [x] 50-01-PLAN.md -- Remove fabricated base defense bonuses, fix Block Trade militia placement
+- [x] 50-02-PLAN.md -- Add animations to all 12 working tactics effects + GameTable.vue handlers
+- [x] 50-03-PLAN.md -- Rewrite Generalissimo: draw 6 MERCs, pick 1, add to squad
+- [x] 50-04-PLAN.md -- Rewrite Lockdown: place 5*rebelCount militia on base/adjacent sectors
 
 ## Progress
 
@@ -96,4 +96,4 @@ Plans:
 | 47. Equipment Slot Cleanup | 2/2 | Complete | 2026-02-08 |
 | 48. Landmine System | 2/2 | Complete | 2026-02-08 |
 | 49. Sector Panel Audit | 1/1 | Complete | 2026-02-08 |
-| 50. Tactics Card Audit | 0/4 | Not started | - |
+| 50. Tactics Card Audit | 4/4 | Complete | 2026-02-09 |
