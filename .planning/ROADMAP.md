@@ -35,10 +35,11 @@ Fix gameplay bugs, missing implementations, and UI inconsistencies so the game p
   1. When a MERC replaces their bandolier with a different accessory, all items in bandolier slots are returned to the sector stash
   2. When a MERC no longer has a bandolier equipped, the bandolier slots are removed and no phantom slots remain
   3. Existing tests continue to pass (no regressions in equipment handling)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 47-01: TBD
+- [ ] 47-01-PLAN.md -- TDD: Fix equip() return type to include displaced bandolier items
+- [ ] 47-02-PLAN.md -- Update all equip() callers to handle EquipResult
 
 ### Phase 48: Landmine System
 **Goal**: Landmines in sector stashes trigger correctly when enemies enter, with Squidhead counter-ability
@@ -88,7 +89,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 47. Equipment Slot Cleanup | 0/TBD | Not started | - |
+| 47. Equipment Slot Cleanup | 0/2 | Planned | - |
 | 48. Landmine System | 0/TBD | Not started | - |
 | 49. Sector Panel Audit | 0/TBD | Not started | - |
 | 50. Tactics Card Audit | 0/TBD | Not started | - |
