@@ -4,17 +4,17 @@
 
 See: .planning/PROJECT.md (updated 2026-02-08)
 
-**Core value:** Ship Confidence — deterministic combat animation via event-driven CombatPanel
-**Current focus:** Planning next milestone
+**Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
+**Current focus:** Phase 47 - Equipment Slot Cleanup
 
 ## Current Position
 
-Phase: 46 of 46 (all phases complete)
+Phase: 47 of 50 (Equipment Slot Cleanup)
 Plan: N/A
-Status: Ready to plan next milestone
-Last activity: 2026-02-08 — v1.9 milestone complete
+Status: Ready to plan
+Last activity: 2026-02-08 — v1.10 roadmap created
 
-Progress: [██████████] 100% (v1.9 shipped)
+Progress: [..........] 0% (v1.10 Grievances)
 
 ## Milestones Completed
 
@@ -56,5 +56,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: v1.9 milestone archived
+Stopped at: v1.10 roadmap created, ready to plan Phase 47
 Resume file: None

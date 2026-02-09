@@ -50,29 +50,29 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EQUIP-01 | — | Pending |
-| EQUIP-02 | — | Pending |
-| SECT-01 | — | Pending |
-| SECT-02 | — | Pending |
-| SECT-03 | — | Pending |
-| MINE-01 | — | Pending |
-| MINE-02 | — | Pending |
-| MINE-03 | — | Pending |
-| MINE-04 | — | Pending |
-| TACT-01 | — | Pending |
-| TACT-02 | — | Pending |
-| TACT-03 | — | Pending |
-| TACT-04 | — | Pending |
-| TACT-05 | — | Pending |
-| TACT-06 | — | Pending |
-| TACT-07 | — | Pending |
-| TACT-08 | — | Pending |
+| EQUIP-01 | Phase 47 | Pending |
+| EQUIP-02 | Phase 47 | Pending |
+| SECT-01 | Phase 49 | Pending |
+| SECT-02 | Phase 49 | Pending |
+| SECT-03 | Phase 49 | Pending |
+| MINE-01 | Phase 48 | Pending |
+| MINE-02 | Phase 48 | Pending |
+| MINE-03 | Phase 48 | Pending |
+| MINE-04 | Phase 48 | Pending |
+| TACT-01 | Phase 50 | Pending |
+| TACT-02 | Phase 50 | Pending |
+| TACT-03 | Phase 50 | Pending |
+| TACT-04 | Phase 50 | Pending |
+| TACT-05 | Phase 50 | Pending |
+| TACT-06 | Phase 50 | Pending |
+| TACT-07 | Phase 50 | Pending |
+| TACT-08 | Phase 50 | Pending |
 
 **Coverage:**
 - v1 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after initial definition*
+*Last updated: 2026-02-08 after roadmap creation*
