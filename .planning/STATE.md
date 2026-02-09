@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
-**Current focus:** Phase 49 complete, ready for Phase 50
+**Current focus:** Phase 50 in progress — Tactics Card Audit
 
 ## Current Position
 
-Phase: 49 of 50 (Sector Panel Audit) — COMPLETE
-Plan: 1 of 1
-Status: Verified ✓
-Last activity: 2026-02-08 — Phase 49 verified and complete
+Phase: 50 of 50 (Tactics Card Audit)
+Plan: 1 of 4
+Status: In progress
+Last activity: 2026-02-08 — Completed 50-01-PLAN.md
 
-Progress: [=======...] 75% (v1.10 Grievances — 3/4 phases)
+Progress: [========..] 78% (v1.10 Grievances — plan 1/4 of phase 50)
 
 ## Milestones Completed
 
@@ -34,13 +34,14 @@ Total: 46 phases, 91 plans, 10 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 96
+- Total plans completed: 97
 - v1.9 duration: 2 days (7 plans)
 - v1.10 plan 47-01: 5 min
 - v1.10 plan 47-02: 5 min
 - v1.10 plan 48-01: 5 min
 - v1.10 plan 48-02: 2 min
 - v1.10 plan 49-01: 2 min
+- v1.10 plan 50-01: 2 min
 
 ## Accumulated Context
 
@@ -53,6 +54,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Friendly mine heuristic: mine is friendly when entering player has militia AND no enemies (exclusive sector control)
 - Auto-disarm always discards mine to accessory discard pile (never equip on Squidhead, never leave in stash)
 - SectorPanel auto-fill uses sel.type === 'choice' (not sel.name) for chooseFrom format detection
+- Fabricated base defense bonuses (generalisimoActive/lockdownActive) removed entirely -- no basis in CSV rules
+- Block Trade places militia on ALL cities (not just newly flipped) per CSV wording "each city"
 
 ### Deferred Issues
 
@@ -67,5 +70,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Phase 49 verified and complete. Ready for Phase 50.
+Stopped at: Completed 50-01-PLAN.md. Ready for plan 50-02.
 Resume file: None
