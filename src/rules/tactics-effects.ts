@@ -557,16 +557,22 @@ function blockTrade(game: MERCGame): TacticsEffectResult {
  * This sets a game flag that flow should check
  */
 function conscripts(game: MERCGame): TacticsEffectResult {
-  // Store the effect on the game state
-  game.conscriptsActive = true;
-  game.conscriptsAmount = Math.ceil(game.rebelCount / 2);
+  const amount = Math.ceil(game.rebelCount / 2);
 
-  game.message(`Conscripts activated: ${game.conscriptsAmount} militia will be added each turn`);
+  game.animate('tactic-conscripts', {
+    cardName: 'Conscripts',
+    description: `${amount} militia added to controlled sectors each turn`,
+    amount,
+  }, () => {
+    game.conscriptsActive = true;
+    game.conscriptsAmount = amount;
+    game.message(`Conscripts activated: ${amount} militia will be added each turn`);
+  });
 
   return {
     success: true,
     message: 'Conscripts permanent effect activated',
-    data: { amount: game.conscriptsAmount },
+    data: { amount },
   };
 }
 
@@ -612,12 +618,16 @@ export function applyConscriptsEffect(game: MERCGame): void {
  * MERC-ohos: Adds permanent militia initiative bonus
  */
 function veteranMilitia(game: MERCGame): TacticsEffectResult {
-  // First reveal the base
+  // Reveal the base BEFORE animate (base reveal has its own state changes)
   const baseResult = revealBase(game);
 
-  // Set the permanent militia initiative bonus flag
-  game.veteranMilitiaActive = true;
-  game.message('Veteran Militia: Dictator militia now have +1 initiative');
+  game.animate('tactic-veteran-militia', {
+    cardName: 'Veteran Militia',
+    description: 'Militia +1 initiative',
+  }, () => {
+    game.veteranMilitiaActive = true;
+    game.message('Veteran Militia: Dictator militia now have +1 initiative');
+  });
 
   return {
     success: baseResult.success,
@@ -631,12 +641,16 @@ function veteranMilitia(game: MERCGame): TacticsEffectResult {
  * MERC-7zax: Adds permanent militia combat bonus
  */
 function betterWeapons(game: MERCGame): TacticsEffectResult {
-  // First reveal the base
+  // Reveal the base BEFORE animate (base reveal has its own state changes)
   const baseResult = revealBase(game);
 
-  // Set the permanent militia bonus flag
-  game.betterWeaponsActive = true;
-  game.message('Better Weapons: Dictator militia now hit on 3+');
+  game.animate('tactic-better-weapons', {
+    cardName: 'Better Weapons',
+    description: 'Militia now hit on 3+',
+  }, () => {
+    game.betterWeaponsActive = true;
+    game.message('Better Weapons: Dictator militia now hit on 3+');
+  });
 
   return {
     success: baseResult.success,
@@ -688,8 +702,13 @@ function lockdown(game: MERCGame): TacticsEffectResult {
  * This sets a game flag
  */
 function oilReserves(game: MERCGame): TacticsEffectResult {
-  game.oilReservesActive = true;
-  game.message('Oil Reserves activated: Controller of oil industry gains 1 free move action');
+  game.animate('tactic-oil-reserves', {
+    cardName: 'Oil Reserves',
+    description: 'Oil controller gets free action each turn',
+  }, () => {
+    game.oilReservesActive = true;
+    game.message('Oil Reserves activated: Controller of oil industry gains 1 free move action');
+  });
 
   return {
     success: true,
