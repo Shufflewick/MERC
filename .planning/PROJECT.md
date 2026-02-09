@@ -1,12 +1,12 @@
-# MERC Codebase Cleanup
+# MERC
 
 ## What This Is
 
-A focused cleanup effort for the MERC board game codebase that achieved ship confidence through systematic type safety improvements, code quality standardization, comprehensive test coverage, and event-driven combat UI architecture.
+A strategic combat board game built on the @boardsmith/engine framework. Players control mercenary squads fighting against (or as) a dictator on a hex grid map. The codebase has been through 10 milestones of systematic cleanup and is now focused on fixing gameplay bugs, missing implementations, and UI inconsistencies.
 
 ## Core Value
 
-**Ship Confidence** - tests and debug cleanup so the game can release with confidence that it won't crash or behave unexpectedly.
+**Ship Confidence** — the game should behave correctly, consistently, and visibly. Every game mechanic works as designed, every UI action is properly wired, and every significant game event has a visible animation.
 
 ## Current State
 
@@ -74,11 +74,29 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 - ✓ Combat animation flow tests — 21 tests verifying snapshot + event pipeline — v1.9
 ### Active
 
-(None — next milestone not yet defined. Run `/gsd:new-milestone` to start.)
+- [ ] Bandolier replacement drops contents to sector stash instead of keeping phantom slots
+- [ ] Sector panel action audit — all actions prepopulate from selected sector, show consistent options
+- [ ] Landmine system — enemy entering sector with landmine triggers 1 damage to all enemies, discards mine
+- [ ] Squidhead landmine counter-ability works correctly
+- [ ] Full dictator tactics card audit — verify every card is implemented correctly
+- [ ] Every dictator tactics card has a meaningful animation
+- [ ] Generalissimo implementation — draw 6 mercs, pick 1 to add to squad
+- [ ] Better Weapons implementation — militia hit on 3+ going forward
+- [ ] Lockdown implementation — 5 extra militia placed on base or adjacent sectors
 
 ### Out of Scope
 
 (None currently)
+
+## Current Milestone: v1.10 Grievances
+
+**Goal:** Fix gameplay bugs, missing implementations, and UI inconsistencies so the game plays correctly and visibly.
+
+**Target areas:**
+- Bandolier equipment slot bug (phantom slots on replacement)
+- Sector panel action consistency audit
+- Landmine trigger system + Squidhead counter
+- Full dictator tactics card audit (implementation correctness + animations)
 
 ## Context
 
@@ -145,4 +163,4 @@ A focused cleanup effort for the MERC board game codebase that achieved ship con
 | Snapshot + healthOverrides pattern | Snapshot authoritative at decision points, overrides for per-hit updates | ✓ Good |
 
 ---
-*Last updated: 2026-02-08 after v1.9 milestone*
+*Last updated: 2026-02-08 after v1.10 milestone start*
