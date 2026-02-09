@@ -30,6 +30,17 @@ import {
 export type EquipmentType = 'Weapon' | 'Armor' | 'Accessory';
 
 /**
+ * Result of equipping an item. Includes both the replaced item and any
+ * displaced bandolier contents, forcing callers to handle both.
+ */
+export interface EquipResult {
+  /** The item that was previously in the slot, if any. */
+  replaced?: Equipment;
+  /** Items displaced from bandolier slots when a bandolier is replaced. */
+  displacedBandolierItems: Equipment[];
+}
+
+/**
  * Check if equipment is a grenade or mortar (restricted for Apeiron).
  * MERC-70a: Apeiron won't use grenades or mortars.
  */
@@ -889,8 +900,9 @@ export abstract class CombatantBase extends BaseCard {
     return equipment;
   }
 
-  equip(equipment: Equipment): Equipment | undefined {
+  equip(equipment: Equipment): EquipResult {
     let replaced: Equipment | undefined;
+    let displacedBandolierItems: Equipment[] = [];
 
     switch (equipment.equipmentType) {
       case 'Weapon':
@@ -908,6 +920,10 @@ export abstract class CombatantBase extends BaseCard {
           const idx = this.getNextBandolierIndex();
           this.equipToSlot(equipment, `bandolier:${idx}`);
         } else {
+          // Clear bandolier contents BEFORE replacing the accessory
+          if (this.getMaxBandolierSlots() > 0) {
+            displacedBandolierItems = this.clearBandolierSlots();
+          }
           replaced = this.clearSlot(this.accessorySlot);
           this.equipToSlot(equipment, 'accessory');
         }
@@ -915,7 +931,7 @@ export abstract class CombatantBase extends BaseCard {
     }
     this.syncEquipmentData();
     this.updateComputedStats();
-    return replaced;
+    return { replaced, displacedBandolierItems };
   }
 
   unequip(type: EquipmentType): Equipment | undefined {
@@ -1027,8 +1043,9 @@ export class CombatantModel extends CombatantBase {
     return super.canEquip(equipment);
   }
 
-  override equip(equipment: Equipment): Equipment | undefined {
+  override equip(equipment: Equipment): EquipResult {
     let replaced: Equipment | undefined;
+    let displacedBandolierItems: Equipment[] = [];
 
     // MERC-42g: Gunther can equip accessories in any slot
     if (this.combatantId === 'gunther' && equipment.equipmentType === 'Accessory') {
@@ -1042,12 +1059,16 @@ export class CombatantModel extends CombatantBase {
       } else if (!this.armorSlot) {
         this.equipToSlot(equipment, 'armor');
       } else {
+        // Clear bandolier contents BEFORE replacing the accessory
+        if (this.getMaxBandolierSlots() > 0) {
+          displacedBandolierItems = this.clearBandolierSlots();
+        }
         replaced = this.clearSlot(this.accessorySlot);
         this.equipToSlot(equipment, 'accessory');
       }
       this.syncEquipmentData();
       this.updateComputedStats();
-      return replaced;
+      return { replaced, displacedBandolierItems };
     }
 
     // MERC-vwi: Genesis can equip weapons in accessory slot
@@ -1062,7 +1083,7 @@ export class CombatantModel extends CombatantBase {
       }
       this.syncEquipmentData();
       this.updateComputedStats();
-      return replaced;
+      return { replaced, displacedBandolierItems };
     }
 
     return super.equip(equipment);

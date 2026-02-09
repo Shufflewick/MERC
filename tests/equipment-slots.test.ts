@@ -31,42 +31,12 @@ describe('Equipment Slots - Bandolier Replacement', () => {
   }
 
   /**
-   * Helper to find equipment by id from the accessories deck.
+   * Helper to get non-bandolier accessories from the deck.
+   * Returns a fresh snapshot each time (items move out of deck when equipped).
    */
-  function findAccessory(equipmentId: string): Equipment | undefined {
+  function getNonBandolierAccessories(): Equipment[] {
     return game.accessoriesDeck.all(Equipment)
-      .find(e => e.equipmentId === equipmentId);
-  }
-
-  /**
-   * Helper to find a weapon from the weapons deck.
-   */
-  function findWeapon(): Equipment | undefined {
-    return game.weaponsDeck.first(Equipment);
-  }
-
-  /**
-   * Helper to find an armor from the armor deck.
-   */
-  function findArmor(): Equipment | undefined {
-    return game.armorDeck.first(Equipment);
-  }
-
-  /**
-   * Helper to find any non-bandolier accessory.
-   */
-  function findNonBandolierAccessory(): Equipment | undefined {
-    return game.accessoriesDeck.all(Equipment)
-      .find(e => e.equipmentId !== 'bandolier');
-  }
-
-  /**
-   * Helper to find multiple non-bandolier accessories.
-   */
-  function findNonBandolierAccessories(count: number): Equipment[] {
-    return game.accessoriesDeck.all(Equipment)
-      .filter(e => e.equipmentId !== 'bandolier')
-      .slice(0, count);
+      .filter(e => e.equipmentId !== 'bandolier');
   }
 
   describe('Non-bandolier equip operations', () => {
@@ -74,11 +44,10 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const weapon = findWeapon();
+      const weapon = game.weaponsDeck.first(Equipment);
       if (!weapon) return;
 
       const result = merc.equip(weapon);
-      // Result should be an object with replaced and displacedBandolierItems
       expect(result).toHaveProperty('displacedBandolierItems');
       expect(result.displacedBandolierItems).toEqual([]);
       expect(result.replaced).toBeUndefined();
@@ -102,7 +71,7 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const accessory = findNonBandolierAccessory();
+      const accessory = getNonBandolierAccessories()[0];
       if (!accessory) return;
 
       const result = merc.equip(accessory);
@@ -115,7 +84,8 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const bandolier = findAccessory('bandolier');
+      const bandolier = game.accessoriesDeck.all(Equipment)
+        .find(e => e.equipmentId === 'bandolier');
       if (!bandolier) return;
 
       // First equip the bandolier
@@ -124,7 +94,7 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       expect(merc.getMaxBandolierSlots()).toBe(3);
 
       // Now equip a non-bandolier accessory - should go into bandolier slot
-      const accessory = findNonBandolierAccessory();
+      const accessory = getNonBandolierAccessories()[0];
       if (!accessory) return;
 
       const result = merc.equip(accessory);
@@ -136,13 +106,15 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const accessories = findNonBandolierAccessories(2);
-      if (accessories.length < 2) return;
+      const acc1 = getNonBandolierAccessories()[0];
+      if (!acc1) return;
+      merc.equip(acc1);
 
-      merc.equip(accessories[0]);
-      const result = merc.equip(accessories[1]);
+      const acc2 = getNonBandolierAccessories()[0];
+      if (!acc2) return;
+      const result = merc.equip(acc2);
 
-      expect(result.replaced).toBe(accessories[0]);
+      expect(result.replaced).toBe(acc1);
       expect(result.displacedBandolierItems).toEqual([]);
     });
   });
@@ -152,55 +124,69 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const bandolier = findAccessory('bandolier');
+      const bandolier = game.accessoriesDeck.all(Equipment)
+        .find(e => e.equipmentId === 'bandolier');
       if (!bandolier) return;
 
       // Equip the bandolier
       merc.equip(bandolier);
 
-      // Fill bandolier slots with accessories
-      const bandolierItems = findNonBandolierAccessories(2);
-      if (bandolierItems.length < 2) return;
+      // Fill ALL 3 bandolier slots with accessories
+      const item1 = getNonBandolierAccessories()[0];
+      if (!item1) return;
+      merc.equip(item1);
 
-      for (const item of bandolierItems) {
-        merc.equip(item);
-      }
+      const item2 = getNonBandolierAccessories()[0];
+      if (!item2) return;
+      merc.equip(item2);
 
-      expect(merc.bandolierSlots.length).toBe(2);
+      const item3 = getNonBandolierAccessories()[0];
+      if (!item3) return;
+      merc.equip(item3);
+
+      expect(merc.bandolierSlots.length).toBe(3);
 
       // Now find one more accessory to replace the bandolier
-      const replacementAccessory = game.accessoriesDeck.all(Equipment)
-        .find(e => e.equipmentId !== 'bandolier' && !bandolierItems.includes(e));
+      const replacementAccessory = getNonBandolierAccessories()[0];
       if (!replacementAccessory) return;
 
       // Replace the bandolier - should return displaced items
       const result = merc.equip(replacementAccessory);
 
       expect(result.replaced).toBe(bandolier);
-      expect(result.displacedBandolierItems).toHaveLength(2);
-      expect(result.displacedBandolierItems).toContain(bandolierItems[0]);
-      expect(result.displacedBandolierItems).toContain(bandolierItems[1]);
+      expect(result.displacedBandolierItems).toHaveLength(3);
+      expect(result.displacedBandolierItems).toContain(item1);
+      expect(result.displacedBandolierItems).toContain(item2);
+      expect(result.displacedBandolierItems).toContain(item3);
     });
 
     it('after replacing bandolier, bandolierSlots is empty', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const bandolier = findAccessory('bandolier');
+      const bandolier = game.accessoriesDeck.all(Equipment)
+        .find(e => e.equipmentId === 'bandolier');
       if (!bandolier) return;
 
       merc.equip(bandolier);
 
-      // Fill one bandolier slot
-      const bandolierItem = findNonBandolierAccessory();
-      if (!bandolierItem) return;
+      // Fill all 3 bandolier slots
+      const item1 = getNonBandolierAccessories()[0];
+      if (!item1) return;
+      merc.equip(item1);
 
-      merc.equip(bandolierItem);
-      expect(merc.bandolierSlots.length).toBe(1);
+      const item2 = getNonBandolierAccessories()[0];
+      if (!item2) return;
+      merc.equip(item2);
+
+      const item3 = getNonBandolierAccessories()[0];
+      if (!item3) return;
+      merc.equip(item3);
+
+      expect(merc.bandolierSlots.length).toBe(3);
 
       // Replace with a non-bandolier accessory
-      const replacement = game.accessoriesDeck.all(Equipment)
-        .find(e => e.equipmentId !== 'bandolier' && e !== bandolierItem);
+      const replacement = getNonBandolierAccessories()[0];
       if (!replacement) return;
 
       merc.equip(replacement);
@@ -212,20 +198,28 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const bandolier = findAccessory('bandolier');
+      const bandolier = game.accessoriesDeck.all(Equipment)
+        .find(e => e.equipmentId === 'bandolier');
       if (!bandolier) return;
 
       merc.equip(bandolier);
       expect(merc.getMaxBandolierSlots()).toBe(3);
 
-      // Fill a bandolier slot
-      const bandolierItem = findNonBandolierAccessory();
-      if (!bandolierItem) return;
-      merc.equip(bandolierItem);
+      // Fill all 3 bandolier slots
+      const item1 = getNonBandolierAccessories()[0];
+      if (!item1) return;
+      merc.equip(item1);
+
+      const item2 = getNonBandolierAccessories()[0];
+      if (!item2) return;
+      merc.equip(item2);
+
+      const item3 = getNonBandolierAccessories()[0];
+      if (!item3) return;
+      merc.equip(item3);
 
       // Replace bandolier
-      const replacement = game.accessoriesDeck.all(Equipment)
-        .find(e => e.equipmentId !== 'bandolier' && e !== bandolierItem);
+      const replacement = getNonBandolierAccessories()[0];
       if (!replacement) return;
 
       merc.equip(replacement);
@@ -233,25 +227,17 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       expect(merc.getMaxBandolierSlots()).toBe(0);
     });
 
-    it('replacing empty bandolier returns empty displacedBandolierItems', () => {
+    it('equip armor returns EquipResult with empty displacedBandolierItems', () => {
       const merc = findMerc('basic');
       if (!merc) return;
 
-      const bandolier = findAccessory('bandolier');
-      if (!bandolier) return;
+      const armor = game.armorDeck.first(Equipment);
+      if (!armor) return;
 
-      // Equip bandolier but don't fill any slots
-      merc.equip(bandolier);
-      expect(merc.bandolierSlots.length).toBe(0);
-
-      // Replace it
-      const replacement = findNonBandolierAccessory();
-      if (!replacement) return;
-
-      const result = merc.equip(replacement);
-
-      expect(result.replaced).toBe(bandolier);
+      const result = merc.equip(armor);
+      expect(result).toHaveProperty('displacedBandolierItems');
       expect(result.displacedBandolierItems).toEqual([]);
+      expect(result.replaced).toBeUndefined();
     });
   });
 
@@ -260,47 +246,49 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       const gunther = findMerc('gunther');
       if (!gunther) return;
 
-      const bandolier = findAccessory('bandolier');
+      const bandolier = game.accessoriesDeck.all(Equipment)
+        .find(e => e.equipmentId === 'bandolier');
       if (!bandolier) return;
 
       // Equip bandolier to accessory slot
       gunther.equip(bandolier);
       expect(gunther.accessorySlot?.equipmentId).toBe('bandolier');
 
-      // Fill bandolier slots
-      const bandolierItems = findNonBandolierAccessories(2);
-      if (bandolierItems.length < 2) return;
+      // Fill all 3 bandolier slots
+      const item1 = getNonBandolierAccessories()[0];
+      if (!item1) return;
+      gunther.equip(item1);
 
-      for (const item of bandolierItems) {
-        gunther.equip(item);
-      }
-      expect(gunther.bandolierSlots.length).toBe(2);
+      const item2 = getNonBandolierAccessories()[0];
+      if (!item2) return;
+      gunther.equip(item2);
+
+      const item3 = getNonBandolierAccessories()[0];
+      if (!item3) return;
+      gunther.equip(item3);
+
+      expect(gunther.bandolierSlots.length).toBe(3);
 
       // Fill weapon and armor slots with accessories (Gunther can do this)
-      const extraAccessories = game.accessoriesDeck.all(Equipment)
-        .filter(e => e.equipmentId !== 'bandolier' && !bandolierItems.includes(e))
-        .slice(0, 2);
-      if (extraAccessories.length < 2) return;
+      const weaponSlotAccessory = getNonBandolierAccessories()[0];
+      if (!weaponSlotAccessory) return;
+      gunther.equip(weaponSlotAccessory); // goes to weapon slot
 
-      // Put accessories in weapon and armor slots
-      gunther.equip(extraAccessories[0]); // goes to weapon slot
-      gunther.equip(extraAccessories[1]); // goes to armor slot
+      const armorSlotAccessory = getNonBandolierAccessories()[0];
+      if (!armorSlotAccessory) return;
+      gunther.equip(armorSlotAccessory); // goes to armor slot
 
       // Now all slots are full. Next accessory should replace accessory slot (bandolier)
-      const finalAccessory = game.accessoriesDeck.all(Equipment)
-        .find(e =>
-          e.equipmentId !== 'bandolier' &&
-          !bandolierItems.includes(e) &&
-          !extraAccessories.includes(e)
-        );
+      const finalAccessory = getNonBandolierAccessories()[0];
       if (!finalAccessory) return;
 
       const result = gunther.equip(finalAccessory);
 
       expect(result.replaced).toBe(bandolier);
-      expect(result.displacedBandolierItems).toHaveLength(2);
-      expect(result.displacedBandolierItems).toContain(bandolierItems[0]);
-      expect(result.displacedBandolierItems).toContain(bandolierItems[1]);
+      expect(result.displacedBandolierItems).toHaveLength(3);
+      expect(result.displacedBandolierItems).toContain(item1);
+      expect(result.displacedBandolierItems).toContain(item2);
+      expect(result.displacedBandolierItems).toContain(item3);
     });
   });
 });

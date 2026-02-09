@@ -114,9 +114,10 @@ describe('Hagness Ability Tests', () => {
       const weapon = game.drawEquipment('Weapon');
       expect(weapon).toBeDefined();
 
-      const replaced = hagness.equip(weapon!);
+      const result = hagness.equip(weapon!);
 
-      expect(replaced).toBeUndefined(); // No previous weapon
+      expect(result.replaced).toBeUndefined(); // No previous weapon
+      expect(result.displacedBandolierItems).toEqual([]);
       expect(hagness.weaponSlot).toBe(weapon);
     });
 
@@ -131,9 +132,10 @@ describe('Hagness Ability Tests', () => {
       expect(weapon2).toBeDefined();
 
       hagness.equip(weapon1!);
-      const replaced = hagness.equip(weapon2!);
+      const result = hagness.equip(weapon2!);
 
-      expect(replaced).toBe(weapon1);
+      expect(result.replaced).toBe(weapon1);
+      expect(result.displacedBandolierItems).toEqual([]);
       expect(hagness.weaponSlot).toBe(weapon2);
     });
 
@@ -195,8 +197,8 @@ describe('Hagness Ability Tests', () => {
       expect(weapon?.equipmentType).toBe('Weapon');
 
       // 2. Equip to squad mate
-      const replaced = squadMate.equip(weapon!);
-      expect(replaced).toBeUndefined();
+      const result = squadMate.equip(weapon!);
+      expect(result.replaced).toBeUndefined();
 
       // 3. Consume action
       hagness.useAction(1);
