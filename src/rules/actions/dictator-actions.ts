@@ -595,3 +595,172 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       return { success: true, message: `Placed ${placed} militia` };
     });
 }
+
+// =============================================================================
+// Generalissimo MERC Hire Action (Human Players)
+// =============================================================================
+
+/**
+ * Generalissimo: Draw 6 MERCs (already drawn), dictator picks 1 to hire.
+ * Human players choose which MERC, starting equipment, and deployment sector.
+ * Follows the castroBonusHire pattern closely.
+ */
+export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition {
+  return Action.create('generalissimoPick')
+    .prompt('Generalissimo: Choose a MERC to hire')
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'has pending hire': () => game.pendingGeneralissimoHire != null,
+      'is human player': () => !game.dictatorPlayer?.isAI,
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'Choose a MERC to hire (6 drawn)',
+      choices: () => {
+        const ids = game.pendingGeneralissimoHire?.drawnMercIds ?? [];
+        const mercs = ids
+          .map(id => game.getElementById(id))
+          .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc)
+          .sort((a, b) => b.baseCombat - a.baseCombat);
+
+        if (mercs.length === 0) return ['No MERCs available'];
+        return mercs.map(m => capitalize(m.combatantName));
+      },
+    } as any)
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy the new MERC',
+      choices: () => {
+        const primarySquad = game.dictatorPlayer.primarySquad;
+        const secondarySquad = game.dictatorPlayer.secondarySquad;
+        const primaryHasSector = !!primarySquad.sectorId;
+        const secondaryHasSector = !!secondarySquad.sectorId;
+
+        // If both squads are already deployed, only allow their current sectors
+        if (primaryHasSector && secondaryHasSector) {
+          const validSectorIds = new Set<string>();
+          if (primarySquad.sectorId) validSectorIds.add(primarySquad.sectorId);
+          if (secondarySquad.sectorId) validSectorIds.add(secondarySquad.sectorId);
+
+          return game.gameMap.getAllSectors()
+            .filter(s => validSectorIds.has(s.sectorId))
+            .map(s => s.sectorName);
+        }
+
+        // Otherwise, show all dictator-controlled sectors
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
+
+        if (sectors.length === 0) {
+          // Fallback to any industry
+          const industries = game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry');
+          return industries.map(s => s.sectorName);
+        }
+
+        return sectors.map(s => s.sectorName);
+      },
+    })
+    .execute((args, ctx) => {
+      const mercIds = game.pendingGeneralissimoHire?.drawnMercIds ?? [];
+      const selectedMercName = args.selectedMerc as string;
+
+      if (!selectedMercName || selectedMercName === 'No MERCs available') {
+        // Discard all drawn MERCs and clear state
+        for (const id of mercIds) {
+          const merc = game.getElementById(id);
+          if (merc && isCombatantModel(merc)) {
+            merc.putInto(game.mercDiscard);
+          }
+        }
+        game.pendingGeneralissimoHire = null;
+        return { success: false, message: 'No MERC selected' };
+      }
+
+      // Find the MERC by name
+      const mercs = mercIds
+        .map(id => game.getElementById(id))
+        .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc);
+      const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);
+
+      if (!selectedMerc) {
+        game.pendingGeneralissimoHire = null;
+        return { success: false, message: 'MERC not found' };
+      }
+
+      // Find target sector
+      const targetSectorChoice = args.targetSector as string;
+      const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      const allSectors = game.gameMap.getAllSectors();
+      let targetSector = allSectors.find(s => s.sectorName === sectorName);
+
+      if (!targetSector) {
+        targetSector = allSectors.find(s => targetSectorChoice.startsWith(s.sectorName));
+      }
+
+      if (!targetSector) {
+        game.message(`WARNING: Could not find sector "${sectorName}" from choice "${targetSectorChoice}"`);
+        targetSector = allSectors.find(s => s.dictatorMilitia > 0);
+        if (targetSector) {
+          game.message(`Falling back to ${targetSector.sectorName}`);
+        }
+      }
+
+      if (!targetSector) {
+        game.pendingGeneralissimoHire = null;
+        return { success: false, message: 'No valid sector found' };
+      }
+
+      // Determine which squad to use based on target sector
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      const primaryMercs = primarySquad.getLivingMercs();
+      const secondaryMercs = secondarySquad.getLivingMercs();
+
+      let targetSquad: typeof primarySquad;
+      if (primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) {
+        targetSquad = primarySquad;
+        game.message(`Placing ${selectedMerc.combatantName} in primary squad at ${targetSector.sectorName}`);
+      } else if (secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) {
+        targetSquad = secondarySquad;
+        game.message(`Placing ${selectedMerc.combatantName} in secondary squad at ${targetSector.sectorName}`);
+      } else {
+        targetSquad = primarySquad;
+        game.message(`Both squads occupied - adding to primary squad`);
+      }
+
+      // Put MERC into chosen squad
+      selectedMerc.putInto(targetSquad);
+      if (!targetSquad.sectorId) {
+        targetSquad.sectorId = targetSector.sectorId;
+      }
+      game.message(`Generalissimo deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
+
+      // Update squad-based ability bonuses
+      game.updateAllSargeBonuses();
+
+      // Give equipment of chosen type
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, selectedMerc, equipType);
+
+      // Discard the other MERCs
+      for (const merc of mercs) {
+        if (merc !== selectedMerc) {
+          merc.putInto(game.mercDiscard);
+        }
+      }
+
+      // Clear pending state
+      game.pendingGeneralissimoHire = null;
+
+      game.animate('tactic-generalissimo', {
+        cardName: 'Generalissimo',
+        mercHired: selectedMerc.combatantName,
+      }, () => {});
+
+      game.message(`Generalissimo hired ${selectedMerc.combatantName}`);
+      return { success: true, message: `Hired ${selectedMerc.combatantName}` };
+    });
+}

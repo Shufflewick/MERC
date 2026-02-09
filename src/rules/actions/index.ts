@@ -62,6 +62,7 @@ import {
   createCombatUseEpinephrineAction,
   createCombatDeclineEpinephrineAction,
   createClearCombatAnimationsAction,
+  createMortarAllocateHitsAction,
 } from './rebel-combat.js';
 
 import {
@@ -96,6 +97,7 @@ import {
   createReinforceAction,
   createCastroBonusHireAction,
   createKimBonusMilitiaAction,
+  createGeneralissimoPickAction,
 } from './dictator-actions.js';
 
 import {
@@ -174,6 +176,9 @@ export function registerAllActions(game: MERCGame): void {
   // MERC-lw9r: Artillery Barrage hit allocation (stub until Plan 04)
   game.registerAction(createArtilleryAllocateHitsAction(game));
 
+  // Mortar attack hit allocation
+  game.registerAction(createMortarAllocateHitsAction(game));
+
   // Day 1 specific actions (Rebel)
   game.registerAction(createHireFirstMercAction(game));
   game.registerAction(createHireSecondMercAction(game));
@@ -197,6 +202,7 @@ export function registerAllActions(game: MERCGame): void {
   // Dictator per-turn ability actions (for human players)
   game.registerAction(createCastroBonusHireAction(game));
   game.registerAction(createKimBonusMilitiaAction(game));
+  game.registerAction(createGeneralissimoPickAction(game)); // Generalissimo MERC hire
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions

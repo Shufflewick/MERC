@@ -499,6 +499,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Allow regular actions if combat is complete (UI animating)
                   skipIf: () => game.isFinished() || (game.activeCombat !== null && !game.activeCombat.combatComplete),
                 }),
+
+                // Mortar hit allocation — yields so human player can allocate hits via MortarAttackPanel
+                loop({
+                  name: 'rebel-mortar-allocation',
+                  while: () => game.pendingMortarAttack != null && !game.isFinished(),
+                  maxIterations: 10,
+                  do: actionStep({
+                    name: 'rebel-mortar-allocate',
+                    actions: ['mortarAllocateHits'],
+                    prompt: 'Allocate mortar hits to targets',
+                    skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
+                  }),
+                }),
               ),
             }),
             ), // Close sequence wrapper for rebel turn
@@ -562,6 +575,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   actions: ['artilleryAllocateHits'],
                   prompt: 'Allocate artillery damage to your units',
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
+                }),
+              }),
+
+              // Generalissimo MERC selection — dictator picks 1 of 6 drawn MERCs
+              loop({
+                name: 'generalissimo-hire',
+                while: () => game.pendingGeneralissimoHire != null && !game.isFinished(),
+                maxIterations: 5,
+                do: actionStep({
+                  name: 'generalissimo-pick-merc',
+                  actions: ['generalissimoPick'],
+                  prompt: 'Generalissimo: Choose a MERC to hire',
+                  skipIf: () => game.isFinished() || game.pendingGeneralissimoHire == null,
                 }),
               }),
 
@@ -884,6 +910,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'endTurn',
                     ],
                     skipIf: () => game.isFinished(),
+                  }),
+
+                  // Mortar hit allocation — yields so human dictator can allocate hits
+                  loop({
+                    name: 'dictator-mortar-allocation',
+                    while: () => game.pendingMortarAttack != null && !game.isFinished(),
+                    maxIterations: 10,
+                    do: actionStep({
+                      name: 'dictator-mortar-allocate',
+                      actions: ['mortarAllocateHits'],
+                      prompt: 'Allocate mortar hits to targets',
+                      skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
+                    }),
                   }),
                 ),
               }),
