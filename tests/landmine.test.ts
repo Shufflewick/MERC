@@ -126,13 +126,16 @@ describe('Landmine System', () => {
       merc.putInto(rebel.primarySquad);
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      // Add rebel militia
+      // Add rebel militia -- sector is contested (dictator mine, rebel militia)
       sector.addRebelMilitia(`${rebel.seat}`, 5);
       expect(sector.getRebelMilitia(`${rebel.seat}`)).toBe(5);
 
+      // Dictator militia present makes the mine hostile to entering rebels
+      sector.addDictatorMilitia(1);
+
       checkLandMines(game, sector, [rebel.primarySquad], true);
 
-      // ALL militia should be killed
+      // ALL rebel militia should be killed by the mine
       expect(sector.getRebelMilitia(`${rebel.seat}`)).toBe(0);
     });
 
@@ -195,15 +198,19 @@ describe('Landmine System', () => {
     it('kills ALL dictator militia in the sector', () => {
       placeMineInStash();
       const dictator = game.dictatorPlayer;
+      const rebel = game.rebelPlayers[0];
       dictator.primarySquad.sectorId = sector.sectorId;
 
-      // Add dictator militia
+      // Add dictator militia -- sector is contested (rebel mine, dictator militia)
       sector.addDictatorMilitia(4);
       expect(sector.dictatorMilitia).toBe(4);
 
+      // Rebel militia present makes the mine hostile to entering dictator
+      sector.addRebelMilitia(`${rebel.seat}`, 1);
+
       checkLandMines(game, sector, [dictator.primarySquad], false);
 
-      // ALL militia should be killed
+      // ALL dictator militia should be killed by the mine
       expect(sector.dictatorMilitia).toBe(0);
     });
 
