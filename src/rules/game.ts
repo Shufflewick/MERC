@@ -615,6 +615,16 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.pendingGeneralissimoHire !== null;
   }
 
+  // Pending Lockdown militia placement — dictator places militia on base/adjacent sectors
+  pendingLockdownMilitia: {
+    remaining: number;           // Militia left to place
+    validSectorIds: string[];    // Base sector + adjacent sector IDs
+  } | null = null;
+
+  get hasLockdownPending(): boolean {
+    return this.pendingLockdownMilitia !== null;
+  }
+
   /** Pending mortar attack hit allocation (attacker rolled dice, player chooses targets) */
   pendingMortarAttack: {
     attackerName: string;

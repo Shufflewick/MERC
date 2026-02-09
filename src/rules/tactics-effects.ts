@@ -753,21 +753,116 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
 }
 
 /**
- * Lockdown: Reveals base AND provides defensive bonuses at base
- * Prepare defenses for the final battle - all units at base get +1 armor.
+ * Lockdown: Reveals base AND places 5 * rebelCount militia on base or adjacent sectors.
+ * Per CSV: "Reveal base. Get 5 extra militia per rebel player. Place them on base or adjacent sectors."
+ * AI auto-distributes evenly; human sets pending state for interactive flow.
  */
 function lockdown(game: MERCGame): TacticsEffectResult {
-  // First reveal the base
+  // First reveal the base — must complete before computing adjacent sectors
+  // because the base location may be set during revealBase
   const baseResult = revealBase(game);
 
-  // Set the permanent defensive bonus flag for base
-  game.lockdownActive = true;
-  game.message('Lockdown: Base defenses prepared (+1 armor to all units at base)');
+  const totalMilitia = 5 * game.rebelCount;
+
+  // Get base sector (must exist after revealBase)
+  const baseSector = game.gameMap.getAllSectors().find(
+    s => s.sectorId === game.dictatorPlayer.baseSectorId
+  );
+  if (!baseSector) {
+    return {
+      success: false,
+      message: 'Lockdown failed: no base sector found after revealBase',
+    };
+  }
+
+  // Build valid sectors: base + adjacent
+  const adjacentSectors = game.getAdjacentSectors(baseSector);
+  const validSectorIds = [baseSector.sectorId, ...adjacentSectors.map(s => s.sectorId)];
+
+  // AI dictator: auto-distribute evenly across base + adjacent sectors
+  if (game.dictatorPlayer.isAI) {
+    const validSectors = [baseSector, ...adjacentSectors];
+    const placedSectors: Array<{ sectorId: string; sectorName: string; militiaPlaced: number }> = [];
+    let remaining = totalMilitia;
+
+    // Distribute evenly, respecting 10-per-sector cap
+    // Prioritize base sector first, then adjacent sectors
+    while (remaining > 0) {
+      let placedThisRound = 0;
+      for (const sector of validSectors) {
+        if (remaining <= 0) break;
+        if (sector.dictatorMilitia >= 10) continue; // Respect 10 cap
+        const room = 10 - sector.dictatorMilitia;
+        const toPlace = Math.min(1, room, remaining);
+        if (toPlace > 0) {
+          sector.addDictatorMilitia(toPlace);
+          remaining -= toPlace;
+          placedThisRound += toPlace;
+
+          // Track for animation data
+          const existing = placedSectors.find(p => p.sectorId === sector.sectorId);
+          if (existing) {
+            existing.militiaPlaced += toPlace;
+          } else {
+            placedSectors.push({
+              sectorId: sector.sectorId,
+              sectorName: sector.sectorName,
+              militiaPlaced: toPlace,
+            });
+          }
+        }
+      }
+      // If no placement happened this round, all sectors are at cap
+      if (placedThisRound === 0) break;
+    }
+
+    // Pure UI signal — mutations already done above
+    game.animate('tactic-lockdown', {
+      cardName: 'Lockdown',
+      totalMilitia,
+      sectors: placedSectors,
+    }, () => {});
+
+    // Check each sector for rebel presence and queue combat
+    for (const placed of placedSectors) {
+      const sector = game.gameMap.getAllSectors().find(s => s.sectorId === placed.sectorId);
+      if (!sector) continue;
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+          rebel.secondarySquad.sectorId === sector.sectorId;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+          queuePendingCombat(game, sector, rebel, false);
+          break; // Only trigger combat once per sector
+        }
+      }
+    }
+
+    game.message(`Lockdown: ${totalMilitia - remaining} militia placed across ${placedSectors.length} sectors`);
+
+    return {
+      success: baseResult.success,
+      message: `${baseResult.message}. Placed ${totalMilitia - remaining} militia on base and adjacent sectors`,
+      data: { ...baseResult.data, totalMilitia, placedSectors },
+    };
+  }
+
+  // Human dictator: set pending state for interactive flow step
+  game.pendingLockdownMilitia = { remaining: totalMilitia, validSectorIds };
+
+  // Pure UI signal
+  game.animate('tactic-lockdown', {
+    cardName: 'Lockdown',
+    totalMilitia,
+  }, () => {});
+
+  game.message(`Lockdown: ${totalMilitia} militia to place on base or adjacent sectors`);
 
   return {
     success: baseResult.success,
-    message: `${baseResult.message}. Defensive bonuses active at base`,
-    data: { ...baseResult.data, lockdownBonus: true },
+    message: `${baseResult.message}. Place ${totalMilitia} militia on base or adjacent sectors`,
+    data: { ...baseResult.data, totalMilitia, pending: true },
   };
 }
 
