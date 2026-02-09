@@ -1172,10 +1172,10 @@ async function handleAction(actionName: string) {
   }
 
   if (actionName === 'coordinatedAttack') {
-    // Coordinated attack: destination is the clicked sector, fill it immediately
+    // Coordinated attack: target is the clicked sector, fill it immediately
     activeActionFromPanel.value = actionName;
     await props.actionController.start(actionName);
-    await props.actionController.fill('destination', props.sector.id);
+    await props.actionController.fill('target', props.sector.id);
     emit('close');
     return;
   }
