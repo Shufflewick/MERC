@@ -194,7 +194,11 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
         const equipment = game.drawEquipment(equipType);
         if (equipment && game.dictatorPlayer.dictator) {
-          game.dictatorPlayer.dictator.equip(equipment);
+          const { displacedBandolierItems } = game.dictatorPlayer.dictator.equip(equipment);
+          for (const item of displacedBandolierItems) {
+            const discard = game.getEquipmentDiscard(item.equipmentType);
+            if (discard) item.putInto(discard);
+          }
           game.message(`${game.dictatorPlayer.dictator.combatantName} equipped ${equipment.equipmentName}`);
         }
       }

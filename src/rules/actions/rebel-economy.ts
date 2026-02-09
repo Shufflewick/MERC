@@ -512,13 +512,23 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const replaced = unit.equip(equipment);
+      const { replaced, displacedBandolierItems } = unit.equip(equipment);
 
       if (replaced) {
         sector.addToStash(replaced);
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
       } else {
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
+      }
+      for (const item of displacedBandolierItems) {
+        if (!sector.addToStash(item)) {
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
+        }
+      }
+      if (displacedBandolierItems.length > 0) {
+        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+        game.message(`Bandolier contents returned: ${names}`);
       }
 
       // Chain back to collectEquipment if stash still has items
@@ -653,7 +663,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
       const unitName = getUnitName(targetUnit);
 
       // Equip to unit - equip() uses putInto() which moves equipment from stash
-      const replaced = targetUnit.equip(equipment);
+      const { replaced, displacedBandolierItems } = targetUnit.equip(equipment);
       if (replaced) {
         sector.addToStash(replaced);
         game.message(`${unitName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName} to stash`);
@@ -665,6 +675,16 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         if (sector.stash.length > 0) {
           game.lastExplorer = { combatantId: String(targetUnit.id), sectorId: sector.sectorId };
         }
+      }
+      for (const item of displacedBandolierItems) {
+        if (!sector.addToStash(item)) {
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
+        }
+      }
+      if (displacedBandolierItems.length > 0) {
+        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+        game.message(`Bandolier contents returned: ${names}`);
       }
 
       return {
@@ -1152,13 +1172,23 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
           }
 
           if (targetUnit) {
-            const replaced = targetUnit.equip(equipment);
+            const { replaced, displacedBandolierItems } = targetUnit.equip(equipment);
             const targetUnitName = getUnitName(targetUnit);
             if (replaced) {
               sector.addToStash(replaced);
               game.message(`${targetUnitName} equipped ${equipment.equipmentName}, ${replaced.equipmentName} added to stash`);
             } else {
               game.message(`${targetUnitName} equipped ${equipment.equipmentName}`);
+            }
+            for (const item of displacedBandolierItems) {
+              if (!sector.addToStash(item)) {
+                const discard = game.getEquipmentDiscard(item.equipmentType);
+                if (discard) item.putInto(discard);
+              }
+            }
+            if (displacedBandolierItems.length > 0) {
+              const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+              game.message(`Bandolier contents returned: ${names}`);
             }
             return { success: true, message: `Bought and equipped ${equipment.equipmentName}` };
           }

@@ -489,7 +489,7 @@ export function equipNewHire(
   }
 
   if (freeEquipment) {
-    const replaced = merc.equip(freeEquipment);
+    const { replaced, displacedBandolierItems } = merc.equip(freeEquipment);
     if (replaced) {
       // If Vrbansk's bonus was replaced, stash it; otherwise discard
       if (vrbanskBonus && replaced.id === vrbanskBonus.id) {
@@ -505,6 +505,20 @@ export function equipNewHire(
         const discard = game.getEquipmentDiscard(replaced.equipmentType);
         if (discard) replaced.putInto(discard);
       }
+    }
+    // Route displaced bandolier items to sector stash or discard
+    const sector = merc.sectorId ? game.getSector(merc.sectorId) : undefined;
+    for (const item of displacedBandolierItems) {
+      if (sector && sector.addToStash(item)) {
+        // Added to stash
+      } else {
+        const discard = game.getEquipmentDiscard(item.equipmentType);
+        if (discard) item.putInto(discard);
+      }
+    }
+    if (displacedBandolierItems.length > 0) {
+      const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+      game.message(`Bandolier contents returned: ${names}`);
     }
     game.message(`${merc.combatantName} equipped free ${freeEquipment.equipmentName}`);
   }

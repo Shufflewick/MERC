@@ -703,7 +703,11 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const freeEquipment = game.drawEquipment(equipType);
       if (freeEquipment) {
-        merc.equip(freeEquipment);
+        const { displacedBandolierItems } = merc.equip(freeEquipment);
+        for (const item of displacedBandolierItems) {
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
+        }
         game.message(`${merc.combatantName} equipped ${freeEquipment.equipmentName}`);
       }
 
@@ -761,7 +765,11 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
         const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
         const equipment = game.drawEquipment(equipType);
         if (equipment) {
-          dictator.equip(equipment);
+          const { displacedBandolierItems } = dictator.equip(equipment);
+          for (const item of displacedBandolierItems) {
+            const discard = game.getEquipmentDiscard(item.equipmentType);
+            if (discard) item.putInto(discard);
+          }
           game.message(`${dictator.combatantName} equipped ${equipment.equipmentName}`);
         }
       }

@@ -137,6 +137,7 @@ export function equipStartingEquipment(
   if (merc.combatantId === 'vrbansk') {
     vrbanskBonus = game.drawEquipment('Accessory');
     if (vrbanskBonus) {
+      // Initial hire - merc starts empty, no displaced items expected
       merc.equip(vrbanskBonus);
       game.message(`${merc.combatantName} receives bonus accessory: ${vrbanskBonus.equipmentName}`);
     }
@@ -170,7 +171,7 @@ export function equipStartingEquipment(
   }
 
   if (equipment) {
-    const replaced = merc.equip(equipment);
+    const { replaced, displacedBandolierItems } = merc.equip(equipment);
 
     // If Vrbansk's bonus was replaced, put it in sector stash
     if (replaced && vrbanskBonus && replaced.id === vrbanskBonus.id) {
@@ -182,6 +183,21 @@ export function equipStartingEquipment(
         const discard = game.getEquipmentDiscard(replaced.equipmentType);
         if (discard) replaced.putInto(discard);
       }
+    }
+
+    // Route displaced bandolier items to sector stash or discard
+    const sector = merc.sectorId ? game.getSector(merc.sectorId) : undefined;
+    for (const item of displacedBandolierItems) {
+      if (sector && sector.addToStash(item)) {
+        // Added to stash
+      } else {
+        const discard = game.getEquipmentDiscard(item.equipmentType);
+        if (discard) item.putInto(discard);
+      }
+    }
+    if (displacedBandolierItems.length > 0) {
+      const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+      game.message(`Bandolier contents returned: ${names}`);
     }
 
     game.message(`${merc.combatantName} equipped ${equipment.equipmentName}`);

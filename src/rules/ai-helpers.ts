@@ -542,7 +542,13 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
       if (stashIdx >= 0) {
         sector.takeFromStash(stashIdx);
       }
-      unit.equip(equipment);
+      const { displacedBandolierItems } = unit.equip(equipment);
+      for (const item of displacedBandolierItems) {
+        if (!sector.addToStash(item)) {
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
+        }
+      }
       equippedCount++;
 
       if (unit.isMerc) {

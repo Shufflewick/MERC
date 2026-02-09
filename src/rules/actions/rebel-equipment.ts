@@ -25,6 +25,9 @@ import {
 } from './helpers.js';
 import { isLandMine, isRepairKit, hasRangedAttack, getRangedRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
 import { hasMortar } from '../ai-helpers.js';
+import { rollDice } from '../combat.js';
+import { getHitThreshold } from '../merc-abilities.js';
+import { CombatConstants } from '../constants.js';
 
 // =============================================================================
 // Re-Equip Action
@@ -213,13 +216,23 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const replaced = unit.equip(equipment);
+      const { replaced, displacedBandolierItems } = unit.equip(equipment);
 
       if (replaced) {
         sector.addToStash(replaced);
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
       } else {
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
+      }
+      for (const item of displacedBandolierItems) {
+        if (!sector.addToStash(item)) {
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
+        }
+      }
+      if (displacedBandolierItems.length > 0) {
+        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+        game.message(`Bandolier contents returned: ${names}`);
       }
 
       // If there are more items in stash, chain another reEquip selection (no action cost - already spent)
@@ -352,13 +365,23 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const replaced = unit.equip(equipment);
+      const { replaced, displacedBandolierItems } = unit.equip(equipment);
 
       if (replaced) {
         sector.addToStash(replaced);
         game.message(`${unitName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
       } else {
         game.message(`${unitName} equipped ${equipment.equipmentName}`);
+      }
+      for (const item of displacedBandolierItems) {
+        if (!sector.addToStash(item)) {
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
+        }
+      }
+      if (displacedBandolierItems.length > 0) {
+        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+        game.message(`Bandolier contents returned: ${names}`);
       }
 
       // Chain another if more items remain
@@ -704,7 +727,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip to Feedback (or replace existing)
-      const replaced = feedback.equip(selectedEquipment);
+      const { replaced, displacedBandolierItems } = feedback.equip(selectedEquipment);
       if (replaced) {
         // Put replaced equipment back to discard
         const replaceDiscard = game.getEquipmentDiscard(replaced.equipmentType);
@@ -712,6 +735,14 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
         game.message(`${feedback.combatantName} swapped ${replaced.equipmentName} for ${selectedEquipment.equipmentName}`);
       } else {
         game.message(`${feedback.combatantName} retrieved ${selectedEquipment.equipmentName} from discard`);
+      }
+      for (const item of displacedBandolierItems) {
+        const itemDiscard = game.getEquipmentDiscard(item.equipmentType);
+        if (itemDiscard) item.putInto(itemDiscard);
+      }
+      if (displacedBandolierItems.length > 0) {
+        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+        game.message(`Bandolier contents discarded: ${names}`);
       }
 
       feedback.useAction(ACTION_COSTS.RE_EQUIP);
@@ -765,9 +796,19 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
 
       // Equip to Squidhead if possible, otherwise put in player's inventory
       if (squidhead.canEquip(mine)) {
-        const replaced = squidhead.equip(mine);
+        const { replaced, displacedBandolierItems } = squidhead.equip(mine);
         if (replaced) {
           sector.addToStash(replaced);
+        }
+        for (const item of displacedBandolierItems) {
+          if (!sector.addToStash(item)) {
+            const discard = game.getEquipmentDiscard(item.equipmentType);
+            if (discard) item.putInto(discard);
+          }
+        }
+        if (displacedBandolierItems.length > 0) {
+          const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+          game.message(`Bandolier contents returned: ${names}`);
         }
         game.message(`${squidhead.combatantName} disarms and collects the land mine`);
       } else {
@@ -1095,10 +1136,18 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
       }
 
       // Equip
-      const replaced = recipient.equip(equipment);
+      const { replaced, displacedBandolierItems } = recipient.equip(equipment);
       if (replaced) {
         const discard = game.getEquipmentDiscard(replaced.equipmentType);
         if (discard) replaced.putInto(discard);
+      }
+      for (const item of displacedBandolierItems) {
+        const itemDiscard = game.getEquipmentDiscard(item.equipmentType);
+        if (itemDiscard) item.putInto(itemDiscard);
+      }
+      if (displacedBandolierItems.length > 0) {
+        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
+        game.message(`Bandolier contents discarded: ${names}`);
       }
 
       // Clear cache
@@ -1488,136 +1537,357 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       // Use action
       unit.useAction(1);
 
-      // Mortar deals 1 damage per target
-      const mortarDamage = 1;
-
       const unitDisplayName = (unit as CombatantModel).combatantName;
 
-      // Pre-compute animation data before mutations
-      const hitCombatantIds: string[] = [];
-      let animMilitiaKilled = 0;
+      // Roll dice: attacker's effectiveCombat dice, with their hit threshold
+      const diceCount = unit.effectiveCombat;
+      const hitThreshold = getHitThreshold(unit.combatantId);
+      const diceRolls = rollDice(diceCount, game);
+      const hits = diceRolls.filter(r => r >= hitThreshold).length;
 
-      if (isRebel) {
-        const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
-          m.sectorId === targetSector.sectorId && !m.isDead
-        ) ?? [];
-        for (const m of dictatorMercs) {
-          hitCombatantIds.push(m.combatantId);
-        }
-        const dictator = game.dictatorPlayer?.dictator;
-        if (dictator?.sectorId === targetSector.sectorId && dictator.inPlay) {
-          hitCombatantIds.push(dictator.combatantId);
-        }
-        if (targetSector.dictatorMilitia > 0) {
-          animMilitiaKilled = Math.min(mortarDamage, targetSector.dictatorMilitia);
-        }
-      } else {
-        for (const rebel of game.rebelPlayers) {
-          const rebelMercs = rebel.team.filter(m =>
-            m.sectorId === targetSector.sectorId && !m.isDead
-          );
-          for (const m of rebelMercs) {
-            hitCombatantIds.push(m.combatantId);
-          }
-          const rebelMilitia = targetSector.getRebelMilitia(`${rebel.seat}`);
-          if (rebelMilitia > 0) {
-            animMilitiaKilled += Math.min(mortarDamage, rebelMilitia);
-          }
-        }
+      game.message(`${unitDisplayName} fires mortar at ${targetSector.sectorName}! Rolls [${diceRolls.join(', ')}] - ${hits} hit(s)`);
+
+      // Discard the mortar after use (mortars are one-use) — fired regardless of hits
+      discardMortar(unit, unitDisplayName, game);
+
+      // Build valid targets list
+      const validTargets = buildMortarTargets(game, targetSector, isRebel);
+
+      // 0 hits — just animate the miss and return
+      if (hits === 0) {
+        game.animate('mortar-strike', {
+          targetSectorId: targetSector.sectorId,
+          hitCombatantIds: [] as string[],
+          militiaKilled: 0,
+          diceRolls,
+          hits: 0,
+          hitThreshold,
+          attackerName: capitalize(unitDisplayName),
+        });
+
+        game.message(`All mortar shots miss!`);
+        return {
+          success: true,
+          message: 'Mortar attack missed',
+          data: { totalDamage: 0 },
+        };
       }
 
-      game.animate('mortar-strike', {
+      // AI player: auto-allocate hits and apply damage immediately
+      if ((ctx.player as MERCPlayer).isAI) {
+        const { totalDamage, hitCombatantIds, militiaKilled } = autoAllocateAndApplyMortarHits(
+          game, targetSector, validTargets, hits, isRebel,
+        );
+
+        game.animate('mortar-strike', {
+          targetSectorId: targetSector.sectorId,
+          hitCombatantIds,
+          militiaKilled,
+          diceRolls,
+          hits,
+          hitThreshold,
+          attackerName: capitalize(unitDisplayName),
+        });
+
+        return {
+          success: true,
+          message: `Mortar attack dealt ${totalDamage} damage`,
+          data: { totalDamage },
+        };
+      }
+
+      // Human player: set pending state for allocation panel
+      game.pendingMortarAttack = {
+        attackerName: capitalize(unitDisplayName),
+        attackerCombatantId: unit.combatantId,
+        attackerImage: unit.image,
         targetSectorId: targetSector.sectorId,
-        hitCombatantIds,
-        militiaKilled: animMilitiaKilled,
-      });
+        targetSectorName: targetSector.sectorName,
+        diceRolls,
+        hits,
+        hitThreshold,
+        attackingPlayerId: `${ctx.player.seat}`,
+        validTargets,
+      };
 
-      game.message(`${unitDisplayName} fires mortar at ${targetSector.sectorName}!`);
-
-      let totalDamage = 0;
-
-      if (isRebel) {
-        // Damage dictator MERCs
-        const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
-          m.sectorId === targetSector.sectorId && !m.isDead
-        ) ?? [];
-        for (const target of dictatorMercs) {
-          target.takeDamage(mortarDamage);
-          totalDamage++;
-          game.message(`Mortar deals ${mortarDamage} damage to ${target.combatantName}`);
-        }
-
-        // Damage the Dictator
-        const dictator = game.dictatorPlayer?.dictator;
-        if (dictator?.sectorId === targetSector.sectorId && dictator.inPlay) {
-          dictator.takeDamage(mortarDamage);
-          totalDamage++;
-          game.message(`Mortar deals ${mortarDamage} damage to the Dictator!`);
-          if (dictator.isDead) {
-            game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
-          }
-        }
-
-        // Damage dictator militia
-        if (targetSector.dictatorMilitia > 0) {
-          const militiaKilled = Math.min(mortarDamage, targetSector.dictatorMilitia);
-          targetSector.removeDictatorMilitia(militiaKilled);
-          totalDamage++;
-          game.message(`Mortar kills ${militiaKilled} dictator militia`);
-        }
-      } else {
-        // Damage rebel MERCs
-        for (const rebel of game.rebelPlayers) {
-          const rebelMercs = rebel.team.filter(m =>
-            m.sectorId === targetSector.sectorId && !m.isDead
-          );
-          for (const target of rebelMercs) {
-            target.takeDamage(mortarDamage);
-            totalDamage++;
-            game.message(`Mortar deals ${mortarDamage} damage to ${target.combatantName}`);
-          }
-
-          // Damage rebel militia
-          const rebelMilitia = targetSector.getRebelMilitia(`${rebel.seat}`);
-          if (rebelMilitia > 0) {
-            const militiaKilled = Math.min(mortarDamage, rebelMilitia);
-            targetSector.removeRebelMilitia(`${rebel.seat}`, militiaKilled);
-            totalDamage++;
-            game.message(`Mortar kills ${militiaKilled} rebel militia`);
-          }
-        }
-      }
-
-      // Discard the mortar after use (mortars are one-use)
-      const accessoryDiscard = game.getEquipmentDiscard('Accessory');
-      if (unit.accessorySlot && hasRangedAttack(unit.accessorySlot.equipmentId)) {
-        const mortar = unit.unequip('Accessory');
-        if (mortar && accessoryDiscard) {
-          mortar.putInto(accessoryDiscard);
-        }
-        game.message(`${unitDisplayName}'s mortar is used up!`);
-      } else {
-        // Check bandolier slots
-        const mortarInBandolier = unit.bandolierSlots.find(e => hasRangedAttack(e.equipmentId));
-        if (mortarInBandolier) {
-          const slotMatch = mortarInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
-          if (slotMatch) {
-            const index = parseInt(slotMatch[1], 10);
-            unit.unequipBandolierSlot(index);
-            if (accessoryDiscard) {
-              mortarInBandolier.putInto(accessoryDiscard);
-            }
-            game.message(`${unitDisplayName}'s mortar is used up!`);
-          }
-        }
-      }
+      // Pure UI signal so the panel mounts
+      game.animate('mortar-attack-panel', {
+        attackerName: capitalize(unitDisplayName),
+        attackerCombatantId: unit.combatantId,
+        attackerImage: unit.image,
+        targetSectorId: targetSector.sectorId,
+        targetSectorName: targetSector.sectorName,
+        diceRolls,
+        hits,
+        hitThreshold,
+        validTargets,
+      }, () => {});
 
       return {
         success: true,
-        message: `Mortar attack dealt ${totalDamage} damage`,
-        data: { totalDamage },
+        message: `Mortar attack: ${hits} hits to allocate`,
+        data: { hits },
       };
     });
+}
+
+// =============================================================================
+// Mortar Helpers
+// =============================================================================
+
+/**
+ * Discard the mortar from the unit after firing.
+ */
+function discardMortar(unit: CombatantModel, unitDisplayName: string, game: MERCGame): void {
+  const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+  if (unit.accessorySlot && hasRangedAttack(unit.accessorySlot.equipmentId)) {
+    const mortar = unit.unequip('Accessory');
+    if (mortar && accessoryDiscard) {
+      mortar.putInto(accessoryDiscard);
+    }
+    game.message(`${unitDisplayName}'s mortar is used up!`);
+  } else {
+    // Check bandolier slots
+    const mortarInBandolier = unit.bandolierSlots.find(e => hasRangedAttack(e.equipmentId));
+    if (mortarInBandolier) {
+      const slotMatch = mortarInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
+      if (slotMatch) {
+        const index = parseInt(slotMatch[1], 10);
+        unit.unequipBandolierSlot(index);
+        if (accessoryDiscard) {
+          mortarInBandolier.putInto(accessoryDiscard);
+        }
+        game.message(`${unitDisplayName}'s mortar is used up!`);
+      }
+    }
+  }
+}
+
+/**
+ * Build the valid target list for a mortar attack into a sector.
+ * Each militia unit is a separate target entry with 1 HP.
+ */
+export function buildMortarTargets(
+  game: MERCGame,
+  targetSector: Sector,
+  isRebel: boolean,
+): Array<{
+  id: string;
+  name: string;
+  type: 'merc' | 'dictator' | 'militia';
+  ownerId?: string;
+  currentHealth: number;
+  maxHealth: number;
+  image?: string;
+  playerColor?: string;
+}> {
+  const targets: Array<{
+    id: string;
+    name: string;
+    type: 'merc' | 'dictator' | 'militia';
+    ownerId?: string;
+    currentHealth: number;
+    maxHealth: number;
+    image?: string;
+    playerColor?: string;
+  }> = [];
+
+  if (isRebel) {
+    // Target dictator MERCs
+    const dictatorMercs = game.dictatorPlayer?.hiredMercs.filter(m =>
+      m.sectorId === targetSector.sectorId && !m.isDead
+    ) ?? [];
+    for (const m of dictatorMercs) {
+      targets.push({
+        id: m.combatantId,
+        name: capitalize(m.combatantName),
+        type: 'merc',
+        currentHealth: m.health,
+        maxHealth: m.maxHealth,
+        image: m.image,
+      });
+    }
+
+    // Target the Dictator
+    const dictator = game.dictatorPlayer?.dictator;
+    if (dictator && dictator.sectorId === targetSector.sectorId && dictator.inPlay && !dictator.isDead) {
+      targets.push({
+        id: dictator.combatantId,
+        name: capitalize(dictator.combatantName),
+        type: 'dictator',
+        currentHealth: dictator.health,
+        maxHealth: dictator.maxHealth,
+        image: dictator.image,
+      });
+    }
+
+    // Target dictator militia (each is a separate target with 1 HP)
+    for (let i = 0; i < targetSector.dictatorMilitia; i++) {
+      targets.push({
+        id: `militia-dictator-${i}`,
+        name: `Dictator Militia`,
+        type: 'militia',
+        currentHealth: 1,
+        maxHealth: 1,
+      });
+    }
+  } else {
+    // Dictator targeting rebels
+    for (const rebel of game.rebelPlayers) {
+      const rebelMercs = rebel.team.filter(m =>
+        m.sectorId === targetSector.sectorId && !m.isDead
+      );
+      for (const m of rebelMercs) {
+        targets.push({
+          id: m.combatantId,
+          name: capitalize(m.combatantName),
+          type: 'merc',
+          ownerId: `${rebel.seat}`,
+          currentHealth: m.health,
+          maxHealth: m.maxHealth,
+          image: m.image,
+          playerColor: (rebel as any).playerColorHex,
+        });
+      }
+
+      // Rebel militia (each is a separate target with 1 HP)
+      const militiaCount = targetSector.getRebelMilitia(`${rebel.seat}`);
+      for (let i = 0; i < militiaCount; i++) {
+        targets.push({
+          id: `militia-rebel-${rebel.seat}-${i}`,
+          name: `Rebel Militia`,
+          type: 'militia',
+          ownerId: `${rebel.seat}`,
+          currentHealth: 1,
+          maxHealth: 1,
+          playerColor: (rebel as any).playerColorHex,
+        });
+      }
+    }
+  }
+
+  return targets;
+}
+
+/**
+ * Auto-allocate mortar hits for AI players: prioritize low-health targets to secure kills,
+ * then spread remaining hits.
+ */
+function autoAllocateAndApplyMortarHits(
+  game: MERCGame,
+  targetSector: Sector,
+  validTargets: Array<{
+    id: string;
+    name: string;
+    type: 'merc' | 'dictator' | 'militia';
+    ownerId?: string;
+    currentHealth: number;
+    maxHealth: number;
+  }>,
+  hits: number,
+  isRebel: boolean,
+): { totalDamage: number; hitCombatantIds: string[]; militiaKilled: number } {
+  // Sort targets: lowest health first (to secure kills), militia last
+  const sortedTargets = [...validTargets].sort((a, b) => {
+    if (a.type === 'militia' && b.type !== 'militia') return 1;
+    if (a.type !== 'militia' && b.type === 'militia') return -1;
+    return a.currentHealth - b.currentHealth;
+  });
+
+  const hitsByTarget = new Map<string, number>();
+  let remaining = hits;
+
+  // Allocate hits
+  for (const target of sortedTargets) {
+    if (remaining <= 0) break;
+    const hitsForTarget = Math.min(remaining, target.currentHealth);
+    hitsByTarget.set(target.id, hitsForTarget);
+    remaining -= hitsForTarget;
+  }
+
+  // Apply damage
+  return applyMortarDamage(game, targetSector, validTargets, hitsByTarget, isRebel);
+}
+
+/**
+ * Apply mortar damage based on hit allocation.
+ * Used by both AI auto-allocate and human allocation action.
+ */
+export function applyMortarDamage(
+  game: MERCGame,
+  targetSector: Sector,
+  validTargets: Array<{
+    id: string;
+    name: string;
+    type: 'merc' | 'dictator' | 'militia';
+    ownerId?: string;
+    currentHealth: number;
+    maxHealth: number;
+  }>,
+  hitsByTarget: Map<string, number>,
+  isRebel: boolean,
+): { totalDamage: number; hitCombatantIds: string[]; militiaKilled: number } {
+  let totalDamage = 0;
+  const hitCombatantIds: string[] = [];
+  let militiaKilled = 0;
+
+  for (const [targetId, hitCount] of hitsByTarget) {
+    const target = validTargets.find(t => t.id === targetId);
+    if (!target) continue;
+
+    if (target.type === 'militia') {
+      // Each militia target is 1 HP — remove one militia from the sector
+      if (isRebel) {
+        targetSector.removeDictatorMilitia(1);
+      } else {
+        const ownerId = target.ownerId;
+        if (ownerId) {
+          targetSector.removeRebelMilitia(ownerId, 1);
+        }
+      }
+      militiaKilled++;
+      totalDamage++;
+      game.message(`Mortar kills 1 militia`);
+    } else {
+      // MERC or Dictator
+      const merc = findCombatantById(game, targetId, isRebel);
+      if (merc) {
+        for (let i = 0; i < hitCount; i++) {
+          merc.takeDamage(1);
+          totalDamage++;
+        }
+        hitCombatantIds.push(merc.combatantId);
+        game.message(`Mortar deals ${hitCount} damage to ${capitalize(merc.combatantName)}`);
+        if (merc.isDead) {
+          game.message(`${capitalize(merc.combatantName)} has been killed by mortar!`);
+          if (merc.isDictator) {
+            game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+          }
+        }
+      }
+    }
+  }
+
+  return { totalDamage, hitCombatantIds, militiaKilled };
+}
+
+/**
+ * Find a combatant by their combatantId.
+ */
+function findCombatantById(game: MERCGame, combatantId: string, isRebel: boolean): CombatantModel | undefined {
+  if (isRebel) {
+    // Mortar is hitting dictator side
+    const dictator = game.dictatorPlayer?.dictator;
+    if (dictator?.combatantId === combatantId) return dictator;
+    return game.dictatorPlayer?.hiredMercs.find(m => m.combatantId === combatantId);
+  } else {
+    // Mortar is hitting rebel side
+    for (const rebel of game.rebelPlayers) {
+      const merc = rebel.team.find(m => m.combatantId === combatantId);
+      if (merc) return merc;
+    }
+    return undefined;
+  }
 }
 
 // =============================================================================

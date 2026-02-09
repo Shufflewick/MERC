@@ -209,7 +209,11 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     }
     const freeEquipment = game.drawEquipment(equipType);
     if (freeEquipment) {
-      dictator.equip(freeEquipment);
+      const { displacedBandolierItems } = dictator.equip(freeEquipment);
+      for (const item of displacedBandolierItems) {
+        const discard = game.getEquipmentDiscard(item.equipmentType);
+        if (discard) item.putInto(discard);
+      }
       game.message(`${dictator.combatantName} equipped ${freeEquipment.equipmentName}`);
     }
   }
