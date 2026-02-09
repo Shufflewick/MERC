@@ -7,8 +7,8 @@
 
 ### Equipment
 
-- [ ] **EQUIP-01**: Replacing a bandolier with another accessory drops all bandolier slot contents to sector stash
-- [ ] **EQUIP-02**: Bandolier slots are removed when bandolier is no longer equipped
+- [x] **EQUIP-01**: Replacing a bandolier with another accessory drops all bandolier slot contents to sector stash
+- [x] **EQUIP-02**: Bandolier slots are removed when bandolier is no longer equipped
 
 ### Sector Panel
 
@@ -50,8 +50,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EQUIP-01 | Phase 47 | Pending |
-| EQUIP-02 | Phase 47 | Pending |
+| EQUIP-01 | Phase 47 | Complete |
+| EQUIP-02 | Phase 47 | Complete |
 | SECT-01 | Phase 49 | Pending |
 | SECT-02 | Phase 49 | Pending |
 | SECT-03 | Phase 49 | Pending |
@@ -75,4 +75,4 @@
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after roadmap creation*
+*Last updated: 2026-02-08 after Phase 47 complete*

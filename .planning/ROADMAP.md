@@ -20,7 +20,7 @@ Fix gameplay bugs, missing implementations, and UI inconsistencies so the game p
 
 ## Phases
 
-- [ ] **Phase 47: Equipment Slot Cleanup** - Fix bandolier replacement dropping contents and phantom slot removal
+- [x] **Phase 47: Equipment Slot Cleanup** - Fix bandolier replacement dropping contents and phantom slot removal
 - [ ] **Phase 48: Landmine System** - Implement landmine trigger, damage, discard, and Squidhead counter-ability
 - [ ] **Phase 49: Sector Panel Audit** - Fix all sector panel actions for consistent context, options, and wiring
 - [ ] **Phase 50: Tactics Card Audit** - Audit and fix every dictator tactics card implementation and animation
@@ -38,8 +38,8 @@ Fix gameplay bugs, missing implementations, and UI inconsistencies so the game p
 **Plans**: 2 plans
 
 Plans:
-- [ ] 47-01-PLAN.md -- TDD: Fix equip() return type to include displaced bandolier items
-- [ ] 47-02-PLAN.md -- Update all equip() callers to handle EquipResult
+- [x] 47-01-PLAN.md -- TDD: Fix equip() return type to include displaced bandolier items
+- [x] 47-02-PLAN.md -- Update all equip() callers to handle EquipResult
 
 ### Phase 48: Landmine System
 **Goal**: Landmines in sector stashes trigger correctly when enemies enter, with Squidhead counter-ability
@@ -89,7 +89,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 47. Equipment Slot Cleanup | 0/2 | Planned | - |
+| 47. Equipment Slot Cleanup | 2/2 | Complete | 2026-02-08 |
 | 48. Landmine System | 0/TBD | Not started | - |
 | 49. Sector Panel Audit | 0/TBD | Not started | - |
 | 50. Tactics Card Audit | 0/TBD | Not started | - |
