@@ -402,20 +402,50 @@ function sentry(game: MERCGame): TacticsEffectResult {
 }
 
 /**
- * Block Trade: Flip all cities to explored
+ * Block Trade: Flip all cities to explored, add militia to each city
+ * Per expansion CSV: "Flip all cities to explored. Add half rebel count (round up) militia to each city."
  */
 function blockTrade(game: MERCGame): TacticsEffectResult {
-  const cities = game.gameMap.getAllSectors().filter(s => s.isCity && !s.explored);
+  const allCities = game.gameMap.getAllSectors().filter(s => s.isCity);
+  const unexploredCities = allCities.filter(s => !s.explored);
 
-  for (const city of cities) {
+  // Step 1: Flip unexplored cities to explored
+  for (const city of unexploredCities) {
     city.explore();
     game.message(`${city.sectorName} is now explored (trade blocked)`);
   }
 
+  // Step 2: Place militia on ALL cities (not just flipped ones)
+  const militiaPerCity = Math.ceil(game.rebelCount / 2);
+  let totalPlaced = 0;
+  const combatsTriggered: string[] = [];
+
+  for (const city of allCities) {
+    const placed = city.addDictatorMilitia(militiaPerCity);
+    totalPlaced += placed;
+    if (placed > 0) {
+      game.message(`${placed} militia placed at ${city.sectorName}`);
+
+      // Check for combat with any rebel in this sector
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === city.sectorId ||
+          rebel.secondarySquad.sectorId === city.sectorId;
+        const hasMilitia = city.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${city.sectorName} - combat begins!`);
+          combatsTriggered.push(city.sectorName);
+          queuePendingCombat(game, city, rebel, false);
+          break; // Only trigger combat once per sector
+        }
+      }
+    }
+  }
+
   return {
     success: true,
-    message: `Block Trade: ${cities.length} cities explored`,
-    data: { citiesExplored: cities.length },
+    message: `Block Trade: ${unexploredCities.length} cities explored, ${totalPlaced} militia placed`,
+    data: { citiesExplored: unexploredCities.length, militiaPlaced: totalPlaced, combatsTriggered },
   };
 }
 
