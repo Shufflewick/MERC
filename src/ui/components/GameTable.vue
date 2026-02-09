@@ -15,6 +15,7 @@ import HiringPhase from './HiringPhase.vue';
 import LandingZoneSelection from './LandingZoneSelection.vue';
 import MapGrid from './MapGrid.vue';
 import ModalContent from './ModalContent.vue';
+import MortarAttackPanel, { type MortarAttackData } from './MortarAttackPanel.vue';
 import SectorPanel from './SectorPanel.vue';
 import SquadPanel from './SquadPanel.vue';
 
@@ -505,6 +506,49 @@ function handleMortarStrikeComplete() {
   }
 }
 
+// MORTAR ATTACK PANEL - driven by animation events (hit allocation UI)
+const mortarAttackData = ref<MortarAttackData | null>(null);
+const hasMortarAttackPanel = computed(() => mortarAttackData.value !== null);
+
+async function handleMortarConfirmAllocation(allocations: string[]) {
+  if (!allocations || allocations.length === 0) return;
+  if (!props.availableActions.includes('mortarAllocateHits')) return;
+
+  await props.actionController.execute('mortarAllocateHits', { allocations });
+  mortarAttackData.value = null;
+}
+
+function handleMortarFinished() {
+  mortarAttackData.value = null;
+}
+
+// TACTICS CARD ANIMATIONS - driven by animation events
+const activeTacticEvent = ref<{
+  type: string;
+  cardName: string;
+  data: Record<string, unknown>;
+} | null>(null);
+
+// Sector-targeted tactics event types (2000ms display)
+const SECTOR_TACTIC_EVENTS = [
+  'tactic-artillery-barrage',
+  'tactic-family-threat',
+  'tactic-fodder',
+  'tactic-reinforcements',
+  'tactic-seizure',
+  'tactic-sentry',
+  'tactic-block-trade',
+  'tactic-tainted-water',
+] as const;
+
+// Banner/flag tactics event types (2500ms display — permanent effect announcements)
+const BANNER_TACTIC_EVENTS = [
+  'tactic-better-weapons',
+  'tactic-veteran-militia',
+  'tactic-conscripts',
+  'tactic-oil-reserves',
+] as const;
+
 if (animationEvents) {
   animationEvents.registerHandler('mortar-strike', async (event) => {
     const data = event.data as {
@@ -518,9 +562,49 @@ if (animationEvents) {
     });
   });
 
+  animationEvents.registerHandler('mortar-attack-panel', async (event) => {
+    mortarAttackData.value = event.data as MortarAttackData;
+  });
+
   animationEvents.registerHandler('combat-panel', async (event) => {
     combatSnapshot.value = event.data as Record<string, unknown>;
   });
+
+  // Register handlers for all 8 sector-targeted tactics events
+  for (const eventType of SECTOR_TACTIC_EVENTS) {
+    animationEvents.registerHandler(eventType, async (event) => {
+      const data = event.data as Record<string, unknown>;
+      activeTacticEvent.value = {
+        type: eventType.replace('tactic-', ''),
+        cardName: (data.cardName as string) ?? eventType,
+        data,
+      };
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          activeTacticEvent.value = null;
+          resolve();
+        }, 2000);
+      });
+    });
+  }
+
+  // Register handlers for all 4 banner/flag tactics events (longer display)
+  for (const eventType of BANNER_TACTIC_EVENTS) {
+    animationEvents.registerHandler(eventType, async (event) => {
+      const data = event.data as Record<string, unknown>;
+      activeTacticEvent.value = {
+        type: eventType.replace('tactic-', ''),
+        cardName: (data.cardName as string) ?? eventType,
+        data,
+      };
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          activeTacticEvent.value = null;
+          resolve();
+        }, 2500);
+      });
+    });
+  }
 }
 
 const hasActiveCombat = computed(() => combatSnapshot.value !== null);
@@ -1148,6 +1232,14 @@ const clickableSectors = computed(() => {
       </div>
     </GameOverlay>
 
+    <!-- Tactics Card Banner - shown when any tactics card animation is playing -->
+    <div v-if="activeTacticEvent" class="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+      <div class="bg-red-900/90 text-white px-8 py-4 rounded-lg shadow-2xl text-center animate-pulse">
+        <div class="text-2xl font-bold">{{ activeTacticEvent.cardName }}</div>
+        <div class="text-sm mt-1 opacity-80">Dictator Tactics</div>
+      </div>
+    </div>
+
     <!-- Combat Panel - shown when combat snapshot is present -->
     <CombatPanel
       v-if="hasActiveCombat"
@@ -1169,6 +1261,15 @@ const clickableSectors = computed(() => {
       @use-surgeon-heal="handleUseSurgeonHeal"
       @use-before-attack-heal="handleUseBeforeAttackHeal"
       @skip-before-attack-heal="handleSkipBeforeAttackHeal"
+    />
+
+    <!-- Mortar Attack Panel - shown when mortar hit allocation is pending -->
+    <MortarAttackPanel
+      v-if="hasMortarAttackPanel"
+      :mortar-data="mortarAttackData!"
+      :is-my-turn="isMyTurn"
+      @confirm-allocation="handleMortarConfirmAllocation"
+      @mortar-finished="handleMortarFinished"
     />
 
     <!-- Dictator Panel - shown when playing as dictator (above sector panel) -->
