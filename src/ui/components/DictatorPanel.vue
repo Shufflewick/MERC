@@ -123,7 +123,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -133,11 +133,12 @@ const isCastroHiring = computed(() => {
   return props.actionController.currentAction.value === 'castroBonusHire';
 });
 
-// Check if we're selecting a MERC (Castro hire)
-// Note: This is now handled by the main hiring UI
+// Check if we're selecting a MERC (Generalissimo hire)
 const isSelectingMerc = computed(() => {
-  // Disable - using main hiring UI instead
-  return false;
+  const currentAction = props.actionController.currentAction.value;
+  const sel = props.actionController.currentPick.value;
+  if (!sel) return false;
+  return currentAction === 'generalissimoPick' && sel.name === 'selectedMerc';
 });
 
 // Check if we're selecting a sector (Castro hire, Kim militia, base location, or reinforce)
@@ -146,7 +147,7 @@ const isSelectingSector = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
-  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia') {
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick') {
     return sel.name === 'targetSector';
   }
   // Base location selection during playTactics or chooseKimBase
@@ -165,8 +166,10 @@ const isSelectingEquipmentType = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
-  // Equipment selection happens in both playTactics (base reveal via tactics) and chooseKimBase (Day 1 setup)
-  return (currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'dictatorEquipment';
+  // Equipment selection happens in playTactics (base reveal), chooseKimBase (Day 1 setup), and generalissimoPick
+  if ((currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'dictatorEquipment') return true;
+  if (currentAction === 'generalissimoPick' && sel.name === 'equipmentType') return true;
+  return false;
 });
 
 // Get equipment type choices
@@ -181,11 +184,16 @@ const equipmentTypeChoices = computed(() => {
   }));
 });
 
-// Note: Castro's hire is now handled by the main hiring UI in GameTable.vue
-// This panel only handles Kim's militia placement
+// Selectable MERCs for Generalissimo hire
 const selectableMercs = computed<any[]>(() => {
-  // Castro's hire uses the main hiring UI - return empty
-  return [];
+  if (!isSelectingMerc.value) return [];
+  const sel = props.actionController.currentPick.value;
+  if (!sel) return [];
+  const choices = props.actionController.getChoices(sel) || [];
+  return choices.map((c: any) => {
+    const value = typeof c === 'string' ? c : c.value || c.label;
+    return { combatantName: value, _choiceValue: value };
+  });
 });
 
 // Get fallback image for sector type
@@ -484,19 +492,16 @@ const dictatorCardData = computed(() => ({
             </div>
           </div>
 
-          <!-- Castro MERC Hiring Selection -->
+          <!-- Generalissimo MERC Hiring Selection -->
           <div v-else-if="isSelectingMerc" class="merc-hiring-section">
-            <div class="hiring-header">
-              <span class="hiring-title">Castro's Ability: Hire a MERC</span>
-            </div>
             <div class="merc-choices">
               <div
                 v-for="merc in selectableMercs"
-                :key="merc.combatantId"
-                class="merc-choice"
+                :key="merc._choiceValue"
+                class="merc-name-choice"
                 @click="selectMercToHire(merc)"
               >
-                <CombatantCard :merc="merc" :player-color="playerColor" />
+                {{ merc.combatantName }}
               </div>
             </div>
           </div>
@@ -765,6 +770,25 @@ const dictatorCardData = computed(() => ({
 .merc-choice:hover {
   transform: scale(1.02);
   box-shadow: 0 0 12px rgba(139, 0, 0, 0.6);
+}
+
+.merc-name-choice {
+  padding: 10px 16px;
+  background: rgba(139, 0, 0, 0.2);
+  border: 1px solid rgba(139, 0, 0, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.merc-name-choice:hover {
+  background: rgba(139, 0, 0, 0.5);
+  border-color: #8b0000;
+  transform: translateY(-1px);
 }
 
 /* Sector Selection - Container */

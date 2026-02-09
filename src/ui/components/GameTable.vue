@@ -69,21 +69,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'animation-context-ready', state: any, actionController: UseActionControllerReturn): void;
   (e: 'close-header-combatant-modal'): void;
 }>();
-
-// Emit animation context when state and actionController are available
-// This allows App.vue to sync the refs for animation events
-watch(
-  () => [props.state, props.actionController] as const,
-  ([state, actionController]) => {
-    if (state && actionController) {
-      emit('animation-context-ready', state, actionController);
-    }
-  },
-  { immediate: true }
-);
 
 // Initialize composables with gameView getter
 const {
@@ -487,6 +474,7 @@ const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null
 // ============================================================================
 
 const animationEvents = useAnimationEvents();
+console.log('[TACTIC-DEBUG] animationEvents injected:', !!animationEvents);
 const combatSnapshot = ref<Record<string, unknown> | null>(null);
 const combatDeathSignals = ref<{ combatantId: string }[]>([]);
 
@@ -522,6 +510,22 @@ function handleMortarFinished() {
   mortarAttackData.value = null;
 }
 
+// LANDMINE DETONATION - driven by animation events
+const activeLandmineStrike = ref<{
+  sectorId: string;
+  targetNames: string[];
+  damage: number;
+} | null>(null);
+let landmineStrikeResolve: (() => void) | null = null;
+
+function handleLandmineStrikeComplete() {
+  activeLandmineStrike.value = null;
+  if (landmineStrikeResolve) {
+    landmineStrikeResolve();
+    landmineStrikeResolve = null;
+  }
+}
+
 // TACTICS CARD ANIMATIONS - driven by animation events
 const activeTacticEvent = ref<{
   type: string;
@@ -552,6 +556,18 @@ const BANNER_TACTIC_EVENTS = [
 ] as const;
 
 if (animationEvents) {
+  animationEvents.registerHandler('landmine-detonate', async (event) => {
+    const data = event.data as {
+      sectorId: string;
+      targetNames: string[];
+      damage: number;
+    };
+    activeLandmineStrike.value = data;
+    await new Promise<void>((resolve) => {
+      landmineStrikeResolve = resolve;
+    });
+  });
+
   animationEvents.registerHandler('mortar-strike', async (event) => {
     const data = event.data as {
       targetSectorId: string;
@@ -575,6 +591,7 @@ if (animationEvents) {
   // Register handlers for all 8 sector-targeted tactics events
   for (const eventType of SECTOR_TACTIC_EVENTS) {
     animationEvents.registerHandler(eventType, async (event) => {
+      console.log('[TACTIC-DEBUG] sector handler called:', eventType, event.data);
       const data = event.data as Record<string, unknown>;
       activeTacticEvent.value = {
         type: eventType.replace('tactic-', ''),
@@ -593,6 +610,7 @@ if (animationEvents) {
   // Register handlers for all 4 banner/flag tactics events (longer display)
   for (const eventType of BANNER_TACTIC_EVENTS) {
     animationEvents.registerHandler(eventType, async (event) => {
+      console.log('[TACTIC-DEBUG] banner handler called:', eventType, event.data);
       const data = event.data as Record<string, unknown>;
       activeTacticEvent.value = {
         type: eventType.replace('tactic-', ''),
@@ -608,6 +626,16 @@ if (animationEvents) {
     });
   }
 }
+
+if (animationEvents) {
+  watch(() => animationEvents.pendingCount.value, (count) => {
+    if (count > 0) console.log('[TACTIC-DEBUG] pendingCount:', count, 'isAnimating:', animationEvents.isAnimating.value);
+  });
+}
+
+watch(() => activeTacticEvent.value, (val) => {
+  console.log('[TACTIC-DEBUG] activeTacticEvent changed:', val);
+});
 
 const hasActiveCombat = computed(() => combatSnapshot.value !== null);
 
@@ -1235,12 +1263,12 @@ const clickableSectors = computed(() => {
     </GameOverlay>
 
     <!-- Tactics Card Banner - shown when any tactics card animation is playing -->
-    <div v-if="activeTacticEvent" class="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-      <div class="bg-red-900/90 text-white px-8 py-4 rounded-lg shadow-2xl text-center animate-pulse">
-        <div class="text-2xl font-bold">{{ activeTacticEvent.cardName }}</div>
-        <div class="text-sm mt-1 opacity-80">Dictator Tactics</div>
+    <GameOverlay :active="!!activeTacticEvent" :backdrop-opacity="0.7">
+      <div class="tactics-banner-content" @click.stop>
+        <div class="tactics-banner-name">{{ activeTacticEvent?.cardName }}</div>
+        <div class="tactics-banner-label">Dictator Tactics</div>
       </div>
-    </div>
+    </GameOverlay>
 
     <!-- Combat Panel - shown when combat snapshot is present -->
     <CombatPanel
@@ -1398,9 +1426,11 @@ const clickableSectors = computed(() => {
           :combat-active="hasActiveCombat"
           :combat-death-signals="combatDeathSignals"
           :mortar-strike="activeMortarStrike"
+          :landmine-strike="activeLandmineStrike"
           @sector-click="handleSectorClick"
           @drop-equipment="handleDropEquipment"
           @mortar-strike-complete="handleMortarStrikeComplete"
+          @landmine-strike-complete="handleLandmineStrikeComplete"
         />
       </div>
 
@@ -1689,5 +1719,36 @@ const clickableSectors = computed(() => {
 
 .game-over-winner.dictator h2 {
   color: #f44336;
+}
+
+/* Tactics Card Banner */
+.tactics-banner-content {
+  position: sticky;
+  top: 10px;
+  background: linear-gradient(135deg, #3a0a0a 0%, #5c1a1a 100%);
+  border: 3px solid #8b0000;
+  border-radius: 16px;
+  padding: 32px 48px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 0, 0, 0.3);
+  max-width: 90vw;
+  margin: 0 auto;
+}
+
+.tactics-banner-name {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #ff6b6b;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.tactics-banner-label {
+  font-size: 1rem;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 3px;
 }
 </style>

@@ -34,7 +34,7 @@
     "quantity": 1,
     "revealsBase": true,
     "story": "It's time to bring out the big guns.",
-    "description": "Reveal your base and bring the dictator into play if you have not already done so. The dictator fights alongside your forces at the base."
+    "description": "Reveal your base and bring the dictator into play if you have not already done so. Draw 6 MERCs and hire 1 to fight for you. The dictator fights alongside your forces at the base."
   },
   {
     "id": "lockdown",

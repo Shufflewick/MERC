@@ -122,19 +122,60 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
     ...((ac.dictatorCasualties ?? []) as Combatant[]),
   ];
   const deadIds = new Set(allCasualties.map(c => c.id));
-  const initiativeOrder = allLiving
-    .filter(c => !c.isAttackDog)
-    .map(c => ({
-      id: c.id,
-      name: c.name,
-      image: c.image,
-      combatantId: c.combatantId,
-      isDictatorSide: c.isDictatorSide,
-      playerColor: c.playerColor,
-      initiative: c.initiative,
-      isMilitia: c.isMilitia,
-      isDead: deadIds.has(c.id) || c.health <= 0,
-    }));
+
+  // Group militia into single initiative slots per batch
+  const initiativeOrder: Array<Record<string, unknown>> = [];
+  const seenMilitiaBatches = new Set<string>();
+
+  for (const c of allLiving.filter(c2 => !c2.isAttackDog)) {
+    if (c.isMilitia) {
+      const batchKey = getMilitiaBatchKey(c.isDictatorSide, c.initiative, c.ownerId);
+      if (seenMilitiaBatches.has(batchKey)) continue;
+      seenMilitiaBatches.add(batchKey);
+
+      // Gather all living militia in this batch
+      const batchMilitia = allLiving.filter(
+        m => m.isMilitia &&
+          m.isDictatorSide === c.isDictatorSide &&
+          m.initiative === c.initiative &&
+          m.ownerId === c.ownerId &&
+          !deadIds.has(m.id) &&
+          m.health > 0
+      );
+      const allBatchMilitia = allLiving.filter(
+        m => m.isMilitia &&
+          m.isDictatorSide === c.isDictatorSide &&
+          m.initiative === c.initiative &&
+          m.ownerId === c.ownerId
+      );
+
+      initiativeOrder.push({
+        id: c.id,
+        name: c.name,
+        image: c.image,
+        combatantId: c.combatantId,
+        isDictatorSide: c.isDictatorSide,
+        playerColor: c.playerColor,
+        initiative: c.initiative,
+        isMilitia: true,
+        isDead: batchMilitia.length === 0,
+        militiaGroupCount: batchMilitia.length,
+        militiaGroupIds: allBatchMilitia.map(m => m.id),
+      });
+    } else {
+      initiativeOrder.push({
+        id: c.id,
+        name: c.name,
+        image: c.image,
+        combatantId: c.combatantId,
+        isDictatorSide: c.isDictatorSide,
+        playerColor: c.playerColor,
+        initiative: c.initiative,
+        isMilitia: false,
+        isDead: deadIds.has(c.id) || c.health <= 0,
+      });
+    }
+  }
 
   // Derive current attacker from whichever pending decision context is active
   const currentAttackerId =
@@ -576,8 +617,247 @@ function sortByInitiative(combatants: Combatant[]): Combatant[] {
     if (a.isDictatorSide !== b.isDictatorSide) {
       return a.isDictatorSide ? -1 : 1;
     }
+    // Group militia together (MERCs before militia at same initiative/side)
+    if (a.isMilitia !== b.isMilitia) {
+      return a.isMilitia ? 1 : -1;
+    }
     return 0;
   });
+}
+
+// =============================================================================
+// Militia Batch (Simultaneous Dice Rolling)
+// =============================================================================
+
+/**
+ * Find all contiguous militia in sorted initiative order that share
+ * (isDictatorSide, initiative, ownerId). Returns the batch and the
+ * index of the last militia in the batch so the main loop can skip them.
+ */
+function getMilitiaBatch(
+  allCombatants: Combatant[],
+  startIndex: number
+): { militia: Combatant[]; endIndex: number } | null {
+  const first = allCombatants[startIndex];
+  if (!first || !first.isMilitia || first.health <= 0) return null;
+
+  const militia: Combatant[] = [first];
+  let endIndex = startIndex;
+
+  for (let j = startIndex + 1; j < allCombatants.length; j++) {
+    const c = allCombatants[j];
+    if (
+      c.isMilitia &&
+      c.isDictatorSide === first.isDictatorSide &&
+      c.initiative === first.initiative &&
+      c.ownerId === first.ownerId
+    ) {
+      if (c.health > 0) militia.push(c);
+      endIndex = j;
+    } else {
+      break;
+    }
+  }
+
+  return militia.length > 0 ? { militia, endIndex } : null;
+}
+
+/**
+ * Generate a batch key for a militia group.
+ */
+function getMilitiaBatchKey(isDictatorSide: boolean, initiative: number, ownerId?: string): string {
+  if (isDictatorSide) return `dictator-${initiative}`;
+  return `rebel-${ownerId ?? 'unknown'}-${initiative}`;
+}
+
+/**
+ * Distribute hits evenly across targets (round-robin).
+ * Each target gets floor(total/N), remainder goes to first targets.
+ */
+function distributeHitsEvenly(totalHits: number, targets: Combatant[]): Map<string, number> {
+  const result = new Map<string, number>();
+  const base = Math.floor(totalHits / targets.length);
+  let remainder = totalHits % targets.length;
+  for (const t of targets) {
+    const count = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    result.set(t.id, count);
+  }
+  return result;
+}
+
+/**
+ * Distribute hits using AI priority — concentrate on highest-priority target first,
+ * then overflow to next priority target.
+ */
+function distributeHitsAI(totalHits: number, targets: Combatant[], randomFn: () => number): Map<string, number> {
+  const result = new Map<string, number>();
+  const sorted = sortTargetsByAIPriority(targets, randomFn);
+  let remaining = totalHits;
+  for (const t of sorted) {
+    if (remaining <= 0) break;
+    const hitsForTarget = Math.min(remaining, t.health);
+    result.set(t.id, hitsForTarget);
+    remaining -= hitsForTarget;
+  }
+  // If hits left over (all targets near death), dump on first target
+  if (remaining > 0 && sorted.length > 0) {
+    const firstId = sorted[0].id;
+    result.set(firstId, (result.get(firstId) ?? 0) + remaining);
+  }
+  return result;
+}
+
+/**
+ * Apply damage from militia hits using pre-computed per-target hit counts.
+ * Used after hit allocation (human or auto) — no dice slicing, just damage application.
+ */
+function applyMilitiaBatchDamage(
+  batchLeader: Combatant,
+  batchSize: number,
+  enemies: Combatant[],
+  hitsByTarget: Map<string, number>,
+  game: MERCGame,
+  casualties: Combatant[],
+): CombatResult[] {
+  const results: CombatResult[] = [];
+
+  for (const [targetId, hitCount] of hitsByTarget) {
+    if (hitCount <= 0) continue;
+    const target = enemies.find(e => e.id === targetId);
+    if (!target || target.health <= 0) continue;
+
+    const damageDealt = new Map<string, number>();
+    const healthBefore = target.health;
+    const armorAbsorb = target.armor > 0 ? Math.min(target.armor, hitCount) : 0;
+    const expectedHealthDamage = Math.min(hitCount - armorAbsorb, target.health);
+
+    if (expectedHealthDamage > 0) {
+      game.animate('combat-damage', {
+        attackerName: `Militia x${batchSize}`,
+        attackerId: batchLeader.id,
+        targetName: capitalize(target.name),
+        targetId: target.id,
+        targetImage: target.image,
+        damage: expectedHealthDamage,
+        healthBefore,
+        healthAfter: healthBefore - expectedHealthDamage,
+        armorAbsorb,
+      });
+      applyDamage(target, hitCount, game, false);
+      damageDealt.set(target.id, expectedHealthDamage);
+      if (target.sourceElement?.isMerc) {
+        target.sourceElement.damage = target.sourceElement.maxHealth - target.health;
+      }
+    } else if (armorAbsorb > 0) {
+      game.animate('combat-armor-soak', {
+        attackerName: `Militia x${batchSize}`,
+        attackerId: batchLeader.id,
+        targetName: capitalize(target.name),
+        targetId: target.id,
+        targetImage: target.image,
+        armorAbsorb,
+      });
+      const damage = applyDamage(target, hitCount, game, false);
+      damageDealt.set(target.id, damage);
+      if (target.sourceElement?.isMerc) {
+        target.sourceElement.damage = target.sourceElement.maxHealth - target.health;
+      }
+    }
+
+    if (target.health <= 0) {
+      let savedByEpinephrine = false;
+
+      // Check for AI auto-epinephrine save
+      if (target.sourceElement?.isMerc) {
+        const merc = target.sourceElement;
+        if (target.isDictatorSide && game.dictatorPlayer?.isAI) {
+          const squadMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
+          const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
+          if (mercWithEpi) {
+            let epiShot: Equipment | undefined;
+            if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
+              epiShot = mercWithEpi.unequip('Accessory');
+            } else {
+              const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+              if (epiIndex >= 0) epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
+            }
+            if (epiShot) {
+              const discard = game.getEquipmentDiscard('Accessory');
+              if (discard) epiShot.putInto(discard);
+              target.health = 1;
+              merc.damage = merc.maxHealth - 1;
+              savedByEpinephrine = true;
+              game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
+            }
+          }
+        } else if (!target.isDictatorSide) {
+          for (const rebel of game.rebelPlayers) {
+            if (rebel.isAI) {
+              const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
+              if (allMercs.some(m => m.id === merc.id)) {
+                const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
+                const mercWithEpi = hasEpinephrineShot(squadMercs);
+                if (mercWithEpi) {
+                  let epiShot: Equipment | undefined;
+                  if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
+                    epiShot = mercWithEpi.unequip('Accessory');
+                  } else {
+                    const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
+                    if (epiIndex >= 0) epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
+                  }
+                  if (epiShot) {
+                    const discard = game.getEquipmentDiscard('Accessory');
+                    if (discard) epiShot.putInto(discard);
+                    target.health = 1;
+                    merc.damage = merc.maxHealth - 1;
+                    savedByEpinephrine = true;
+                    game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
+                  }
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!savedByEpinephrine) {
+        game.animate('combat-death', {
+          targetName: capitalize(target.name),
+          targetId: target.id,
+          targetImage: target.image,
+          combatantId: getCombatantId(target),
+        });
+        casualties.push(target);
+        game.message(`Militia kills ${target.name}!`);
+
+        // Handle MERC death — discard equipment
+        if (target.sourceElement?.isMerc) {
+          const merc = target.sourceElement;
+          for (const slotName of ['Weapon', 'Armor', 'Accessory'] as const) {
+            const equip = merc.unequip(slotName);
+            if (equip) {
+              const discardPile = game.getEquipmentDiscard(slotName);
+              if (discardPile) equip.putInto(discardPile);
+            }
+          }
+        }
+      }
+    } else if (expectedHealthDamage > 0) {
+      game.message(`Militia hits ${target.name} for ${expectedHealthDamage} damage`);
+    }
+
+    results.push({
+      attacker: batchLeader,
+      rolls: [],
+      hits: hitCount,
+      targets: [target],
+      damageDealt,
+    });
+  }
+
+  return results;
 }
 
 // =============================================================================
@@ -1339,6 +1619,160 @@ function executeCombatRound(
         damageDealt: new Map(),
       });
       continue;
+    }
+
+    // Simultaneous militia dice rolling: batch militia of same group
+    if (attacker.isMilitia) {
+      const batch = getMilitiaBatch(allCombatants, i);
+      if (batch && batch.militia.length > 0) {
+        const enemies = attacker.isDictatorSide ? rebels : dictatorSide;
+        const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+
+        if (aliveEnemies.length === 0) {
+          i = batch.endIndex;
+          continue;
+        }
+
+        // Use standard target selection: check for stored targets from pendingTargetSelection
+        const batchLeaderId = batch.militia[0].id;
+        const storedTargetIds = playerSelectedTargets?.get(batchLeaderId);
+
+        // Determine if human-controlled
+        const isDictatorMilitia = attacker.isDictatorSide;
+        const isDictatorHumanControlled = isDictatorMilitia && !game.dictatorPlayer?.isAI;
+        let isRebelMilitiaHumanControlled = false;
+        if (!isDictatorMilitia && attacker.ownerId) {
+          const ownerPlayer = game.rebelPlayers.find(p => `${p.seat}` === attacker.ownerId);
+          isRebelMilitiaHumanControlled = !!(ownerPlayer && !ownerPlayer.isAI);
+        }
+        const isHumanControlled = isDictatorHumanControlled || isRebelMilitiaHumanControlled;
+
+        let selectedTargets: Combatant[];
+
+        if (storedTargetIds) {
+          // Resume with player-selected targets
+          selectedTargets = storedTargetIds
+            .map(id => aliveEnemies.find(e => e.id === id))
+            .filter((e): e is Combatant => e != null);
+        } else if (aliveEnemies.length === 1 || !isHumanControlled || !interactive) {
+          // Auto-select: single target, AI, or non-interactive
+          if (batch.militia.length >= aliveEnemies.length) {
+            selectedTargets = aliveEnemies;
+          } else {
+            // AI: pick batch.length highest-priority targets
+            const sorted = sortTargetsByAIPriority(aliveEnemies, () => game.random());
+            selectedTargets = sorted.slice(0, batch.militia.length);
+          }
+        } else if (batch.militia.length >= aliveEnemies.length) {
+          // Human but can hit all enemies — no choice needed
+          selectedTargets = aliveEnemies;
+        } else {
+          // Human with more enemies than militia — pause for standard target selection
+          return {
+            round: { roundNumber, results, casualties },
+            complete: false,
+            pausedForTargetSelection: {
+              attackerId: batchLeaderId,
+              attackerName: `Militia x${batch.militia.length}`,
+              attackerIndex: i,
+              validTargets: aliveEnemies,
+              maxTargets: batch.militia.length,
+            },
+          };
+        }
+
+        // ── PATH A: Resume from stored hit allocation ──
+        const storedAlloc = game.activeCombat?.selectedTargets?.get(`allocation:${batchLeaderId}`);
+        if (storedAlloc && storedAlloc.length > 0) {
+          // Convert ['id1','id1','id2'] → Map { id1→2, id2→1 }
+          const hitsByTarget = new Map<string, number>();
+          for (const id of storedAlloc) {
+            hitsByTarget.set(id, (hitsByTarget.get(id) ?? 0) + 1);
+          }
+          game.activeCombat?.selectedTargets?.delete(`allocation:${batchLeaderId}`);
+          const batchResults = applyMilitiaBatchDamage(batch.militia[0], batch.militia.length, enemies, hitsByTarget, game, casualties);
+          results.push(...batchResults);
+          i = batch.endIndex;
+          continue;
+        }
+
+        // ── ROLL DICE (shared by Path B and C) ──
+        const hitThreshold = (batch.militia[0].isDictatorSide && game.betterWeaponsActive)
+          ? 3
+          : CombatConstants.HIT_THRESHOLD;
+        const allRolls = rollDice(batch.militia.length, game);
+        const totalHits = allRolls.filter(r => r >= hitThreshold).length;
+
+        game.message(`Militia x${batch.militia.length} roll [${allRolls.join(', ')}] - ${totalHits} hit(s) (need ${hitThreshold}+)`);
+
+        game.animate('combat-roll', {
+          attackerName: `Militia x${batch.militia.length}`,
+          attackerId: batch.militia[0].id,
+          attackerImage: undefined,
+          targetNames: selectedTargets.map(t => capitalize(t.name)),
+          targetIds: selectedTargets.map(t => t.id),
+          diceRolls: allRolls,
+          hits: totalHits,
+          hitThreshold,
+        });
+
+        if (totalHits === 0) {
+          results.push({
+            attacker: batch.militia[0],
+            rolls: allRolls,
+            hits: 0,
+            targets: selectedTargets,
+            damageDealt: new Map(),
+          });
+          i = batch.endIndex;
+          continue;
+        }
+
+        // ── PATH C: Human allocation needed ──
+        // Smart-skip: skip if single target, all-militia targets, or overkill
+        const allMilitiaTargets = selectedTargets.every(t => t.isMilitia);
+        const totalTargetHP = selectedTargets.reduce((sum, t) => sum + t.health, 0);
+        const isOverkill = totalHits >= totalTargetHP;
+        const needsAllocation = selectedTargets.length > 1 && !allMilitiaTargets && !isOverkill;
+
+        if (interactive && isHumanControlled && needsAllocation) {
+          game.activeCombat!.pendingHitAllocation = {
+            attackerId: batchLeaderId,
+            attackerName: `Militia x${batch.militia.length}`,
+            attackerCombatantId: '',
+            diceRolls: allRolls,
+            hits: totalHits,
+            hitThreshold,
+            validTargets: selectedTargets.map(t => ({
+              id: t.id,
+              name: t.name,
+              isMerc: !t.isMilitia && !t.isDictator,
+              currentHealth: t.health,
+              maxHealth: t.maxHealth,
+            })),
+            wolverineSixes: 0,
+            canReroll: false,
+            hasRerolled: false,
+            rollCount: 1,
+          };
+
+          return {
+            round: { roundNumber, results, casualties },
+            complete: false,
+            pausedForHitAllocation: true,
+            currentAttackerIndex: i,
+          };
+        }
+
+        // ── PATH B: Auto-distribute hits ──
+        const hitsByTarget = isHumanControlled
+          ? distributeHitsEvenly(totalHits, selectedTargets)
+          : distributeHitsAI(totalHits, selectedTargets, () => game.random());
+        const batchResults = applyMilitiaBatchDamage(batch.militia[0], batch.militia.length, enemies, hitsByTarget, game, casualties);
+        results.push(...batchResults);
+        i = batch.endIndex;
+        continue;
+      }
     }
 
     // Determine enemies
@@ -2780,8 +3214,12 @@ export function executeCombat(
     }
 
     // MERC-n1f: Check if retreat is possible and pause for player decision
-    // Check if either side can retreat (for human players)
-    const attackerCanRetreat = canRetreatFromModule(game, sector, attackingPlayer);
+    // Only pause for HUMAN players — AI players decide automatically, and pausing
+    // for an AI's retreat option causes an infinite loop when the human player
+    // can't retreat (ActionPanel auto-executes the sole combatContinue action).
+    const attackerCanRetreat = !attackingPlayer.isAI
+      ? canRetreatFromModule(game, sector, attackingPlayer)
+      : false;  // AI rebels don't need pause for decision
     const dictatorPlayer = game.dictatorPlayer;
     const dictatorCanRetreat = dictatorPlayer && !dictatorPlayer.isAI
       ? canRetreatFromModule(game, sector, dictatorPlayer)

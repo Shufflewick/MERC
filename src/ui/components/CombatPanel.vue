@@ -400,7 +400,6 @@ const snapshotHitAllocation = computed(() => props.combatSnapshot?.pendingHitAll
 const snapshotWolverineSixes = computed(() => props.combatSnapshot?.pendingWolverineSixes as any);
 const snapshotAttackDogSelection = computed(() => props.combatSnapshot?.pendingAttackDogSelection as any);
 const snapshotBeforeAttackHealing = computed(() => props.combatSnapshot?.pendingBeforeAttackHealing as any);
-
 // Mode checks
 const isSelectingTargets = computed(() => {
   return !!snapshotTargetSelection.value && props.isMyTurn;
@@ -437,6 +436,8 @@ interface InitiativeSlot {
   initiative: number;
   isMilitia: boolean;
   isDead: boolean;
+  militiaGroupCount?: number;
+  militiaGroupIds?: string[];
 }
 
 const initiativeOrder = computed<InitiativeSlot[]>(() => {
@@ -451,6 +452,15 @@ const currentAttackerId = computed<string | null>(() => {
   // Otherwise use snapshot's pending decision context
   return (props.combatSnapshot?.currentAttackerId as string) ?? null;
 });
+
+// Check if an initiative slot is the current attacker (handles militia groups)
+function isCurrentSlot(unit: InitiativeSlot): boolean {
+  const attackerId = currentAttackerId.value;
+  if (!attackerId) return false;
+  if (unit.id === attackerId) return true;
+  if (unit.militiaGroupIds?.includes(attackerId)) return true;
+  return false;
+}
 
 // Dog target names map — reads directly from snapshot combatant fields
 const dogTargetNames = computed(() => {
@@ -693,19 +703,27 @@ onUnmounted(() => {
         :key="unit.id"
         class="initiative-slot"
         :class="{
-          'is-current': unit.id === currentAttackerId,
+          'is-current': isCurrentSlot(unit),
           'is-dead': unit.isDead,
           'is-dictator-side': unit.isDictatorSide,
         }"
       >
-        <div v-if="unit.id === currentAttackerId" class="turn-arrow">&#x25BC;</div>
-        <CombatantIconSmall
-          :combatant-id="unit.combatantId"
-          :image="unit.image"
-          :alt="unit.name"
-          :player-color="unit.playerColor"
-          :size="32"
-        />
+        <div v-if="isCurrentSlot(unit)" class="turn-arrow">&#x25BC;</div>
+        <div class="initiative-icon-wrapper">
+          <CombatantIconSmall
+            :combatant-id="unit.combatantId"
+            :image="unit.image"
+            :alt="unit.name"
+            :player-color="unit.playerColor"
+            :size="32"
+          />
+          <span
+            v-if="unit.militiaGroupCount && unit.militiaGroupCount > 1"
+            class="militia-group-badge"
+          >
+            x{{ unit.militiaGroupCount }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -1040,6 +1058,26 @@ onUnmounted(() => {
 @keyframes pulse-turn-arrow {
   0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
   50% { opacity: 1; transform: translateX(-50%) scale(1.3); }
+}
+
+.initiative-icon-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.militia-group-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -6px;
+  background: #FF9800;
+  color: #1a1a2e;
+  font-size: 0.6rem;
+  font-weight: bold;
+  padding: 1px 3px;
+  border-radius: 6px;
+  line-height: 1;
+  min-width: 14px;
+  text-align: center;
 }
 
 .battle-area {

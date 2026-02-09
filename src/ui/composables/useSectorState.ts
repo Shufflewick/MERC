@@ -279,7 +279,7 @@ export function useSectorState(
 
     if (!stashZone?.children) return [];
 
-    // Get equipment from stash zone children
+    // Get equipment from stash zone children (hide landmines — they're secret)
     return stashZone.children
       .filter((e: any) => e.className === 'Equipment')
       .map((e: any) => ({
@@ -294,7 +294,8 @@ export function useSectorState(
         targets: getAttr<number>(e, 'targets', 0),
         negatesArmor: getAttr<boolean>(e, 'negatesArmor', false),
         image: getAttr<string>(e, 'image', ''),
-      }));
+      }))
+      .filter((e: StashEquipment) => !e.equipmentId.includes('land-mine'));
   });
 
   // Get all mercs in active sector (for display in SectorPanel)
@@ -424,12 +425,31 @@ export function useSectorState(
     });
   });
 
-  // Check if selected sector has land mines in stash
+  // Check if selected sector has land mines in stash (checks unfiltered stash data)
   const hasLandMinesInStash = computed<boolean>(() => {
-    return selectedSectorStash.value.some(
-      (e) =>
-        e.equipmentName.toLowerCase().includes('land mine') ||
-        e.equipmentName.toLowerCase().includes('landmine')
+    if (!activeSector.value) return false;
+
+    const sectorElement =
+      findByRef(activeSector.value.sectorId) ||
+      findAllByClassName('Sector').find(
+        (s: any) =>
+          getAttr<string>(s, 'sectorId', '') === activeSector.value?.sectorId
+      );
+    if (!sectorElement) return false;
+
+    const stashZone = sectorElement.children?.find(
+      (c: any) =>
+        c.className === 'Space' &&
+        (c.name === 'stash' ||
+          c.ref === 'stash' ||
+          getAttr<string>(c, 'name', '') === 'stash')
+    );
+    if (!stashZone?.children) return false;
+
+    return stashZone.children.some(
+      (e: any) =>
+        e.className === 'Equipment' &&
+        getAttr<string>(e, 'equipmentId', '').includes('land-mine')
     );
   });
 

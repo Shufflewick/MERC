@@ -1,34 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import { GameShell, useActionAnimations, FlyingCardsOverlay, createAnimationEvents, provideAnimationEvents } from 'boardsmith/ui';
+import { ref } from 'vue';
+import { GameShell, useActionAnimations, FlyingCardsOverlay } from 'boardsmith/ui';
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import GameTable from './components/GameTable.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import { UI_COLORS } from './colors';
 import { lastActionWasDragDrop, quickReassignInProgress } from './drag-drop-state';
-
-// =============================================================================
-// Animation Events Setup (must be provided before GameShell renders ActionPanel)
-// =============================================================================
-
-// Store refs from slot for animation events - these get updated when GameTable mounts
-const slotState = ref<any>(null);
-const slotActionController = ref<UseActionControllerReturn | null>(null);
-
-// Computed getter for animation events from state
-const animationEventsFromState = computed(() => {
-  const state = slotState.value;
-  if (!state) return [];
-  return state.state?.animationEvents || state.animationEvents || [];
-});
-
-// Create animation events context - uses the reactive refs
-const animationEvents = createAnimationEvents({
-  events: () => animationEventsFromState.value,
-});
-
-// Provide animation events so ActionPanel and child components can access them
-provideAnimationEvents(animationEvents);
 
 // Combatant modal data - passed to GameTable which renders the modal inside GameShell
 const headerCombatantData = ref<{
@@ -193,10 +170,6 @@ function closeHeaderCombatantModal() {
   headerCombatantData.value = null;
 }
 
-function handleAnimationContextReady(s: any, ac: UseActionControllerReturn) {
-  slotState.value = s;
-  slotActionController.value = ac;
-}
 </script>
 
 <template>
@@ -217,7 +190,6 @@ function handleAnimationContextReady(s: any, ac: UseActionControllerReturn) {
         :state="state"
         :flying-combatant-name="flyingCombatantName"
         :header-combatant-data="headerCombatantData"
-        @animation-context-ready="handleAnimationContextReady"
         @vue:mounted="setupAnimations(actionController, gameView)"
         @vue:updated="syncGameView(gameView)"
         @close-header-combatant-modal="closeHeaderCombatantModal"

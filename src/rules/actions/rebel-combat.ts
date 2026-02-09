@@ -13,6 +13,7 @@ import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
+import { applyMortarDamage } from './rebel-equipment.js';
 
 /**
  * Continue fighting in active combat
@@ -38,8 +39,15 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Combat sector not found' };
       }
 
-      const player = ctx.player as RebelPlayer;
-      const outcome = executeCombat(game, sector, player);
+      // Use the attacking player from activeCombat, not ctx.player — ctx.player may
+      // be the dictator when combat continues after dictator retreat leaves militia behind.
+      const attackingPlayer = game.rebelPlayers.find(
+        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
+      );
+      if (!attackingPlayer) {
+        return { success: false, message: 'Attacking player not found' };
+      }
+      const outcome = executeCombat(game, sector, attackingPlayer);
 
       return {
         success: true,
@@ -439,7 +447,16 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
     .prompt('Confirm hit allocation')
     .condition({
       'has pending hit allocation': () => game.activeCombat?.pendingHitAllocation != null,
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'player controls this attacker': (ctx) => {
+        const pending = game.activeCombat?.pendingHitAllocation;
+        if (!pending) return false;
+        const attacker = [...(game.activeCombat?.rebelCombatants ?? []),
+                          ...(game.activeCombat?.dictatorCombatants ?? [])]
+          .find(c => c.id === pending.attackerId);
+        if (!attacker) return isRebelPlayer(ctx.player); // fallback for MERCs
+        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
+        return isRebelPlayer(ctx.player);
+      },
     })
     .chooseFrom<string>('allocations', {
       prompt: 'Allocate hits to targets',
@@ -527,7 +544,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Combat sector not found' };
       }
 
-      // Find attacking player - fallback to first rebel if lookup fails
+      // Find attacking player from activeCombat state (executeCombat uses stored state when resuming)
       const player = game.rebelPlayers.find(
         p => `${p.seat}` === game.activeCombat!.attackingPlayerId
       ) ?? game.rebelPlayers[0];
@@ -562,7 +579,16 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
         const pending = game.activeCombat?.pendingHitAllocation;
         return (pending?.canReroll && !pending?.hasRerolled) ?? false;
       },
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'player controls this attacker': (ctx) => {
+        const pending = game.activeCombat?.pendingHitAllocation;
+        if (!pending) return false;
+        const attacker = [...(game.activeCombat?.rebelCombatants ?? []),
+                          ...(game.activeCombat?.dictatorCombatants ?? [])]
+          .find(c => c.id === pending.attackerId);
+        if (!attacker) return isRebelPlayer(ctx.player);
+        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
+        return isRebelPlayer(ctx.player);
+      },
     })
     .execute(() => {
       if (!game.activeCombat?.pendingHitAllocation) {
@@ -1593,6 +1619,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
     });
 }
 
+// =============================================================================
 /**
  * Clear combat state after animations complete
  * Called by UI when combat animations finish playing
@@ -1609,6 +1636,121 @@ export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinit
       return {
         success: true,
         message: 'Combat animations cleared',
+      };
+    });
+}
+
+/**
+ * Allocate mortar hits to targets.
+ * Called when player confirms their hit allocation in the MortarAttackPanel UI.
+ */
+export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition {
+  return Action.create('mortarAllocateHits')
+    .prompt('Allocate mortar hits')
+    .condition({
+      'has pending mortar attack': () => game.pendingMortarAttack != null,
+      'is attacking player': (ctx) => {
+        const pending = game.pendingMortarAttack;
+        if (!pending) return false;
+        return `${ctx.player.seat}` === pending.attackingPlayerId;
+      },
+    })
+    .chooseFrom<string>('allocations', {
+      prompt: 'Allocate mortar hits to targets',
+      multiSelect: () => {
+        const pending = game.pendingMortarAttack;
+        if (!pending) return undefined;
+        // Cap min at total target health — excess hits beyond what targets can absorb are wasted
+        const totalHealth = pending.validTargets.reduce((s, t) => s + t.currentHealth, 0);
+        const effectiveHits = Math.min(pending.hits, totalHealth);
+        return { min: effectiveHits, max: pending.hits };
+      },
+      choices: () => {
+        const pending = game.pendingMortarAttack;
+        if (!pending) return [];
+        const choices: string[] = [];
+        for (const target of pending.validTargets) {
+          for (let i = 0; i < target.currentHealth; i++) {
+            choices.push(`${target.id}::${i}`);
+          }
+        }
+        return choices;
+      },
+      display: (choice: string) => {
+        const pending = game.pendingMortarAttack;
+        if (!pending) return choice;
+        const targetId = choice.split('::')[0];
+        const target = pending.validTargets.find(t => t.id === targetId);
+        if (!target) return choice;
+        return target.name;
+      },
+    })
+    .execute((args, ctx) => {
+      if (!game.pendingMortarAttack) {
+        return { success: false, message: 'No mortar attack pending' };
+      }
+
+      const pending = game.pendingMortarAttack;
+
+      const allocChoices = Array.isArray(args.allocations)
+        ? args.allocations as unknown[]
+        : [args.allocations];
+
+      // Parse allocation choices into targetId -> hitCount map
+      const hitsByTarget = new Map<string, number>();
+      for (const choice of allocChoices) {
+        const choiceStr = typeof choice === 'string' ? choice :
+          (choice && typeof choice === 'object' && 'value' in choice)
+            ? String((choice as { value: unknown }).value)
+            : String(choice);
+        const targetId = choiceStr.split('::')[0];
+        hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
+      }
+
+      // Determine side
+      const isRebel = game.isRebelPlayer(ctx.player);
+
+      // Apply damage
+      const targetSector = game.getSector(pending.targetSectorId);
+      if (!targetSector) {
+        game.pendingMortarAttack = null;
+        return { success: false, message: 'Target sector not found' };
+      }
+
+      const { totalDamage, hitCombatantIds, militiaKilled } = applyMortarDamage(
+        game, targetSector, pending.validTargets, hitsByTarget, isRebel,
+      );
+
+      // Log allocation
+      const allocMsg = Array.from(hitsByTarget.entries())
+        .map(([targetId, count]) => {
+          const target = pending.validTargets.find(t => t.id === targetId);
+          return `${target?.name ?? 'Unknown'} x${count}`;
+        })
+        .join(', ');
+      game.message(`${pending.attackerName} allocates mortar hits: ${allocMsg}`);
+
+      // Emit mortar-strike animation with the allocated targets
+      game.animate('mortar-strike', {
+        targetSectorId: pending.targetSectorId,
+        hitCombatantIds,
+        militiaKilled,
+        diceRolls: pending.diceRolls,
+        hits: pending.hits,
+        hitThreshold: pending.hitThreshold,
+        attackerName: pending.attackerName,
+      });
+
+      // Clear pending state
+      game.pendingMortarAttack = null;
+
+      return {
+        success: true,
+        message: `Mortar hits allocated: ${totalDamage} damage dealt`,
+        data: {
+          allocations: Object.fromEntries(hitsByTarget),
+          totalDamage,
+        },
       };
     });
 }

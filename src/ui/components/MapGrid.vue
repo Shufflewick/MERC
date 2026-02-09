@@ -7,6 +7,7 @@ import CombatantDeathAnimation from './CombatantDeathAnimation.vue';
 import CombatantMoveAnimation from './CombatantMoveAnimation.vue';
 import EquipmentDropAnimation from './EquipmentDropAnimation.vue';
 import MortarStrikeAnimation from './MortarStrikeAnimation.vue';
+import LandmineDetonationAnimation from './LandmineDetonationAnimation.vue';
 // Death animation data (local to MapGrid — suppressed during combat, released by CombatPanel signals)
 
 interface SectorData {
@@ -116,12 +117,18 @@ const props = defineProps<{
     hitCombatantIds: string[];
     militiaKilled: number;
   } | null;
+  landmineStrike?: {
+    sectorId: string;
+    targetNames: string[];
+    damage: number;
+  } | null;
 }>();
 
 const emit = defineEmits<{
   sectorClick: [sectorId: string];
   dropEquipment: [combatantElementId: number, equipmentId: number];
   mortarStrikeComplete: [];
+  landmineStrikeComplete: [];
 }>();
 
 function handleDropEquipment(combatantElementId: number, equipmentId: number) {
@@ -574,6 +581,19 @@ function handleMortarStrikeComplete() {
   emit('mortarStrikeComplete');
 }
 
+// ============================================================================
+// LANDMINE DETONATION ANIMATION
+// ============================================================================
+
+const landmineStrikeRect = computed(() => {
+  if (!props.landmineStrike) return null;
+  return getSectorRect(props.landmineStrike.sectorId);
+});
+
+function handleLandmineStrikeComplete() {
+  emit('landmineStrikeComplete');
+}
+
 // Helper to build equipment ID map for a merc
 function buildEquipmentIdMap(merc: MercData): Map<string, string> {
   const idMap = new Map<string, string>();
@@ -834,6 +854,16 @@ function handleSectorClick(sectorId: string) {
       :hit-combatant-ids="mortarStrike.hitCombatantIds"
       :militia-killed="mortarStrike.militiaKilled"
       @complete="handleMortarStrikeComplete"
+    />
+
+    <!-- Landmine Detonation Animation -->
+    <LandmineDetonationAnimation
+      v-if="landmineStrike && landmineStrikeRect"
+      :sector-rect="landmineStrikeRect"
+      :sector-id="landmineStrike.sectorId"
+      :target-names="landmineStrike.targetNames"
+      :damage="landmineStrike.damage"
+      @complete="handleLandmineStrikeComplete"
     />
   </div>
 </template>

@@ -387,6 +387,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   maxIterations: 50,
                   do: actionStep({
                     name: 'allocate-hits',
+                    player: (ctx) => {
+                      const pending = game.activeCombat?.pendingHitAllocation;
+                      if (!pending) return ctx.player!;
+                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                    },
                     actions: ['combatAllocateHits', 'combatBasicReroll'],
                     skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
                   }),
@@ -648,6 +653,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'allocate-hits',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingHitAllocation;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatAllocateHits', 'combatBasicReroll'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
                 }),
@@ -822,6 +832,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     maxIterations: 50,
                     do: actionStep({
                       name: 'allocate-hits',
+                      player: (ctx) => {
+                        const pending = game.activeCombat?.pendingHitAllocation;
+                        if (!pending) return ctx.player!;
+                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                      },
                       actions: ['combatAllocateHits', 'combatBasicReroll'],
                       skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
                     }),
@@ -1007,6 +1022,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'allocate-hits',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingHitAllocation;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatAllocateHits', 'combatBasicReroll'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
                 }),

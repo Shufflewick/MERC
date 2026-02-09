@@ -148,8 +148,13 @@ export function executeRetreat(
     }
 
     // Update squad sectorIds - MERCs inherit via computed getter
-    dictatorPlayer.primarySquad.sectorId = toSector.sectorId;
-    dictatorPlayer.secondarySquad.sectorId = toSector.sectorId;
+    // Only move squads that are actually in the combat sector (mirrors rebel retreat pattern)
+    if (dictatorPlayer.primarySquad.sectorId === fromSector.sectorId) {
+      dictatorPlayer.primarySquad.sectorId = toSector.sectorId;
+    }
+    if (dictatorPlayer.secondarySquad.sectorId === fromSector.sectorId) {
+      dictatorPlayer.secondarySquad.sectorId = toSector.sectorId;
+    }
     if (dictatorPlayer.baseSquad?.sectorId === fromSector.sectorId) {
       dictatorPlayer.baseSquad.sectorId = toSector.sectorId;
     }
