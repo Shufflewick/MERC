@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-08)
+See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
-**Current focus:** Phase 50 complete — Tactics Card Audit
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 50 of 50 (Tactics Card Audit) — COMPLETE
-Plan: 4 of 4
-Status: Verified ✓
-Last activity: 2026-02-09 — Phase 50 verified and complete
+Phase: 50 of 50 — v1.10 Grievances COMPLETE
+Plan: Not started (next milestone)
+Status: Ready to plan
+Last activity: 2026-02-09 — v1.10 milestone complete
 
-Progress: [==========] 100% (v1.10 Grievances complete — all 4 phases, all plans)
+Progress: [==========] 100% (v1.10 Grievances shipped)
 
 ## Milestones Completed
 
@@ -36,34 +36,13 @@ Total: 50 phases, 100 plans, 11 milestones shipped
 
 **Velocity:**
 - Total plans completed: 100
-- v1.9 duration: 2 days (7 plans)
-- v1.10 plan 47-01: 5 min
-- v1.10 plan 47-02: 5 min
-- v1.10 plan 48-01: 5 min
-- v1.10 plan 48-02: 2 min
-- v1.10 plan 49-01: 2 min
-- v1.10 plan 50-01: 2 min
-- v1.10 plan 50-02: 4 min
-- v1.10 plan 50-03: 4 min
-- v1.10 plan 50-04: 3 min
+- v1.10 duration: 1 day (9 plans across 4 phases)
 
 ## Accumulated Context
 
 ### Decisions
 
 All decisions captured in PROJECT.md Key Decisions table.
-
-- equip() returns EquipResult instead of Equipment | undefined (compiler-enforced pit of success for bandolier handling)
-- All equip() callers destructure EquipResult and route displaced bandolier items to stash or discard
-- Friendly mine heuristic: mine is friendly when entering player has militia AND no enemies (exclusive sector control)
-- Auto-disarm always discards mine to accessory discard pile (never equip on Squidhead, never leave in stash)
-- SectorPanel auto-fill uses sel.type === 'choice' (not sel.name) for chooseFrom format detection
-- Fabricated base defense bonuses (generalisimoActive/lockdownActive) removed entirely -- no basis in CSV rules
-- Block Trade places militia on ALL cities (not just newly flipped) per CSV wording "each city"
-- Tactics animation: artillery barrage uses pure UI signal (empty callback) since mutations happen through allocation flow
-- Single activeTacticEvent ref in GameTable.vue shared across all 12 event types (loop-based registration)
-- Generalissimo AI auto-picks highest baseCombat MERC (same heuristic as Castro)
-- Lockdown AI distributes militia round-robin across base + adjacent sectors for even distribution
 
 ### Deferred Issues
 
@@ -78,5 +57,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Phase 50 verified. All v1.10 phases complete. Ready for milestone audit.
+Stopped at: v1.10 milestone archived and tagged.
 Resume file: None

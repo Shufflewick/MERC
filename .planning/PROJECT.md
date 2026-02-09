@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A strategic combat board game built on the @boardsmith/engine framework. Players control mercenary squads fighting against (or as) a dictator on a hex grid map. The codebase has been through 10 milestones of systematic cleanup and is now focused on fixing gameplay bugs, missing implementations, and UI inconsistencies.
+A strategic combat board game built on the @boardsmith/engine framework. Players control mercenary squads fighting against (or as) a dictator on a hex grid map. The codebase has been through 11 milestones of systematic cleanup, bug fixing, and feature completion.
 
 ## Core Value
 
@@ -10,9 +10,9 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 
 ## Current State
 
-**Shipped:** v1.9 BoardSmith v3.0 Animation Timeline Migration (2026-02-08)
+**Shipped:** v1.10 Grievances (2026-02-09)
 
-- 38,441 lines of TypeScript/Vue (modular structure)
+- 41,145 lines of TypeScript/Vue (modular structure)
 - Zero `as any` casts in src/rules/
 - Unified class hierarchy: CombatantBase → CombatantModel (concrete class)
 - Canonical identity: combatantId/combatantName (no legacy aliases)
@@ -22,9 +22,13 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - CombatPanel is 100% event-driven animation player (no theatre view, no state machine)
 - Combat events: pure data animate calls + combat-panel snapshots at all 8 decision cycles
 - GameTable combat section: ~15 lines (snapshot-driven visibility)
+- All 14 dictator tactics cards audited, corrected, and animated
+- Bidirectional landmine system with Squidhead counter-ability
+- Compiler-enforced bandolier equipment handling (EquipResult)
+- Sector panel actions fully wired with correct auto-fill
 - CLAUDE.md architecture guide for AI navigation
-- 623 tests passing (21 combat event pipeline tests added in v1.9)
-- 10 milestones shipped, 46 phases, 89 plans
+- 657 tests passing
+- 11 milestones shipped, 50 phases, 100 plans
 
 ## Requirements
 
@@ -72,31 +76,22 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - ✓ Simplified panel lifecycle — event-driven open/close, no state machine — v1.9
 - ✓ GameTable combat wiring — snapshot-driven visibility, no fallback chains — v1.9
 - ✓ Combat animation flow tests — 21 tests verifying snapshot + event pipeline — v1.9
+- ✓ Bandolier replacement drops contents to sector stash — compiler-enforced EquipResult — v1.10
+- ✓ Sector panel action audit — all actions prepopulate from selected sector, correct auto-fill — v1.10
+- ✓ Landmine system — bidirectional trigger on movement, damage, discard, Squidhead counter — v1.10
+- ✓ Full dictator tactics card audit — all 14 cards verified, fabricated bonuses removed — v1.10
+- ✓ Every dictator tactics card has a meaningful animation — v1.10
+- ✓ Generalissimo — draw 6 mercs, pick 1, interactive flow with action + flow step — v1.10
+- ✓ Better Weapons — militia hit on 3+ going forward (persistent buff) — v1.10
+- ✓ Lockdown — 5×rebelCount militia placed on base/adjacent sectors, interactive placement — v1.10
+
 ### Active
 
-- [ ] Bandolier replacement drops contents to sector stash instead of keeping phantom slots
-- [ ] Sector panel action audit — all actions prepopulate from selected sector, show consistent options
-- [ ] Landmine system — enemy entering sector with landmine triggers 1 damage to all enemies, discards mine
-- [ ] Squidhead landmine counter-ability works correctly
-- [ ] Full dictator tactics card audit — verify every card is implemented correctly
-- [ ] Every dictator tactics card has a meaningful animation
-- [ ] Generalissimo implementation — draw 6 mercs, pick 1 to add to squad
-- [ ] Better Weapons implementation — militia hit on 3+ going forward
-- [ ] Lockdown implementation — 5 extra militia placed on base or adjacent sectors
+(None — next milestone not yet planned)
 
 ### Out of Scope
 
 (None currently)
-
-## Current Milestone: v1.10 Grievances
-
-**Goal:** Fix gameplay bugs, missing implementations, and UI inconsistencies so the game plays correctly and visibly.
-
-**Target areas:**
-- Bandolier equipment slot bug (phantom slots on replacement)
-- Sector panel action consistency audit
-- Landmine trigger system + Squidhead counter
-- Full dictator tactics card audit (implementation correctness + animations)
 
 ## Context
 
@@ -104,13 +99,13 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - Brownfield project with working game implementation
 - TypeScript 5.7.0 with strict mode enabled
 - BoardSmith v3.0 fully integrated (animation timeline, no theatre view)
-- 38,441 lines of TypeScript/Vue code
-- 623 tests (combat, abilities, equipment, conditions, state persistence, error handling, combat events)
+- 41,145 lines of TypeScript/Vue code
+- 657 tests (combat, abilities, equipment, conditions, state persistence, error handling, combat events, landmines)
 - Clean class hierarchy: CombatantBase → CombatantModel (concrete)
 - CombatPanel is event-driven animation player (combat-panel snapshots + pure data animate events)
 - Architecture documented in CLAUDE.md
 - Zero legacy ID patterns (mercId/mercName/dictatorId/dictatorName eradicated)
-- 10 milestones shipped (v1.0-v1.9)
+- 11 milestones shipped (v1.0-v1.10)
 
 **Codebase Map:**
 - `.planning/codebase/CONCERNS.md` - Full list of identified issues
@@ -161,6 +156,12 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 | ActionController stays for player decisions | Decisions submitted through existing action system | ✓ Good |
 | Parent-owned snapshot (GameTable) | Always-mounted parent registers handler, eliminates mount-race | ✓ Good |
 | Snapshot + healthOverrides pattern | Snapshot authoritative at decision points, overrides for per-hit updates | ✓ Good |
+| EquipResult return type for equip() | Compiler-enforced handling of displaced bandolier items | ✓ Good |
+| Bidirectional checkLandMines | Single function handles both rebel and dictator movement | ✓ Good |
+| Friendly mine heuristic | Mine is friendly when entering player has militia AND no enemies | ✓ Good |
+| SectorPanel sel.type detection | Type-based format detection for chooseFrom vs chooseElement | ✓ Good |
+| Remove fabricated tactics bonuses | generalisimoActive/lockdownActive had no basis in CSV rules | ✓ Good |
+| Loop-based animation registration | Single activeTacticEvent ref shared across all 14 event types | ✓ Good |
 
 ---
-*Last updated: 2026-02-08 after v1.10 milestone start*
+*Last updated: 2026-02-09 after v1.10 milestone complete*

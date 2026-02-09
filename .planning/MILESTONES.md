@@ -1,5 +1,33 @@
 # Project Milestones: MERC Codebase Cleanup
 
+## v1.10 Grievances (Shipped: 2026-02-09)
+
+**Delivered:** Fixed gameplay bugs, missing implementations, and UI inconsistencies — bandolier equipment slots, landmine trigger system, sector panel wiring, and all 14 dictator tactics cards audited and corrected.
+
+**Phases completed:** 47-50 (9 plans total)
+
+**Key accomplishments:**
+
+- Fixed bandolier replacement — `equip()` returns compiler-enforced `EquipResult`, all 16 callers route displaced items to stash/discard
+- Implemented bidirectional landmine system — `checkLandMines()` triggers on all movement, Squidhead counter-ability
+- Fixed sector panel auto-fill — type-based format detection, coordinatedAttack pre-fill corrected
+- Audited all 14 dictator tactics cards — removed fabricated bonuses, added animations to every card
+- Rewrote Generalissimo (draw 6 MERCs, pick 1) and Lockdown (place 5x militia interactively)
+
+**Stats:**
+
+- 49 files changed (+6,122/-579 lines)
+- 41,145 lines of TypeScript/Vue
+- 4 phases, 9 plans
+- 1 day (2026-02-08 → 2026-02-09)
+- 657 tests passing
+
+**Git range:** `feat(47-01)` → `docs(50)`
+
+**What's next:** TBD — next milestone via `/gsd:new-milestone`
+
+---
+
 ## v1.9 BoardSmith v3.0 Animation Timeline Migration (Shipped: 2026-02-08)
 
 **Delivered:** Migrated CombatPanel from removed BoardSmith theatre view system to 100% event-driven animation player with pure data events, combat-panel snapshots, and simplified lifecycle.
