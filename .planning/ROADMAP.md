@@ -50,10 +50,11 @@ Plans:
   2. A detonated landmine deals 1 damage to every enemy combatant present in the sector
   3. After detonation, the landmine is removed from the sector stash (discarded)
   4. When Squidhead is present in the sector, the landmine does not detonate
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 48-01: TBD
+- [ ] 48-01-PLAN.md -- TDD: Create checkLandMines() bidirectional trigger function with tests
+- [ ] 48-02-PLAN.md -- Wire checkLandMines into movement actions, remove old combat.ts call
 
 ### Phase 49: Sector Panel Audit
 **Goal**: Every action launched from the sector panel works identically to its action panel counterpart
@@ -90,6 +91,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 47. Equipment Slot Cleanup | 2/2 | Complete | 2026-02-08 |
-| 48. Landmine System | 0/TBD | Not started | - |
+| 48. Landmine System | 0/2 | Not started | - |
 | 49. Sector Panel Audit | 0/TBD | Not started | - |
 | 50. Tactics Card Audit | 0/TBD | Not started | - |
