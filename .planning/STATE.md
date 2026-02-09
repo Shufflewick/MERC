@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
-**Current focus:** Phase 47 - Equipment Slot Cleanup
+**Current focus:** Phase 47 complete - Equipment Slot Cleanup
 
 ## Current Position
 
 Phase: 47 of 50 (Equipment Slot Cleanup)
-Plan: 1 of 2
-Status: In progress
-Last activity: 2026-02-08 — Completed 47-01-PLAN.md
+Plan: 2 of 2
+Status: Phase complete
+Last activity: 2026-02-08 — Completed 47-02-PLAN.md
 
-Progress: [=.........] 10% (v1.10 Grievances — 1/~10 plans)
+Progress: [==........] 20% (v1.10 Grievances — 2/~10 plans)
 
 ## Milestones Completed
 
@@ -34,9 +34,10 @@ Total: 46 phases, 91 plans, 10 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 91
+- Total plans completed: 93
 - v1.9 duration: 2 days (7 plans)
 - v1.10 plan 47-01: 5 min
+- v1.10 plan 47-02: 5 min
 
 ## Accumulated Context
 
@@ -45,13 +46,13 @@ Total: 46 phases, 91 plans, 10 milestones shipped
 All decisions captured in PROJECT.md Key Decisions table.
 
 - equip() returns EquipResult instead of Equipment | undefined (compiler-enforced pit of success for bandolier handling)
+- All equip() callers destructure EquipResult and route displaced bandolier items to stash or discard
 
 ### Deferred Issues
 
 - Vendor tarballs missing compiled `dist` folders - blocks build and integration tests
 - Stale comment in GameTable.vue:618 references removed state machine (cosmetic)
 - Stale comment in combat.ts:72 references "theatre view system" (cosmetic)
-- TypeScript compilation errors in 4 source files (helpers.ts, rebel-economy.ts, rebel-equipment.ts, day-one.ts) — will be fixed in Plan 47-02
 
 ### Blockers/Concerns
 
@@ -60,5 +61,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 47-01-PLAN.md
+Stopped at: Completed 47-02-PLAN.md (Phase 47 complete)
 Resume file: None
