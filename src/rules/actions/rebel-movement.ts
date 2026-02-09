@@ -15,6 +15,7 @@ import { Action, type ActionDefinition, type GameElement, type ActionContext, de
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Squad, CombatantModel } from '../elements.js';
 import { hasEnemies, queuePendingCombat } from '../combat.js';
+import { checkLandMines } from '../landmine.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 
 // =============================================================================
@@ -254,6 +255,9 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       const playerName = isRebel ? asRebelPlayer(ctx.player).name : 'Dictator';
       game.message(`${playerName} moved ${mercs.length} MERC(s) to ${destination.sectorName}`);
 
+      // Check for landmines in the destination sector
+      checkLandMines(game, destination, [squad], isRebel);
+
       // Per rules: "Combat triggers when: A squad moves into an enemy-occupied sector"
       if (isRebel) {
         const player = asRebelPlayer(ctx.player);
@@ -371,6 +375,9 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
 
       const totalMercs = primaryMercs.length + secondaryMercs.length;
       game.message(`${player.name} launches coordinated attack with ${totalMercs} MERC(s) on ${target.sectorName}!`);
+
+      // Check for landmines (both squads entering together)
+      checkLandMines(game, target, [player.primarySquad, player.secondarySquad], true);
 
       // Check for enemies and flag for combat (handled by flow)
       if (hasEnemies(game, target, player)) {
@@ -600,11 +607,13 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
 
       // Move all participating squads and spend actions
       let totalMercs = 0;
+      const enteringSquads: Squad[] = [];
       for (const { playerId, squadType } of participants) {
         const rebel = game.rebelPlayers.find(p => `${p.seat}` === playerId);
         if (!rebel) continue;
 
         const squad = squadType === 'primary' ? rebel.primarySquad : rebel.secondarySquad;
+        enteringSquads.push(squad);
         const mercs = squad.getLivingMercs();
 
         for (const merc of mercs) {
@@ -618,6 +627,9 @@ export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefi
 
       // Clear pending attack
       game.clearCoordinatedAttack(targetId);
+
+      // Check for landmines
+      checkLandMines(game, target, enteringSquads, true);
 
       game.message(`Coordinated attack launched on ${target.sectorName} with ${totalMercs} MERC(s)!`);
 
