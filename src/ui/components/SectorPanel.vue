@@ -272,9 +272,7 @@ function getMercImagePath(merc: any): string {
   const image = getAttr(merc, 'image', '');
   if (image) return image;
 
-  // No fallback - log warning for debugging
-  console.warn('[SectorPanel] getMercImagePath: No image for merc:', merc);
-  return ''; // Return empty - broken image will be visible
+  return ''; // No image available - broken image will be visible
 }
 
 // Get MERC or Dictator name
@@ -551,7 +549,7 @@ const adjacentActions = computed(() => {
     actions.push({ name: 'move', label: 'Move Here', icon: '🚶' });
   }
 
-  if (props.hasMortar && props.hasEnemyForces && props.availableActions.includes('mortar')) {
+  if (props.hasEnemyForces && props.availableActions.includes('mortar')) {
     actions.push({ name: 'mortar', label: 'Mortar', icon: '💥' });
   }
   if (props.availableActions.includes('coordinatedAttack')) {
@@ -582,7 +580,7 @@ const isInActionFlow = computed(() => {
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'reEquipContinue', // Chained from reEquip
     'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
-    'mortar',
+    'mortar', 'coordinatedAttack',
   ];
 
   // Actions that are explicitly started from this panel - check FIRST before squad check
@@ -1173,6 +1171,15 @@ async function handleAction(actionName: string) {
     return;
   }
 
+  if (actionName === 'coordinatedAttack') {
+    // Coordinated attack: destination is the clicked sector, fill it immediately
+    activeActionFromPanel.value = actionName;
+    await props.actionController.start(actionName);
+    await props.actionController.fill('destination', props.sector.id);
+    emit('close');
+    return;
+  }
+
   // Start the action and track it
   activeActionFromPanel.value = actionName;
   await props.actionController.start(actionName);
@@ -1183,15 +1190,15 @@ async function handleAction(actionName: string) {
     const mercsInSector = allAvailableMercs.value;
     if (mercsInSector.length === 1) {
       const merc = mercsInSector[0];
-      if (sel.name === 'unit') {
-        // Train uses string format "id:name:isDictator"
+      if (sel.type === 'choice') {
+        // chooseFrom selections expect "id:name:isDictator" string format
         const id = merc.ref || merc.id;
         const name = getAttr(merc, 'combatantName', '') || getAttr(merc, 'combatantId', '');
         const isDictator = merc.isDictator || getAttr(merc, 'isDictator', false);
         const value = `${id}:${name}:${isDictator}`;
         await props.actionController.fill(sel.name, value);
       } else {
-        // Element selection - use ID directly
+        // chooseElement / fromElements selections expect element ID
         const unitId = merc.ref || merc.id;
         if (unitId) {
           await props.actionController.fill(sel.name, unitId);
