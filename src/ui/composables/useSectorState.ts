@@ -397,7 +397,7 @@ export function useSectorState(
   const hasMortar = computed<boolean>(() => {
     const allMercsInSquads = getMercsInSquads();
 
-    return allMercsInSquads.some((m: any) => {
+    const result = allMercsInSquads.some((m: any) => {
       // Check accessory slot - try Data version (serialized) first, then direct
       const accessory = getAttrPure<{ equipmentName?: string } | null>(m, 'accessorySlotData', null) ||
                         getAttrPure<{ equipmentName?: string } | null>(m, 'accessorySlot', null);
@@ -411,6 +411,8 @@ export function useSectorState(
         return name.includes('mortar');
       });
     });
+
+    return result;
   });
 
   // Check if player has damaged MERCs
