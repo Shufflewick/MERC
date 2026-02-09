@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
-**Current focus:** Phase 48 complete, ready for Phase 49
+**Current focus:** Phase 49 in progress (Sector Panel Audit)
 
 ## Current Position
 
-Phase: 48 of 50 (Landmine System) — COMPLETE
-Plan: 2 of 2
-Status: Verified ✓
-Last activity: 2026-02-08 — Phase 48 verified and complete
+Phase: 49 of 50 (Sector Panel Audit)
+Plan: 1 of 1
+Status: Plan 01 complete
+Last activity: 2026-02-08 — Completed 49-01-PLAN.md
 
-Progress: [=====.....] 50% (v1.10 Grievances — 2/4 phases)
+Progress: [=======...] 75% (v1.10 Grievances — 3/4 phases)
 
 ## Milestones Completed
 
@@ -34,12 +34,13 @@ Total: 46 phases, 91 plans, 10 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 95
+- Total plans completed: 96
 - v1.9 duration: 2 days (7 plans)
 - v1.10 plan 47-01: 5 min
 - v1.10 plan 47-02: 5 min
 - v1.10 plan 48-01: 5 min
 - v1.10 plan 48-02: 2 min
+- v1.10 plan 49-01: 2 min
 
 ## Accumulated Context
 
@@ -51,6 +52,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - All equip() callers destructure EquipResult and route displaced bandolier items to stash or discard
 - Friendly mine heuristic: mine is friendly when entering player has militia AND no enemies (exclusive sector control)
 - Auto-disarm always discards mine to accessory discard pile (never equip on Squidhead, never leave in stash)
+- SectorPanel auto-fill uses sel.type === 'choice' (not sel.name) for chooseFrom format detection
 
 ### Deferred Issues
 
@@ -65,5 +67,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Phase 48 verified and complete. Ready for Phase 49.
+Stopped at: Completed 49-01-PLAN.md. Phase 49 complete pending verification.
 Resume file: None
