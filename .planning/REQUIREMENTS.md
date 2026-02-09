@@ -12,9 +12,9 @@
 
 ### Sector Panel
 
-- [ ] **SECT-01**: All sector panel actions prepopulate the selected sector as context
-- [ ] **SECT-02**: Sector panel actions show the same combatant options as the corresponding action panel
-- [ ] **SECT-03**: Audit and fix every sector panel action for consistent wiring
+- [x] **SECT-01**: All sector panel actions prepopulate the selected sector as context
+- [x] **SECT-02**: Sector panel actions show the same combatant options as the corresponding action panel
+- [x] **SECT-03**: Audit and fix every sector panel action for consistent wiring
 
 ### Landmines
 
@@ -52,9 +52,9 @@
 |-------------|-------|--------|
 | EQUIP-01 | Phase 47 | Complete |
 | EQUIP-02 | Phase 47 | Complete |
-| SECT-01 | Phase 49 | Pending |
-| SECT-02 | Phase 49 | Pending |
-| SECT-03 | Phase 49 | Pending |
+| SECT-01 | Phase 49 | Complete |
+| SECT-02 | Phase 49 | Complete |
+| SECT-03 | Phase 49 | Complete |
 | MINE-01 | Phase 48 | Complete |
 | MINE-02 | Phase 48 | Complete |
 | MINE-03 | Phase 48 | Complete |
@@ -75,4 +75,4 @@
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after Phase 48 complete*
+*Last updated: 2026-02-08 after Phase 49 complete*
