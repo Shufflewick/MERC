@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
-**Current focus:** Phase 50 in progress — Tactics Card Audit
+**Current focus:** Phase 50 complete — Tactics Card Audit
 
 ## Current Position
 
 Phase: 50 of 50 (Tactics Card Audit)
-Plan: 3 of 4
-Status: In progress
-Last activity: 2026-02-09 — Completed 50-03-PLAN.md
+Plan: 4 of 4
+Status: Phase complete
+Last activity: 2026-02-09 — Completed 50-04-PLAN.md
 
-Progress: [=========.] 90% (v1.10 Grievances — plan 3/4 of phase 50)
+Progress: [==========] 100% (v1.10 Grievances complete — all 4 phases, all plans)
 
 ## Milestones Completed
 
@@ -28,13 +28,14 @@ Progress: [=========.] 90% (v1.10 Grievances — plan 3/4 of phase 50)
 - v1.7 GameBoard Component Refactor (Phases 31-36) - 18 plans
 - v1.8 Unified Stat Ability System (Phases 37-41) - 8 plans
 - v1.9 BoardSmith v3.0 Animation Timeline Migration (Phases 42-46) - 7 plans
+- v1.10 Grievances (Phases 47-50) - 10 plans
 
-Total: 46 phases, 91 plans, 10 milestones shipped
+Total: 50 phases, 100 plans, 11 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 99
+- Total plans completed: 100
 - v1.9 duration: 2 days (7 plans)
 - v1.10 plan 47-01: 5 min
 - v1.10 plan 47-02: 5 min
@@ -44,6 +45,7 @@ Total: 46 phases, 91 plans, 10 milestones shipped
 - v1.10 plan 50-01: 2 min
 - v1.10 plan 50-02: 4 min
 - v1.10 plan 50-03: 4 min
+- v1.10 plan 50-04: 3 min
 
 ## Accumulated Context
 
@@ -61,6 +63,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Tactics animation: artillery barrage uses pure UI signal (empty callback) since mutations happen through allocation flow
 - Single activeTacticEvent ref in GameTable.vue shared across all 12 event types (loop-based registration)
 - Generalissimo AI auto-picks highest baseCombat MERC (same heuristic as Castro)
+- Lockdown AI distributes militia round-robin across base + adjacent sectors for even distribution
 
 ### Deferred Issues
 
@@ -75,5 +78,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 50-03-PLAN.md. Ready for plan 50-04.
+Stopped at: Completed 50-04-PLAN.md. Phase 50 complete. All v1.10 plans done.
 Resume file: None
