@@ -600,6 +600,26 @@ export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionD
 }
 
 /**
+ * Draw the dictator's first MERC and cache it for the hire action.
+ * Called from flow execute() step to ensure drawing happens at exactly the right time —
+ * after dictator selection and militia placement, before the hire action.
+ * Skipped for AI dictators (they draw in the execute handler via hireDictatorMerc).
+ */
+export function drawDictatorFirstMerc(game: MERCGame): void {
+  if (game.dictatorPlayer?.isAI) return;
+
+  const DRAWN_MERC_KEY = 'dictatorFirstMercId';
+  if (getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) return; // Already drawn
+
+  const merc = game.drawMerc();
+  if (merc) {
+    setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+    setGlobalCachedValue(game, 'dictatorFirstMercCombatantId', merc.combatantId);
+    game.message(`Dictator drew ${merc.combatantName}`);
+  }
+}
+
+/**
  * MERC-i4g5: Hire dictator's first MERC
  * Per rules: Dictator draws 1 random MERC (Castro can draw 3 and pick 1)
  * Human players get to choose equipment type and placement sector
@@ -608,20 +628,11 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
   // Key for storing drawn MERC ID
   const DRAWN_MERC_KEY = 'dictatorFirstMercId';
 
-  // Helper to get the drawn MERC
+  // Helper to read the drawn MERC from cache (does NOT draw — drawing happens in flow execute step)
   const getDrawnMerc = (): CombatantModel | null => {
-    // Draw the MERC if not already drawn
-    if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-      const merc = game.drawMerc();
-      if (merc) {
-        setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-        setGlobalCachedValue(game, 'dictatorFirstMercCombatantId', merc.combatantId);
-        game.message(`Dictator drew ${merc.combatantName}`);
-      }
-    }
-    const combatantId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-    if (!combatantId) return null;
-    const el = game.getElementById(combatantId);
+    const cachedId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+    if (!cachedId) return null;
+    const el = game.getElementById(cachedId);
     return (isCombatantModel(el) && el.isMerc) ? el : null;
   };
 
@@ -630,7 +641,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
     .condition({
       'is Day 1': () => game.currentDay === 1,
     })
-    // Auto-filled selection to pass MERC name forward (shows in action panel)
+    // Show the drawn MERC name (drawn by flow execute step before this action)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('merc', {
       prompt: 'Hiring MERC',
@@ -638,18 +649,11 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         const merc = getDrawnMerc();
         return merc ? [merc.combatantName] : ['Unknown'];
       },
-      // Auto-select the only choice
-      aiSelect: () => {
-        const merc = getDrawnMerc();
-        return merc?.combatantName || 'Unknown';
-      },
-      skipIf: () => game.dictatorPlayer?.isAI === true,
     } as any)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
-      skipIf: () => game.dictatorPlayer?.isAI === true,
     } as any)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('targetSector', {
@@ -666,7 +670,6 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         }
         return sectors.map(s => s.sectorName);
       },
-      skipIf: () => game.dictatorPlayer?.isAI === true,
     } as any)
     .execute((args) => {
       // AI path - use auto hire

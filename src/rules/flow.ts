@@ -29,6 +29,7 @@ import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
 import { executeCombat, clearActiveCombat } from './combat.js';
 import { getGlobalCachedValue } from './actions/helpers.js';
+import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
 
 /**
  * MERC Game Flow
@@ -204,7 +205,12 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 },
               }),
 
-              // Step 2: Hire dictator's first MERC
+              // Step 2: Draw MERC for dictator hiring (human only — AI draws in execute handler)
+              execute(() => {
+                drawDictatorFirstMerc(game);
+              }),
+
+              // Step 2b: Hire dictator's first MERC
               actionStep({
                 name: 'dictator-hire-first-merc',
                 actions: ['dictatorHireFirstMerc'],

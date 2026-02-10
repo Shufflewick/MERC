@@ -110,6 +110,7 @@ import {
   createSelectDictatorAction,
   createDictatorPlaceInitialMilitiaAction,
   createDictatorHireFirstMercAction,
+  drawDictatorFirstMerc,
   createChooseKimBaseAction,
   createDictatorSetupAbilityAction,
   createDictatorDrawTacticsAction,
