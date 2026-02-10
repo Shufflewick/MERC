@@ -40,9 +40,9 @@ import type { MERCGame } from '../game.js';
 import {
   createMoveAction,
   createCoordinatedAttackAction,
-  createDeclareCoordinatedAttackAction,
-  createJoinCoordinatedAttackAction,
-  createExecuteCoordinatedAttackAction,
+  createDeclareMultiPlayerAttackAction,
+  createCommitSquadToCoordinatedAttackAction,
+  createDeclineCoordinatedAttackAction,
   createAssignToSquadAction,
 } from './rebel-movement.js';
 
@@ -129,9 +129,9 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createPlaceLandingAction(game));
   game.registerAction(createMoveAction(game));
   game.registerAction(createCoordinatedAttackAction(game)); // MERC-wrq: Same-player coordinated attack
-  game.registerAction(createDeclareCoordinatedAttackAction(game)); // MERC-a2h: Multi-player coordinated attack
-  game.registerAction(createJoinCoordinatedAttackAction(game)); // MERC-a2h
-  game.registerAction(createExecuteCoordinatedAttackAction(game)); // MERC-a2h
+  game.registerAction(createDeclareMultiPlayerAttackAction(game)); // MERC-a2h: Multi-player coordinated attack
+  game.registerAction(createCommitSquadToCoordinatedAttackAction(game)); // MERC-a2h: Simultaneous response
+  game.registerAction(createDeclineCoordinatedAttackAction(game)); // MERC-a2h: Simultaneous response
   game.registerAction(createExploreAction(game));
   game.registerAction(createCollectEquipmentAction(game));
   game.registerAction(createTakeFromStashAction(game));

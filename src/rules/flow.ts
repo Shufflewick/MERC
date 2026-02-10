@@ -2,6 +2,7 @@ import {
   loop,
   eachPlayer,
   actionStep as boardsmithActionStep,
+  simultaneousActionStep,
   sequence,
   execute,
   phase,
@@ -27,7 +28,8 @@ import { TacticsCard } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
-import { executeCombat, clearActiveCombat } from './combat.js';
+import { executeCombat, clearActiveCombat, hasEnemies, queuePendingCombat } from './combat.js';
+import { checkLandMines } from './landmine.js';
 import { getGlobalCachedValue } from './actions/helpers.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
 
@@ -507,9 +509,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   actions: [
                     'move',
                     'coordinatedAttack', // MERC-wrq: Same player, both squads
-                    'declareCoordinatedAttack', // MERC-a2h: Stage for multi-player attack
-                    'joinCoordinatedAttack', // MERC-a2h: Join declared attack
-                    'executeCoordinatedAttack', // MERC-a2h: Execute multi-player attack
+                    'declareMultiPlayerAttack', // MERC-a2h: Declare multi-player coordinated attack
                     'explore', // collectEquipment chains via followUp
                     'train',
                     'hireMerc',
@@ -543,6 +543,43 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     prompt: 'Allocate mortar hits to targets',
                     skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
                   }),
+                }),
+
+                // MERC-a2h: Multi-player coordinated attack — simultaneous response from other rebels
+                loop({
+                  name: 'coordinated-attack-response',
+                  while: () => game.coordinatedAttack !== null,
+                  maxIterations: 1,
+                  do: sequence(
+                    simultaneousActionStep({
+                      name: 'coordinated-attack-commit',
+                      players: () => {
+                        const attack = game.coordinatedAttack;
+                        if (!attack) return [];
+                        return game.rebelPlayers.filter(p => {
+                          // Include declaring player only if they have a second eligible squad
+                          if (p.seat === attack.declaringPlayerSeat) {
+                            return game.getEligibleSquadsForCoordinatedAttack(p).length > 0;
+                          }
+                          return game.getEligibleSquadsForCoordinatedAttack(p).length > 0
+                            || !game.hasPlayerRespondedToCoordinatedAttack(p.seat);
+                        });
+                      },
+                      actions: ['commitSquadToCoordinatedAttack', 'declineCoordinatedAttack'],
+                      playerDone: (_ctx, player) => {
+                        return game.hasPlayerRespondedToCoordinatedAttack(player.seat);
+                      },
+                    }),
+                    execute(() => {
+                      const result = game.executeCoordinatedAttack();
+                      if (!result) return;
+                      const { targetSector, enteringSquads, firstRebel } = result;
+                      checkLandMines(game, targetSector, enteringSquads, true);
+                      if (firstRebel && hasEnemies(game, targetSector, firstRebel as RebelPlayer)) {
+                        queuePendingCombat(game, targetSector, firstRebel as RebelPlayer, true);
+                      }
+                    }),
+                  ),
                 }),
               ),
             }),

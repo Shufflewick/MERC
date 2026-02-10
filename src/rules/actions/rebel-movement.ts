@@ -5,9 +5,9 @@
  * Works for both rebel and dictator players.
  * - move: Move a squad to an adjacent sector
  * - coordinatedAttack: Move both squads to attack the same sector (rebel only)
- * - declareCoordinatedAttack: Stage a squad for multi-player attack (rebel only)
- * - joinCoordinatedAttack: Join an existing coordinated attack (rebel only)
- * - executeCoordinatedAttack: Execute the staged attack (rebel only)
+ * - declareMultiPlayerAttack: Declare a multi-player coordinated attack (rebel only)
+ * - commitSquadToCoordinatedAttack: Commit squad during simultaneous response (rebel only)
+ * - declineCoordinatedAttack: Decline coordinated attack during simultaneous response (rebel only)
  * - assignToSquad: Assign a combatant to a different squad (replaces splitSquad/mergeSquads)
  */
 
@@ -376,42 +376,61 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
 }
 
 /**
- * MERC-a2h: Declare Coordinated Attack - Stage a squad for multi-player coordinated attack
- * Per rules (06-merc-actions.md): Squads from different rebel players can attack together
- * This action stages a squad to participate; execute when all participants ready
+ * MERC-a2h: Declare Multi-Player Attack
+ * A rebel player picks a squad and target sector, initiating a coordinated attack.
+ * Other rebels respond simultaneously via the flow's simultaneousActionStep.
  * Cost: Free (action spent when attack executes)
  */
-export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('declareCoordinatedAttack')
-    .prompt('Declare coordinated attack (stage for multi-player)')
+export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('declareMultiPlayerAttack')
+    .prompt('Declare multi-player coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'is multi-player game': () => game.rebelPlayers.length > 1,
-      'has squad adjacent to enemy': (ctx) => {
+      'no attack already in progress': () => game.coordinatedAttack === null,
+      'has squad adjacent to enemy sector with another rebel also adjacent': (ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
         const player = asRebelPlayer(ctx.player);
-        return [player.primarySquad, player.secondarySquad].some(squad => {
-          if (squad.mercCount === 0 || !squad.sectorId) return false;
+
+        // Find target sectors this player can attack
+        for (const squad of [player.primarySquad, player.secondarySquad]) {
+          if (squad.livingMercCount === 0 || !squad.sectorId) continue;
+          if (!squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) continue;
+
           const sector = game.getSector(squad.sectorId);
-          if (!sector) return false;
-          const adjacent = game.getAdjacentSectors(sector);
-          return adjacent.some(s => hasEnemies(game, s, player));
-        });
+          if (!sector) continue;
+
+          for (const targetSector of game.getAdjacentSectors(sector)) {
+            if (!hasEnemies(game, targetSector, player)) continue;
+
+            // Check if at least one OTHER rebel has a squad adjacent to this target
+            for (const otherRebel of game.rebelPlayers) {
+              if (otherRebel.seat === player.seat) continue;
+              for (const otherSquad of [otherRebel.primarySquad, otherRebel.secondarySquad]) {
+                if (otherSquad.livingMercCount === 0 || !otherSquad.sectorId) continue;
+                if (!otherSquad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) continue;
+                const otherSector = game.getSector(otherSquad.sectorId);
+                if (!otherSector) continue;
+                if (game.getAdjacentSectors(otherSector).some(s => s.sectorId === targetSector.sectorId)) {
+                  return true;
+                }
+              }
+            }
+          }
+        }
+        return false;
       },
     })
     .chooseElement<Squad>('squad', {
-      prompt: 'Select squad to stage for coordinated attack',
+      prompt: 'Select squad for coordinated attack',
       elementClass: Squad,
       filter: (element, ctx) => {
-        // Safety check - only rebels have squads
         if (!game.isRebelPlayer(ctx.player)) return false;
         const squad = asSquad(element);
         const player = asRebelPlayer(ctx.player);
-        // Use name comparison instead of object reference
         const isPlayerSquad = squad.name === player.primarySquadRef || squad.name === player.secondarySquadRef;
         if (!isPlayerSquad) return false;
         if (squad.livingMercCount === 0 || !squad.sectorId) return false;
-        // Must have living MERCs with actions
         return squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
       },
     })
@@ -419,16 +438,13 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       prompt: 'Select target sector for coordinated attack',
       elementClass: Sector,
       filter: (element, ctx) => {
-        // Safety check - only rebels can declare coordinated attacks
         if (!game.isRebelPlayer(ctx.player)) return false;
         const sector = asSector(element);
         const player = asRebelPlayer(ctx.player);
         const squad = ctx.args?.squad ? asSquad(ctx.args.squad) : undefined;
-        // During availability check, squad may not be selected yet
         if (!squad?.sectorId) return true;
         const currentSector = game.getSector(squad.sectorId);
         if (!currentSector) return false;
-        // Must be adjacent and have enemies
         const adjacent = game.getAdjacentSectors(currentSector);
         return adjacent.some(s => s.sectorId === sector.sectorId) && hasEnemies(game, sector, player);
       },
@@ -440,195 +456,79 @@ export function createDeclareCoordinatedAttackAction(game: MERCGame): ActionDefi
       const target = asSector(args.target);
       const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
 
-      // Declare the coordinated attack
-      game.declareCoordinatedAttack(target.sectorId, `${player.seat}`, squadType);
-
-      const pending = game.getPendingCoordinatedAttack(target.sectorId);
-      game.message(`${player.name}'s ${squadType} squad staged for coordinated attack on ${target.sectorName} (${pending.length} squad(s) ready)`);
+      game.initCoordinatedAttack(target.sectorId, player.seat, squadType);
+      game.message(`${player.name} declared a coordinated attack on ${target.sectorName} with their ${squadType} squad`);
 
       return {
         success: true,
-        message: `Staged for coordinated attack`,
-        data: { targetSector: target.sectorId, pendingCount: pending.length },
+        message: `Declared coordinated attack on ${target.sectorName}`,
       };
     });
 }
 
 /**
- * MERC-a2h: Join Coordinated Attack - Add squad to existing coordinated attack
- * Per rules (06-merc-actions.md): Multiple squads can join a declared attack
- * Cost: Free (action spent when attack executes)
+ * MERC-a2h: Commit Squad to Coordinated Attack
+ * Used during the simultaneousActionStep — player commits one of their eligible squads.
  */
-export function createJoinCoordinatedAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('joinCoordinatedAttack')
-    .prompt('Join coordinated attack')
+export function createCommitSquadToCoordinatedAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('commitSquadToCoordinatedAttack')
+    .prompt('Commit squad to coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
-      'is multi-player game': () => game.rebelPlayers.length > 1,
-      'has pending attack to join': () => game.pendingCoordinatedAttacks.size > 0,
-      'has squad that can reach pending target': (ctx) => {
+      'coordinated attack exists': () => game.coordinatedAttack !== null,
+      'has eligible squad': (ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
-        const player = asRebelPlayer(ctx.player);
-
-        for (const [targetId] of game.pendingCoordinatedAttacks) {
-          const targetSector = game.getSector(targetId);
-          if (!targetSector) continue;
-
-          for (const squad of [player.primarySquad, player.secondarySquad]) {
-            if (squad.livingMercCount === 0 || !squad.sectorId) continue;
-            const sector = game.getSector(squad.sectorId);
-            if (!sector) continue;
-            const adjacent = game.getAdjacentSectors(sector);
-            if (adjacent.some(s => s.sectorId === targetId)) {
-              if (squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) {
-                return true;
-              }
-            }
-          }
-        }
-        return false;
+        return game.getEligibleSquadsForCoordinatedAttack(ctx.player as any).length > 0;
       },
     })
-    .chooseFrom<string>('targetAttack', {
-      prompt: 'Select coordinated attack to join',
-      choices: () => {
-        const choices: string[] = [];
-        for (const [targetId] of game.pendingCoordinatedAttacks) {
-          choices.push(targetId);
-        }
-        return choices;
-      },
-      display: (targetId) => {
-        const sector = game.getSector(targetId);
-        const participants = game.pendingCoordinatedAttacks.get(targetId) || [];
-        return sector ? `Attack on ${sector.sectorName} (${participants.length} squad(s) ready)` : targetId;
-      },
-    })
-    .chooseElement<Squad>('squad', {
-      prompt: 'Select squad to join the attack',
-      elementClass: Squad,
-      filter: (element, ctx) => {
-        // Safety check - only rebels have squads
-        if (!game.isRebelPlayer(ctx.player)) return false;
-        const squad = asSquad(element);
-        const player = asRebelPlayer(ctx.player);
-        const targetId = ctx.args?.targetAttack as string;
-        // Use name comparison instead of object reference
-        const isPlayerSquad = squad.name === player.primarySquadRef || squad.name === player.secondarySquadRef;
-        if (!isPlayerSquad) return false;
-        if (squad.livingMercCount === 0 || !squad.sectorId) return false;
-
-        // Must be adjacent to target
-        const sector = game.getSector(squad.sectorId);
-        if (!sector) return false;
-        const adjacent = game.getAdjacentSectors(sector);
-        if (!adjacent.some(s => s.sectorId === targetId)) return false;
-
-        // Must have living MERCs with actions
-        return squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
+    .chooseFrom<'primary' | 'secondary'>('squadType', {
+      prompt: 'Select squad to commit',
+      choices: (ctx) => game.getEligibleSquadsForCoordinatedAttack(ctx.player as any),
+      display: (squadType) => {
+        const attack = game.coordinatedAttack;
+        if (!attack) return squadType;
+        const target = game.getSector(attack.targetSectorId);
+        return `${capitalize(squadType)} squad → ${target?.sectorName || attack.targetSectorId}`;
       },
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const squad = asSquad(args.squad);
-      const targetId = args.targetAttack as string;
-      const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
+      const squadType = args.squadType as 'primary' | 'secondary';
 
-      game.declareCoordinatedAttack(targetId, `${player.seat}`, squadType);
-
-      const pending = game.getPendingCoordinatedAttack(targetId);
-      const target = game.getSector(targetId);
-      game.message(`${player.name}'s ${squadType} squad joined coordinated attack on ${target?.sectorName} (${pending.length} squad(s) ready)`);
+      game.commitSquadToCoordinatedAttack(player.seat, squadType);
+      game.message(`${player.name} committed their ${squadType} squad to the coordinated attack`);
 
       return {
         success: true,
-        message: `Joined coordinated attack`,
-        data: { targetSector: targetId, pendingCount: pending.length },
+        message: `Committed ${squadType} squad`,
       };
     });
 }
 
 /**
- * MERC-a2h: Execute Coordinated Attack - Launch staged multi-player attack
- * All participating squads move to target and combat begins with all attackers
- * Cost: 1 action per MERC in all participating squads
+ * MERC-a2h: Decline Coordinated Attack
+ * Used during the simultaneousActionStep — player declines to participate.
  */
-export function createExecuteCoordinatedAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('executeCoordinatedAttack')
-    .prompt('Execute coordinated attack')
+export function createDeclineCoordinatedAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('declineCoordinatedAttack')
+    .prompt('Decline coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
-      'is multi-player game': () => game.rebelPlayers.length > 1,
-      'has pending coordinated attack': () => game.pendingCoordinatedAttacks.size > 0,
-    })
-    .chooseFrom<string>('targetAttack', {
-      prompt: 'Select coordinated attack to execute',
-      choices: () => {
-        const choices: string[] = [];
-        for (const [targetId] of game.pendingCoordinatedAttacks) {
-          choices.push(targetId);
-        }
-        return choices;
-      },
-      display: (targetId) => {
-        const sector = game.getSector(targetId);
-        const participants = game.pendingCoordinatedAttacks.get(targetId) || [];
-        return sector ? `Execute attack on ${sector.sectorName} (${participants.length} squad(s))` : targetId;
+      'coordinated attack exists': () => game.coordinatedAttack !== null,
+      'has not responded yet': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        return !game.hasPlayerRespondedToCoordinatedAttack(ctx.player.seat);
       },
     })
-    .execute((args, ctx) => {
-      const targetId = args.targetAttack as string;
-      const target = game.getSector(targetId);
-      if (!target) {
-        return { success: false, message: 'Target sector not found' };
-      }
+    .execute((_args, ctx) => {
+      const player = asRebelPlayer(ctx.player);
 
-      const participants = game.getPendingCoordinatedAttack(targetId);
-      if (participants.length === 0) {
-        return { success: false, message: 'No squads staged for attack' };
-      }
-
-      // Move all participating squads and spend actions
-      let totalMercs = 0;
-      const enteringSquads: Squad[] = [];
-      for (const { playerId, squadType } of participants) {
-        const rebel = game.rebelPlayers.find(p => `${p.seat}` === playerId);
-        if (!rebel) continue;
-
-        const squad = squadType === 'primary' ? rebel.primarySquad : rebel.secondarySquad;
-        enteringSquads.push(squad);
-        const mercs = squad.getLivingMercs();
-
-        for (const merc of mercs) {
-          useAction(merc, ACTION_COSTS.MOVE);
-        }
-
-        // Set squad location - MERCs inherit via computed getter
-        squad.sectorId = target.sectorId;
-        totalMercs += mercs.length;
-      }
-
-      // Clear pending attack
-      game.clearCoordinatedAttack(targetId);
-
-      // Check for landmines
-      checkLandMines(game, target, enteringSquads, true);
-
-      game.message(`Coordinated attack launched on ${target.sectorName} with ${totalMercs} MERC(s)!`);
-
-      // Flag for combat - use first participant's player for context
-      const firstRebel = game.rebelPlayers.find(p => `${p.seat}` === participants[0].playerId);
-      if (firstRebel && hasEnemies(game, target, firstRebel)) {
-        game.pendingCombat = {
-          sectorId: target.sectorId,
-          playerId: `${firstRebel.seat}`,
-        };
-      }
+      game.declineCoordinatedAttack(player.seat);
+      game.message(`${player.name} declined the coordinated attack`);
 
       return {
         success: true,
-        message: `Coordinated attack - sector secured`,
-        data: { participantCount: participants.length },
+        message: `Declined coordinated attack`,
       };
     });
 }

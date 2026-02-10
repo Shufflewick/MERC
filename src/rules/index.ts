@@ -43,9 +43,9 @@ export {
   createPlaceLandingAction,
   createMoveAction,
   createCoordinatedAttackAction, // MERC-wrq: Coordinated attacks (same player)
-  createDeclareCoordinatedAttackAction, // MERC-a2h: Multi-player coordinated attacks
-  createJoinCoordinatedAttackAction, // MERC-a2h: Join multi-player attack
-  createExecuteCoordinatedAttackAction, // MERC-a2h: Execute multi-player attack
+  createDeclareMultiPlayerAttackAction, // MERC-a2h: Multi-player coordinated attacks
+  createCommitSquadToCoordinatedAttackAction, // MERC-a2h: Simultaneous response
+  createDeclineCoordinatedAttackAction, // MERC-a2h: Simultaneous response
   createExploreAction,
   createTakeFromStashAction,
   createTrainAction,

@@ -569,6 +569,9 @@ const adjacentActions = computed(() => {
       actions.push({ name: 'coordinatedAttack', label: 'Coord. Attack', icon: '⚔️' });
     }
   }
+  if (props.availableActions.includes('declareMultiPlayerAttack')) {
+    actions.push({ name: 'declareMultiPlayerAttack', label: 'Multi-Player Attack', icon: '⚔️' });
+  }
 
   return actions;
 });

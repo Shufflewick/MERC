@@ -448,10 +448,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return [...this.all(MERCPlayer)];
   }
 
-  // MERC-a2h: Track pending coordinated attacks across multiple rebel players
-  // Key: target sectorId, Value: array of { playerId, squadType }
-  // Using persistentMap to survive HMR
-  pendingCoordinatedAttacks = this.persistentMap<string, Array<{ playerId: string; squadType: 'primary' | 'secondary' }>>('pendingCoordinatedAttacks');
+  // MERC-a2h: Multi-player coordinated attack state
+  // Set when a rebel declares a multi-player attack; cleared after execution
+  coordinatedAttack: {
+    targetSectorId: string;
+    declaringPlayerSeat: number;
+    committedSquads: Array<{ playerSeat: number; squadType: 'primary' | 'secondary' }>;
+    declinedPlayers: number[]; // seats that explicitly declined
+  } | null = null;
 
   // MERC-n1f: Interactive combat state
   // Tracks active combat that's paused for player decision (retreat/continue)
@@ -1407,66 +1411,129 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   // ==========================================================================
-  // MERC-a2h: Coordinated Attack Management
+  // MERC-a2h: Multi-Player Coordinated Attack Management
   // ==========================================================================
 
   /**
-   * Declare a coordinated attack on a target sector.
-   * Squad will wait for other participants before executing the attack.
+   * Initialize a multi-player coordinated attack.
+   * The declaring player's squad is committed immediately.
    */
-  declareCoordinatedAttack(targetSectorId: string, playerId: string, squadType: 'primary' | 'secondary'): void {
-    if (!this.pendingCoordinatedAttacks.has(targetSectorId)) {
-      this.pendingCoordinatedAttacks.set(targetSectorId, []);
-    }
-    const attacks = this.pendingCoordinatedAttacks.get(targetSectorId)!;
+  initCoordinatedAttack(targetSectorId: string, declaringSeat: number, squadType: 'primary' | 'secondary'): void {
+    this.coordinatedAttack = {
+      targetSectorId,
+      declaringPlayerSeat: declaringSeat,
+      committedSquads: [{ playerSeat: declaringSeat, squadType }],
+      declinedPlayers: [],
+    };
+  }
 
+  /**
+   * Commit an additional squad to the coordinated attack.
+   */
+  commitSquadToCoordinatedAttack(playerSeat: number, squadType: 'primary' | 'secondary'): void {
+    if (!this.coordinatedAttack) return;
     // Don't add duplicate entries
-    if (!attacks.some(a => a.playerId === playerId && a.squadType === squadType)) {
-      attacks.push({ playerId, squadType });
-      this.message(`Squad declared coordinated attack on sector`);
+    if (!this.coordinatedAttack.committedSquads.some(s => s.playerSeat === playerSeat && s.squadType === squadType)) {
+      this.coordinatedAttack.committedSquads.push({ playerSeat, squadType });
     }
   }
 
   /**
-   * Get pending coordinated attacks for a target sector.
+   * Decline participation in the coordinated attack.
    */
-  getPendingCoordinatedAttack(targetSectorId: string): Array<{ playerId: string; squadType: 'primary' | 'secondary' }> {
-    return this.pendingCoordinatedAttacks.get(targetSectorId) || [];
+  declineCoordinatedAttack(playerSeat: number): void {
+    if (!this.coordinatedAttack) return;
+    if (!this.coordinatedAttack.declinedPlayers.includes(playerSeat)) {
+      this.coordinatedAttack.declinedPlayers.push(playerSeat);
+    }
   }
 
   /**
-   * Clear pending coordinated attack for a target sector (after execution).
+   * Check if a player has responded (committed or declined) to the coordinated attack.
    */
-  clearCoordinatedAttack(targetSectorId: string): void {
-    this.pendingCoordinatedAttacks.delete(targetSectorId);
+  hasPlayerRespondedToCoordinatedAttack(playerSeat: number): boolean {
+    if (!this.coordinatedAttack) return true;
+    if (this.coordinatedAttack.declinedPlayers.includes(playerSeat)) return true;
+    // Check if all eligible squads for this player are committed or if they committed at least one
+    // A player is "done" if they committed a squad or declined
+    return this.coordinatedAttack.committedSquads.some(s => s.playerSeat === playerSeat)
+      || this.coordinatedAttack.declinedPlayers.includes(playerSeat);
   }
 
   /**
-   * Check if a squad has a pending coordinated attack declared.
+   * Execute the coordinated attack: move all committed squads, spend actions.
+   * Returns the squads that entered the target so the caller can handle landmines and combat.
    */
-  hasCoordinatedAttackDeclared(playerId: string, squadType: 'primary' | 'secondary'): string | null {
-    for (const [sectorId, attacks] of this.pendingCoordinatedAttacks.entries()) {
-      if (attacks.some(a => a.playerId === playerId && a.squadType === squadType)) {
-        return sectorId;
+  executeCoordinatedAttack(): { targetSector: Sector; enteringSquads: Squad[]; firstRebel: MERCPlayer | undefined } | null {
+    const attack = this.coordinatedAttack;
+    if (!attack) return null;
+
+    const target = this.getSector(attack.targetSectorId);
+    if (!target) {
+      this.coordinatedAttack = null;
+      return null;
+    }
+
+    const enteringSquads: Squad[] = [];
+    let totalMercs = 0;
+
+    for (const { playerSeat, squadType } of attack.committedSquads) {
+      const rebel = this.rebelPlayers.find(p => p.seat === playerSeat);
+      if (!rebel) continue;
+
+      const squad = squadType === 'primary' ? rebel.primarySquad : rebel.secondarySquad;
+      enteringSquads.push(squad);
+      const mercs = squad.getLivingMercs();
+
+      for (const merc of mercs) {
+        merc.useAction(1);
       }
+
+      squad.sectorId = target.sectorId;
+      totalMercs += mercs.length;
     }
-    return null;
+
+    const firstRebel = this.rebelPlayers.find(p => p.seat === attack.committedSquads[0]?.playerSeat);
+
+    this.message(`Coordinated attack launched on ${target.sectorName} with ${totalMercs} MERC(s)!`);
+    this.coordinatedAttack = null;
+
+    return { targetSector: target, enteringSquads, firstRebel };
   }
 
   /**
-   * Cancel a squad's pending coordinated attack declaration.
+   * Get squad types that a player can commit to the current coordinated attack.
+   * Returns squads that are adjacent to the target sector, have living mercs with actions,
+   * and aren't already committed.
    */
-  cancelCoordinatedAttack(playerId: string, squadType: 'primary' | 'secondary'): void {
-    for (const [sectorId, attacks] of this.pendingCoordinatedAttacks.entries()) {
-      const index = attacks.findIndex(a => a.playerId === playerId && a.squadType === squadType);
-      if (index >= 0) {
-        attacks.splice(index, 1);
-        if (attacks.length === 0) {
-          this.pendingCoordinatedAttacks.delete(sectorId);
-        }
-        break;
-      }
+  getEligibleSquadsForCoordinatedAttack(player: MERCPlayer): Array<'primary' | 'secondary'> {
+    const attack = this.coordinatedAttack;
+    if (!attack || !player.isRebel()) return [];
+
+    const rebel = player as RebelPlayer;
+    const targetSector = this.getSector(attack.targetSectorId);
+    if (!targetSector) return [];
+
+    const eligible: Array<'primary' | 'secondary'> = [];
+    for (const squadType of ['primary', 'secondary'] as const) {
+      // Skip if already committed
+      if (attack.committedSquads.some(s => s.playerSeat === player.seat && s.squadType === squadType)) continue;
+
+      const squad = squadType === 'primary' ? rebel.primarySquad : rebel.secondarySquad;
+      if (squad.livingMercCount === 0 || !squad.sectorId) continue;
+
+      // Must have mercs with actions
+      if (!squad.getLivingMercs().every(m => m.actionsRemaining >= 1)) continue;
+
+      // Must be adjacent to target
+      const currentSector = this.getSector(squad.sectorId);
+      if (!currentSector) continue;
+      const adjacent = this.getAdjacentSectors(currentSector);
+      if (!adjacent.some(s => s.sectorId === attack.targetSectorId)) continue;
+
+      eligible.push(squadType);
     }
+    return eligible;
   }
 
   // ==========================================================================
