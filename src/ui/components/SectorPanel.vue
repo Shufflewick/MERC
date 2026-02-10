@@ -937,11 +937,40 @@ const equipmentTypeChoices = computed(() => {
   });
 });
 
-// Check if it's a generic choice selection (not MERC, equipment, or equipment type)
+// Check if we're selecting a squad (move action squad choice)
+const isSelectingSquad = computed(() => {
+  if (!currentPick.value) return false;
+  return currentPick.value.name === 'squad';
+});
+
+// Map squad choices to include their member data for rich display
+const squadChoicesWithMembers = computed(() => {
+  if (!isSelectingSquad.value) return [];
+  const choices = selectionChoices.value;
+  return choices.map((choice: any) => {
+    const display = choice.display || '';
+    const isPrimary = display.includes('Primary');
+    const squad = isPrimary ? props.primarySquad : props.secondarySquad;
+    return {
+      ...choice,
+      isPrimary,
+      label: display,
+      mercs: (squad?.mercs || []).map((merc: any) => ({
+        combatantId: getAttr(merc, 'combatantId', ''),
+        combatantName: getAttr(merc, 'combatantName', ''),
+        image: getMercImagePath(merc),
+      })),
+    };
+  });
+});
+
+// Check if it's a generic choice selection (not MERC, equipment, equipment type, or squad)
 const isSelectingChoice = computed(() => {
   if (!currentPick.value) return false;
   // Skip if it's an equipment type selection (handled specially)
   if (isSelectingEquipmentType.value) return false;
+  // Skip if it's a squad selection (handled specially)
+  if (isSelectingSquad.value) return false;
   // If we have choices but they're not MERCs or equipment, show as generic choices
   if (selectionChoices.value.length > 0 && !isSelectingMerc.value && !isSelectingEquipment.value) {
     return true;
@@ -1599,6 +1628,28 @@ const hasContentToShow = computed(() => {
             @select="selectEquipmentType"
           />
 
+          <!-- Squad Selection (with combatant icons) -->
+          <div v-else-if="isSelectingSquad" class="squad-choice-selection">
+            <button
+              v-for="choice in squadChoicesWithMembers"
+              :key="String(choice.value)"
+              class="squad-choice-btn"
+              @click="selectChoice(choice)"
+            >
+              <span class="squad-choice-label">{{ choice.label }}</span>
+              <span v-if="choice.mercs.length" class="squad-choice-icons">
+                <CombatantIconSmall
+                  v-for="merc in choice.mercs"
+                  :key="merc.combatantId"
+                  :image="merc.image"
+                  :alt="merc.combatantName"
+                  :player-color="playerColor"
+                  :size="28"
+                />
+              </span>
+            </button>
+          </div>
+
           <!-- Choice Selection -->
           <div v-else-if="isSelectingChoice" class="choice-selection">
             <button
@@ -2019,6 +2070,46 @@ const hasContentToShow = computed(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Squad Choice Selection */
+.squad-choice-selection {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.squad-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(30, 35, 30, 0.9);
+  border: 1px solid v-bind('UI_COLORS.border');
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+
+.squad-choice-btn:hover {
+  background: v-bind('UI_COLORS.accent');
+  border-color: v-bind('UI_COLORS.accent');
+  color: #000;
+}
+
+.squad-choice-label {
+  font-size: 0.85rem;
+}
+
+.squad-choice-icons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 /* Choice Selection */
