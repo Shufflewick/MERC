@@ -516,10 +516,6 @@ export function equipNewHire(
         if (discard) item.putInto(discard);
       }
     }
-    if (displacedBandolierItems.length > 0) {
-      const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
-      game.message(`Bandolier contents returned: ${names}`);
-    }
     game.message(`${merc.combatantName} equipped free ${freeEquipment.equipmentName}`);
   }
 }

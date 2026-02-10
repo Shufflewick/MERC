@@ -220,7 +220,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 
       if (replaced) {
         sector.addToStash(replaced);
-        game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+        game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       }
@@ -229,10 +229,6 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
           const discard = game.getEquipmentDiscard(item.equipmentType);
           if (discard) item.putInto(discard);
         }
-      }
-      if (displacedBandolierItems.length > 0) {
-        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
-        game.message(`Bandolier contents returned: ${names}`);
       }
 
       // If there are more items in stash, chain another reEquip selection (no action cost - already spent)
@@ -369,7 +365,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
       if (replaced) {
         sector.addToStash(replaced);
-        game.message(`${unitName} equipped ${equipment.equipmentName}, returned ${replaced.equipmentName}`);
+        game.message(`${unitName} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`${unitName} equipped ${equipment.equipmentName}`);
       }
@@ -378,10 +374,6 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
           const discard = game.getEquipmentDiscard(item.equipmentType);
           if (discard) item.putInto(discard);
         }
-      }
-      if (displacedBandolierItems.length > 0) {
-        const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
-        game.message(`Bandolier contents returned: ${names}`);
       }
 
       // Chain another if more items remain
@@ -805,10 +797,6 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
             const discard = game.getEquipmentDiscard(item.equipmentType);
             if (discard) item.putInto(discard);
           }
-        }
-        if (displacedBandolierItems.length > 0) {
-          const names = displacedBandolierItems.map(e => e.equipmentName).join(', ');
-          game.message(`Bandolier contents returned: ${names}`);
         }
         game.message(`${squidhead.combatantName} disarms and collects the land mine`);
       } else {
