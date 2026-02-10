@@ -125,7 +125,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -149,7 +149,7 @@ const isSelectingSector = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
-  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick') {
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia') {
     return sel.name === 'targetSector';
   }
   // Base location selection during playTactics or chooseKimBase
@@ -185,6 +185,36 @@ const equipmentTypeChoices = computed(() => {
     label: typeof c === 'string' ? c : c.label || c.value,
   }));
 });
+
+// Generic choice fallback — renders buttons for any chooseFrom step not handled by a special-case UI
+const isSelectingGenericChoice = computed(() => {
+  if (!isInActionFlow.value) return false;
+  const sel = props.actionController.currentPick.value;
+  if (!sel) return false;
+  // Defer to special-case handlers
+  if (isSelectingTacticsCard.value || isSelectingMerc.value || isSelectingSector.value || isSelectingEquipmentType.value) return false;
+  // Must have choices available
+  const choices = props.actionController.getChoices(sel);
+  return choices && choices.length > 0;
+});
+
+const genericChoices = computed(() => {
+  if (!isSelectingGenericChoice.value) return [];
+  const sel = props.actionController.currentPick.value;
+  if (!sel) return [];
+  const choices = props.actionController.getChoices(sel) || [];
+  return choices.map((c: any) => {
+    const value = typeof c === 'string' ? c : c.value ?? c.label;
+    const label = typeof c === 'string' ? c : c.label ?? c.value;
+    return { value, label };
+  });
+});
+
+async function selectGenericChoice(choice: { value: any; label: string }) {
+  const sel = props.actionController.currentPick.value;
+  if (!sel) return;
+  await props.actionController.fill(sel.name, choice.value);
+}
 
 // Selectable MERCs for Generalissimo hire
 const selectableMercs = computed<any[]>(() => {
@@ -547,6 +577,20 @@ const dictatorCardData = computed(() => ({
             player-color="dictator"
             @select="selectEquipmentType"
           />
+
+          <!-- Generic choice fallback (e.g. lockdown militia amount) -->
+          <div v-else-if="isSelectingGenericChoice" class="generic-choices">
+            <div class="actions-area">
+              <button
+                v-for="choice in genericChoices"
+                :key="choice.value"
+                class="action-btn"
+                @click="selectGenericChoice(choice)"
+              >
+                <span class="action-label">{{ choice.label }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </template>
 

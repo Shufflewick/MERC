@@ -588,7 +588,7 @@ if (animationEvents) {
   });
 
   animationEvents.registerHandler('mortar-attack-panel', async (event) => {
-    mortarAttackData.value = event.data as MortarAttackData;
+    mortarAttackData.value = event.data as unknown as MortarAttackData;
   });
 
   animationEvents.registerHandler('combat-panel', async (event) => {

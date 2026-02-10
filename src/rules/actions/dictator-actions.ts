@@ -791,7 +791,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
         return pending.validSectorIds
           .map(id => game.gameMap.getAllSectors().find(s => s.sectorId === id))
           .filter((s): s is Sector => s != null && s.dictatorMilitia < 10) // Respect 10 cap
-          .map(s => `${s.sectorName} (${s.dictatorMilitia}/10)`);
+          .map(s => s.sectorName);
       },
     })
     .chooseFrom<string>('amount', {
@@ -806,9 +806,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
       const pending = game.pendingLockdownMilitia;
       if (!pending) return { success: false, message: 'No pending lockdown militia' };
 
-      // Parse sector from choice (strip militia count suffix)
-      const sectorChoice = args.targetSector as string;
-      const sectorName = sectorChoice.replace(/\s*\(\d+\/10\)$/, '').trim();
+      const sectorName = args.targetSector as string;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
       if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
 
