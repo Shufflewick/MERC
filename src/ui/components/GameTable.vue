@@ -113,6 +113,13 @@ const {
   playerSeatRef
 );
 
+// Combatant data from game settings (for image/stat lookups)
+const combatantData = computed(() => {
+  return props.gameView?.attributes?.settings?.combatantData ||
+         props.state?.state?.settings?.combatantData ||
+         props.gameView?.settings?.combatantData || [];
+});
+
 // Sector state (needs allMercs via lazy getter - allMercs initialized below)
 const {
   sectors,
@@ -1317,6 +1324,7 @@ const clickableSectors = computed(() => {
       :is-my-turn="isMyTurn"
       :all-sectors="sectors"
       :player-color="dictatorPlayerColor"
+      :combatant-data="combatantData"
     />
 
     <!-- Sector Panel - shown when a sector is selected OR when an action has sector context -->

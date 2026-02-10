@@ -4,6 +4,7 @@ import { UI_COLORS } from '../colors';
 import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantCard from './CombatantCard.vue';
+import CombatantIcon from './CombatantIcon.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import ModalContent from './ModalContent.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
@@ -66,6 +67,7 @@ const props = defineProps<{
   isMyTurn: boolean;
   allSectors?: SectorData[]; // For visual sector card display
   playerColor?: string; // Dictator's lobby-selected color
+  combatantData?: Array<{ id: string; cardType: string; name: string; image?: string; combat?: number; training?: number; initiative?: number; ability?: string }>;
 }>();
 
 
@@ -192,7 +194,20 @@ const selectableMercs = computed<any[]>(() => {
   const choices = props.actionController.getChoices(sel) || [];
   return choices.map((c: any) => {
     const value = typeof c === 'string' ? c : c.value || c.label;
-    return { combatantName: value, _choiceValue: value };
+    // Look up full merc data from combatantData for image/stats
+    const mercInfo = props.combatantData?.find(
+      (d) => d.cardType === 'merc' && d.name.toLowerCase() === String(value).toLowerCase()
+    );
+    return {
+      combatantName: value,
+      combatantId: mercInfo?.id || String(value).toLowerCase(),
+      image: mercInfo?.image || '',
+      baseCombat: mercInfo?.combat ?? 0,
+      baseTraining: mercInfo?.training ?? 0,
+      baseInitiative: mercInfo?.initiative ?? 0,
+      ability: mercInfo?.ability || '',
+      _choiceValue: value,
+    };
   });
 });
 
@@ -495,14 +510,17 @@ const dictatorCardData = computed(() => ({
           <!-- Generalissimo MERC Hiring Selection -->
           <div v-else-if="isSelectingMerc" class="merc-hiring-section">
             <div class="merc-choices">
-              <div
+              <CombatantIcon
                 v-for="merc in selectableMercs"
                 :key="merc._choiceValue"
-                class="merc-name-choice"
+                :combatant-id="merc.combatantId"
+                :combatant-name="merc.combatantName"
+                :image="merc.image"
+                :player-color="playerColor"
+                size="medium"
+                clickable
                 @click="selectMercToHire(merc)"
-              >
-                {{ merc.combatantName }}
-              </div>
+              />
             </div>
           </div>
 
@@ -772,23 +790,8 @@ const dictatorCardData = computed(() => ({
   box-shadow: 0 0 12px rgba(139, 0, 0, 0.6);
 }
 
-.merc-name-choice {
-  padding: 10px 16px;
-  background: rgba(139, 0, 0, 0.2);
-  border: 1px solid rgba(139, 0, 0, 0.4);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #fff;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.merc-name-choice:hover {
-  background: rgba(139, 0, 0, 0.5);
-  border-color: #8b0000;
-  transform: translateY(-1px);
+.merc-hiring-section :deep(.combatant-icon.clickable:hover) {
+  background: rgba(139, 0, 0, 0.3);
 }
 
 /* Sector Selection - Container */
