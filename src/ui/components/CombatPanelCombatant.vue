@@ -13,6 +13,8 @@ const props = defineProps<{
   isAttackDog?: boolean;
   health: number;
   maxHealth: number;
+  armor?: number;
+  maxArmor?: number;
   isDead: boolean;
 
   // Interaction state
@@ -119,6 +121,10 @@ function getArmorSoakPosition(soakIndex: number): { top: string; left: string } 
       <span class="health-text">
         {{ health }}/{{ maxHealth }}
       </span>
+    </div>
+    <div v-if="maxArmor && maxArmor > 0" class="armor-bar">
+      <div class="armor-fill" :style="{ width: `${((armor ?? 0) / maxArmor) * 100}%` }"></div>
+      <span class="armor-text">{{ armor ?? 0 }}/{{ maxArmor }}</span>
     </div>
     <!-- Attack dog target info -->
     <div v-if="isAttackDog && dogTargetName" class="dog-target-info">
@@ -317,6 +323,34 @@ function getArmorSoakPosition(soakIndex: number): { top: string; left: string } 
 }
 
 .health-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.armor-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  margin-top: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.armor-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42a5f5, #90caf9);
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+
+.armor-text {
   position: absolute;
   inset: 0;
   display: flex;

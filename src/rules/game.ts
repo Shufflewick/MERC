@@ -1792,4 +1792,5 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   isDayLimitReached(): boolean {
     return this.currentDay > GameDurationConstants.LAST_DAY;
   }
+
 }

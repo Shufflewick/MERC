@@ -89,6 +89,8 @@ function serializeCombatant(c: Combatant): Record<string, unknown> {
     image: c.image,
     health: c.health,
     maxHealth: c.maxHealth,
+    armor: c.armor,
+    maxArmor: c.maxArmor,
     isMerc: !c.isMilitia && !c.isDictator && !c.isAttackDog,
     isMilitia: c.isMilitia,
     isAttackDog: c.isAttackDog,
@@ -732,6 +734,8 @@ function applyMilitiaBatchDamage(
     const armorAbsorb = target.armor > 0 ? Math.min(target.armor, hitCount) : 0;
     const expectedHealthDamage = Math.min(hitCount - armorAbsorb, target.health);
 
+    const armorAfter = Math.max(0, target.armor - armorAbsorb);
+
     if (expectedHealthDamage > 0) {
       game.animate('combat-damage', {
         attackerName: `Militia x${batchSize}`,
@@ -743,6 +747,8 @@ function applyMilitiaBatchDamage(
         healthBefore,
         healthAfter: healthBefore - expectedHealthDamage,
         armorAbsorb,
+        armorAfter,
+        maxArmor: target.maxArmor,
       });
       applyDamage(target, hitCount, game, false);
       damageDealt.set(target.id, expectedHealthDamage);
@@ -757,6 +763,8 @@ function applyMilitiaBatchDamage(
         targetId: target.id,
         targetImage: target.image,
         armorAbsorb,
+        armorAfter,
+        maxArmor: target.maxArmor,
       });
       const damage = applyDamage(target, hitCount, game, false);
       damageDealt.set(target.id, damage);
@@ -911,7 +919,8 @@ function mercToCombatant(merc: CombatantModel, isDictatorSide: boolean, playerCo
     combat: merc.combat,
     health: merc.health,
     maxHealth: merc.maxHealth,
-    armor: merc.equipmentArmor,
+    armor: merc.effectiveArmor,
+    maxArmor: merc.equipmentArmor,
     targets: merc.targets,
     isDictatorSide,
     isMilitia: false,
@@ -939,7 +948,8 @@ function dictatorToCombatant(dictator: CombatantModel, playerColor?: string): Co
     combat: dictator.combat,
     health: dictator.health,
     maxHealth: dictator.maxHealth,
-    armor: 0, // Dictator armor from equipment if any
+    armor: dictator.effectiveArmor,
+    maxArmor: dictator.equipmentArmor,
     targets: 1,
     isDictatorSide: true,
     isMilitia: false,
@@ -984,6 +994,7 @@ function militiaToCombatants(
       health: CombatConstants.MILITIA_HEALTH,
       maxHealth: CombatConstants.MILITIA_HEALTH,
       armor: CombatConstants.MILITIA_ARMOR,
+      maxArmor: CombatConstants.MILITIA_ARMOR,
       targets: CombatConstants.MILITIA_TARGETS,
       isDictatorSide,
       isMilitia: true,
@@ -1014,6 +1025,7 @@ function createAttackDogCombatant(ownerId: string, isDictatorSide: boolean, inde
     health: ATTACK_DOG_HEALTH,
     maxHealth: ATTACK_DOG_HEALTH,
     armor: 0,
+    maxArmor: 0,
     targets: 0,
     isDictatorSide,
     isMilitia: false,
@@ -1045,13 +1057,15 @@ function refreshCombatantStats(combatant: Combatant): void {
     combatant.initiative = merc.initiative;
     combatant.combat = merc.combat;
     combatant.targets = merc.targets;
-    combatant.armor = merc.equipmentArmor;
+    combatant.armor = merc.effectiveArmor;
+    combatant.maxArmor = merc.equipmentArmor;
     combatant.armorPiercing = merc.weaponSlot?.negatesArmor ?? false;
   } else if (combatant.sourceElement?.isDictator) {
     const dictator = combatant.sourceElement as CombatantModel;
     combatant.initiative = dictator.initiative;
     combatant.combat = dictator.combat;
-    // Dictator targets and armor could be updated here if they get equipment
+    combatant.armor = dictator.effectiveArmor;
+    combatant.maxArmor = dictator.equipmentArmor;
   }
 }
 
@@ -1318,9 +1332,46 @@ function selectTargets(
 }
 
 /**
+ * Get all armor-providing equipment from a MERC in damage distribution priority order:
+ * 1. Armor slot, 2. Accessory slot, 3. Bandolier slots (in order)
+ */
+function getArmorEquipmentInOrder(merc: CombatantModel): Equipment[] {
+  const result: Equipment[] = [];
+  if (merc.armorSlot && merc.armorSlot.armorRemaining > 0) result.push(merc.armorSlot);
+  if (merc.accessorySlot && merc.accessorySlot.armorRemaining > 0) result.push(merc.accessorySlot);
+  for (const b of merc.bandolierSlots) {
+    if (b.armorRemaining > 0) result.push(b);
+  }
+  return result;
+}
+
+/**
+ * Unequip and discard a specific equipment piece by its equippedSlot value.
+ */
+function unequipAndDiscard(merc: CombatantModel, equip: Equipment, game: MERCGame): void {
+  const slot = equip.equippedSlot;
+  let removed: Equipment | undefined;
+
+  if (slot === 'armor') {
+    removed = merc.unequip('Armor');
+  } else if (slot === 'accessory') {
+    removed = merc.unequip('Accessory');
+  } else if (slot?.startsWith('bandolier:')) {
+    const idx = parseInt(slot.split(':')[1]);
+    removed = merc.unequipBandolierSlot(idx);
+  }
+
+  if (removed) {
+    const discard = game.getEquipmentDiscard(removed.equipmentType);
+    if (discard) removed.putInto(discard);
+  }
+}
+
+/**
  * Apply damage to a combatant
  * Per rules (07-combat-system.md): Damage hits armor before health.
- * When armor reaches 0, the armor equipment is destroyed.
+ * When armor equipment reaches 0, the piece is destroyed and discarded.
+ * Damage distributes across armor-providing equipment in priority order.
  * MERC-38e: Armor Piercing weapons ignore armor entirely.
  * Returns actual damage dealt to health
  */
@@ -1333,17 +1384,19 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPie
     target.armor -= armorAbsorbed;
     remainingDamage -= armorAbsorbed;
 
-    // If armor is destroyed, mark the equipment as damaged/destroyed
-    if (target.armor <= 0 && target.sourceElement?.isMerc) {
+    // Distribute absorbed damage across equipment pieces in priority order
+    if (target.sourceElement && (target.sourceElement.isMerc || target.sourceElement.isDictator)) {
       const merc = target.sourceElement;
-      if (merc.armorSlot) {
-        merc.armorSlot.isDamaged = true;
-        game.message(`${merc.combatantName}'s ${merc.armorSlot.equipmentName} is destroyed!`);
-        // Discard the armor
-        const armor = merc.unequip('Armor');
-        if (armor) {
-          const discard = game.getEquipmentDiscard('Armor');
-          if (discard) armor.putInto(discard);
+      let damageToDistribute = armorAbsorbed;
+      const armorEquipment = getArmorEquipmentInOrder(merc);
+
+      for (const equip of armorEquipment) {
+        if (damageToDistribute <= 0) break;
+        const { absorbed, destroyed } = equip.applyArmorDamage(damageToDistribute);
+        damageToDistribute -= absorbed;
+        if (destroyed) {
+          game.message(`${merc.combatantName}'s ${equip.equipmentName} is destroyed!`);
+          unequipAndDiscard(merc, equip, game);
         }
       }
     }
@@ -2048,6 +2101,7 @@ function executeCombatRound(
 
     // Target selection - comes AFTER attack dog assignment
     // Pause for target selection for all human-controlled units (both sides get choices)
+    // DEBUG: Log target selection decision
     if (interactive && isHumanControlled && !hasSelectedTargets) {
       // Check if dog forces targets (no player choice needed)
       const assignedDog = activeDogState.assignments.get(attacker.id);
@@ -2265,6 +2319,7 @@ function executeCombatRound(
       const healthBefore = target.health;
       const armorAbsorb = (!attacker.armorPiercing && target.armor > 0) ? Math.min(target.armor, remainingHits) : 0;
       const expectedHealthDamage = Math.min(remainingHits - armorAbsorb, target.health);
+      const armorAfter = Math.max(0, target.armor - armorAbsorb);
 
       if (expectedHealthDamage > 0) {
         // MERC-38e: Pass armorPiercing flag to applyDamage
@@ -2278,6 +2333,8 @@ function executeCombatRound(
           healthBefore,
           healthAfter: healthBefore - expectedHealthDamage,
           armorAbsorb,
+          armorAfter,
+          maxArmor: target.maxArmor,
           armorImage: armorAbsorb > 0
             ? target.sourceElement?.isMerc ? target.sourceElement.armorSlot?.image : undefined
             : undefined,
@@ -2302,6 +2359,8 @@ function executeCombatRound(
           targetId: target.id,
           targetImage: target.image,
           armorAbsorb,
+          armorAfter,
+          maxArmor: target.maxArmor,
           armorImage,
         });
 
@@ -2867,7 +2926,6 @@ export function executeCombat(
 
     game.message(`Rebels: ${rebels.length} units`);
     game.message(`Dictator: ${dictator.length} units`);
-
     if (dictator.length === 0 && rebels.length > 0) {
       const dp = game.dictatorPlayer;
       game.message(`[WARN] 0 dictator units in combat. baseSectorId=${dp?.baseSectorId}, ` +

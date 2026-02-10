@@ -1322,6 +1322,8 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       // Remove from discard pile and add to sector stash
       const discardPile = game.getEquipmentDiscard(pileType);
       if (discardPile) {
+        // Repair the equipment (reset isDamaged + armorDamage) before stashing
+        retrievedEquip.repair();
         // Move from discard to stash
         sector.addToStash(retrievedEquip);
       }

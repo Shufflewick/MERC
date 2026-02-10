@@ -391,8 +391,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
         const secondarySquad = game.dictatorPlayer.secondarySquad;
-        const primaryHasSector = !!primarySquad.sectorId;
-        const secondaryHasSector = !!secondarySquad.sectorId;
+        // A squad "has a sector" only if it has living mercs there
+        // Dead squads retain stale sectorIds that shouldn't restrict choices
+        const primaryHasSector = !!primarySquad.sectorId && primarySquad.getLivingMercs().length > 0;
+        const secondaryHasSector = !!secondarySquad.sectorId && secondarySquad.getLivingMercs().length > 0;
 
         // If both squads are already deployed, only allow their current sectors
         if (primaryHasSector && secondaryHasSector) {
@@ -492,12 +494,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Both squads occupied - adding to primary squad`);
       }
 
-      // Put MERC into chosen squad - merc inherits sectorId from squad
+      // Put MERC into chosen squad and set its location to the selected sector
+      // Always update sectorId: empty squads retain stale sectorIds from dead mercs
       selectedMerc.putInto(targetSquad);
-      // Only set squad location if it doesn't already have one
-      if (!targetSquad.sectorId) {
-        targetSquad.sectorId = targetSector.sectorId;
-      }
+      targetSquad.sectorId = targetSector.sectorId;
       game.message(`Castro deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
 
       // Update squad-based ability bonuses (Tack, Sarge, Valkyrie, etc.)
@@ -635,8 +635,9 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
         const secondarySquad = game.dictatorPlayer.secondarySquad;
-        const primaryHasSector = !!primarySquad.sectorId;
-        const secondaryHasSector = !!secondarySquad.sectorId;
+        // A squad "has a sector" only if it has living mercs there
+        const primaryHasSector = !!primarySquad.sectorId && primarySquad.getLivingMercs().length > 0;
+        const secondaryHasSector = !!secondarySquad.sectorId && secondarySquad.getLivingMercs().length > 0;
 
         // If both squads are already deployed, only allow their current sectors
         if (primaryHasSector && secondaryHasSector) {
@@ -731,11 +732,10 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
         game.message(`Both squads occupied - adding to primary squad`);
       }
 
-      // Put MERC into chosen squad
+      // Put MERC into chosen squad and set its location to the selected sector
+      // Always update sectorId: empty squads retain stale sectorIds from dead mercs
       selectedMerc.putInto(targetSquad);
-      if (!targetSquad.sectorId) {
-        targetSquad.sectorId = targetSector.sectorId;
-      }
+      targetSquad.sectorId = targetSector.sectorId;
       game.message(`Generalissimo deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
 
       // Update squad-based ability bonuses

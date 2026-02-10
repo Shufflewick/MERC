@@ -18,6 +18,7 @@ interface EquipmentData {
   targets?: number;
   armorBonus?: number;
   armor?: number;
+  armorDamage?: number;
   negatesArmor?: boolean;
   image?: string;
   serial?: number;
@@ -45,6 +46,8 @@ const training = computed(() => getProp('training', 0));
 const targets = computed(() => getProp('targets', 0));
 const armorBonus = computed(() => getProp('armorBonus', 0) || getProp('armor', 0));
 const negatesArmor = computed(() => getProp('negatesArmor', false));
+const armorDamage = computed(() => getProp('armorDamage', 0));
+const hasArmorDamageBar = computed(() => armorBonus.value > 0 && armorDamage.value > 0);
 const serial = computed(() => getProp('serial', 0));
 const equipmentId = computed(() => getProp('equipmentId', ''));
 const image = computed(() => {
@@ -138,6 +141,18 @@ const hasStats = computed(() =>
         <div class="stat special" v-if="negatesArmor">
           <span class="stat-icon">💥</span>
           <span class="stat-label">Armor Piercing</span>
+        </div>
+      </div>
+
+      <!-- Armor Durability Bar (only shown when damaged) -->
+      <div v-if="hasArmorDamageBar" class="armor-durability">
+        <div class="armor-durability-label">
+          <span>Durability</span>
+          <span class="armor-durability-value">{{ armorBonus - armorDamage }}/{{ armorBonus }}</span>
+        </div>
+        <div class="armor-durability-bar">
+          <div class="armor-durability-fill"
+            :style="{ width: `${((armorBonus - armorDamage) / armorBonus) * 100}%` }"></div>
         </div>
       </div>
 
@@ -293,6 +308,44 @@ const hasStats = computed(() =>
 
 .stat-value.negative {
   color: #ff6b8a;  /* bright pink */
+}
+
+/* Armor Durability Bar */
+.armor-durability {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: rgba(66, 165, 245, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(66, 165, 245, 0.3);
+}
+
+.armor-durability-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #90caf9;
+  margin-bottom: 4px;
+}
+
+.armor-durability-value {
+  font-weight: 600;
+  color: #42a5f5;
+}
+
+.armor-durability-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.armor-durability-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42a5f5, #90caf9);
+  border-radius: 3px;
+  transition: width 0.3s ease-out;
 }
 
 /* Description Section */

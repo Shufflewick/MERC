@@ -33,6 +33,8 @@ interface AnimationDisplayState {
   // Armor soak
   armorAbsorb?: number;
   armorImage?: string;
+  armorAfter?: number;
+  maxArmor?: number;
   // Attack Dog animation
   dogId?: string;
   dogImage?: string;
@@ -94,6 +96,7 @@ const currentEvent = ref<AnimationDisplayState | null>(null);
 const isPreRoll = ref(false);
 const isFastForward = ref(false);
 const healthOverrides = ref<Map<string, number>>(new Map());
+const armorOverrides = ref<Map<string, number>>(new Map());
 
 // Use BoardSmith's animation events (injected by GameTable)
 const animationEvents = useAnimationEvents();
@@ -154,6 +157,8 @@ function mapEventToDisplayState(event: AnimationEvent): AnimationDisplayState {
     damage: data.damage as number | undefined,
     armorAbsorb: data.armorAbsorb as number | undefined,
     armorImage: data.armorImage as string | undefined,
+    armorAfter: data.armorAfter as number | undefined,
+    maxArmor: data.maxArmor as number | undefined,
     round: data.round as number | undefined,
     rebelVictory: data.rebelVictory as boolean | undefined,
     dictatorVictory: data.dictatorVictory as boolean | undefined,
@@ -192,12 +197,22 @@ if (animationEvents) {
     if (targetId && typeof healthAfter === 'number') {
       healthOverrides.value.set(targetId, healthAfter);
     }
+    const armorAfterVal = typeof data.armorAfter === 'number' ? data.armorAfter : undefined;
+    if (targetId && typeof armorAfterVal === 'number') {
+      armorOverrides.value.set(targetId, armorAfterVal);
+    }
     await sleep(getTiming('damage'));
   });
 
   // Armor soak event handler — armor absorbed all hits, no health damage
   animationEvents.registerHandler('combat-armor-soak', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
+    const data = event.data as Record<string, unknown>;
+    const targetId = normalizeId(data.targetId);
+    const armorAfterVal = typeof data.armorAfter === 'number' ? data.armorAfter : undefined;
+    if (targetId && typeof armorAfterVal === 'number') {
+      armorOverrides.value.set(targetId, armorAfterVal);
+    }
     await sleep(getTiming('damage'));
   });
 
@@ -225,6 +240,7 @@ if (animationEvents) {
     await sleep(getTiming('combat-end'));
     // Cleanup UI state -- GameTable clears the snapshot via combat-finished handler
     healthOverrides.value.clear();
+    armorOverrides.value.clear();
     healingCombatants.value.clear();
     resetAnimations();
     emit('combat-finished');
@@ -272,6 +288,7 @@ function resetAnimations(): void {
   isPreRoll.value = false;
   isFastForward.value = false;
   healthOverrides.value.clear();
+  armorOverrides.value.clear();
 }
 
 
@@ -332,6 +349,7 @@ const sectorName = computed(() => (props.combatSnapshot?.sectorName as string) ?
 watch(() => props.combatSnapshot, (newSnapshot, oldSnapshot) => {
   if (newSnapshot && newSnapshot !== oldSnapshot) {
     healthOverrides.value.clear(); // Snapshot health is authoritative at decision points
+    armorOverrides.value.clear();
   }
   if (newSnapshot && !oldSnapshot) {
     // New combat starting -- reset all UI state
@@ -501,6 +519,8 @@ function getCombatantDisplay(combatant: any) {
     isMilitia: combatant.isMilitia as boolean,
     health,
     maxHealth,
+    armor: armorOverrides.value.get(id) ?? (combatant.armor as number ?? 0),
+    maxArmor: (combatant.maxArmor as number) ?? 0,
     combatantId: (combatant.combatantId as string) || '',
     image: combatant.image as string | undefined,
     isDead: health <= 0,
@@ -745,6 +765,8 @@ onUnmounted(() => {
             :is-attack-dog="getCombatantDisplay(combatant).isAttackDog"
             :health="getCombatantDisplay(combatant).health"
             :max-health="getCombatantDisplay(combatant).maxHealth"
+            :armor="getCombatantDisplay(combatant).armor"
+            :max-armor="getCombatantDisplay(combatant).maxArmor"
             :is-dead="getCombatantDisplay(combatant).isDead"
             :is-attacking="snapshotHitAllocation?.attackerId === getCombatantDisplay(combatant).id"
             :is-targetable="isValidTarget(getCombatantDisplay(combatant).id)"
@@ -790,6 +812,8 @@ onUnmounted(() => {
             :is-attack-dog="getCombatantDisplay(combatant).isAttackDog"
             :health="getCombatantDisplay(combatant).health"
             :max-health="getCombatantDisplay(combatant).maxHealth"
+            :armor="getCombatantDisplay(combatant).armor"
+            :max-armor="getCombatantDisplay(combatant).maxArmor"
             :is-dead="getCombatantDisplay(combatant).isDead"
             :is-targetable="isValidTarget(getCombatantDisplay(combatant).id)"
             :is-selected="hitAllocationRef?.selectedDieIndex !== null && isValidTarget(getCombatantDisplay(combatant).id)"

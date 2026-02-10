@@ -19,6 +19,7 @@ export interface Combatant {
   health: number;
   maxHealth: number;
   armor: number;
+  maxArmor: number;
   targets: number;
   isDictatorSide: boolean;
   isMilitia: boolean;

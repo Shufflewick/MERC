@@ -87,6 +87,7 @@ export interface EquipmentSlotData {
   training?: number;
   targets?: number;
   armorBonus?: number;
+  armorDamage?: number;
   negatesArmor?: boolean;
   isDamaged?: boolean;
   serial?: number;
@@ -798,6 +799,19 @@ export abstract class CombatantBase extends BaseCard {
     return value;
   }
 
+  /**
+   * Effective armor accounting for persistent damage to equipment.
+   * Uses live Equipment references (armorRemaining) instead of max armorBonus.
+   */
+  get effectiveArmor(): number {
+    let value = CombatantBase.BASE_ARMOR;
+    const slots = [this.weaponSlot, this.armorSlot, this.accessorySlot, ...this.bandolierSlots];
+    for (const slot of slots) {
+      if (slot && slot.armorBonus > 0) value += slot.armorRemaining;
+    }
+    return value;
+  }
+
   get isDead(): boolean {
     return this.health <= 0;
   }
@@ -875,6 +889,7 @@ export abstract class CombatantBase extends BaseCard {
         training: equip.training,
         targets: equip.targets,
         armorBonus: equip.armorBonus,
+        armorDamage: equip.armorDamage,
         negatesArmor: equip.negatesArmor,
         isDamaged: equip.isDamaged,
         serial: equip.serial,
@@ -1116,12 +1131,31 @@ export class Equipment extends BaseCard {
   // Damage state - damaged equipment cannot be stashed
   isDamaged: boolean = false;
 
+  // Persistent armor damage tracking — damage counters persist until discarded
+  armorDamage: number = 0;
+
   // Expansion marker (for special game modes)
   expansion?: string;
 
   // Which slot this equipment is in (survives HMR via element hierarchy)
   // Values: 'weapon', 'armor', 'accessory', 'bandolier:0', 'bandolier:1', 'bandolier:2', etc.
   equippedSlot?: string;
+
+  get armorRemaining(): number {
+    return Math.max(0, this.armorBonus - this.armorDamage);
+  }
+
+  /**
+   * Apply damage to this equipment's armor. Returns how much was absorbed and whether the piece is destroyed.
+   */
+  applyArmorDamage(amount: number): { absorbed: number; destroyed: boolean } {
+    if (this.armorBonus <= 0 || this.armorRemaining <= 0) return { absorbed: 0, destroyed: false };
+    const absorbed = Math.min(this.armorRemaining, amount);
+    this.armorDamage += absorbed;
+    const destroyed = this.armorDamage >= this.armorBonus;
+    if (destroyed) this.isDamaged = true;
+    return { absorbed, destroyed };
+  }
 
   /**
    * Mark equipment as damaged (e.g., when absorbed damage)
@@ -1135,6 +1169,7 @@ export class Equipment extends BaseCard {
    */
   repair(): void {
     this.isDamaged = false;
+    this.armorDamage = 0;
   }
 
   get isVehicle(): boolean {
