@@ -623,6 +623,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'before-attack-heal',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingBeforeAttackHealing;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
                 }),
@@ -635,6 +640,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'assign-attack-dog',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingAttackDogSelection;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatAssignAttackDog'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
                 }),
@@ -647,6 +657,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'select-targets',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingTargetSelection;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatSelectTarget'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
                 }),
@@ -992,6 +1007,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'before-attack-heal',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingBeforeAttackHealing;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
                 }),
@@ -1004,6 +1024,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'assign-attack-dog',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingAttackDogSelection;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatAssignAttackDog'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
                 }),
@@ -1016,6 +1041,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'select-targets',
+                  player: (ctx) => {
+                    const pending = game.activeCombat?.pendingTargetSelection;
+                    if (!pending) return ctx.player!;
+                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+                  },
                   actions: ['combatSelectTarget'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
                 }),

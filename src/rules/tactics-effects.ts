@@ -293,7 +293,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
     sectorName: string;
     rebelMilitia: number;
     militiaSent: number;
-    rebel: InstanceType<typeof game.rebelPlayers[0]>;
+    rebel: RebelPlayer;
     sector: Sector;
   }> = [];
 
@@ -311,7 +311,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
 
     if (targetSector && maxMilitia > 0) {
       targets.push({
-        rebelName: rebel.name,
+        rebelName: rebel.name ?? `Player ${rebel.seat}`,
         sectorId: targetSector.sectorId,
         sectorName: targetSector.sectorName,
         rebelMilitia: maxMilitia,
