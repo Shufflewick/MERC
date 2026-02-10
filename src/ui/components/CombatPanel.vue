@@ -962,7 +962,7 @@ onUnmounted(() => {
 
     <!-- Combat actions -->
     <div
-      v-if="!isAllocating && !isSelectingTargets && !isAllocatingWolverineSixes && !isAssigningAttackDog && !isSelectingRetreatSector && isMyTurn && !isAnimating"
+      v-if="!isAllocating && !isSelectingTargets && !isAllocatingWolverineSixes && !isAssigningAttackDog && !isSelectingRetreatSector && !isHealingBeforeAttack && isMyTurn && !isAnimating"
       class="combat-actions"
     >
       <button

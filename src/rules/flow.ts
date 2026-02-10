@@ -488,9 +488,38 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // MERC-n1f: Combat continue/retreat - only when no pending decisions
                 // Also skip when combatComplete (UI is animating)
                 loop({
-                  name: 'combat-decision',
+                  name: 'combat-continue',
                   while: () => game.activeCombat !== null &&
                               !game.activeCombat.combatComplete &&
+                              !game.activeCombat.awaitingRetreatDecisions &&
+                              game.activeCombat.pendingBeforeAttackHealing == null &&
+                              game.activeCombat.pendingAttackDogSelection == null &&
+                              game.activeCombat.pendingTargetSelection == null &&
+                              game.activeCombat.pendingHitAllocation == null &&
+                              game.activeCombat.pendingWolverineSixes == null &&
+                              game.activeCombat.pendingEpinephrine == null &&
+                              !game.isFinished(),
+                  maxIterations: 50,
+                  do: actionStep({
+                    name: 'combat-continue',
+                    actions: ['combatContinue'],
+                    skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                  game.activeCombat.combatComplete ||
+                                  game.activeCombat.awaitingRetreatDecisions ||
+                                  game.activeCombat.pendingBeforeAttackHealing != null ||
+                                  game.activeCombat.pendingAttackDogSelection != null ||
+                                  game.activeCombat.pendingTargetSelection != null ||
+                                  game.activeCombat.pendingHitAllocation != null ||
+                                  game.activeCombat.pendingWolverineSixes != null ||
+                                  game.activeCombat.pendingEpinephrine != null,
+                  }),
+                }),
+
+                loop({
+                  name: 'combat-retreat-decision',
+                  while: () => game.activeCombat !== null &&
+                              !game.activeCombat.combatComplete &&
+                              game.activeCombat.awaitingRetreatDecisions === true &&
                               game.activeCombat.pendingBeforeAttackHealing == null &&
                               game.activeCombat.pendingAttackDogSelection == null &&
                               game.activeCombat.pendingTargetSelection == null &&
@@ -502,7 +531,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   do: sequence(
                     execute(() => {
                       if (!game.activeCombat) return;
-                      game.activeCombat.awaitingRetreatDecisions = true;
                       if (!game.activeCombat.retreatDecisions) {
                         game.activeCombat.retreatDecisions = new Map();
                       } else {
@@ -518,6 +546,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       },
                       skipIf: () => game.isFinished() || game.activeCombat === null ||
                                     game.activeCombat.combatComplete ||
+                                    game.activeCombat.awaitingRetreatDecisions !== true ||
                                     game.activeCombat.pendingBeforeAttackHealing != null ||
                                     game.activeCombat.pendingAttackDogSelection != null ||
                                     game.activeCombat.pendingTargetSelection != null ||
@@ -877,10 +906,37 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                             game.activeCombat.pendingEpinephrine == null &&
                             !game.isFinished(),
                 maxIterations: 50,
+                do: actionStep({
+                  name: 'combat-continue',
+                  actions: ['combatContinue'],
+                  skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                game.activeCombat.combatComplete ||
+                                game.activeCombat.awaitingRetreatDecisions ||
+                                game.activeCombat.pendingBeforeAttackHealing != null ||
+                                game.activeCombat.pendingAttackDogSelection != null ||
+                                game.activeCombat.pendingTargetSelection != null ||
+                                game.activeCombat.pendingHitAllocation != null ||
+                                game.activeCombat.pendingWolverineSixes != null ||
+                                game.activeCombat.pendingEpinephrine != null,
+                }),
+              }),
+
+              loop({
+                name: 'tactics-combat-retreat-decision',
+                while: () => game.activeCombat !== null &&
+                            !game.activeCombat.combatComplete &&
+                            game.activeCombat.awaitingRetreatDecisions === true &&
+                            game.activeCombat.pendingBeforeAttackHealing == null &&
+                            game.activeCombat.pendingAttackDogSelection == null &&
+                            game.activeCombat.pendingTargetSelection == null &&
+                            game.activeCombat.pendingHitAllocation == null &&
+                            game.activeCombat.pendingWolverineSixes == null &&
+                            game.activeCombat.pendingEpinephrine == null &&
+                            !game.isFinished(),
+                maxIterations: 50,
                 do: sequence(
                   execute(() => {
                     if (!game.activeCombat) return;
-                    game.activeCombat.awaitingRetreatDecisions = true;
                     if (!game.activeCombat.retreatDecisions) {
                       game.activeCombat.retreatDecisions = new Map();
                     } else {
@@ -896,6 +952,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     },
                     skipIf: () => game.isFinished() || game.activeCombat === null ||
                                   game.activeCombat.combatComplete ||
+                                  game.activeCombat.awaitingRetreatDecisions !== true ||
                                   game.activeCombat.pendingBeforeAttackHealing != null ||
                                   game.activeCombat.pendingAttackDogSelection != null ||
                                   game.activeCombat.pendingTargetSelection != null ||
@@ -1118,10 +1175,37 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                 game.activeCombat.pendingEpinephrine == null &&
                                 !game.isFinished(),
                     maxIterations: 50,
+                    do: actionStep({
+                      name: 'combat-continue',
+                      actions: ['combatContinue'],
+                      skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                    game.activeCombat.combatComplete ||
+                                    game.activeCombat.awaitingRetreatDecisions ||
+                                    game.activeCombat.pendingBeforeAttackHealing != null ||
+                                    game.activeCombat.pendingAttackDogSelection != null ||
+                                    game.activeCombat.pendingTargetSelection != null ||
+                                    game.activeCombat.pendingHitAllocation != null ||
+                                    game.activeCombat.pendingWolverineSixes != null ||
+                                    game.activeCombat.pendingEpinephrine != null,
+                    }),
+                  }),
+
+                  loop({
+                    name: 'dictator-combat-retreat-decision',
+                    while: () => game.activeCombat !== null &&
+                                !game.activeCombat.combatComplete &&
+                                game.activeCombat.awaitingRetreatDecisions === true &&
+                                game.activeCombat.pendingBeforeAttackHealing == null &&
+                                game.activeCombat.pendingAttackDogSelection == null &&
+                                game.activeCombat.pendingTargetSelection == null &&
+                                game.activeCombat.pendingHitAllocation == null &&
+                                game.activeCombat.pendingWolverineSixes == null &&
+                                game.activeCombat.pendingEpinephrine == null &&
+                                !game.isFinished(),
+                    maxIterations: 50,
                     do: sequence(
                       execute(() => {
                         if (!game.activeCombat) return;
-                        game.activeCombat.awaitingRetreatDecisions = true;
                         if (!game.activeCombat.retreatDecisions) {
                           game.activeCombat.retreatDecisions = new Map();
                         } else {
@@ -1137,6 +1221,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                         },
                         skipIf: () => game.isFinished() || game.activeCombat === null ||
                                       game.activeCombat.combatComplete ||
+                                      game.activeCombat.awaitingRetreatDecisions !== true ||
                                       game.activeCombat.pendingBeforeAttackHealing != null ||
                                       game.activeCombat.pendingAttackDogSelection != null ||
                                       game.activeCombat.pendingTargetSelection != null ||
@@ -1385,10 +1470,37 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                             game.activeCombat.pendingEpinephrine == null &&
                             !game.isFinished(),
                 maxIterations: 50,
+                do: actionStep({
+                  name: 'combat-continue',
+                  actions: ['combatContinue'],
+                  skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                game.activeCombat.combatComplete ||
+                                game.activeCombat.awaitingRetreatDecisions ||
+                                game.activeCombat.pendingBeforeAttackHealing != null ||
+                                game.activeCombat.pendingAttackDogSelection != null ||
+                                game.activeCombat.pendingTargetSelection != null ||
+                                game.activeCombat.pendingHitAllocation != null ||
+                                game.activeCombat.pendingWolverineSixes != null ||
+                                game.activeCombat.pendingEpinephrine != null,
+                }),
+              }),
+
+              loop({
+                name: 'kim-militia-combat-retreat-decision',
+                while: () => game.activeCombat !== null &&
+                            !game.activeCombat.combatComplete &&
+                            game.activeCombat.awaitingRetreatDecisions === true &&
+                            game.activeCombat.pendingBeforeAttackHealing == null &&
+                            game.activeCombat.pendingAttackDogSelection == null &&
+                            game.activeCombat.pendingTargetSelection == null &&
+                            game.activeCombat.pendingHitAllocation == null &&
+                            game.activeCombat.pendingWolverineSixes == null &&
+                            game.activeCombat.pendingEpinephrine == null &&
+                            !game.isFinished(),
+                maxIterations: 50,
                 do: sequence(
                   execute(() => {
                     if (!game.activeCombat) return;
-                    game.activeCombat.awaitingRetreatDecisions = true;
                     if (!game.activeCombat.retreatDecisions) {
                       game.activeCombat.retreatDecisions = new Map();
                     } else {
@@ -1404,6 +1516,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     },
                     skipIf: () => game.isFinished() || game.activeCombat === null ||
                                   game.activeCombat.combatComplete ||
+                                  game.activeCombat.awaitingRetreatDecisions !== true ||
                                   game.activeCombat.pendingBeforeAttackHealing != null ||
                                   game.activeCombat.pendingAttackDogSelection != null ||
                                   game.activeCombat.pendingTargetSelection != null ||

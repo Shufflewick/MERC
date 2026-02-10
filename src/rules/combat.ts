@@ -2955,6 +2955,7 @@ export function executeCombat(
       dictatorCasualties: allDictatorCasualties,
       dogAssignments: Array.from(dogState.assignments.entries()),
       dogs: dogState.dogs,
+      awaitingRetreatDecisions: false,
     };
     game.animate('combat-panel', buildCombatPanelSnapshot(game));
   }
@@ -3036,6 +3037,7 @@ export function executeCombat(
         currentAttackerIndex: pause.attackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        awaitingRetreatDecisions: false,
         pendingTargetSelection: {
           attackerId: pause.attackerId,
           attackerName: pause.attackerName,
@@ -3091,6 +3093,7 @@ export function executeCombat(
         currentAttackerIndex: roundResult.currentAttackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        awaitingRetreatDecisions: false,
       };
 
       // MERC-dice: Sync militia casualties so UI reflects kills during combat
@@ -3134,6 +3137,7 @@ export function executeCombat(
         currentAttackerIndex: pause.attackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        awaitingRetreatDecisions: false,
       };
 
       // Sync militia casualties so UI reflects kills during combat
@@ -3175,6 +3179,7 @@ export function executeCombat(
         currentAttackerIndex: roundResult.currentAttackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        awaitingRetreatDecisions: false,
       };
 
       syncMilitiaCasualties(game, sector, rebels, dictator);
@@ -3213,6 +3218,7 @@ export function executeCombat(
         currentAttackerIndex: pause.attackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        awaitingRetreatDecisions: false,
         pendingAttackDogSelection: {
           attackerId: pause.attackerId,
           attackerName: pause.attackerName,
@@ -3300,6 +3306,7 @@ export function executeCombat(
         dictatorCasualties: allDictatorCasualties,
         dogAssignments: Array.from(dogState.assignments.entries()),
         dogs: dogState.dogs,
+        awaitingRetreatDecisions: true,
       };
       game.animate('combat-panel', buildCombatPanelSnapshot(game));
       combatPending = true;

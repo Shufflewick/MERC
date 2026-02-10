@@ -461,6 +461,35 @@ function getDamagedMercs(combatants: Combatant[]): Combatant[] {
   );
 }
 
+function isCombatDecisionPlayer(game: MERCGame, player: unknown, combatantId: string): boolean {
+  if (!game.activeCombat) return false;
+  const attacker = [...(game.activeCombat.rebelCombatants ?? []),
+                    ...(game.activeCombat.dictatorCombatants ?? [])]
+    .find(c => c.id === combatantId);
+  if (!attacker) return false;
+
+  if (attacker.isDictatorSide) {
+    return game.isDictatorPlayer(player);
+  }
+
+  if (!game.isRebelPlayer(player)) return false;
+
+  const playerSeat = `${(player as { seat?: number }).seat ?? ''}`;
+
+  if (attacker.sourceElement) {
+    const owner = game.rebelPlayers.find(p =>
+      p.team.some(m => m.id === attacker.sourceElement!.id)
+    );
+    if (owner) return `${owner.seat}` === playerSeat;
+  }
+
+  if (attacker.ownerId) {
+    return `${attacker.ownerId}` === playerSeat;
+  }
+
+  return game.rebelPlayers.length === 1;
+}
+
 // =============================================================================
 // MERC-dice: Combat Hit Allocation Actions
 // =============================================================================
@@ -753,7 +782,12 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
       'has active combat': () => game.activeCombat != null,
       'no pending target selection': () => !game.activeCombat?.pendingTargetSelection,
       'no pending hit allocation': () => !game.activeCombat?.pendingHitAllocation,
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
+      'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
+      'is controlling player': (ctx) => {
+        const pending = game.activeCombat?.pendingBeforeAttackHealing;
+        if (!pending) return false;
+        return isCombatDecisionPlayer(game, ctx.player, pending.attackerId);
+      },
       'has healer with item and dice to use': () => {
         if (!game.activeCombat) return false;
         const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
@@ -939,11 +973,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
       'is controlling player': (ctx) => {
         const pending = game.activeCombat?.pendingBeforeAttackHealing;
         if (!pending) return false;
-        const attacker = game.activeCombat?.rebelCombatants?.find(c => c.id === pending.attackerId) ||
-                         game.activeCombat?.dictatorCombatants?.find(c => c.id === pending.attackerId);
-        if (!attacker) return false;
-        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
-        return isRebelPlayer(ctx.player);
+        return isCombatDecisionPlayer(game, ctx.player, pending.attackerId);
       },
     })
     .chooseFrom<string>('healer', {
@@ -1101,11 +1131,7 @@ export function createCombatSkipBeforeAttackHealAction(game: MERCGame): ActionDe
       'is controlling player': (ctx) => {
         const pending = game.activeCombat?.pendingBeforeAttackHealing;
         if (!pending) return false;
-        const attacker = game.activeCombat?.rebelCombatants?.find(c => c.id === pending.attackerId) ||
-                         game.activeCombat?.dictatorCombatants?.find(c => c.id === pending.attackerId);
-        if (!attacker) return false;
-        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
-        return isRebelPlayer(ctx.player);
+        return isCombatDecisionPlayer(game, ctx.player, pending.attackerId);
       },
     })
     .execute(() => {
@@ -1180,13 +1206,13 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
       'has active combat': () => game.activeCombat != null,
       'no pending target selection': () => !game.activeCombat?.pendingTargetSelection,
       'no pending hit allocation': () => !game.activeCombat?.pendingHitAllocation,
-      'has human-controlled Surgeon with heal available': () => {
+      'has human-controlled Surgeon with heal available': (ctx) => {
         if (!game.activeCombat) return false;
 
         // Check rebel side for human Surgeon
         const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
         const rebelSurgeon = findSurgeonInCombat(rebelCombatants, game);
-        if (rebelSurgeon) {
+        if (rebelSurgeon && isCombatDecisionPlayer(game, ctx.player, rebelSurgeon.combatant.id)) {
           const { combatant } = rebelSurgeon;
           // Surgeon needs at least 2 dice (1 to sacrifice, 1 to still attack)
           const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
@@ -1200,7 +1226,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         if (!game.dictatorPlayer?.isAI) {
           const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
           const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
-          if (dictatorSurgeon) {
+          if (dictatorSurgeon && isCombatDecisionPlayer(game, ctx.player, dictatorSurgeon.combatant.id)) {
             const { combatant } = dictatorSurgeon;
             const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
             if (combatant.combat - diceUsed >= 2) {
@@ -1240,6 +1266,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
           const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
           if (dictatorSurgeon) {
             const { combatant } = dictatorSurgeon;
+            if (!isCombatDecisionPlayer(game, ctx.player, combatant.id)) return false;
             const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
             if (combatant.combat - diceUsed >= 2) {
               const damagedAllies = getSurgeonHealTargets(combatant, dictatorCombatants);
@@ -1782,4 +1809,3 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
       };
     });
 }
-
