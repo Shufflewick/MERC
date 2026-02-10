@@ -199,6 +199,8 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
   'smaw': {
     id: 'smaw',
     weaponCategory: 'smaw',
+    consumable: true,
+    discardAfterAttack: true,
   },
 
   // --- Explosives (Grenades/Mortars) ---

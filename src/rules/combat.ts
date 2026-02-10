@@ -2575,10 +2575,20 @@ function executeCombatRound(
       }
     }
 
-    // Discard accessories with discardAfterAttack (grenades, mortars)
+    // Discard equipment with discardAfterAttack (grenades, mortars, SMAW)
     if (attacker.sourceElement?.isMerc) {
       const merc = attacker.sourceElement;
+      const weaponDiscard = game.getEquipmentDiscard('Weapon');
       const accessoryDiscard = game.getEquipmentDiscard('Accessory');
+
+      // Check weapon slot (e.g., SMAW)
+      if (merc.weaponSlot && checkDiscardAfterAttack(merc.weaponSlot.equipmentId)) {
+        game.message(`${merc.combatantName}'s ${merc.weaponSlot.equipmentName} is used up!`);
+        const weapon = merc.unequip('Weapon');
+        if (weapon && weaponDiscard) {
+          weapon.putInto(weaponDiscard);
+        }
+      }
 
       // Check accessory slot
       if (merc.accessorySlot && checkDiscardAfterAttack(merc.accessorySlot.equipmentId)) {
