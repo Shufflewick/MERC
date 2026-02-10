@@ -81,10 +81,8 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         return ctx.player.team.length === 0;
       },
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('merc', {
       prompt: 'Select your FIRST MERC to hire',
-      defer: true, // Choices evaluated when action is started, enabling deck manipulation
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
         const playerId = `${player.seat}`;
@@ -93,7 +91,6 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         // This prevents drawing during action availability preview
         const available = getMercsFromCache(game, playerId);
         if (!available) {
-          // First time accessing - draw now (defer: true means action was clicked)
           const drawn = ensureMercsDrawn(game, playerId);
           if (drawn.length === 0) {
             return ['No MERCs available'];
@@ -106,27 +103,11 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         }
         return available.map((m) => capitalize(m.combatantName));
       },
-      // AI: Pick a random available MERC
-      aiSelect: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-        const cached = getMercsFromCache(game, playerId);
-        const available = cached ?? ensureMercsDrawn(game, playerId);
-        if (available.length === 0) return undefined;
-        const pick = available[Math.floor(game.random() * available.length)];
-        return capitalize(pick.combatantName);
-      },
-    } as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
-      // AI: Pick random equipment type
-      aiSelect: () => {
-        const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(game.random() * types.length)];
-      },
-    } as any)
+    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const playerId = `${player.seat}`;
@@ -193,7 +174,6 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         return player.team.length === 1 && remaining.length >= 2;
       },
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('merc', {
       prompt: 'Select your SECOND MERC to hire',
       choices: (ctx: ActionContext) => {
@@ -215,27 +195,11 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         }
         return compatible.map((m) => capitalize(m.combatantName));
       },
-      // AI: Pick a random compatible MERC
-      aiSelect: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-        const available = getMercsFromCache(game, playerId) || [];
-        const compatible = available.filter(m => canHireMercWithTeam(m.combatantId, player.team));
-        if (compatible.length === 0) return undefined;
-        const pick = compatible[Math.floor(game.random() * compatible.length)];
-        return capitalize(pick.combatantName);
-      },
-    } as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
-      // AI: Pick random equipment type
-      aiSelect: () => {
-        const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(game.random() * types.length)];
-      },
-    } as any)
+    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const playerId = `${player.seat}`;
@@ -321,7 +285,6 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         return player.team.length === 2 && hasTeresa && remaining.length > 0;
       },
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('merc', {
       prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',
       choices: (ctx: ActionContext) => {
@@ -338,18 +301,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         choices.push('Skip (no third hire)');
         return choices;
       },
-      // AI: Pick a random compatible MERC (don't skip)
-      aiSelect: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-        const available = getMercsFromCache(game, playerId) || [];
-        const compatible = available.filter(m => canHireMercWithTeam(m.combatantId, player.team));
-        if (compatible.length === 0) return 'Skip (no third hire)';
-        const pick = compatible[Math.floor(game.random() * compatible.length)];
-        return capitalize(pick.combatantName);
-      },
-    } as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: (ctx: ActionContext) => {
@@ -360,14 +312,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         }
         return ['Weapon', 'Armor', 'Accessory'];
       },
-      // AI: Pick random equipment type (or N/A if skipping)
-      aiSelect: (ctx: ActionContext) => {
-        const mercChoice = ctx.args?.merc as string;
-        if (mercChoice === 'Skip (no third hire)') return 'N/A';
-        const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(game.random() * types.length)];
-      },
-    } as any)
+    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const playerId = `${player.seat}`;
@@ -446,16 +391,10 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
         );
       },
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
-      // AI: Pick random equipment type
-      aiSelect: () => {
-        const types = ['Weapon', 'Armor', 'Accessory'];
-        return types[Math.floor(game.random() * types.length)];
-      },
-    } as any)
+    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       // Auto-select the unequipped MERC
@@ -499,23 +438,15 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
         return !ctx.player.primarySquad.sectorId;
       },
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseElement<Sector>('sector', {
       prompt: 'Select an edge industry to land',
       elementClass: Sector,
-      filter: (element: Sector) => {
+      filter: (element) => {
         if (!(element instanceof Sector)) return false;
         return isValidLandingSector(game, element);
       },
       boardRef: (element: Sector) => ({ id: asSector(element).id }),
-      // AI: Pick a random valid landing sector
-      aiSelect: () => {
-        const validSectors = game.gameMap.getAllSectors()
-          .filter(s => isValidLandingSector(game, s));
-        if (validSectors.length === 0) return undefined;
-        return validSectors[Math.floor(game.random() * validSectors.length)];
-      },
-    } as any)
+    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const sector = asSector(args.sector);
@@ -541,7 +472,6 @@ export function createPlaceLandingDay1Action(game: MERCGame): ActionDefinition {
 /**
  * Select Dictator - Human dictator players choose which dictator to play as
  * AI dictators get a random selection during setup, so this is skipped for them.
- * Uses defer: true to trigger the hiring-style UI with dictator cards.
  */
 export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
   return Action.create('selectDictator')
@@ -551,16 +481,14 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
       'dictator not yet selected': () => !game.dictatorPlayer?.dictator,
       'is human dictator player': () => !game.dictatorPlayer?.isAI,
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('dictatorChoice', {
       prompt: 'Select your Dictator',
-      defer: true, // Triggers hiring-style UI
       choices: () => {
         // Get available dictators from combatantData - filter for dictator entries
         const dictators = game.combatantData.filter(d => d.cardType === 'dictator');
         return dictators.map(d => d.name);
       },
-    } as any)
+    })
     .execute((args) => {
       const chosenDictatorName = args.dictatorChoice as string;
 
@@ -642,20 +570,17 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       'is Day 1': () => game.currentDay === 1,
     })
     // Show the drawn MERC name (drawn by flow execute step before this action)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('merc', {
       prompt: 'Hiring MERC',
       choices: () => {
         const merc = getDrawnMerc();
         return merc ? [merc.combatantName] : ['Unknown'];
       },
-    } as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
-    } as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    })
     .chooseFrom<string>('targetSector', {
       prompt: 'Choose deployment sector',
       choices: () => {
@@ -670,7 +595,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         }
         return sectors.map(s => s.sectorName);
       },
-    } as any)
+    })
     .execute((args) => {
       // AI path - use auto hire
       if (game.dictatorPlayer?.isAI) {
@@ -841,10 +766,8 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         return remaining === undefined || remaining > 0;
       },
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .chooseFrom<string>('targetSector', {
       prompt: 'Choose sector to place militia',
-      skipIf: () => game.dictatorPlayer?.isAI === true,
       choices: () => {
         // Get dictator-controlled sectors
         const sectors = game.gameMap.getAllSectors()
@@ -857,11 +780,9 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         }
         return sectors.map(s => s.sectorName);
       },
-    } as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    })
     .chooseFrom<string>('amount', {
       prompt: 'How many militia to place here?',
-      skipIf: () => game.dictatorPlayer?.isAI === true,
       dependsOn: 'targetSector',
       choices: () => {
         const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
@@ -877,7 +798,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         }
         return options;
       },
-    } as any)
+    })
     .execute((args) => {
       // AI path - use auto placement
       if (game.dictatorPlayer?.isAI) {

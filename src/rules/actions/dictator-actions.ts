@@ -85,7 +85,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       prompt: 'Select a tactics card to play',
       elementClass: TacticsCard,
       display: (card: TacticsCard) => card.tacticsName,
-      filter: (element: TacticsCard) => {
+      filter: (element) => {
         const card = asTacticsCard(element);
         // MERC-5j2: AI auto-selects top card from deck
         if (game.dictatorPlayer?.isAI) {
@@ -96,28 +96,13 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         const handCards = game.dictatorPlayer?.tacticsHand?.all(TacticsCard) ?? [];
         return handCards.some(c => c.id === card.id);
       },
-      // MERC-pj8: Explicit AI auto-select for top deck card
-      aiSelect: () => {
-        if (!game.dictatorPlayer?.isAI) return undefined;
-        return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
-      },
-    } as any)
+    })
     // Human players choose base location when playing a base-reveal card
     .chooseFrom<string>('baseLocation', {
       prompt: 'Choose the location for your base',
-      dependsOn: 'card', // This step depends on the card selection
-      skipIf: (ctx: ActionContext) => {
-        // Skip if AI, base already revealed, or card doesn't reveal base
-        if (game.dictatorPlayer?.isAI) return true;
-        if (game.dictatorPlayer?.baseRevealed) return true;
-        const card = ctx.args?.card as TacticsCard | undefined;
-        // Skip if no card selected or card doesn't reveal base
-        if (!card || !card.revealsBase) return true;
-        return false;
-      },
+      dependsOn: 'card',
       choices: (ctx: ActionContext) => {
         // If base is already revealed, return placeholder (selection will be skipped)
-        // This ensures the action is available even when this selection isn't needed
         if (game.dictatorPlayer?.baseRevealed) {
           return ['(skipped)'];
         }
@@ -138,19 +123,11 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         }
         return industries.map(s => s.sectorName);
       },
-    } as any)
+    })
     // Human dictator chooses starting equipment when base is revealed
     .chooseFrom<string>('dictatorEquipment', {
       prompt: 'Choose starting equipment for the Dictator',
-      dependsOn: 'baseLocation', // This step depends on baseLocation (which depends on card)
-      skipIf: (ctx: ActionContext) => {
-        // Skip if AI, base already revealed, or card doesn't reveal base
-        if (game.dictatorPlayer?.isAI) return true;
-        if (game.dictatorPlayer?.baseRevealed) return true;
-        const card = ctx.args?.card as TacticsCard | undefined;
-        if (!card || !card.revealsBase) return true;
-        return false;
-      },
+      dependsOn: 'baseLocation',
       choices: (ctx: ActionContext) => {
         // If base is already revealed, return placeholder (selection will be skipped)
         if (game.dictatorPlayer?.baseRevealed) return ['(skipped)'];
@@ -159,7 +136,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         if (!card || !card.revealsBase) return ['(skipped)'];
         return ['Weapon', 'Armor', 'Accessory'];
       },
-    } as any)
+    })
     .execute((args) => {
       const card = asTacticsCard(args.card);
       game.message(`Dictator plays: ${card.tacticsName}`);
@@ -232,7 +209,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       prompt: 'Discard a tactics card to reinforce',
       elementClass: TacticsCard,
       display: (card: TacticsCard) => card.tacticsName,
-      filter: (element: TacticsCard) => {
+      filter: (element) => {
         const card = asTacticsCard(element);
         // MERC-5j2: AI auto-selects top card from deck
         if (game.dictatorPlayer?.isAI) {
@@ -243,16 +220,11 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         const handCards = game.dictatorPlayer?.tacticsHand?.all(TacticsCard) ?? [];
         return handCards.some(c => c.id === card.id);
       },
-      // MERC-pj8: Explicit AI auto-select for top deck card
-      aiSelect: () => {
-        if (!game.dictatorPlayer?.isAI) return undefined;
-        return game.dictatorPlayer?.tacticsDeck?.first(TacticsCard) ?? undefined;
-      },
-    } as any)
+    })
     .chooseElement<Sector>('sector', {
       prompt: 'Place reinforcement militia where?',
       elementClass: Sector,
-      filter: (element: Sector) => {
+      filter: (element) => {
         const sector = asSector(element);
         // Per rules: "Sector must be Dictator-controlled"
         // Dictator controls if militia >= total rebel militia (ties go to dictator)
@@ -263,21 +235,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         return isControlled || isBase;
       },
       boardRef: (element: Sector) => ({ id: asSector(element).id }),
-      // MERC-0m0: AI auto-select per rule 4.4.3 - closest to rebel-controlled sector
-      aiSelect: () => {
-        if (!game.dictatorPlayer?.isAI) return undefined;
-        // Get all dictator-controlled sectors
-        const controlled = game.gameMap.getAllSectors().filter(s => {
-          const isControlled = s.dictatorMilitia >= s.getTotalRebelMilitia() &&
-            s.dictatorMilitia > 0;
-          const isBase = game.dictatorPlayer.baseSectorId === s.sectorId;
-          return isControlled || isBase;
-        });
-        if (controlled.length === 0) return undefined;
-        // Use rule 4.4.3: closest to rebel-controlled sector
-        return selectMilitiaPlacementSector(game, controlled, 'dictator') ?? undefined;
-      },
-    } as any)
+    })
     .execute((args) => {
       const card = asTacticsCard(args.card);
       const sector = asSector(args.sector);
@@ -355,7 +313,6 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom<string>('selectedMerc', {
       prompt: 'Choose a MERC to hire',
-      defer: true, // Draw MERCs when action starts
       choices: () => {
         // Draw 3 MERCs if not already drawn
         if (!getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY)) {
@@ -381,7 +338,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         // Return just capitalized names (UI finds MERC data via findMercByName)
         return mercs.map(m => capitalize(m.combatantName));
       },
-    } as any)
+    })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
@@ -625,7 +582,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
         if (mercs.length === 0) return ['No MERCs available'];
         return mercs.map(m => capitalize(m.combatantName));
       },
-    } as any)
+    })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],

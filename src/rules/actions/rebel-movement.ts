@@ -189,24 +189,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         return Array.from({ length: max + 1 }, (_, i) => i);
       },
       display: (n: number) => n === 0 ? 'None' : `${n} militia`,
-      skipIf: (ctx: ActionContext) => {
-        if (!game.isRebelPlayer(ctx.player)) return true;
-        const squad = ctx.args?.squad as Squad | undefined;
-        if (!squad?.sectorId) return true;
-
-        const mercs = squad.getLivingMercs();
-        const hasSonia = mercs.some(m => m.combatantId === 'sonia');
-        if (!hasSonia) return true;
-
-        const player = asRebelPlayer(ctx.player);
-        const sourceSector = game.getSector(squad.sectorId);
-        if (!sourceSector) return true;
-
-        const playerId = `${player.seat}`;
-        return sourceSector.getRebelMilitia(playerId) === 0;
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)
+    })
     .execute((args, ctx) => {
       const squad = asSquad(args.squad);
       const destination = asSector(args.destination);
