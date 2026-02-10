@@ -609,8 +609,8 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       // Add to sector stash
       sector.addToStash(droppedItem);
 
-      g.message(`${capitalize(actingCombatant.combatantName)} dropped ${droppedItem.equipmentName} in ${sector.sectorName}`);
-      return { success: true, message: `Dropped ${droppedItem.equipmentName}` };
+      g.message(`${capitalize(actingCombatant.combatantName)} dropped a piece of equipment in ${sector.sectorName}`);
+      return { success: true, message: `Dropped equipment` };
     });
 }
 

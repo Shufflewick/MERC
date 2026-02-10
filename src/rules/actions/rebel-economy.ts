@@ -378,10 +378,10 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       // Get unit name for messages
       const unitName = getUnitName(actingUnit);
 
-      // Report what was found
+      // Report exploration (don't reveal items - competitors can read the log)
+      game.message(`${capitalize(unitName)} explored ${sector.sectorName}`);
+
       if (sector.stashCount > 0) {
-        const equipmentList = sector.stash.map(e => e.equipmentName).join(', ');
-        game.message(`${capitalize(unitName)} explored ${sector.sectorName} and found: ${equipmentList}`);
 
         // Chain to collectEquipment action with pre-filled args
         // Use display option for friendly chip names while keeping IDs for lookup
@@ -401,7 +401,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
           },
         };
       } else {
-        game.message(`${capitalize(unitName)} explored ${sector.sectorName} and found nothing`);
+        // No additional message needed - exploration message already sent above
         return {
           success: true,
           message: `Explored ${sector.sectorName}`,
