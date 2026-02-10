@@ -25,10 +25,7 @@ const showShield = ref(false);
 
 // Shield color based on player
 const shieldColor = computed(() => {
-  if (props.isDictator) {
-    return getPlayerColor('dictator') || '#8b0000';
-  }
-  return getPlayerColor(props.playerColor) || '#2d5a2d';
+  return getPlayerColor(props.playerColor) || (props.isDictator ? '#8b0000' : '#2d5a2d');
 });
 
 // Animation duration per shield (ms)

@@ -26,6 +26,7 @@ export interface MercWithLocation {
   playerColor: string;
   image: string;
   isDictator?: boolean;
+  isDictatorUnit?: boolean; // Belongs to dictator player (mercs + dictator character)
   [key: string]: unknown; // Allow spread of original node properties
 }
 
@@ -308,8 +309,11 @@ export function useSquadState(
       const isDictatorSquad = squadName.includes('dictator');
 
       let playerColor = '';
+      let isDictatorUnit = false;
       if (isDictatorSquad) {
-        playerColor = 'dictator';
+        const dictatorPlayer = players.value.find((p) => p.isDictator);
+        playerColor = dictatorPlayer?.playerColor || '';
+        isDictatorUnit = true;
       } else if (squadSeat >= 0) {
         const player = players.value.find((p) => p.seat === squadSeat);
         if (!player) {
@@ -343,6 +347,7 @@ export function useSquadState(
               sectorId: mercSectorId,
               sectorName: mercSector?.sectorName || '',
               playerColor,
+              isDictatorUnit,
               image: getAttr<string>(merc, 'image', ''),
             });
           }
@@ -357,6 +362,9 @@ export function useSquadState(
       const name = getAttr<string>(s, 'name', '') || s.ref || '';
       return name.includes('dictator');
     });
+
+    const dictatorPlayer = players.value.find((p) => p.isDictator);
+    const dictatorColor = dictatorPlayer?.playerColor || '';
 
     for (const squad of dictatorSquads) {
       const squadSectorId = getAttr<string>(squad, 'sectorId', '');
@@ -378,7 +386,8 @@ export function useSquadState(
               combatantId,
               sectorId: squadSectorId,
               sectorName: dictatorMercSector?.sectorName || '',
-              playerColor: 'dictator',
+              playerColor: dictatorColor,
+              isDictatorUnit: true,
               image: getAttr<string>(child, 'image', ''),
             });
           }
@@ -402,7 +411,8 @@ export function useSquadState(
               combatantName: getAttr<string>(child, 'combatantName', 'The Dictator'),
               sectorId: squadSectorId,
               sectorName: dictatorSector?.sectorName || '',
-              playerColor: 'dictator',
+              playerColor: dictatorColor,
+              isDictatorUnit: true,
               image: getAttr<string>(child, 'image', ''),
               isDictator: true,
             });

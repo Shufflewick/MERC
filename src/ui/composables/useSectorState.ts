@@ -85,6 +85,8 @@ export interface SectorStateDependencies {
   getDictatorCard: () => { sectorId: string; inPlay: boolean } | undefined;
   /** Convert seat to color name */
   seatToColor: (seat: string | number) => string;
+  /** Get dictator player's color name */
+  getDictatorColor: () => string;
 }
 
 /**
@@ -317,7 +319,7 @@ export function useSectorState(
       const rebelUnits: Record<string, number> = {};
 
       const dictatorMercsInSector = allMercs.filter(
-        (m: any) => m.sectorId === sector.sectorId && m.playerColor === 'dictator'
+        (m: any) => m.sectorId === sector.sectorId && m.isDictatorUnit
       );
       dictatorUnits += dictatorMercsInSector.length;
 
@@ -331,7 +333,7 @@ export function useSectorState(
 
       const rebelMercsInSector = allMercs.filter(
         (m: any) =>
-          m.sectorId === sector.sectorId && m.playerColor !== 'dictator'
+          m.sectorId === sector.sectorId && !m.isDictatorUnit
       );
       for (const merc of rebelMercsInSector) {
         const color = merc.playerColor || 'unknown';
@@ -343,7 +345,7 @@ export function useSectorState(
 
       if (dictatorUnits > 0) {
         maxUnits = dictatorUnits;
-        controller = 'dictator';
+        controller = deps.getDictatorColor() || 'black';
       }
 
       for (const [color, units] of Object.entries(rebelUnits)) {
@@ -355,6 +357,10 @@ export function useSectorState(
 
       if (maxUnits > 0) {
         map[sector.sectorId] = controller;
+        // DEBUG: trace control map resolution
+        if (sector.sectorId === sectors.value[0]?.sectorId || dictatorUnits > 0) {
+          console.log(`[ControlMap DEBUG] sector=${sector.sectorId} controller="${controller}" dictatorUnits=${dictatorUnits} rebelUnits=`, rebelUnits);
+        }
       }
     }
 

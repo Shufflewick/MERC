@@ -20,15 +20,21 @@ export const PLAYER_COLORS_LIGHT: Record<string, string> = {
   orange: '#fcc580',
 };
 
-// Get color for a player by their playerColor attribute
+// Get color for a player by their playerColor attribute or hex code
 export function getPlayerColor(playerColor: string | undefined): string {
   if (!playerColor) return '#666666'; // default gray for uncontrolled
-  return PLAYER_COLORS[playerColor] || '#666666';
+  if (playerColor.startsWith('#')) return playerColor; // already a hex color
+  const resolved = PLAYER_COLORS[playerColor];
+  if (!resolved) {
+    console.warn(`[getPlayerColor DEBUG] No match for "${playerColor}" in PLAYER_COLORS, returning gray`);
+  }
+  return resolved || '#666666';
 }
 
 // Get light color variant for a player
 export function getPlayerColorLight(playerColor: string | undefined): string {
   if (!playerColor) return '#888888';
+  if (playerColor.startsWith('#')) return playerColor; // already a hex color
   return PLAYER_COLORS_LIGHT[playerColor] || '#888888';
 }
 

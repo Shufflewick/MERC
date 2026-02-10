@@ -865,6 +865,22 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     player.role = 'dictator';
     this._dictatorPlayer = player;
 
+    // Assign color: prefer MERC config, fall back to engine's lobby-assigned color
+    const seat = player.seat;
+    const playerConfig = MERCGame._pendingPlayerConfigs[seat - 1];
+    if (playerConfig?.color) {
+      player.playerColorHex = playerConfig.color;
+      player.playerColor = hexToPlayerColor(playerConfig.color);
+    } else if (player.color) {
+      player.playerColorHex = player.color;
+      player.playerColor = hexToPlayerColor(player.color);
+    }
+
+    // Set AI flag from player config (for bot players)
+    if (playerConfig?.isAI !== undefined) {
+      player.isAI = playerConfig.isAI;
+    }
+
     // Create three squads for dictator: primary, secondary, and base
     const primaryRef = `squad-dictator-primary`;
     const secondaryRef = `squad-dictator-secondary`;
@@ -885,12 +901,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   private configureAsRebel(player: MERCPlayer): void {
     player.role = 'rebel';
 
-    // Assign color and AI flag from player config
+    // Assign color: prefer MERC config, fall back to engine's lobby-assigned color
     const seat = player.seat;
     const playerConfig = MERCGame._pendingPlayerConfigs[seat - 1];
     if (playerConfig?.color) {
       player.playerColorHex = playerConfig.color;
       player.playerColor = hexToPlayerColor(playerConfig.color);
+    } else if (player.color) {
+      player.playerColorHex = player.color;
+      player.playerColor = hexToPlayerColor(player.color);
     } else {
       const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
       player.playerColor = colors[(seat - 1) % colors.length];

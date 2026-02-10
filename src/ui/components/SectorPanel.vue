@@ -38,6 +38,7 @@ const props = defineProps<{
     combatantId?: string;
     combatantName?: string;
     playerColor: string;
+    isDictatorUnit?: boolean;
     sectorId: string;
     actionsRemaining?: number;
     damage?: number;
@@ -208,9 +209,9 @@ const selectedMercSquadName = computed(() => {
   if (!selectedMerc.value) return null;
   const mercColor = selectedMerc.value.playerColor;
   // Don't show squad label for enemy mercs (perspective-aware)
-  const isEnemy = props.playerColor === 'dictator'
-    ? mercColor !== 'dictator'  // Dictator's enemies are rebels
-    : mercColor === 'dictator'; // Rebel's enemies are dictator
+  const isEnemy = props.isDictator
+    ? !selectedMerc.value.isDictatorUnit  // Dictator's enemies are rebels
+    : !!selectedMerc.value.isDictatorUnit; // Rebel's enemies are dictator
   if (isEnemy) return null;
   // For my own mercs, determine which squad they're in
   if (mercColor === props.playerColor || !mercColor) {
@@ -450,9 +451,8 @@ const rebelMilitiaEntries = computed(() => {
 // Perspective-aware: dictator sees rebels as enemies, rebels see dictator as enemy
 const myMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
-  // Dictator's mercs are tagged with 'dictator' in the data
   if (props.isDictator) {
-    return props.allMercsInSector.filter(m => m.playerColor === 'dictator');
+    return props.allMercsInSector.filter(m => m.isDictatorUnit);
   }
   return props.allMercsInSector.filter(m => m.playerColor === props.playerColor);
 });
@@ -464,7 +464,7 @@ const allyMercsInSector = computed(() => {
   // Rebels: allies are other rebels (not me, not dictator)
   return props.allMercsInSector.filter(m =>
     m.playerColor !== props.playerColor &&
-    m.playerColor !== 'dictator'
+    !m.isDictatorUnit
   );
 });
 
@@ -472,10 +472,10 @@ const enemyMercsInSector = computed(() => {
   if (!props.allMercsInSector) return [];
   // Dictator: enemies are all non-dictator mercs
   if (props.isDictator) {
-    return props.allMercsInSector.filter(m => m.playerColor !== 'dictator');
+    return props.allMercsInSector.filter(m => !m.isDictatorUnit);
   }
   // Rebels: enemies are dictator mercs
-  return props.allMercsInSector.filter(m => m.playerColor === 'dictator');
+  return props.allMercsInSector.filter(m => m.isDictatorUnit);
 });
 
 // Check if the selected merc can drop equipment (is on my team and action is available)

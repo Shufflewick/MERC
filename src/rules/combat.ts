@@ -1007,6 +1007,7 @@ function militiaToCombatants(
       isImmuneToAttackDogs: false,
       willNotHarmDogs: false,
       playerColor,
+      image: '',
     });
   }
   return combatants;

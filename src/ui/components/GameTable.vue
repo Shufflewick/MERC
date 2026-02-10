@@ -152,6 +152,7 @@ const {
     // only needs { sectorId, inPlay } subset. The cast is safe as these properties exist.
     getDictatorCard: () => dictatorCard.value as { sectorId: string; inPlay: boolean } | undefined,
     seatToColor,
+    getDictatorColor: () => dictatorPlayerColor.value,
   }
 );
 
@@ -246,7 +247,7 @@ const selectedSectorHasEnemyForces = computed(() => {
     // Check for rebel MERCs in sector (any non-dictator player)
     const rebelMercsInSector = allMercs.value.filter(
       (m) => m.sectorId === activeSector.value?.sectorId &&
-             m.playerColor !== 'dictator' &&
+             !m.isDictatorUnit &&
              m.playerColor !== ''
     );
     return rebelMercsInSector.length > 0;
@@ -254,7 +255,7 @@ const selectedSectorHasEnemyForces = computed(() => {
     // Rebels target dictator forces
     const hasDictatorMilitia = activeSector.value.dictatorMilitia > 0;
     const dictatorUnitsInSector = allMercs.value.filter(
-      (m) => m.sectorId === activeSector.value?.sectorId && m.playerColor === 'dictator'
+      (m) => m.sectorId === activeSector.value?.sectorId && m.isDictatorUnit
     );
     return hasDictatorMilitia || dictatorUnitsInSector.length > 0;
   }
