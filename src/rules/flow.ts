@@ -1362,6 +1362,25 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
+              // MERC-combat-flow: Process any pending combat triggered by dictator abilities
+              execute(() => {
+                if (!game.pendingCombat && game.pendingCombatQueue.length > 0) {
+                  game.pendingCombat = game.pendingCombatQueue.shift() || null;
+                }
+                if (game.pendingCombat && !game.activeCombat) {
+                  const sector = game.getSector(game.pendingCombat.sectorId);
+                  const player = game.rebelPlayers.find(
+                    p => `${p.seat}` === game.pendingCombat!.playerId
+                  );
+                  if (sector && player) {
+                    executeCombat(game, sector, player, {
+                      attackingPlayerIsRebel: game.pendingCombat.attackingPlayerIsRebel ?? true,
+                    });
+                  }
+                  game.pendingCombat = null;
+                }
+              }),
+
               // Combat handling after Kim's militia placement ability
               // Before-attack healing loop
               loop({
