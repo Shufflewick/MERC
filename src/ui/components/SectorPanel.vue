@@ -101,6 +101,8 @@ const props = defineProps<{
   dictatorColor?: string;
   // Whether current player is the dictator
   isDictator?: boolean;
+  // Whether it's the current player's turn
+  isMyTurn?: boolean;
 }>();
 
 // Helper to find element by ID in gameView
@@ -501,6 +503,7 @@ async function handleDropEquipment(combatantElementId: number, equipmentId: numb
 
 // Actions available when IN this sector
 const inSectorActions = computed(() => {
+  if (!props.isMyTurn) return [];
   if (!hasSquadInSector.value) return [];
 
   const actions: Array<{ name: string; label: string; icon: string }> = [];
@@ -541,6 +544,7 @@ const inSectorActions = computed(() => {
 
 // Actions available when ADJACENT to this sector
 const adjacentActions = computed(() => {
+  if (!props.isMyTurn) return [];
   if (!hasSquadAdjacent.value) return [];
 
   const actions: Array<{ name: string; label: string; icon: string }> = [];

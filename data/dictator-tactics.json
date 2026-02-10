@@ -12,7 +12,7 @@
     "quantity": 1,
     "revealsBase": true,
     "story": "You decide to stop being cheap and upgrade your militia's guns.",
-    "description": "Reveal your base and bring the dictator into play if you have not already done so."
+    "description": "Reveal your base if you have not already done so.\n\nFor the remainder of the game all dictator militia hit on a 3+."
   },
   {
     "id": "family-threat",
@@ -34,7 +34,7 @@
     "quantity": 1,
     "revealsBase": true,
     "story": "It's time to bring out the big guns.",
-    "description": "Reveal your base and bring the dictator into play if you have not already done so. Draw 6 MERCs and hire 1 to fight for you. The dictator fights alongside your forces at the base."
+    "description": "Reveal your base if you have not already done so.\n\nYou may add one MERC now to either of your squads. When doing so, draw 6 cards and pick one from that group."
   },
   {
     "id": "lockdown",
@@ -42,7 +42,7 @@
     "quantity": 1,
     "revealsBase": true,
     "story": "It's time to prepare for the assault.",
-    "description": "Reveal your base and bring the dictator into play if you have not already done so. Prepare your defenses for the final battle."
+    "description": "Reveal your base if you have not already done so.\n\nYou now have 5 extra militia per rebel. You may place them on your base or in any sector adjacent to your base. If you cannot legally place them all, you forfeit the ones you cannot legally place."
   },
   {
     "id": "reinforcements",
@@ -56,7 +56,7 @@
     "name": "Seizure",
     "quantity": 1,
     "story": "You order your rural residents to turn over all their firearms and supplies.",
-    "description": "X = the number of rebel players."
+    "description": "X = the number of rebel players.\n\nFlip over X wilderness sectors to their explored side. Add X - 1 of your militia to each of the sectors you flipped over."
   },
   {
     "id": "sentry",
@@ -71,21 +71,21 @@
     "quantity": 1,
     "revealsBase": true,
     "story": "You train better militia by using your elite guards to train them.",
-    "description": "Reveal your base and bring the dictator into play if you have not already done so. Your militia benefit from elite training."
+    "description": "Reveal your base if you have not already done so.\n\nFor the remainder of the game, dictator militia have +1 initiative."
   },
   {
     "id": "block-trade",
     "name": "Block Trade",
     "quantity": 1,
     "story": "Perhaps you can stop the rebels if you take away their ability to re-supply.",
-    "description": "Flip all cities to their explored side."
+    "description": "Flip all cities to their explored side.\n\nCount half the number of rebel players (round up). Add that many of your militia to each city."
   },
   {
     "id": "conscripts",
     "name": "Conscripts",
     "quantity": 1,
     "story": "You have decided to conscript children into your militia.",
-    "description": "Count half the number of rebel players (round up). At the end of your turn, add that many of your militia to each sector you control. Do this at the end of each of your turns for the remainder of the game."
+    "description": "Count half the number of rebel players (round up). At the end of your turn, add that many of your militia to each sector you control. Do this at the end of each of your turns for the remainder of the game.\n\nThe limit of 10 militia per sector still applies."
   },
   {
     "id": "oil-reserves",

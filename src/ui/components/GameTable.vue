@@ -1344,6 +1344,7 @@ const clickableSectors = computed(() => {
       :militia-bonuses="militiaBonuses"
       :dictator-color="dictatorPlayerColor"
       :is-dictator="currentPlayerIsDictator"
+      :is-my-turn="isMyTurn"
       @close="closeSectorPanel"
     />
 
