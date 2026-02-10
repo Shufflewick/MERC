@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue';
+
 /**
  * ModalContent - Wrapper for content displayed inside GameOverlay
  *
@@ -19,10 +21,18 @@
 const emit = defineEmits<{
   close: [];
 }>();
+
+const modalRef = ref<HTMLElement>();
+
+onMounted(() => {
+  // Scroll the modal into view at the top — works whether the scrolling
+  // ancestor is the GameOverlay (contain: layout) or the window
+  modalRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+});
 </script>
 
 <template>
-  <div class="modal-content" @click.stop>
+  <div ref="modalRef" class="modal-content" @click.stop>
     <button class="close-button" @click="emit('close')">&times;</button>
     <slot></slot>
   </div>
@@ -30,10 +40,9 @@ const emit = defineEmits<{
 
 <style scoped>
 .modal-content {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: sticky;
+  top: 10px;
+  margin: 0 auto;
   max-width: 90vw;
   max-height: calc(100vh - 150px);
   overflow-y: auto;
@@ -45,6 +54,7 @@ const emit = defineEmits<{
   border-radius: 12px;
   padding: 20px;
   min-width: 300px;
+  width: fit-content;
 }
 
 .close-button {

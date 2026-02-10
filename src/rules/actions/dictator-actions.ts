@@ -757,6 +757,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
 
       game.animate('tactic-generalissimo', {
         cardName: 'Generalissimo',
+        description: `Hiring ${selectedMerc.combatantName} as a new MERC`,
         mercHired: selectedMerc.combatantName,
       }, () => {});
 

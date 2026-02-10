@@ -1265,8 +1265,11 @@ const clickableSectors = computed(() => {
     <!-- Tactics Card Banner - shown when any tactics card animation is playing -->
     <GameOverlay :active="!!activeTacticEvent" :backdrop-opacity="0.7">
       <div class="tactics-banner-content" @click.stop>
-        <div class="tactics-banner-name">{{ activeTacticEvent?.cardName }}</div>
         <div class="tactics-banner-label">Dictator Tactics</div>
+        <div class="tactics-banner-name">{{ activeTacticEvent?.cardName }}</div>
+        <div v-if="activeTacticEvent?.data?.description" class="tactics-banner-description">
+          {{ activeTacticEvent.data.description }}
+        </div>
       </div>
     </GameOverlay>
 
@@ -1746,10 +1749,20 @@ const clickableSectors = computed(() => {
 }
 
 .tactics-banner-label {
-  font-size: 1rem;
-  margin-top: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 3px;
+}
+
+.tactics-banner-description {
+  font-size: 1rem;
+  margin-top: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
 }
 </style>

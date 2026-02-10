@@ -508,10 +508,10 @@ const inSectorActions = computed(() => {
 
   const actions: Array<{ name: string; label: string; icon: string }> = [];
 
-  if (!effectiveExplored.value && props.availableActions.includes('explore')) {
+  if (!effectiveExplored.value && props.availableActions.includes('explore') && hasExplorableUnitInSector.value) {
     actions.push({ name: 'explore', label: 'Explore', icon: '🔍' });
   }
-  if (props.availableActions.includes('train')) {
+  if (props.availableActions.includes('train') && hasTrainableUnitInSector.value) {
     actions.push({ name: 'train', label: 'Train', icon: '🎖️' });
   }
   if (isCity.value && props.availableActions.includes('hospital')) {
@@ -520,10 +520,10 @@ const inSectorActions = computed(() => {
   if (isCity.value && props.availableActions.includes('armsDealer')) {
     actions.push({ name: 'armsDealer', label: 'Arms Dealer', icon: '🔫' });
   }
-  if (props.stashContents && props.stashContents.length > 0 && props.availableActions.includes('reEquip')) {
+  if (props.stashContents && props.stashContents.length > 0 && props.availableActions.includes('reEquip') && hasReEquipUnitInSector.value) {
     actions.push({ name: 'reEquip', label: 'Equip', icon: '🎒' });
   }
-  if (props.availableActions.includes('dropEquipment')) {
+  if (props.availableActions.includes('dropEquipment') && hasEquippedUnitInSector.value) {
     actions.push({ name: 'dropEquipment', label: 'Unequip', icon: '📤' });
   }
   if (props.hasDoc && props.hasDamagedMercs && props.availableActions.includes('docHeal')) {
@@ -661,6 +661,45 @@ const allAvailableMercs = computed(() => {
     mercs.push(...props.baseSquad.mercs);
   }
   return mercs;
+});
+
+// Helper: check if a merc element has actions remaining (includes Faustina's training actions)
+function mercHasActions(m: any): boolean {
+  return getAttr(m, 'actionsRemaining', 0) >= 1 || getAttr(m, 'trainingActionsRemaining', 0) >= 1;
+}
+
+// Helper: check if a merc element has any equipment equipped
+function mercHasEquipment(m: any): boolean {
+  if (getAttr(m, 'weaponSlotData', null)) return true;
+  if (getAttr(m, 'armorSlotData', null)) return true;
+  if (getAttr(m, 'accessorySlotData', null)) return true;
+  // Also check children for equipment elements
+  const children = m?.children || [];
+  return children.some((c: any) => getAttr(c, 'equippedSlot', ''));
+}
+
+// Check if any unit in this sector can train (has actions and training stat > 0)
+const hasTrainableUnitInSector = computed(() => {
+  return allAvailableMercs.value.some((m: any) => {
+    const training = getAttr(m, 'effectiveTraining', 0) || getAttr(m, 'training', 0) || getAttr(m, 'baseTraining', 0);
+    return training > 0 && mercHasActions(m);
+  });
+});
+
+// Check if any unit in this sector can explore (has actions and sector is unexplored)
+const hasExplorableUnitInSector = computed(() => {
+  if (effectiveExplored.value) return false;
+  return allAvailableMercs.value.some((m: any) => getAttr(m, 'actionsRemaining', 0) >= 1);
+});
+
+// Check if any unit in this sector can re-equip (has actions — stash check is separate)
+const hasReEquipUnitInSector = computed(() => {
+  return allAvailableMercs.value.some((m: any) => getAttr(m, 'actionsRemaining', 0) >= 1);
+});
+
+// Check if any unit in this sector has equipment to drop
+const hasEquippedUnitInSector = computed(() => {
+  return allAvailableMercs.value.some((m: any) => mercHasEquipment(m));
 });
 
 // Check if current selection is for MERC (or unit - includes dictator card)
@@ -1077,9 +1116,7 @@ const selectableItems = computed(() => {
       // If can't parse, keep the choice (fallback); otherwise filter by sector
       return isNaN(id) || mercsInSectorIds.has(id);
     });
-    const choicesToUse = filteredChoices.length > 0 ? filteredChoices : choices;
-
-    return choicesToUse.map((c: any) => {
+    return filteredChoices.map((c: any) => {
       const displayLower = (c.display || '').toLowerCase();
 
       // Try to find matching MERC using various ID fields

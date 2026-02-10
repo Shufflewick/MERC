@@ -139,6 +139,7 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
   // Pure UI signal — mutations happen through the allocation flow
   game.animate('tactic-artillery-barrage', {
     cardName: 'Artillery Barrage',
+    description: 'Bombarding rebel sectors with mortar fire',
     sectorsTargeted: sectorsWithTargets.map(s => ({
       sectorId: s.sector.sectorId,
       sectorName: s.sector.sectorName,
@@ -260,6 +261,7 @@ function familyThreat(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-family-threat', {
     cardName: 'Family Threat',
+    description: 'Each rebel sector loses 2 militia as they run home to their families',
     affectedSectors,
   }, () => {
     for (const sector of game.gameMap.getAllSectors()) {
@@ -324,6 +326,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-fodder', {
     cardName: 'Fodder',
+    description: 'Sending militia to overwhelm rebel strongholds',
     targets: targets.map(t => ({
       sectorId: t.sectorId,
       sectorName: t.sectorName,
@@ -362,6 +365,7 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-reinforcements', {
     cardName: 'Reinforcements',
+    description: 'Palace guards reinforce every controlled industry',
     sectors: industries.map(s => ({
       sectorId: s.sectorId,
       sectorName: s.sectorName,
@@ -420,6 +424,7 @@ function seizure(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-seizure', {
     cardName: 'Seizure',
+    description: 'Seizing wilderness sectors and garrisoning them with militia',
     sectors: sectorsToFlip.map(s => ({
       sectorId: s.sectorId,
       sectorName: s.sectorName,
@@ -473,6 +478,7 @@ function sentry(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-sentry', {
     cardName: 'Sentry',
+    description: 'Deploying militia sentries to uncontrolled sectors',
     sectors: uncontrolledSectors.map(s => ({
       sectorId: s.sectorId,
       sectorName: s.sectorName,
@@ -509,6 +515,7 @@ function blockTrade(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-block-trade', {
     cardName: 'Block Trade',
+    description: 'Blocking rebel supply lines by occupying all cities',
     cities: allCities.map(c => ({
       sectorId: c.sectorId,
       sectorName: c.sectorName,
@@ -717,6 +724,7 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
 
     game.animate('tactic-generalissimo', {
       cardName: 'Generalissimo',
+      description: `Hiring ${bestMerc.combatantName} as a new MERC`,
       mercHired: bestMerc.combatantName,
     }, () => {});
 
@@ -819,6 +827,7 @@ function lockdown(game: MERCGame): TacticsEffectResult {
     // Pure UI signal — mutations already done above
     game.animate('tactic-lockdown', {
       cardName: 'Lockdown',
+      description: `Deploying ${totalMilitia} extra militia around the base`,
       totalMilitia,
       sectors: placedSectors,
     }, () => {});
@@ -854,6 +863,7 @@ function lockdown(game: MERCGame): TacticsEffectResult {
   // Pure UI signal
   game.animate('tactic-lockdown', {
     cardName: 'Lockdown',
+    description: `Place ${totalMilitia} extra militia around your base`,
     totalMilitia,
   }, () => {});
 
@@ -974,6 +984,7 @@ function taintedWater(game: MERCGame): TacticsEffectResult {
 
   game.animate('tactic-tainted-water', {
     cardName: 'Tainted Water',
+    description: 'Poisoning the water supply — rebel militia removed, MERCs take 1 damage',
     sectors: affectedSectors,
     mercs: affectedMercs,
   }, () => {
