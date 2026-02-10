@@ -482,7 +482,6 @@ const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null
 // ============================================================================
 
 const animationEvents = useAnimationEvents();
-console.log('[TACTIC-DEBUG] animationEvents injected:', !!animationEvents);
 const combatSnapshot = ref<Record<string, unknown> | null>(null);
 const combatDeathSignals = ref<{ combatantId: string }[]>([]);
 
@@ -599,7 +598,6 @@ if (animationEvents) {
   // Register handlers for all 8 sector-targeted tactics events
   for (const eventType of SECTOR_TACTIC_EVENTS) {
     animationEvents.registerHandler(eventType, async (event) => {
-      console.log('[TACTIC-DEBUG] sector handler called:', eventType, event.data);
       const data = event.data as Record<string, unknown>;
       activeTacticEvent.value = {
         type: eventType.replace('tactic-', ''),
@@ -618,7 +616,6 @@ if (animationEvents) {
   // Register handlers for all 4 banner/flag tactics events (longer display)
   for (const eventType of BANNER_TACTIC_EVENTS) {
     animationEvents.registerHandler(eventType, async (event) => {
-      console.log('[TACTIC-DEBUG] banner handler called:', eventType, event.data);
       const data = event.data as Record<string, unknown>;
       activeTacticEvent.value = {
         type: eventType.replace('tactic-', ''),
@@ -635,14 +632,8 @@ if (animationEvents) {
   }
 }
 
-if (animationEvents) {
-  watch(() => animationEvents.pendingCount.value, (count) => {
-    if (count > 0) console.log('[TACTIC-DEBUG] pendingCount:', count, 'isAnimating:', animationEvents.isAnimating.value);
-  });
-}
 
 watch(() => activeTacticEvent.value, (val) => {
-  console.log('[TACTIC-DEBUG] activeTacticEvent changed:', val);
 });
 
 const hasActiveCombat = computed(() => combatSnapshot.value !== null);

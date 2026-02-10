@@ -55,10 +55,6 @@ export function usePlayerState(
       const role = getAttr<string>(p, 'role', '');
       const isDictator = role === 'dictator';
 
-      // DEBUG: trace color resolution
-      const rawPlayerColor = getAttr<string>(p, 'playerColor', '');
-      const rawColor = getAttr<string>(p, 'color', '');
-      console.log(`[PlayerState DEBUG] seat=${seat} role=${role} playerColor="${rawPlayerColor}" color="${rawColor}" resolved="${playerColor}" className=${p.className}`);
 
       return {
         seat: seat as number,

@@ -357,10 +357,6 @@ export function useSectorState(
 
       if (maxUnits > 0) {
         map[sector.sectorId] = controller;
-        // DEBUG: trace control map resolution
-        if (sector.sectorId === sectors.value[0]?.sectorId || dictatorUnits > 0) {
-          console.log(`[ControlMap DEBUG] sector=${sector.sectorId} controller="${controller}" dictatorUnits=${dictatorUnits} rebelUnits=`, rebelUnits);
-        }
       }
     }
 
