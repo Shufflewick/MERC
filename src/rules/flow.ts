@@ -85,6 +85,26 @@ function getCombatDecisionPlayer(game: MERCGame, attackerId: string, fallback: P
   return fallback;
 }
 
+/** Resolve the player who should decide epinephrine use (owner of the dying MERC) */
+function getEpinephrineDecisionPlayer(game: MERCGame, fallback: Player): Player {
+  const pending = game.activeCombat?.pendingEpinephrine;
+  if (!pending) return fallback;
+
+  if (pending.dyingCombatantSide === 'dictator') {
+    return game.dictatorPlayer ?? fallback;
+  }
+
+  // Rebel side — find the rebel player who owns the dying MERC
+  const dyingId = pending.dyingCombatantId;
+  for (const rebel of game.rebelPlayers) {
+    const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
+    if (allMercs.some(m => m.id === dyingId)) {
+      return rebel;
+    }
+  }
+  return fallback;
+}
+
 export function createGameFlow(game: MERCGame): FlowDefinition {
   return {
     root: sequence(
@@ -422,6 +442,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   maxIterations: 10,
                   do: actionStep({
                     name: 'use-epinephrine',
+                    player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
                     actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
                     skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
                   }),
@@ -703,6 +724,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 10,
                 do: actionStep({
                   name: 'use-epinephrine',
+                  player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
                   actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
                 }),
@@ -882,6 +904,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     maxIterations: 10,
                     do: actionStep({
                       name: 'use-epinephrine',
+                      player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
                       actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
                       skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
                     }),
@@ -1087,6 +1110,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 10,
                 do: actionStep({
                   name: 'use-epinephrine',
+                  player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
                   actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
                   skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
                 }),
