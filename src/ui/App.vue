@@ -293,6 +293,11 @@ function closeHeaderCombatantModal() {
     </template>
 
     <template #player-stats="{ player, gameView }">
+      <div class="player-stat faction-row">
+        <span class="faction-badge" :class="getPlayerRole(player)">
+          {{ getPlayerRole(player) === 'dictator' ? getDictatorName(player, gameView) : 'Rebel' }}
+        </span>
+      </div>
       <div class="player-stat combatants-row">
         <span class="stat-label">MERCs:</span>
         <div class="combatant-icons">
@@ -445,6 +450,51 @@ function getCombatants(player: any, gameView: any): CombatantInfo[] {
   return combatants;
 }
 
+function getPlayerRole(player: any): 'rebel' | 'dictator' {
+  const playerAttrs = player.attributes || player;
+  return playerAttrs.role === 'dictator' ? 'dictator' : 'rebel';
+}
+
+function getDictatorName(player: any, gameView: any): string {
+  if (!gameView?.children) return 'Dictator';
+
+  const playerAttrs = player.attributes || player;
+
+  // Strategy 1: Find via dictatorRef (element name reference)
+  const dictatorRef = playerAttrs.dictatorRef;
+
+  // Strategy 2: Find via dictator attribute (direct combatantName on player)
+  if (playerAttrs.dictator?.combatantName) {
+    return playerAttrs.dictator.combatantName;
+  }
+
+  function search(node: any): string | null {
+    if (!node) return null;
+    const attrs = node.attributes || {};
+    const className = normalizeClassName(node.className);
+
+    if (className === 'CombatantModel') {
+      // Match by ref name if available
+      if (dictatorRef && attrs.name === dictatorRef && attrs.combatantName) {
+        return attrs.combatantName;
+      }
+      // Match by cardType
+      if (attrs.cardType === 'dictator' && attrs.combatantName) {
+        return attrs.combatantName;
+      }
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        const result = search(child);
+        if (result) return result;
+      }
+    }
+    return null;
+  }
+  return search(gameView) || 'Dictator';
+}
+
 function getPlayerColorName(player: any): string {
   const playerAttrs = player.attributes || player;
   return playerAttrs.playerColor || '';
@@ -539,6 +589,33 @@ function getControlledSectors(player: any, gameView: any): number {
 .stat-value {
   font-weight: bold;
   color: v-bind('UI_COLORS.accent');
+}
+
+.faction-row {
+  justify-content: center;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.faction-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+
+.faction-badge.rebel {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.faction-badge.dictator {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 </style>
 
