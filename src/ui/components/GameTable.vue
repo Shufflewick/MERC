@@ -573,7 +573,7 @@ if (animationEvents) {
     await new Promise<void>((resolve) => {
       landmineStrikeResolve = resolve;
     });
-  });
+  }, { skip: 'drop' });
 
   animationEvents.registerHandler('mortar-strike', async (event) => {
     const data = event.data as {
@@ -585,15 +585,15 @@ if (animationEvents) {
     await new Promise<void>((resolve) => {
       mortarStrikeResolve = resolve;
     });
-  });
+  }, { skip: 'drop' });
 
   animationEvents.registerHandler('mortar-attack-panel', async (event) => {
     mortarAttackData.value = event.data as unknown as MortarAttackData;
-  });
+  }, { skip: 'drop' });
 
   animationEvents.registerHandler('combat-panel', async (event) => {
     combatSnapshot.value = event.data as Record<string, unknown>;
-  });
+  }, { skip: 'run' });
 
   // Register handlers for all 8 sector-targeted tactics events
   for (const eventType of SECTOR_TACTIC_EVENTS) {
@@ -611,7 +611,7 @@ if (animationEvents) {
           resolve();
         }, 2000);
       });
-    });
+    }, { skip: 'drop' });
   }
 
   // Register handlers for all 4 banner/flag tactics events (longer display)
@@ -630,7 +630,7 @@ if (animationEvents) {
           resolve();
         }, 2500);
       });
-    });
+    }, { skip: 'drop' });
   }
 }
 

@@ -184,7 +184,7 @@ if (animationEvents) {
     isPreRoll.value = false;
     await sleep(getTiming('roll'));
     await sleep(getTiming('post-roll')); // Keep dice results visible for 1 second
-  });
+  }, { skip: 'drop' });
 
   // Damage event handler — healthAfter is always present (Phase 43 SRV-03)
   animationEvents.registerHandler('combat-damage', async (event) => {
@@ -202,7 +202,7 @@ if (animationEvents) {
       armorOverrides.value.set(targetId, armorAfterVal);
     }
     await sleep(getTiming('damage'));
-  });
+  }, { skip: 'run' });
 
   // Armor soak event handler — armor absorbed all hits, no health damage
   animationEvents.registerHandler('combat-armor-soak', async (event) => {
@@ -214,7 +214,7 @@ if (animationEvents) {
       armorOverrides.value.set(targetId, armorAfterVal);
     }
     await sleep(getTiming('damage'));
-  });
+  }, { skip: 'run' });
 
   // Death event handler
   animationEvents.registerHandler('combat-death', async (event) => {
@@ -226,13 +226,13 @@ if (animationEvents) {
       emit('combat-death-signal', { combatantId: data.combatantId });
     }
     await sleep(getTiming('pause'));
-  });
+  }, { skip: 'drop' });
 
   // Round start handler
   animationEvents.registerHandler('combat-round-start', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('pause'));
-  });
+  }, { skip: 'drop' });
 
   // Combat end handler — visual animation, then signal GameTable to clear snapshot
   animationEvents.registerHandler('combat-end', async (event) => {
@@ -244,14 +244,14 @@ if (animationEvents) {
     healingCombatants.value.clear();
     resetAnimations();
     emit('combat-finished');
-  });
+  }, { skip: 'run' });
 
   // Attack Dog assignment handler
   animationEvents.registerHandler('combat-attack-dog', async (event) => {
     currentEvent.value = mapEventToDisplayState(event);
     await sleep(getTiming('attack-dog'));
     currentEvent.value = null; // Explicitly clear after display
-  });
+  }, { skip: 'drop' });
 
   // Healing event handler — update healthOverrides + track UI effect
   animationEvents.registerHandler('combat-heal', async (event) => {
@@ -274,7 +274,7 @@ if (animationEvents) {
     }
     currentEvent.value = null;
     await sleep(getTiming('pause'));
-  });
+  }, { skip: 'run' });
 }
 
 // Fast forward function
