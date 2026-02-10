@@ -34,6 +34,18 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No active combat' };
       }
 
+      if (game.activeCombat.awaitingRetreatDecisions) {
+        if (!game.activeCombat.retreatDecisions) {
+          game.activeCombat.retreatDecisions = new Map();
+        }
+        game.activeCombat.retreatDecisions.set(`${ctx.player.seat}`, { action: 'continue' });
+        return {
+          success: true,
+          message: 'Continue decision recorded',
+          data: { combatPending: true },
+        };
+      }
+
       const sector = game.getSector(game.activeCombat.sectorId);
       if (!sector) {
         return { success: false, message: 'Combat sector not found' };
@@ -113,6 +125,22 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
       }
 
       const player = ctx.player as RebelPlayer | DictatorPlayer;
+
+      if (game.activeCombat?.awaitingRetreatDecisions) {
+        if (!game.activeCombat.retreatDecisions) {
+          game.activeCombat.retreatDecisions = new Map();
+        }
+        game.activeCombat.retreatDecisions.set(`${ctx.player.seat}`, {
+          action: 'retreat',
+          retreatSectorId: retreatSector.sectorId,
+        });
+        return {
+          success: true,
+          message: `Retreat decision recorded (${retreatSector.sectorName})`,
+          data: { retreated: true, retreatSector: retreatSector.sectorName },
+        };
+      }
+
       const outcome = executeCombatRetreat(game, retreatSector, player);
 
       return {
@@ -1754,5 +1782,4 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
       };
     });
 }
-
 

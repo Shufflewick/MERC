@@ -11,7 +11,7 @@ import {
   type Game,
   type Player,
 } from 'boardsmith';
-import type { MERCGame, RebelPlayer } from './game.js';
+import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 
 // Extended ActionStepConfig with prompt support (MERC extension)
 type MERCActionStepConfig = ActionStepConfig & {
@@ -28,7 +28,8 @@ import { TacticsCard } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
-import { executeCombat, clearActiveCombat, hasEnemies, queuePendingCombat } from './combat.js';
+import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
+import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
 import { getGlobalCachedValue } from './actions/helpers.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
@@ -85,6 +86,40 @@ function getCombatDecisionPlayer(game: MERCGame, attackerId: string, fallback: P
     if (owner) return owner;
   }
   return fallback;
+}
+
+/** Resolve the human players participating in active combat. */
+function getCombatDecisionParticipants(game: MERCGame): Player[] {
+  if (!game.activeCombat) return [];
+  const participants: Player[] = [];
+
+  const rebelCombatants = (game.activeCombat.rebelCombatants ?? []) as Combatant[];
+  const dictatorCombatants = (game.activeCombat.dictatorCombatants ?? []) as Combatant[];
+
+  for (const rebel of game.rebelPlayers) {
+    if (rebel.isAI) continue;
+    const hasUnit = rebelCombatants.some(c => c.health > 0 && !c.isDictatorSide && (
+      (c.sourceElement && rebel.team.some(m => m.id === c.sourceElement!.id)) ||
+      (c.isMilitia && c.ownerId === `${rebel.seat}`)
+    ));
+    if (hasUnit) participants.push(rebel);
+  }
+
+  const dictator = game.dictatorPlayer;
+  if (dictator && !dictator.isAI) {
+    const hasUnit = dictatorCombatants.some(c => c.health > 0 && c.isDictatorSide);
+    if (hasUnit) participants.push(dictator);
+  }
+
+  return participants;
+}
+
+function getPlayerBySeat(game: MERCGame, seat: string): Player | undefined {
+  const rebel = game.rebelPlayers.find(p => `${p.seat}` === seat);
+  if (rebel) return rebel;
+  const dictator = game.dictatorPlayer;
+  if (dictator && `${dictator.seat}` === seat) return dictator;
+  return undefined;
 }
 
 /** Resolve the player who should decide epinephrine use (owner of the dying MERC) */
@@ -464,18 +499,79 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                               game.activeCombat.pendingEpinephrine == null &&
                               !game.isFinished(),
                   maxIterations: 50,
-                  do: actionStep({
-                    name: 'continue-or-retreat',
-                    actions: ['combatContinue', 'combatRetreat'],
-                    skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                  game.activeCombat.combatComplete ||
-                                  game.activeCombat.pendingBeforeAttackHealing != null ||
-                                  game.activeCombat.pendingAttackDogSelection != null ||
-                                  game.activeCombat.pendingTargetSelection != null ||
-                                  game.activeCombat.pendingHitAllocation != null ||
-                                  game.activeCombat.pendingWolverineSixes != null ||
-                                  game.activeCombat.pendingEpinephrine != null,
-                  }),
+                  do: sequence(
+                    execute(() => {
+                      if (!game.activeCombat) return;
+                      game.activeCombat.awaitingRetreatDecisions = true;
+                      if (!game.activeCombat.retreatDecisions) {
+                        game.activeCombat.retreatDecisions = new Map();
+                      } else {
+                        game.activeCombat.retreatDecisions.clear();
+                      }
+                    }),
+                    simultaneousActionStep({
+                      name: 'continue-or-retreat',
+                      players: () => getCombatDecisionParticipants(game),
+                      actions: ['combatContinue', 'combatRetreat'],
+                      playerDone: (_ctx, player) => {
+                        return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
+                      },
+                      skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                    game.activeCombat.combatComplete ||
+                                    game.activeCombat.pendingBeforeAttackHealing != null ||
+                                    game.activeCombat.pendingAttackDogSelection != null ||
+                                    game.activeCombat.pendingTargetSelection != null ||
+                                    game.activeCombat.pendingHitAllocation != null ||
+                                    game.activeCombat.pendingWolverineSixes != null ||
+                                    game.activeCombat.pendingEpinephrine != null,
+                    }),
+                    execute(() => {
+                      if (!game.activeCombat || game.activeCombat.combatComplete) return;
+
+                      const decisions = game.activeCombat.retreatDecisions;
+                      const continueChosen = decisions
+                        ? Array.from(decisions.values()).some(d => d.action === 'continue')
+                        : false;
+                      const retreatEntries = decisions
+                        ? Array.from(decisions.entries())
+                          .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
+                        : [];
+
+                      retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+                      for (const [seat, decision] of retreatEntries) {
+                        if (!game.activeCombat || game.activeCombat.combatComplete) break;
+                        const player = getPlayerBySeat(game, seat);
+                        if (!player) continue;
+                        if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
+                        const combatSector = game.getSector(game.activeCombat.sectorId);
+                        const retreatSector = decision.retreatSectorId
+                          ? game.getSector(decision.retreatSectorId)
+                          : null;
+                        if (!combatSector || !retreatSector) continue;
+                        if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
+                        executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
+                      }
+
+                      if (game.activeCombat && !game.activeCombat.combatComplete) {
+                        const remainingHumans = getCombatDecisionParticipants(game);
+                        if (continueChosen || remainingHumans.length === 0) {
+                          const sector = game.getSector(game.activeCombat.sectorId);
+                          const attackingPlayer = game.rebelPlayers.find(
+                            p => `${p.seat}` === game.activeCombat!.attackingPlayerId
+                          );
+                          if (sector && attackingPlayer) {
+                            executeCombat(game, sector, attackingPlayer);
+                          }
+                        }
+                      }
+
+                      if (game.activeCombat) {
+                        game.activeCombat.awaitingRetreatDecisions = false;
+                        game.activeCombat.retreatDecisions?.clear();
+                      }
+                    }),
+                  ),
                 }),
 
                 // Wait for UI to play combat animations before clearing.
@@ -781,18 +877,79 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                             game.activeCombat.pendingEpinephrine == null &&
                             !game.isFinished(),
                 maxIterations: 50,
-                do: actionStep({
-                  name: 'continue-or-retreat',
-                  actions: ['combatContinue', 'combatRetreat'],
-                  skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                game.activeCombat.combatComplete ||
-                                game.activeCombat.pendingBeforeAttackHealing != null ||
-                                game.activeCombat.pendingAttackDogSelection != null ||
-                                game.activeCombat.pendingTargetSelection != null ||
-                                game.activeCombat.pendingHitAllocation != null ||
-                                game.activeCombat.pendingWolverineSixes != null ||
-                                game.activeCombat.pendingEpinephrine != null,
-                }),
+                do: sequence(
+                  execute(() => {
+                    if (!game.activeCombat) return;
+                    game.activeCombat.awaitingRetreatDecisions = true;
+                    if (!game.activeCombat.retreatDecisions) {
+                      game.activeCombat.retreatDecisions = new Map();
+                    } else {
+                      game.activeCombat.retreatDecisions.clear();
+                    }
+                  }),
+                  simultaneousActionStep({
+                    name: 'continue-or-retreat',
+                    players: () => getCombatDecisionParticipants(game),
+                    actions: ['combatContinue', 'combatRetreat'],
+                    playerDone: (_ctx, player) => {
+                      return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
+                    },
+                    skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                  game.activeCombat.combatComplete ||
+                                  game.activeCombat.pendingBeforeAttackHealing != null ||
+                                  game.activeCombat.pendingAttackDogSelection != null ||
+                                  game.activeCombat.pendingTargetSelection != null ||
+                                  game.activeCombat.pendingHitAllocation != null ||
+                                  game.activeCombat.pendingWolverineSixes != null ||
+                                  game.activeCombat.pendingEpinephrine != null,
+                  }),
+                  execute(() => {
+                    if (!game.activeCombat || game.activeCombat.combatComplete) return;
+
+                    const decisions = game.activeCombat.retreatDecisions;
+                    const continueChosen = decisions
+                      ? Array.from(decisions.values()).some(d => d.action === 'continue')
+                      : false;
+                    const retreatEntries = decisions
+                      ? Array.from(decisions.entries())
+                        .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
+                      : [];
+
+                    retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+                    for (const [seat, decision] of retreatEntries) {
+                      if (!game.activeCombat || game.activeCombat.combatComplete) break;
+                      const player = getPlayerBySeat(game, seat);
+                      if (!player) continue;
+                      if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
+                      const combatSector = game.getSector(game.activeCombat.sectorId);
+                      const retreatSector = decision.retreatSectorId
+                        ? game.getSector(decision.retreatSectorId)
+                        : null;
+                      if (!combatSector || !retreatSector) continue;
+                      if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
+                      executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
+                    }
+
+                    if (game.activeCombat && !game.activeCombat.combatComplete) {
+                      const remainingHumans = getCombatDecisionParticipants(game);
+                      if (continueChosen || remainingHumans.length === 0) {
+                        const sector = game.getSector(game.activeCombat.sectorId);
+                        const attackingPlayer = game.rebelPlayers.find(
+                          p => `${p.seat}` === game.activeCombat!.attackingPlayerId
+                        );
+                        if (sector && attackingPlayer) {
+                          executeCombat(game, sector, attackingPlayer);
+                        }
+                      }
+                    }
+
+                    if (game.activeCombat) {
+                      game.activeCombat.awaitingRetreatDecisions = false;
+                      game.activeCombat.retreatDecisions?.clear();
+                    }
+                  }),
+                ),
               }),
 
               // Wait for UI to play combat animations before clearing.
@@ -961,18 +1118,79 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                 game.activeCombat.pendingEpinephrine == null &&
                                 !game.isFinished(),
                     maxIterations: 50,
-                    do: actionStep({
-                      name: 'continue-or-retreat',
-                      actions: ['combatContinue', 'combatRetreat'],
-                      skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                    game.activeCombat.combatComplete ||
-                                    game.activeCombat.pendingBeforeAttackHealing != null ||
-                                    game.activeCombat.pendingAttackDogSelection != null ||
-                                    game.activeCombat.pendingTargetSelection != null ||
-                                    game.activeCombat.pendingHitAllocation != null ||
-                                    game.activeCombat.pendingWolverineSixes != null ||
-                                    game.activeCombat.pendingEpinephrine != null,
-                    }),
+                    do: sequence(
+                      execute(() => {
+                        if (!game.activeCombat) return;
+                        game.activeCombat.awaitingRetreatDecisions = true;
+                        if (!game.activeCombat.retreatDecisions) {
+                          game.activeCombat.retreatDecisions = new Map();
+                        } else {
+                          game.activeCombat.retreatDecisions.clear();
+                        }
+                      }),
+                      simultaneousActionStep({
+                        name: 'continue-or-retreat',
+                        players: () => getCombatDecisionParticipants(game),
+                        actions: ['combatContinue', 'combatRetreat'],
+                        playerDone: (_ctx, player) => {
+                          return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
+                        },
+                        skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                      game.activeCombat.combatComplete ||
+                                      game.activeCombat.pendingBeforeAttackHealing != null ||
+                                      game.activeCombat.pendingAttackDogSelection != null ||
+                                      game.activeCombat.pendingTargetSelection != null ||
+                                      game.activeCombat.pendingHitAllocation != null ||
+                                      game.activeCombat.pendingWolverineSixes != null ||
+                                      game.activeCombat.pendingEpinephrine != null,
+                      }),
+                      execute(() => {
+                        if (!game.activeCombat || game.activeCombat.combatComplete) return;
+
+                        const decisions = game.activeCombat.retreatDecisions;
+                        const continueChosen = decisions
+                          ? Array.from(decisions.values()).some(d => d.action === 'continue')
+                          : false;
+                        const retreatEntries = decisions
+                          ? Array.from(decisions.entries())
+                            .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
+                          : [];
+
+                        retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+                        for (const [seat, decision] of retreatEntries) {
+                          if (!game.activeCombat || game.activeCombat.combatComplete) break;
+                          const player = getPlayerBySeat(game, seat);
+                          if (!player) continue;
+                          if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
+                          const combatSector = game.getSector(game.activeCombat.sectorId);
+                          const retreatSector = decision.retreatSectorId
+                            ? game.getSector(decision.retreatSectorId)
+                            : null;
+                          if (!combatSector || !retreatSector) continue;
+                          if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
+                          executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
+                        }
+
+                        if (game.activeCombat && !game.activeCombat.combatComplete) {
+                          const remainingHumans = getCombatDecisionParticipants(game);
+                          if (continueChosen || remainingHumans.length === 0) {
+                            const sector = game.getSector(game.activeCombat.sectorId);
+                            const attackingPlayer = game.rebelPlayers.find(
+                              p => `${p.seat}` === game.activeCombat!.attackingPlayerId
+                            );
+                            if (sector && attackingPlayer) {
+                              executeCombat(game, sector, attackingPlayer);
+                            }
+                          }
+                        }
+
+                        if (game.activeCombat) {
+                          game.activeCombat.awaitingRetreatDecisions = false;
+                          game.activeCombat.retreatDecisions?.clear();
+                        }
+                      }),
+                    ),
                   }),
 
                     // Wait for UI to play combat animations before clearing.
@@ -1167,18 +1385,79 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                             game.activeCombat.pendingEpinephrine == null &&
                             !game.isFinished(),
                 maxIterations: 50,
-                do: actionStep({
-                  name: 'continue-or-retreat',
-                  actions: ['combatContinue', 'combatRetreat'],
-                  skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                game.activeCombat.combatComplete ||
-                                game.activeCombat.pendingBeforeAttackHealing != null ||
-                                game.activeCombat.pendingAttackDogSelection != null ||
-                                game.activeCombat.pendingTargetSelection != null ||
-                                game.activeCombat.pendingHitAllocation != null ||
-                                game.activeCombat.pendingWolverineSixes != null ||
-                                game.activeCombat.pendingEpinephrine != null,
-                }),
+                do: sequence(
+                  execute(() => {
+                    if (!game.activeCombat) return;
+                    game.activeCombat.awaitingRetreatDecisions = true;
+                    if (!game.activeCombat.retreatDecisions) {
+                      game.activeCombat.retreatDecisions = new Map();
+                    } else {
+                      game.activeCombat.retreatDecisions.clear();
+                    }
+                  }),
+                  simultaneousActionStep({
+                    name: 'continue-or-retreat',
+                    players: () => getCombatDecisionParticipants(game),
+                    actions: ['combatContinue', 'combatRetreat'],
+                    playerDone: (_ctx, player) => {
+                      return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
+                    },
+                    skipIf: () => game.isFinished() || game.activeCombat === null ||
+                                  game.activeCombat.combatComplete ||
+                                  game.activeCombat.pendingBeforeAttackHealing != null ||
+                                  game.activeCombat.pendingAttackDogSelection != null ||
+                                  game.activeCombat.pendingTargetSelection != null ||
+                                  game.activeCombat.pendingHitAllocation != null ||
+                                  game.activeCombat.pendingWolverineSixes != null ||
+                                  game.activeCombat.pendingEpinephrine != null,
+                  }),
+                  execute(() => {
+                    if (!game.activeCombat || game.activeCombat.combatComplete) return;
+
+                    const decisions = game.activeCombat.retreatDecisions;
+                    const continueChosen = decisions
+                      ? Array.from(decisions.values()).some(d => d.action === 'continue')
+                      : false;
+                    const retreatEntries = decisions
+                      ? Array.from(decisions.entries())
+                        .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
+                      : [];
+
+                    retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+                    for (const [seat, decision] of retreatEntries) {
+                      if (!game.activeCombat || game.activeCombat.combatComplete) break;
+                      const player = getPlayerBySeat(game, seat);
+                      if (!player) continue;
+                      if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
+                      const combatSector = game.getSector(game.activeCombat.sectorId);
+                      const retreatSector = decision.retreatSectorId
+                        ? game.getSector(decision.retreatSectorId)
+                        : null;
+                      if (!combatSector || !retreatSector) continue;
+                      if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
+                      executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
+                    }
+
+                    if (game.activeCombat && !game.activeCombat.combatComplete) {
+                      const remainingHumans = getCombatDecisionParticipants(game);
+                      if (continueChosen || remainingHumans.length === 0) {
+                        const sector = game.getSector(game.activeCombat.sectorId);
+                        const attackingPlayer = game.rebelPlayers.find(
+                          p => `${p.seat}` === game.activeCombat!.attackingPlayerId
+                        );
+                        if (sector && attackingPlayer) {
+                          executeCombat(game, sector, attackingPlayer);
+                        }
+                      }
+                    }
+
+                    if (game.activeCombat) {
+                      game.activeCombat.awaitingRetreatDecisions = false;
+                      game.activeCombat.retreatDecisions?.clear();
+                    }
+                  }),
+                ),
               }),
 
                 // Wait for UI to play combat animations before clearing.

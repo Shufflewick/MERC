@@ -3276,15 +3276,14 @@ export function executeCombat(
     // Only pause for HUMAN players — AI players decide automatically, and pausing
     // for an AI's retreat option causes an infinite loop when the human player
     // can't retreat (ActionPanel auto-executes the sole combatContinue action).
-    const attackerCanRetreat = !attackingPlayer.isAI
-      ? canRetreatFromModule(game, sector, attackingPlayer)
-      : false;  // AI rebels don't need pause for decision
+    const humanRebels = game.rebelPlayers.filter(p => !p.isAI);
+    const rebelsCanRetreat = humanRebels.some(p => canRetreatFromModule(game, sector, p));
     const dictatorPlayer = game.dictatorPlayer;
     const dictatorCanRetreat = dictatorPlayer && !dictatorPlayer.isAI
       ? canRetreatFromModule(game, sector, dictatorPlayer)
       : false;  // AI dictators don't need pause for decision
 
-    retreatAvailable = attackerCanRetreat || dictatorCanRetreat;
+    retreatAvailable = rebelsCanRetreat || dictatorCanRetreat;
     if (interactive && retreatAvailable) {
       // MERC-t5k: Sync militia casualties to sector before pausing
       syncMilitiaCasualties(game, sector, rebels, dictator);

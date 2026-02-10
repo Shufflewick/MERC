@@ -561,6 +561,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Flow system exits combat loop when this is true
     // UI clears activeCombat after animations complete
     combatComplete?: boolean;
+    // MERC-retreat: Simultaneous retreat/continue decision tracking
+    awaitingRetreatDecisions?: boolean;
+    retreatDecisions?: Map<string, { action: 'continue' | 'retreat'; retreatSectorId?: string }>;
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow
