@@ -13,6 +13,7 @@ import { SectorConstants } from './constants.js';
 import { queuePendingCombat } from './combat.js';
 import { selectAIBaseLocation, selectNewMercLocation } from './ai-helpers.js';
 import { equipNewHire } from './actions/helpers.js';
+import { checkLandMines } from './landmine.js';
 
 // =============================================================================
 // Types
@@ -27,6 +28,15 @@ export interface TacticsEffectResult {
 // =============================================================================
 // Individual Tactics Effects
 // =============================================================================
+
+function checkLandmineOnDictatorMilitiaEntry(
+  game: MERCGame,
+  sector: Sector,
+  placed: number,
+): void {
+  if (placed <= 0) return;
+  checkLandMines(game, sector, [], false);
+}
 
 /**
  * Build list of valid targets for artillery allocation in a sector
@@ -339,6 +349,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
       game.message(`Dictator sends ${placed} militia to attack ${target.rebelName} at ${target.sectorName}`);
 
       if (placed > 0) {
+        checkLandmineOnDictatorMilitiaEntry(game, target.sector, placed);
         combatsTriggered.push(target.sectorName);
         queuePendingCombat(game, target.sector, target.rebel, false);
       }
@@ -376,6 +387,7 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
       const placed = sector.addDictatorMilitia(game.rebelCount);
       totalPlaced += placed;
       if (placed > 0) {
+        checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
         game.message(`Reinforced ${sector.sectorName} with ${placed} militia`);
 
         // Check for combat with any rebel in this sector
@@ -440,6 +452,7 @@ function seizure(game: MERCGame): TacticsEffectResult {
         const placed = sector.addDictatorMilitia(militiaToAdd);
         totalMilitiaPlaced += placed;
         if (placed > 0) {
+          checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
           game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
         }
       }
@@ -489,6 +502,7 @@ function sentry(game: MERCGame): TacticsEffectResult {
       const placed = sector.addDictatorMilitia(militiaToAdd);
       totalPlaced += placed;
       if (placed > 0) {
+        checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
         game.message(`Sentry: ${placed} militia placed at ${sector.sectorName}`);
       }
     }
@@ -534,6 +548,7 @@ function blockTrade(game: MERCGame): TacticsEffectResult {
       const placed = city.addDictatorMilitia(militiaPerCity);
       totalPlaced += placed;
       if (placed > 0) {
+        checkLandmineOnDictatorMilitiaEntry(game, city, placed);
         game.message(`${placed} militia placed at ${city.sectorName}`);
 
         // Check for combat with any rebel in this sector
@@ -600,6 +615,7 @@ export function applyConscriptsEffect(game: MERCGame): void {
 
       // Check for combat with any rebel in this sector
       if (placed > 0) {
+        checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
         for (const rebel of game.rebelPlayers) {
           const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
             rebel.secondarySquad.sectorId === sector.sectorId;
@@ -804,6 +820,7 @@ function lockdown(game: MERCGame): TacticsEffectResult {
         const toPlace = Math.min(1, room, remaining);
         if (toPlace > 0) {
           sector.addDictatorMilitia(toPlace);
+          checkLandmineOnDictatorMilitiaEntry(game, sector, toPlace);
           remaining -= toPlace;
           placedThisRound += toPlace;
 

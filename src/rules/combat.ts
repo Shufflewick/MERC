@@ -426,6 +426,58 @@ function isAdelheid(combatant: Combatant): boolean {
 }
 
 /**
+ * Find the rebel owner seat for a merc combatant (if any).
+ */
+function getRebelOwnerSeat(attacker: Combatant, game: MERCGame): string | null {
+  if (!attacker.sourceElement?.isMerc) return null;
+  const attackerMerc = attacker.sourceElement as CombatantModel;
+  const ownerPlayer = game.rebelPlayers.find(p =>
+    p.team.some(m => m.id === attackerMerc.id)
+  );
+  return ownerPlayer ? `${ownerPlayer.seat}` : null;
+}
+
+function convertMilitiaOnKill(
+  attacker: Combatant,
+  target: Combatant,
+  rebels: Combatant[],
+  dictatorSide: Combatant[],
+  game: MERCGame
+): boolean {
+  if (!isAdelheid(attacker) || !target.isMilitia) return false;
+
+  const attackerIsDictator = attacker.isDictatorSide;
+  let ownerId: string | undefined;
+  let playerColor: string | undefined;
+
+  if (attackerIsDictator) {
+    playerColor = game.dictatorPlayer.playerColor;
+  } else {
+    const ownerSeat = getRebelOwnerSeat(attacker, game);
+    if (!ownerSeat) return false;
+    ownerId = ownerSeat;
+    const ownerPlayer = game.rebelPlayers.find(p => `${p.seat}` === ownerSeat);
+    playerColor = ownerPlayer?.playerColor;
+  }
+
+  const sideArray = attackerIsDictator ? dictatorSide : rebels;
+  const existingMilitiaCount = sideArray.filter(c =>
+    c.isMilitia && (attackerIsDictator ? c.isDictatorSide : c.ownerId === ownerId)
+  ).length;
+
+  const converted = createMilitiaCombatant(
+    existingMilitiaCount,
+    attackerIsDictator,
+    ownerId,
+    game,
+    playerColor
+  );
+  sideArray.push(converted);
+  game.message(`${attacker.name} converts ${target.name} to her side!`);
+  return true;
+}
+
+/**
  * MERC-b9p4: Check if a combatant is Golem
  */
 function isGolem(combatant: Combatant): boolean {
@@ -979,38 +1031,48 @@ function militiaToCombatants(
 ): Combatant[] {
   const combatants: Combatant[] = [];
 
+  for (let i = 0; i < count; i++) {
+    combatants.push(createMilitiaCombatant(i, isDictatorSide, ownerId, game, playerColor));
+  }
+  return combatants;
+}
+
+function createMilitiaCombatant(
+  index: number,
+  isDictatorSide: boolean,
+  ownerId?: string,
+  game?: MERCGame,
+  playerColor?: string
+): Combatant {
   // MERC-ohos: Veteran Militia gives dictator militia +1 initiative
   const baseInitiative = CombatConstants.MILITIA_INITIATIVE;
   const initiative = isDictatorSide && game?.veteranMilitiaActive
     ? baseInitiative + 1
     : baseInitiative;
 
-  for (let i = 0; i < count; i++) {
-    combatants.push({
-      id: `militia-${isDictatorSide ? 'dictator' : ownerId}-${i}`,
-      name: 'Militia',
-      initiative,
-      combat: CombatConstants.MILITIA_COMBAT,
-      health: CombatConstants.MILITIA_HEALTH,
-      maxHealth: CombatConstants.MILITIA_HEALTH,
-      armor: CombatConstants.MILITIA_ARMOR,
-      maxArmor: CombatConstants.MILITIA_ARMOR,
-      targets: CombatConstants.MILITIA_TARGETS,
-      isDictatorSide,
-      isMilitia: true,
-      isDictator: false,
-      isAttackDog: false,
-      sourceElement: null,
-      ownerId,
-      armorPiercing: false,
-      hasAttackDog: false,
-      isImmuneToAttackDogs: false,
-      willNotHarmDogs: false,
-      playerColor,
-      image: '',
-    });
-  }
-  return combatants;
+  return {
+    id: `militia-${isDictatorSide ? 'dictator' : ownerId}-${index}`,
+    name: 'Militia',
+    initiative,
+    combat: CombatConstants.MILITIA_COMBAT,
+    health: CombatConstants.MILITIA_HEALTH,
+    maxHealth: CombatConstants.MILITIA_HEALTH,
+    armor: CombatConstants.MILITIA_ARMOR,
+    maxArmor: CombatConstants.MILITIA_ARMOR,
+    targets: CombatConstants.MILITIA_TARGETS,
+    isDictatorSide,
+    isMilitia: true,
+    isDictator: false,
+    isAttackDog: false,
+    sourceElement: null,
+    ownerId,
+    armorPiercing: false,
+    hasAttackDog: false,
+    isImmuneToAttackDogs: false,
+    willNotHarmDogs: false,
+    playerColor,
+    image: '',
+  };
 }
 
 /**
@@ -2375,33 +2437,8 @@ function executeCombatRound(
 
       if (target.health <= 0) {
         // MERC-clsx: Adelheid converts militia instead of killing
-        if (isAdelheid(attacker) && target.isMilitia && !attacker.isDictatorSide) {
-          // Convert militia to rebel's side
-          const attackerMerc = attacker.sourceElement as CombatantModel;
-          const ownerPlayer = game.rebelPlayers.find(p =>
-            p.team.some(m => m.id === attackerMerc.id)
-          );
-          // Get sector from active combat state
-          const combatSector = game.activeCombat?.sectorId
-            ? game.getSector(game.activeCombat.sectorId)
-            : null;
-          if (ownerPlayer && combatSector) {
-            // Remove dictator militia
-            combatSector.dictatorMilitia--;
-            // Add to rebel militia
-            combatSector.addRebelMilitia(`${ownerPlayer.seat}`, 1);
-            game.message(`${attacker.name} converts ${target.name} to her side!`);
-            // Don't add to casualties - militia is converted, not killed
-          } else {
-            game.animate('combat-death', {
-              targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
-              targetId: target.id,
-              targetImage: target.image,
-              combatantId: getCombatantId(target),
-            });
-            casualties.push(target);
-            game.message(`${attacker.name} kills ${target.name}!`);
-          }
+        if (convertMilitiaOnKill(attacker, target, rebels, dictatorSide, game)) {
+          // Don't add to casualties - militia is converted, not killed
         } else {
           game.animate('combat-death', {
             targetName: target.name.charAt(0).toUpperCase() + target.name.slice(1),
