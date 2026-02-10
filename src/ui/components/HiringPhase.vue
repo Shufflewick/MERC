@@ -28,6 +28,12 @@ interface Props {
   selectedMercName: string;
   selectedMercId: string;
 
+  // MultiSelect state (mid-game hire: draw 3, pick 1+)
+  isMultiSelect?: boolean;
+  isMultiSelectReady?: boolean;
+  multiSelectCountDisplay?: string;
+  isMultiSelected?: (choiceValue: unknown) => boolean;
+
   // Modal state
   showHiringMercModal: boolean;
 
@@ -43,6 +49,7 @@ const emit = defineEmits<{
   'select-equipment-type': [equipType: string];
   'select-sector': [sector: { value: string; label: string }];
   'skip-hire': [];
+  'confirm-multi-select': [];
   'open-detail-modal': [];
   'close-detail-modal': [];
 }>();
@@ -138,10 +145,24 @@ function handleCloseDetailModal() {
           v-for="merc in hirableMercs"
           :key="getMercId(merc)"
           class="merc-choice"
+          :class="{ 'merc-selected': isMultiSelect && isMultiSelected?.(merc._choiceValue) }"
           @click="handleMercSelect(merc)"
         >
           <CombatantCard :merc="merc" :player-color="playerColor" />
+          <div v-if="isMultiSelect && isMultiSelected?.(merc._choiceValue)" class="selected-badge">HIRED</div>
         </div>
+      </div>
+
+      <!-- MultiSelect confirm button -->
+      <div v-if="isMultiSelect" class="multi-select-controls">
+        <span class="multi-select-count">{{ multiSelectCountDisplay }}</span>
+        <button
+          class="confirm-hire-button"
+          :disabled="!isMultiSelectReady"
+          @click="emit('confirm-multi-select')"
+        >
+          Confirm Hire
+        </button>
       </div>
 
       <!-- Skip button for third hire (optional) -->
@@ -225,6 +246,7 @@ function handleCloseDetailModal() {
 }
 
 .merc-choice {
+  position: relative;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
   border-radius: 12px;
@@ -264,6 +286,58 @@ function handleCloseDetailModal() {
   gap: 16px;
   justify-content: center;
   max-width: 800px;
+}
+
+.merc-selected {
+  box-shadow: 0 0 0 3px v-bind('UI_COLORS.accent'), 0 8px 24px rgba(212, 168, 75, 0.4);
+}
+
+.selected-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: v-bind('UI_COLORS.accent');
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.multi-select-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.multi-select-count {
+  color: v-bind('UI_COLORS.textMuted');
+  font-size: 0.9rem;
+}
+
+.confirm-hire-button {
+  background: v-bind('UI_COLORS.accent');
+  color: #000;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-hire-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 168, 75, 0.5);
+}
+
+.confirm-hire-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .skip-hire-section {

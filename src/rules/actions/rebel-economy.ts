@@ -58,7 +58,7 @@ function getHireDrawnMercs(game: MERCGame, playerId: string): CombatantModel[] |
  */
 export function createHireMercAction(game: MERCGame): ActionDefinition {
   return Action.create('hireMerc')
-    .prompt('Hire mercenaries')
+    .prompt('Hire')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -133,6 +133,11 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         return compatibleMercs.map(m => capitalize(m.combatantName));
       },
     })
+    // Per rules: new hire draws 1 equipment from any deck (player chooses type)
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose equipment type for new hire',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const actingMerc = asCombatantModel(args.actingMerc);
@@ -140,6 +145,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       const drawnMercs = getHireDrawnMercs(game, playerId) || [];
       const selectedNames = (args.selectedMercs as string[]) || [];
       const fireChoice = args.fireFirst as string;
+      const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
 
       // Spend action
       if (!useAction(actingMerc, ACTION_COSTS.HIRE_MERC)) {
@@ -210,22 +216,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
           merc.actionsRemaining = 0;
 
           // Per rules (06-merc-actions.md lines 52-55): Draw 1 equipment from any deck (free)
-          // Auto-select equipment type based on what MERC is missing
-          let equipType: 'Weapon' | 'Armor' | 'Accessory';
-          if (!merc.weaponSlot) {
-            equipType = 'Weapon';
-          } else if (!merc.armorSlot) {
-            equipType = 'Armor';
-          } else if (!merc.accessorySlot) {
-            equipType = 'Accessory';
-          } else {
-            // All slots filled, draw random using seeded random
-            const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
-            equipType = types[Math.floor(game.random() * types.length)];
-          }
-
           // Uses shared helper for Apeiron/Vrbansk ability handling
-          equipNewHire(game, merc, equipType);
+          equipNewHire(game, merc, chosenEquipType);
 
           hired.push(merc.combatantName);
           currentSize++;

@@ -981,7 +981,37 @@ const landingSectors = computed(() => {
   }).filter(Boolean);
 });
 
-// Handle clicking a MERC to hire - simplified since watcher auto-starts action
+// ---- Multi-select state for mid-game hireMerc (draw 3, pick 1+) ----
+const hireMultiSelectValues = ref<unknown[]>([]);
+
+// Is the current hiring pick a multiSelect?
+const isHireMultiSelect = computed(() => {
+  const pick = props.actionController.currentPick.value;
+  return !!pick?.multiSelect;
+});
+
+// Can the player confirm their multiSelect choices?
+const isHireMultiSelectReady = computed(() => {
+  const pick = props.actionController.currentPick.value;
+  if (!pick?.multiSelect) return false;
+  return hireMultiSelectValues.value.length >= pick.multiSelect.min;
+});
+
+// "Selected: 1/2" display text
+const hireMultiSelectCountDisplay = computed(() => {
+  const pick = props.actionController.currentPick.value;
+  if (!pick?.multiSelect) return '';
+  const count = hireMultiSelectValues.value.length;
+  const max = pick.multiSelect.max;
+  return max !== undefined ? `Selected: ${count}/${max}` : `Selected: ${count}`;
+});
+
+// Check if a merc is currently selected in multiSelect
+function isHireMultiSelected(choiceValue: unknown): boolean {
+  return hireMultiSelectValues.value.includes(choiceValue);
+}
+
+// Handle clicking a MERC to hire - supports both single and multiSelect
 async function selectMercToHire(merc: any) {
   const selection = props.actionController.currentPick.value;
   if (!selection) return;
@@ -989,8 +1019,43 @@ async function selectMercToHire(merc: any) {
   const choiceValue = merc._choiceValue;
   if (!choiceValue) return;
 
+  // MultiSelect: toggle selection, don't fill yet
+  if (selection.multiSelect) {
+    const idx = hireMultiSelectValues.value.indexOf(choiceValue);
+    if (idx >= 0) {
+      hireMultiSelectValues.value.splice(idx, 1);
+    } else {
+      const max = selection.multiSelect.max;
+      if (max === undefined || hireMultiSelectValues.value.length < max) {
+        hireMultiSelectValues.value.push(choiceValue);
+        // Auto-confirm when min === max and exact count reached
+        if (selection.multiSelect.min === selection.multiSelect.max &&
+            hireMultiSelectValues.value.length === selection.multiSelect.min) {
+          confirmHireMultiSelect();
+        }
+      }
+    }
+    return;
+  }
+
+  // Single select: fill immediately
   await props.actionController.fill(selection.name, choiceValue);
 }
+
+// Confirm multiSelect choices and fill the selection with the array
+async function confirmHireMultiSelect() {
+  const selection = props.actionController.currentPick.value;
+  if (!selection) return;
+  const values = [...hireMultiSelectValues.value];
+  hireMultiSelectValues.value = [];
+  await props.actionController.fill(selection.name, values);
+}
+
+// Clear multiSelect state when the action changes or pick changes
+watch(
+  [() => props.actionController.currentAction.value, () => props.actionController.currentPick.value?.name],
+  () => { hireMultiSelectValues.value = []; }
+);
 
 // Handle selecting equipment type
 async function selectEquipmentType(equipType: string) {
@@ -1368,12 +1433,17 @@ const clickableSectors = computed(() => {
       :selected-merc-name="selectedMercName"
       :selected-merc-id="selectedMercId"
       :show-hiring-merc-modal="showHiringMercModal"
+      :is-multi-select="isHireMultiSelect"
+      :is-multi-select-ready="isHireMultiSelectReady"
+      :multi-select-count-display="hireMultiSelectCountDisplay"
+      :is-multi-selected="isHireMultiSelected"
       :prompt="currentPick?.prompt || state?.flowState?.prompt || 'Select your MERCs'"
       :player-color="currentPlayerColor"
       @select-merc="selectMercToHire"
       @select-equipment-type="selectEquipmentType"
       @select-sector="selectSector"
       @skip-hire="skipThirdHire"
+      @confirm-multi-select="confirmHireMultiSelect"
       @open-detail-modal="openHiringMercDetail"
       @close-detail-modal="closeHiringMercModal"
     />

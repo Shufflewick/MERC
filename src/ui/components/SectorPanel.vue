@@ -330,7 +330,8 @@ function isSpecialAction(item: any): boolean {
   // Convert to string first since _choiceValue may be a number from BoardSmith's validElements
   const value = String(item._choiceValue ?? '').toLowerCase();
   const display = String(item._choiceDisplay ?? '').toLowerCase();
-  return value === 'skip' || display.includes('skip') || display.includes('stash');
+  return value === 'skip' || value === 'none' ||
+         display.includes('skip') || display.includes('stash') || display.includes('continue');
 }
 
 // Format equipment stat bonuses as a string
@@ -526,6 +527,9 @@ const inSectorActions = computed(() => {
   if (props.availableActions.includes('dropEquipment') && hasEquippedUnitInSector.value) {
     actions.push({ name: 'dropEquipment', label: 'Unequip', icon: '📤' });
   }
+  if (props.availableActions.includes('hireMerc')) {
+    actions.push({ name: 'hireMerc', label: 'Hire', icon: '👥' });
+  }
   if (props.hasDoc && props.hasDamagedMercs && props.availableActions.includes('docHeal')) {
     actions.push({ name: 'docHeal', label: 'Doc Heal', icon: '💊' });
   }
@@ -585,6 +589,7 @@ const isInActionFlow = computed(() => {
     'reEquipContinue', // Chained from reEquip
     'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
     'mortar', 'coordinatedAttack',
+    'hireMerc', // Mid-game hire (actingMerc/fireFirst steps show here, then HiringPhase takes over)
   ];
 
   // Actions that are explicitly started from this panel - check FIRST before squad check
@@ -710,6 +715,12 @@ const isSelectingMerc = computed(() => {
   // Check selection name/prompt for MERC-related keywords
   const selName = (sel.name || '').toLowerCase();
   const selPrompt = (sel.prompt || '').toLowerCase();
+
+  // Exclude selections that mention MERC in prompt but aren't merc-picking
+  // (selectedMercs/equipmentType are handled by HiringPhase, not SectorPanel)
+  if (selName === 'selectedmercs' || selName === 'equipmenttype') {
+    return false;
+  }
 
   // If prompt or name mentions MERC or unit, it's a MERC selection
   // "unit" is used for actions that can select both MERCs and dictator combatant
@@ -1125,10 +1136,12 @@ const selectableItems = computed(() => {
         const ref = m?.ref;  // BoardSmith element ID
         const combatantId = getAttr(m, 'combatantId', null);
 
-        // Match by ref (element ID), name, or combatantId
+        // Match by ref (element ID), name, combatantId, or name contained in display
+        // (e.g., display "Fire Badger" contains name "badger")
         return ref === c.value ||
                String(ref) === String(c.value) ||
                name === displayLower ||
+               (name && displayLower.includes(name)) ||
                combatantId === c.value ||
                String(combatantId) === String(c.value);
       });
