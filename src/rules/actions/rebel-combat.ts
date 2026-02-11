@@ -569,6 +569,35 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 
+      let totalAllocated = Array.from(hitsByTarget.values()).reduce((sum, n) => sum + n, 0);
+      if (totalAllocated !== pending.hits) {
+        if (totalAllocated > pending.hits) {
+          // Guard against UI over-submitting selections: trim to expected hit count
+          const trimmed = new Map<string, number>();
+          let remaining = pending.hits;
+          for (const choice of allocChoices) {
+            if (remaining <= 0) break;
+            const choiceStr = typeof choice === 'string' ? choice :
+              (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as { value: unknown }).value) : String(choice);
+            const targetId = choiceStr.split('::')[0];
+            trimmed.set(targetId, (trimmed.get(targetId) ?? 0) + 1);
+            remaining -= 1;
+          }
+          hitsByTarget.clear();
+          for (const [targetId, count] of trimmed.entries()) {
+            hitsByTarget.set(targetId, count);
+          }
+          totalAllocated = pending.hits;
+          game.message(`${pending.attackerName} allocation trimmed: expected ${pending.hits} hit(s), got ${totalAllocated}`);
+        } else {
+          game.message(`${pending.attackerName} allocation rejected: expected ${pending.hits} hit(s), got ${totalAllocated}`);
+          return {
+            success: false,
+            message: `Allocate exactly ${pending.hits} hit(s) (allocated ${totalAllocated})`,
+          };
+        }
+      }
+
       // Store the allocation for combat.ts to use
       if (!game.activeCombat.selectedTargets) {
         game.activeCombat.selectedTargets = new Map();

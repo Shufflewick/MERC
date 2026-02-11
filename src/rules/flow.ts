@@ -1321,7 +1321,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'assignToSquad',
                       'endTurn',
                     ],
-                    skipIf: () => game.isFinished(),
+                    skipIf: () => game.isFinished() || (game.activeCombat !== null && !game.activeCombat.combatComplete),
                   }),
 
                   // Mortar hit allocation — yields so human dictator can allocate hits

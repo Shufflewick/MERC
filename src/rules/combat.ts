@@ -943,6 +943,25 @@ function hasAttackDogEquipped(merc: CombatantModel): boolean {
 }
 
 /**
+ * MERC-l09: Discard the equipped Attack Dog (consumable) from the source MERC.
+ */
+function discardAttackDogEquipment(attacker: Combatant, game: MERCGame): void {
+  const merc = attacker.sourceElement;
+  if (!merc || (!merc.isMerc && !merc.isDictator)) return;
+
+  let equip: Equipment | undefined;
+  if (merc.accessorySlot?.equipmentId === ATTACK_DOG_ID) {
+    equip = merc.accessorySlot;
+  } else {
+    equip = merc.bandolierSlots.find(e => e.equipmentId === ATTACK_DOG_ID);
+  }
+
+  if (equip) {
+    unequipAndDiscard(merc, equip, game);
+  }
+}
+
+/**
  * MERC-l09: Check if a MERC is immune to attack dogs (Shadkaam)
  */
 function isImmuneToAttackDogs(merc: CombatantModel): boolean {
@@ -1530,6 +1549,7 @@ function assignAttackDog(
   dogState.assignments.set(target.id, dog);
   dogState.dogs.push(dog);
   attacker.hasAttackDog = false;
+  discardAttackDogEquipment(attacker, game);
   game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
   game.message(`${target.name} must attack the dog before doing anything else.`);
 
@@ -1580,6 +1600,7 @@ function assignAttackDogToTarget(
   dogState.assignments.set(target.id, dog);
   dogState.dogs.push(dog);
   attacker.hasAttackDog = false;
+  discardAttackDogEquipment(attacker, game);
   game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
   game.message(`${target.name} must attack the dog before doing anything else.`);
 
@@ -2100,6 +2121,7 @@ function executeCombatRound(
             game.message(`${attacker.name} releases Attack Dog on ${target.name}!`);
             game.message(`${target.name} must attack the dog before doing anything else.`);
             attacker.hasAttackDog = false;
+            discardAttackDogEquipment(attacker, game);
           }
         } else {
           // Fallback: create new dog (handles edge cases or data loss)
@@ -2127,6 +2149,7 @@ function executeCombatRound(
           const dog = createAttackDogCombatant(attacker.id, attacker.isDictatorSide, dogIndex++);
           dog.attackDogPendingTarget = true; // Flag: awaiting target selection
           activeDogState.dogs.push(dog);
+          discardAttackDogEquipment(attacker, game);
 
           // Add to combatant arrays for UI display
           if (dog.isDictatorSide) {

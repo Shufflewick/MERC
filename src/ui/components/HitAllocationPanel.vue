@@ -86,7 +86,7 @@ const allocatedDiceSet = computed(() => {
 
 // Reset allocation state when pendingAllocation changes
 watch(() => props.pendingAllocation, () => {
-  allocatedHits.value.clear();
+  allocatedHits.value = new Map();
   fallbackAllocations.value = [];
   // Auto-select first hit die (only when dice data is available)
   if (successfulDice.value.length > 0) {
@@ -107,12 +107,15 @@ function selectDie(dieIndex: number) {
 
 // Handle adding a hit to a target (called from parent)
 function addHitToTarget(targetId: string) {
+  if (unallocatedHitCount.value <= 0) return;
   // When dice data is available, use dice-based allocation
   if (hasDiceData.value) {
     // Need a selected die to allocate
     if (selectedDieIndex.value === null) return;
 
     allocatedHits.value.set(selectedDieIndex.value, targetId);
+    // Reassign to trigger reactivity for Map mutation
+    allocatedHits.value = new Map(allocatedHits.value);
     emit('allocate-hit', targetId);
 
     // Auto-select next unallocated die
@@ -139,6 +142,8 @@ function removeHitFromTarget(targetId: string) {
       // Remove the last allocation to this target and select that die
       const [dieIndex] = allocatedToTarget[allocatedToTarget.length - 1];
       allocatedHits.value.delete(dieIndex);
+      // Reassign to trigger reactivity for Map mutation
+      allocatedHits.value = new Map(allocatedHits.value);
       selectedDieIndex.value = dieIndex;
     }
   } else {
@@ -184,7 +189,7 @@ function handleConfirm() {
 
 function handleReroll() {
   if (!canReroll.value) return;
-  allocatedHits.value.clear();
+  allocatedHits.value = new Map();
   selectedDieIndex.value = null;
   emit('reroll');
 }
