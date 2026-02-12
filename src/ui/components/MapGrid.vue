@@ -175,22 +175,29 @@ function queueAnimation(
   isDictator: boolean = false,
   playerId?: string,
   startValue: number = 0
-) {
-  // Wait for next tick to ensure DOM is updated, then get position
-  nextTick(() => {
-    const rect = getSectorRect(sectorId);
-    if (!rect) return;
+): Promise<void> {
+  return new Promise((resolve) => {
+    // Wait for next tick to ensure DOM is updated, then get position
+    nextTick(() => {
+      const rect = getSectorRect(sectorId);
+      if (!rect) {
+        resolve();
+        return;
+      }
 
-    activeAnimations.value.push({
-      id: getAnimationId(),
-      sectorId,
-      count,
-      playerColor,
-      isDictator,
-      playerId,
-      rect,
-      startValue,
-      currentDisplayValue: startValue, // Start at old value
+      const id = getAnimationId();
+      militiaResolvers.set(id, resolve);
+      activeAnimations.value.push({
+        id,
+        sectorId,
+        count,
+        playerColor,
+        isDictator,
+        playerId,
+        rect,
+        startValue,
+        currentDisplayValue: startValue, // Start at old value
+      });
     });
   });
 }
@@ -203,9 +210,16 @@ function handleAnimationIncrement(animationId: string) {
   }
 }
 
+const militiaResolvers = new Map<string, () => void>();
+
 // Handle animation complete - remove from queue
 function handleAnimationComplete(animationId: string) {
   activeAnimations.value = activeAnimations.value.filter(a => a.id !== animationId);
+  const resolve = militiaResolvers.get(animationId);
+  if (resolve) {
+    militiaResolvers.delete(animationId);
+    resolve();
+  }
 }
 
 // Compute display overrides for sectors with active animations
@@ -446,6 +460,16 @@ if (animationEvents) {
       ...anim,
       direction: anim.direction ?? 'incoming',
     }));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
+
+  animationEvents.registerHandler('map-militia-train', async (event) => {
+    const data = event.data as { animations?: { sectorId: string; count: number; isDictator: boolean; playerId?: string; startValue: number }[] } | undefined;
+    const animations = data?.animations ?? [];
+    if (animations.length === 0) return;
+    const promises = animations.map((anim) =>
+      queueAnimation(anim.sectorId, anim.count, undefined, anim.isDictator, anim.playerId, anim.startValue)
+    );
     await Promise.all(promises);
   }, { skip: 'drop' });
 }

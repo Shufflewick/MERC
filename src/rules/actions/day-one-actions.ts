@@ -20,7 +20,7 @@ import {
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
 import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat } from './helpers.js';
-import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
+import { buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain } from '../animation-events.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -136,16 +136,6 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
           buildMapCombatantEntry(merc, player.primarySquad.sectorId),
         ]);
       }
-      if (player.primarySquad.sectorId) {
-        emitMapCombatantEntries(game, [
-          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
-        ]);
-      }
-      if (player.primarySquad.sectorId) {
-        emitMapCombatantEntries(game, [
-          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
-        ]);
-      }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
@@ -243,6 +233,11 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
       game.message(`${player.name} hired ${merc.combatantName}`);
+      if (player.primarySquad.sectorId) {
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
+        ]);
+      }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
@@ -367,6 +362,11 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
       game.message(`${player.name} hired ${merc.combatantName} (Teresa bonus)`);
+      if (player.primarySquad.sectorId) {
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
+        ]);
+      }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();
@@ -641,6 +641,9 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
         game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
         game.message(`Dictator deployed ${merc.combatantName} to ${targetSector.sectorName}`);
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(merc, targetSector.sectorId),
+        ]);
       }
 
       // Give equipment of chosen type
@@ -845,9 +848,13 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         return { success: false, message: 'Invalid sector' };
       }
 
+      const startValue = targetSector.dictatorMilitia;
       const placed = targetSector.addDictatorMilitia(amount);
       remaining -= placed;
 
+      if (placed > 0) {
+        emitMapMilitiaTrain(game, [{ sectorId: targetSector.sectorId, count: placed, isDictator: true, startValue }]);
+      }
       game.message(`Placed ${placed} extra militia at ${targetSector.sectorName}`);
 
       if (remaining > 0) {

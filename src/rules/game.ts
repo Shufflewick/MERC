@@ -1845,11 +1845,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   advanceDay(): void {
     this.currentDay++;
+    console.log(`[DEBUG advanceDay] Day ${this.currentDay}`);
 
     // Reset all rebel MERC actions
     for (const rebel of this.rebelPlayers) {
+      console.log(`[DEBUG advanceDay] Rebel ${rebel.name}: team size=${rebel.team.length}, mercs=${rebel.team.map(m => `${m.combatantName}(dead=${m.isDead})`).join(',')}`);
       for (const merc of rebel.team) {
         merc.resetActions();
+        console.log(`[DEBUG advanceDay] Reset ${merc.combatantName}: actionsRemaining=${merc.actionsRemaining}`);
         // MERC-4t3: Preaction auto-heals 1 health at the start of each day
         if (merc.combatantId === 'preaction' && merc.damage > 0) {
           const healed = merc.heal(1);
@@ -1861,6 +1864,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     // Reset dictator MERC actions
+    console.log(`[DEBUG advanceDay] Dictator hiredMercs=${this.dictatorPlayer.hiredMercs.length}, dictator=${this.dictatorPlayer.dictator?.combatantName}, inPlay=${this.dictatorPlayer.dictator?.inPlay}`);
     for (const merc of this.dictatorPlayer.hiredMercs) {
       merc.resetActions();
       // MERC-4t3: Preaction auto-heals 1 health at the start of each day

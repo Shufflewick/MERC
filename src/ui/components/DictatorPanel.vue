@@ -174,6 +174,35 @@ const isSelectingEquipmentType = computed(() => {
   return false;
 });
 
+// Get the combatant whose equipment is being selected
+// For generalissimoPick, this is the hired merc (from currentArgs.selectedMerc)
+// For other actions (playTactics, chooseKimBase), this is the dictator
+const equipmentSelectionCombatant = computed(() => {
+  const currentAction = props.actionController.currentAction.value;
+  if (currentAction === 'generalissimoPick') {
+    const currentArgs = props.actionController.currentArgs?.value || {};
+    const mercName = currentArgs['selectedMerc'] as string | undefined;
+    if (mercName) {
+      const mercInfo = props.combatantData?.find(
+        (d) => d.cardType === 'merc' && d.name.toLowerCase() === mercName.toLowerCase()
+      );
+      if (mercInfo) {
+        return {
+          combatantId: mercInfo.id,
+          combatantName: mercInfo.name,
+          image: mercInfo.image || '',
+        };
+      }
+    }
+  }
+  // Default: dictator
+  return {
+    combatantId: props.dictator?.combatantId,
+    combatantName: props.dictator?.combatantName,
+    image: props.dictator?.image,
+  };
+});
+
 // Get equipment type choices
 const equipmentTypeChoices = computed(() => {
   if (!isSelectingEquipmentType.value) return [];
@@ -567,13 +596,13 @@ const dictatorCardData = computed(() => ({
             </div>
           </div>
 
-          <!-- Equipment Type Selection (for dictator entering play) -->
+          <!-- Equipment Type Selection (for dictator entering play or generalissimo hire) -->
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :combatant-id="dictator?.combatantId"
-            :combatant-name="dictator?.combatantName"
-            :image="dictator?.image"
+            :combatant-id="equipmentSelectionCombatant.combatantId"
+            :combatant-name="equipmentSelectionCombatant.combatantName"
+            :image="equipmentSelectionCombatant.image"
             player-color="dictator"
             @select="selectEquipmentType"
           />

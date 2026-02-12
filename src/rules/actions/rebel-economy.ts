@@ -1273,6 +1273,7 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
       choices: ['Yes, end turn'],
     })
     .execute((args, ctx) => {
+      console.log(`[DEBUG endTurn] player=${ctx.player?.name}, isRebel=${game.isRebelPlayer(ctx.player)}, isDictator=${game.isDictatorPlayer(ctx.player)}, day=${game.currentDay}`);
       if (game.isRebelPlayer(ctx.player)) {
         const player = asRebelPlayer(ctx.player);
         // Clear all remaining actions from player's MERCs

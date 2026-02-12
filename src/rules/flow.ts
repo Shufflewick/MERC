@@ -366,6 +366,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 const player = ctx?.player as RebelPlayer | undefined;
                 if (player) {
                   const hasActionsLeft = player.team.some(m => m.actionsRemaining > 0);
+                  console.log(`[DEBUG rebel-action-loop] player=${player.name}, team=${player.team.map(m => `${m.combatantName}(actions=${m.actionsRemaining},dead=${m.isDead})`).join(',')}, hasActions=${hasActionsLeft}`);
                   return hasActionsLeft;
                 }
                 return true; // Continue if no player context (shouldn't happen)
@@ -1042,7 +1043,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               loop({
                 name: 'dictator-merc-actions',
                 while: () => {
-                  if (game.isFinished()) return false;
+                  if (game.isFinished()) { console.log('[DEBUG dictator-merc-actions] exiting: game finished'); return false; }
                   // MERC-combat-flow: Keep loop active while combat is active or pending
                   // But exit if combatComplete (UI is animating)
                   if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
@@ -1052,6 +1053,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   const dictator = game.dictatorPlayer?.dictator;
                   const hasActionsLeft = dictatorMercs.some(m => m.actionsRemaining > 0) ||
                     (dictator?.inPlay && dictator.actionsRemaining > 0);
+                  console.log(`[DEBUG dictator-merc-actions] hiredMercs=${dictatorMercs.length}, mercsWithActions=${dictatorMercs.filter(m => m.actionsRemaining > 0).map(m => `${m.combatantName}(${m.actionsRemaining})`).join(',')}, dictator=${dictator?.combatantName}, inPlay=${dictator?.inPlay}, dictatorActions=${dictator?.actionsRemaining}, result=${hasActionsLeft}`);
                   return hasActionsLeft ?? false;
                 },
                 maxIterations: 50, // Safety limit per turn
@@ -1351,6 +1353,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Log that MERC actions phase completed
               execute(() => {
                 if (game.isFinished()) return; // Game ended during combat
+                const dictator = game.dictatorPlayer?.dictator;
+                console.log(`[DEBUG] Dictator MERC actions complete. dictator=${dictator?.combatantName}, inPlay=${dictator?.inPlay}, actionsRemaining=${dictator?.actionsRemaining}, activeCombat=${game.activeCombat !== null}`);
                 game.message('Dictator MERC actions complete');
               }),
 

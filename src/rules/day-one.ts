@@ -9,7 +9,7 @@
 
 import type { MERCGame, RebelPlayer } from './game.js';
 import { Equipment, Sector, TacticsCard, isGrenadeOrMortar, CombatantModel } from './elements.js';
-import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId } from './animation-events.js';
+import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId, buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain, type MapMilitiaTrainEventData } from './animation-events.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 import { selectNewMercLocation } from './ai-helpers.js';
@@ -274,13 +274,19 @@ export function placeInitialMilitia(game: MERCGame): number {
   const unoccupiedIndustries = getUnoccupiedIndustries(game);
 
   let totalPlaced = 0;
+  const animations: MapMilitiaTrainEventData[] = [];
 
   for (const sector of unoccupiedIndustries) {
+    const startValue = sector.dictatorMilitia;
     const placed = sector.addDictatorMilitia(difficulty);
     totalPlaced += placed;
     game.message(`Placed ${placed} militia at ${sector.sectorName}`);
+    if (placed > 0) {
+      animations.push({ sectorId: sector.sectorId, count: placed, isDictator: true, startValue });
+    }
   }
 
+  emitMapMilitiaTrain(game, animations);
   game.message(`Initial militia: ${totalPlaced} total on ${unoccupiedIndustries.length} industries`);
 
   return totalPlaced;
@@ -306,6 +312,9 @@ export function hireDictatorMerc(game: MERCGame): CombatantModel | undefined {
       game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
       game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
       game.message(`Dictator hired ${merc.combatantName} (stationed at ${targetSector.sectorName})`);
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(merc, targetSector.sectorId),
+      ]);
     } else {
       // No location available yet
       game.message(`Dictator hired ${merc.combatantName}`);
@@ -376,6 +385,7 @@ export function placeExtraMilitia(
 ): number {
   const extraBudget = game.setupConfig.dictatorStrength.extra;
   let totalPlaced = 0;
+  const animations: MapMilitiaTrainEventData[] = [];
 
   for (const [sectorId, count] of placements) {
     if (totalPlaced + count > extraBudget) {
@@ -384,21 +394,30 @@ export function placeExtraMilitia(
 
       const sector = game.getSector(sectorId);
       if (sector) {
+        const startValue = sector.dictatorMilitia;
         const placed = sector.addDictatorMilitia(remaining);
         totalPlaced += placed;
         game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
+        if (placed > 0) {
+          animations.push({ sectorId, count: placed, isDictator: true, startValue });
+        }
       }
       break;
     }
 
     const sector = game.getSector(sectorId);
     if (sector) {
+      const startValue = sector.dictatorMilitia;
       const placed = sector.addDictatorMilitia(count);
       totalPlaced += placed;
       game.message(`Placed ${placed} extra militia at ${sector.sectorName}`);
+      if (placed > 0) {
+        animations.push({ sectorId, count: placed, isDictator: true, startValue });
+      }
     }
   }
 
+  emitMapMilitiaTrain(game, animations);
   return totalPlaced;
 }
 
@@ -416,13 +435,30 @@ export function autoPlaceExtraMilitia(game: MERCGame): number {
     return 0;
   }
 
+  // Capture militia counts before placement for animation startValues
+  const startValues = new Map<string, number>();
+  for (const sector of game.gameMap.getAllSectors()) {
+    if (sector.isIndustry && sector.dictatorMilitia > 0) {
+      startValues.set(sector.sectorId, sector.dictatorMilitia);
+    }
+  }
+
   // MERC-cgn: During setup, distribute evenly among dictator-controlled industries
-  const placements = distributeExtraMilitiaEvenly(game, extraBudget);
+  const placements = distributeExtraMilitiaEvenly(game, extraBudget) as Map<string, number>;
 
   let totalPlaced = 0;
-  for (const count of placements.values()) {
+  const animations: MapMilitiaTrainEventData[] = [];
+  for (const [sectorId, count] of placements) {
     totalPlaced += count;
+    animations.push({
+      sectorId,
+      count,
+      isDictator: true,
+      startValue: startValues.get(sectorId) ?? 0,
+    });
   }
+
+  emitMapMilitiaTrain(game, animations);
 
   if (totalPlaced > 0) {
     game.message(`Total: ${totalPlaced} extra militia distributed evenly`);
