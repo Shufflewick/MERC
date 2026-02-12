@@ -256,9 +256,9 @@ export function useActionState(
 
     // Check if current action is a hiring action
     if (currentAction !== null && hiringActions.includes(currentAction)) {
-      // Special case: selectDictator is only a hiring action for the dictator player
+      // Special case: dictator-only hiring actions should not show for rebel players
       // currentAction is shared across all players, so rebels might see it
-      if (currentAction === 'selectDictator') {
+      if (currentAction === 'selectDictator' || currentAction === 'dictatorHireFirstMerc') {
         const isDictator = props.isCurrentPlayerDictator?.() ?? false;
         return isDictator;
       }
