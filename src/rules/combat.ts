@@ -1812,6 +1812,13 @@ function executeCombatRound(
           continue;
         }
 
+        // Apply "targeted last" filter (Runde's ability) — exclude if other targets exist
+        const nonTargetedLast = aliveEnemies.filter(t => {
+          const cid = getCombatantId(t);
+          return !cid || !isTargetedLast(cid);
+        });
+        const validEnemies = nonTargetedLast.length > 0 ? nonTargetedLast : aliveEnemies;
+
         // Use standard target selection: check for stored targets from pendingTargetSelection
         const batchLeaderId = batch.militia[0].id;
         const storedTargetIds = playerSelectedTargets?.get(batchLeaderId);
@@ -1833,18 +1840,18 @@ function executeCombatRound(
           selectedTargets = storedTargetIds
             .map(id => aliveEnemies.find(e => e.id === id))
             .filter((e): e is Combatant => e != null);
-        } else if (aliveEnemies.length === 1 || !isHumanControlled || !interactive) {
+        } else if (validEnemies.length === 1 || !isHumanControlled || !interactive) {
           // Auto-select: single target, AI, or non-interactive
-          if (batch.militia.length >= aliveEnemies.length) {
-            selectedTargets = aliveEnemies;
+          if (batch.militia.length >= validEnemies.length) {
+            selectedTargets = validEnemies;
           } else {
             // AI: pick batch.length highest-priority targets
-            const sorted = sortTargetsByAIPriority(aliveEnemies, () => game.random());
+            const sorted = sortTargetsByAIPriority(validEnemies, () => game.random());
             selectedTargets = sorted.slice(0, batch.militia.length);
           }
-        } else if (batch.militia.length >= aliveEnemies.length) {
+        } else if (batch.militia.length >= validEnemies.length) {
           // Human but can hit all enemies — no choice needed
-          selectedTargets = aliveEnemies;
+          selectedTargets = validEnemies;
         } else {
           // Human with more enemies than militia — pause for standard target selection
           return {
@@ -1855,7 +1862,7 @@ function executeCombatRound(
               attackerId: batchLeaderId,
               attackerName: `Militia x${batch.militia.length}`,
               attackerIndex: i,
-              validTargets: aliveEnemies,
+              validTargets: validEnemies,
               maxTargets: batch.militia.length,
             },
           };
@@ -2356,9 +2363,9 @@ function executeCombatRound(
     }
 
     // MERC-dice: Check if player needs to allocate hits
-    // Pause for allocation if: player-controlled rebel MERC, multiple DECLARED targets, meaningful choice
+    // Pause for allocation if: human-controlled MERC (either side), multiple DECLARED targets, meaningful choice
     const hasHitAllocation = game.activeCombat?.selectedTargets?.has(`allocation:${attacker.id}`);
-    if (interactive && isRebelMerc && !hasHitAllocation) {
+    if (interactive && isHumanControlled && !attacker.isMilitia && !hasHitAllocation) {
       // Valid targets for hit allocation are the DECLARED targets (not all enemies)
       // This respects the attacker's target limit (e.g., targets: 1 means only 1 declared target)
       const validTargets = targets.filter(t => t.health > 0);
