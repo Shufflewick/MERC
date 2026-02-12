@@ -472,6 +472,49 @@ if (animationEvents) {
     );
     await Promise.all(promises);
   }, { skip: 'drop' });
+
+  animationEvents.registerHandler('sector-explore', async (event) => {
+    const data = event.data as { sectors?: { sectorId: string }[] } | undefined;
+    const sectors = data?.sectors ?? [];
+    if (sectors.length === 0) return;
+    const promises = sectors.map((s) => queueSectorFlip(s.sectorId));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
+
+  animationEvents.registerHandler('tactic-seizure', async (event) => {
+    const data = event.data as { sectors?: { sectorId: string }[] } | undefined;
+    const sectors = data?.sectors ?? [];
+    if (sectors.length === 0) return;
+    const promises = sectors.map((s) => queueSectorFlip(s.sectorId));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
+}
+
+// ============================================================================
+// SECTOR EXPLORE FLIP ANIMATION
+// ============================================================================
+
+const flippingSectors = ref(new Set<string>());
+const flipResolvers = new Map<string, () => void>();
+
+function queueSectorFlip(sectorId: string): Promise<void> {
+  return new Promise((resolve) => {
+    nextTick(() => {
+      flipResolvers.set(sectorId, resolve);
+      flippingSectors.value = new Set([...flippingSectors.value, sectorId]);
+    });
+  });
+}
+
+function handleSectorFlipComplete(sectorId: string) {
+  const newSet = new Set(flippingSectors.value);
+  newSet.delete(sectorId);
+  flippingSectors.value = newSet;
+  const resolve = flipResolvers.get(sectorId);
+  if (resolve) {
+    flipResolvers.delete(sectorId);
+    resolve();
+  }
 }
 
 // ============================================================================
@@ -568,8 +611,10 @@ function handleSectorClick(sectorId: string) {
       :is-dictator-base="sector.sectorId === dictatorBaseSectorId"
       :dictator-color="dictatorColor"
       :hidden-combatant-ids="animatingCombatantIds"
+      :flipping="flippingSectors.has(sector.sectorId)"
       @click="handleSectorClick"
       @drop-equipment="handleDropEquipment"
+      @flip-complete="handleSectorFlipComplete"
     />
 
     <!-- Militia Training Animations -->

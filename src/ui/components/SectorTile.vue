@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { getPlayerColor } from '../colors';
 import { GameOverlay } from 'boardsmith/ui';
 import MilitiaIndicator from './MilitiaIndicator.vue';
@@ -50,11 +50,13 @@ const props = defineProps<{
   isDictatorBase?: boolean; // Show house icon for dictator's base
   dictatorColor?: string; // Dictator player color for base icon styling
   hiddenCombatantIds?: Set<string>; // Combatants to hide (e.g., during entry animation)
+  flipping?: boolean; // True while sector is playing the explore flip animation
 }>();
 
 const emit = defineEmits<{
   click: [sectorId: string];
   dropEquipment: [combatantElementId: number, equipmentId: number];
+  flipComplete: [sectorId: string];
 }>();
 
 function handleDropEquipment(combatantElementId: number, equipmentId: number) {
@@ -62,6 +64,24 @@ function handleDropEquipment(combatantElementId: number, equipmentId: number) {
   // Close the MERC modal so it refreshes with updated data when reopened
   closeMercModal();
 }
+
+// Flip animation: hide question mark at midpoint, emit complete at end
+const FLIP_DURATION = 600;
+const hideQuestionMark = ref(false);
+
+watch(() => props.flipping, (val) => {
+  if (val) {
+    hideQuestionMark.value = false;
+    // Hide question mark at midpoint of flip
+    setTimeout(() => {
+      hideQuestionMark.value = true;
+    }, FLIP_DURATION / 2);
+    // Notify parent when flip animation completes
+    setTimeout(() => {
+      emit('flipComplete', props.sector.sectorId);
+    }, FLIP_DURATION);
+  }
+});
 
 // Get unique key for combatant - never returns empty to prevent Vue warnings
 function getMercKey(merc: MercInSector, index: number): string {
@@ -165,7 +185,7 @@ function closeMercModal() {
 <template>
   <div
     class="sector-tile"
-    :class="{ clickable: isClickable, controlled: controllingPlayerColor }"
+    :class="{ clickable: isClickable, controlled: controllingPlayerColor, flipping: flipping }"
     :style="{
       backgroundImage: `url(${imagePath})`,
       borderColor,
@@ -187,7 +207,7 @@ function closeMercModal() {
 
     <!-- Center: Unexplored or loot -->
     <div class="center-area">
-      <template v-if="!sector.explored">
+      <template v-if="!sector.explored && !hideQuestionMark">
         <div class="unexplored">
           <span class="question-mark">?</span>
           <span class="unexplored-text">Unexplored</span>
@@ -300,6 +320,23 @@ function closeMercModal() {
 .sector-tile.clickable:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.sector-tile.flipping {
+  animation: sector-flip 600ms ease-in-out;
+  z-index: 10;
+}
+
+@keyframes sector-flip {
+  0% {
+    transform: perspective(800px) rotateY(0deg);
+  }
+  50% {
+    transform: perspective(800px) rotateY(90deg);
+  }
+  100% {
+    transform: perspective(800px) rotateY(0deg);
+  }
 }
 
 .overlay {

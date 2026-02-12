@@ -389,11 +389,15 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         if (bonusEquipment) sector.addToStash(bonusEquipment);
       }
 
-      // Mark explored
-      sector.explore();
-
       // Get unit name for messages
       const unitName = getUnitName(actingUnit);
+
+      // Animate the sector flip, then mark explored inside callback
+      game.animate('sector-explore', {
+        sectors: [{ sectorId: sector.sectorId, sectorName: sector.sectorName }],
+      }, () => {
+        sector.explore();
+      });
 
       // Report exploration (don't reveal items - competitors can read the log)
       game.message(`${capitalize(unitName)} explored ${sector.sectorName}`);

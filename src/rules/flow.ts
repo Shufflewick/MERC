@@ -366,7 +366,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 const player = ctx?.player as RebelPlayer | undefined;
                 if (player) {
                   const hasActionsLeft = player.team.some(m => m.actionsRemaining > 0);
-                  console.log(`[DEBUG rebel-action-loop] player=${player.name}, team=${player.team.map(m => `${m.combatantName}(actions=${m.actionsRemaining},dead=${m.isDead})`).join(',')}, hasActions=${hasActionsLeft}`);
                   return hasActionsLeft;
                 }
                 return true; // Continue if no player context (shouldn't happen)
