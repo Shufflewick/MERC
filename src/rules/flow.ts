@@ -544,7 +544,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       playerDone: (_ctx, player) => {
                         return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
                       },
-                      skipIf: () => game.isFinished() || game.activeCombat === null ||
+                      allDone: () => game.isFinished() || game.activeCombat === null ||
                                     game.activeCombat.combatComplete ||
                                     game.activeCombat.awaitingRetreatDecisions !== true ||
                                     game.activeCombat.pendingBeforeAttackHealing != null ||
@@ -552,7 +552,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                     game.activeCombat.pendingTargetSelection != null ||
                                     game.activeCombat.pendingHitAllocation != null ||
                                     game.activeCombat.pendingWolverineSixes != null ||
-                                    game.activeCombat.pendingEpinephrine != null,
+                                    game.activeCombat.pendingEpinephrine != null ||
+                                    getCombatDecisionParticipants(game).every(p =>
+                                      game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
                     }),
                     execute(() => {
                       if (!game.activeCombat || game.activeCombat.combatComplete) return;
@@ -596,7 +598,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       }
 
                       if (game.activeCombat) {
-                        game.activeCombat.awaitingRetreatDecisions = false;
+                        // Clear processed decisions but DO NOT override awaitingRetreatDecisions.
+                        // executeCombat sets it correctly — forcing it to false caused the flow
+                        // to skip the simultaneous retreat-decision step, leaving the non-context
+                        // player stuck with no buttons in two-human-player games.
                         game.activeCombat.retreatDecisions?.clear();
                       }
                     }),
@@ -898,6 +903,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 name: 'tactics-combat-decision',
                 while: () => game.activeCombat !== null &&
                             !game.activeCombat.combatComplete &&
+                            !game.activeCombat.awaitingRetreatDecisions &&
                             game.activeCombat.pendingBeforeAttackHealing == null &&
                             game.activeCombat.pendingAttackDogSelection == null &&
                             game.activeCombat.pendingTargetSelection == null &&
@@ -950,7 +956,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     playerDone: (_ctx, player) => {
                       return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
                     },
-                    skipIf: () => game.isFinished() || game.activeCombat === null ||
+                    allDone: () => game.isFinished() || game.activeCombat === null ||
                                   game.activeCombat.combatComplete ||
                                   game.activeCombat.awaitingRetreatDecisions !== true ||
                                   game.activeCombat.pendingBeforeAttackHealing != null ||
@@ -958,7 +964,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                   game.activeCombat.pendingTargetSelection != null ||
                                   game.activeCombat.pendingHitAllocation != null ||
                                   game.activeCombat.pendingWolverineSixes != null ||
-                                  game.activeCombat.pendingEpinephrine != null,
+                                  game.activeCombat.pendingEpinephrine != null ||
+                                  getCombatDecisionParticipants(game).every(p =>
+                                    game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
                   }),
                   execute(() => {
                     if (!game.activeCombat || game.activeCombat.combatComplete) return;
@@ -1002,7 +1010,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     }
 
                     if (game.activeCombat) {
-                      game.activeCombat.awaitingRetreatDecisions = false;
                       game.activeCombat.retreatDecisions?.clear();
                     }
                   }),
@@ -1167,6 +1174,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     name: 'dictator-combat-decision',
                     while: () => game.activeCombat !== null &&
                                 !game.activeCombat.combatComplete &&
+                                !game.activeCombat.awaitingRetreatDecisions &&
                                 game.activeCombat.pendingBeforeAttackHealing == null &&
                                 game.activeCombat.pendingAttackDogSelection == null &&
                                 game.activeCombat.pendingTargetSelection == null &&
@@ -1219,7 +1227,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                         playerDone: (_ctx, player) => {
                           return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
                         },
-                        skipIf: () => game.isFinished() || game.activeCombat === null ||
+                        allDone: () => game.isFinished() || game.activeCombat === null ||
                                       game.activeCombat.combatComplete ||
                                       game.activeCombat.awaitingRetreatDecisions !== true ||
                                       game.activeCombat.pendingBeforeAttackHealing != null ||
@@ -1227,7 +1235,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                       game.activeCombat.pendingTargetSelection != null ||
                                       game.activeCombat.pendingHitAllocation != null ||
                                       game.activeCombat.pendingWolverineSixes != null ||
-                                      game.activeCombat.pendingEpinephrine != null,
+                                      game.activeCombat.pendingEpinephrine != null ||
+                                      getCombatDecisionParticipants(game).every(p =>
+                                        game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
                       }),
                       execute(() => {
                         if (!game.activeCombat || game.activeCombat.combatComplete) return;
@@ -1271,7 +1281,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                         }
 
                         if (game.activeCombat) {
-                          game.activeCombat.awaitingRetreatDecisions = false;
                           game.activeCombat.retreatDecisions?.clear();
                         }
                       }),
@@ -1481,6 +1490,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 name: 'kim-militia-combat-decision',
                 while: () => game.activeCombat !== null &&
                             !game.activeCombat.combatComplete &&
+                            !game.activeCombat.awaitingRetreatDecisions &&
                             game.activeCombat.pendingBeforeAttackHealing == null &&
                             game.activeCombat.pendingAttackDogSelection == null &&
                             game.activeCombat.pendingTargetSelection == null &&
@@ -1533,7 +1543,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     playerDone: (_ctx, player) => {
                       return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
                     },
-                    skipIf: () => game.isFinished() || game.activeCombat === null ||
+                    allDone: () => game.isFinished() || game.activeCombat === null ||
                                   game.activeCombat.combatComplete ||
                                   game.activeCombat.awaitingRetreatDecisions !== true ||
                                   game.activeCombat.pendingBeforeAttackHealing != null ||
@@ -1541,7 +1551,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                                   game.activeCombat.pendingTargetSelection != null ||
                                   game.activeCombat.pendingHitAllocation != null ||
                                   game.activeCombat.pendingWolverineSixes != null ||
-                                  game.activeCombat.pendingEpinephrine != null,
+                                  game.activeCombat.pendingEpinephrine != null ||
+                                  getCombatDecisionParticipants(game).every(p =>
+                                    game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
                   }),
                   execute(() => {
                     if (!game.activeCombat || game.activeCombat.combatComplete) return;
@@ -1585,7 +1597,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     }
 
                     if (game.activeCombat) {
-                      game.activeCombat.awaitingRetreatDecisions = false;
                       game.activeCombat.retreatDecisions?.clear();
                     }
                   }),

@@ -10,6 +10,7 @@ import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { queuePendingCombat } from '../combat.js';
+import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, getMapCombatantId } from '../animation-events.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -167,11 +168,15 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
           // Drop equipment to stash
           const droppedEquipment: string[] = [];
+          const dropAnimations = [];
           if (mercToFire.weaponSlot) {
             const weapon = mercToFire.unequip('Weapon');
             if (weapon && sector) {
               sector.addToStash(weapon);
               droppedEquipment.push(weapon.equipmentName);
+              dropAnimations.push(
+                buildMapEquipmentAnimation(weapon, sector.sectorId, 'outgoing', getMapCombatantId(mercToFire))
+              );
             }
           }
           if (mercToFire.armorSlot) {
@@ -179,6 +184,9 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             if (armor && sector) {
               sector.addToStash(armor);
               droppedEquipment.push(armor.equipmentName);
+              dropAnimations.push(
+                buildMapEquipmentAnimation(armor, sector.sectorId, 'outgoing', getMapCombatantId(mercToFire))
+              );
             }
           }
           if (mercToFire.accessorySlot) {
@@ -186,11 +194,23 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
             if (accessory && sector) {
               sector.addToStash(accessory);
               droppedEquipment.push(accessory.equipmentName);
+              dropAnimations.push(
+                buildMapEquipmentAnimation(accessory, sector.sectorId, 'outgoing', getMapCombatantId(mercToFire))
+              );
             }
+          }
+
+          if (dropAnimations.length > 0) {
+            emitMapEquipmentAnimations(game, dropAnimations);
           }
 
           // Move to discard - sectorId becomes undefined automatically via computed getter
           mercToFire.putInto(game.mercDiscard);
+          if (sector) {
+            emitMapCombatantDeaths(game, [
+              buildMapCombatantEntry(mercToFire, sector.sectorId),
+            ]);
+          }
           if (droppedEquipment.length > 0) {
             game.message(`Fired ${mercToFire.combatantName}, dropped ${droppedEquipment.join(', ')} to stash`);
           } else {
@@ -212,6 +232,11 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         if (selectedNames.includes(capitalize(merc.combatantName)) && currentSize < teamLimit) {
           // Merc inherits sectorId from squad via computed getter
           merc.putInto(targetSquad);
+          if (targetSquad.sectorId) {
+            emitMapCombatantEntries(game, [
+              buildMapCombatantEntry(merc, targetSquad.sectorId),
+            ]);
+          }
           // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
           merc.actionsRemaining = 0;
 
@@ -505,19 +530,31 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
       // Equip the item
       const { replaced, displacedBandolierItems } = unit.equip(equipment);
+      const equipmentAnimations = [
+        buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(unit)),
+      ];
 
       if (replaced) {
         sector.addToStash(replaced);
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(unit))
+        );
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       }
       for (const item of displacedBandolierItems) {
-        if (!sector.addToStash(item)) {
+        if (sector.addToStash(item)) {
+          equipmentAnimations.push(
+            buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(unit))
+          );
+        } else {
           const discard = game.getEquipmentDiscard(item.equipmentType);
           if (discard) item.putInto(discard);
         }
       }
+
+      emitMapEquipmentAnimations(game, equipmentAnimations);
 
       // Chain back to collectEquipment if stash still has items
       if (sector.stashCount > 0) {
@@ -652,8 +689,14 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 
       // Equip to unit - equip() uses putInto() which moves equipment from stash
       const { replaced, displacedBandolierItems } = targetUnit.equip(equipment);
+      const equipmentAnimations = [
+        buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(targetUnit)),
+      ];
       if (replaced) {
         sector.addToStash(replaced);
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
+        );
         game.message(`${unitName} equipped ${equipment.equipmentName}`);
         // Allow taking more since there's still stash (reset explorer)
         game.lastExplorer = { combatantId: String(targetUnit.id), sectorId: sector.sectorId };
@@ -665,11 +708,17 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         }
       }
       for (const item of displacedBandolierItems) {
-        if (!sector.addToStash(item)) {
+        if (sector.addToStash(item)) {
+          equipmentAnimations.push(
+            buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
+          );
+        } else {
           const discard = game.getEquipmentDiscard(item.equipmentType);
           if (discard) item.putInto(discard);
         }
       }
+
+      emitMapEquipmentAnimations(game, equipmentAnimations);
 
       return {
         success: true,
@@ -1157,19 +1206,30 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
           if (targetUnit) {
             const { replaced, displacedBandolierItems } = targetUnit.equip(equipment);
+            const equipmentAnimations = [
+              buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(targetUnit)),
+            ];
             const targetUnitName = getUnitName(targetUnit);
             if (replaced) {
               sector.addToStash(replaced);
+              equipmentAnimations.push(
+                buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
+              );
               game.message(`${targetUnitName} equipped ${equipment.equipmentName}`);
             } else {
               game.message(`${targetUnitName} equipped ${equipment.equipmentName}`);
             }
             for (const item of displacedBandolierItems) {
-              if (!sector.addToStash(item)) {
+              if (sector.addToStash(item)) {
+                equipmentAnimations.push(
+                  buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
+                );
+              } else {
                 const discard = game.getEquipmentDiscard(item.equipmentType);
                 if (discard) item.putInto(discard);
               }
             }
+            emitMapEquipmentAnimations(game, equipmentAnimations);
             return { success: true, message: `Bought and equipped ${equipment.equipmentName}` };
           }
         }
@@ -1177,6 +1237,9 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         // Add to sector stash if not equipped
         const added = sector.addToStash(equipment);
         if (added) {
+          emitMapEquipmentAnimations(game, [
+            buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming'),
+          ]);
           game.message(`${actingUnitName} bought ${equipment.equipmentName} (added to ${sector.sectorName} stash)`);
         } else {
           game.message(`${actingUnitName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);

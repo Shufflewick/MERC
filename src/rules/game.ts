@@ -561,6 +561,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Flow system exits combat loop when this is true
     // UI clears activeCombat after animations complete
     combatComplete?: boolean;
+    // Locked initiative order for current round (combatant IDs in sorted order)
+    // Persists across mid-round pauses so initiative isn't recalculated on resume
+    roundInitiativeOrder?: string[];
     // MERC-retreat: Simultaneous retreat/continue decision tracking
     awaitingRetreatDecisions?: boolean;
     retreatDecisions?: Map<string, { action: 'continue' | 'retreat'; retreatSectorId?: string }>;

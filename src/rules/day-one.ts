@@ -9,6 +9,7 @@
 
 import type { MERCGame, RebelPlayer } from './game.js';
 import { Equipment, Sector, TacticsCard, isGrenadeOrMortar, CombatantModel } from './elements.js';
+import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId } from './animation-events.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
 import { selectNewMercLocation } from './ai-helpers.js';
@@ -132,6 +133,9 @@ export function equipStartingEquipment(
   merc: CombatantModel,
   equipmentType: 'Weapon' | 'Armor' | 'Accessory'
 ): Equipment | undefined {
+  const equipmentAnimations = [];
+  const sectorId = merc.sectorId;
+
   // MERC-9mxd: Vrbansk gets bonus accessory FIRST (before starting equipment)
   let vrbanskBonus: Equipment | undefined;
   if (merc.combatantId === 'vrbansk') {
@@ -140,6 +144,11 @@ export function equipStartingEquipment(
       // Initial hire - merc starts empty, no displaced items expected
       merc.equip(vrbanskBonus);
       game.message(`${merc.combatantName} receives bonus accessory: ${vrbanskBonus.equipmentName}`);
+      if (sectorId) {
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(vrbanskBonus, sectorId, 'incoming', getMapCombatantId(merc))
+        );
+      }
     }
   }
 
@@ -172,6 +181,11 @@ export function equipStartingEquipment(
 
   if (equipment) {
     const { replaced, displacedBandolierItems } = merc.equip(equipment);
+    if (sectorId) {
+      equipmentAnimations.push(
+        buildMapEquipmentAnimation(equipment, sectorId, 'incoming', getMapCombatantId(merc))
+      );
+    }
 
     // If Vrbansk's bonus was replaced, put it in sector stash
     if (replaced && vrbanskBonus && replaced.id === vrbanskBonus.id) {
@@ -179,6 +193,9 @@ export function equipStartingEquipment(
       if (sector) {
         sector.addToStash(replaced);
         game.message(`${replaced.equipmentName} added to ${sector.sectorName} stash`);
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(merc))
+        );
       } else {
         const discard = game.getEquipmentDiscard(replaced.equipmentType);
         if (discard) replaced.putInto(discard);
@@ -189,7 +206,9 @@ export function equipStartingEquipment(
     const sector = merc.sectorId ? game.getSector(merc.sectorId) : undefined;
     for (const item of displacedBandolierItems) {
       if (sector && sector.addToStash(item)) {
-        // Added to stash
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(merc))
+        );
       } else {
         const discard = game.getEquipmentDiscard(item.equipmentType);
         if (discard) item.putInto(discard);
@@ -202,6 +221,8 @@ export function equipStartingEquipment(
 
     game.message(`${merc.combatantName} equipped ${equipment.equipmentName}`);
   }
+
+  emitMapEquipmentAnimations(game, equipmentAnimations);
 
   return equipment;
 }

@@ -521,7 +521,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return undefined;
         // Allow selecting up to `hits` targets (can hit same target multiple times)
-        return { min: 1, max: pending.hits };
+        return { min: pending.hits, max: pending.hits };
       },
       choices: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
@@ -738,7 +738,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       multiSelect: () => {
         const pending = game.activeCombat?.pendingWolverineSixes;
         if (!pending) return undefined;
-        return { min: 1, max: pending.sixCount };
+        return { min: pending.sixCount, max: pending.sixCount };
       },
       choices: () => {
         const pending = game.activeCombat?.pendingWolverineSixes;
@@ -1270,7 +1270,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
     })
     .chooseFrom<string>('target', {
       prompt: 'Select ally to heal',
-      choices: () => {
+      choices: (ctx) => {
         if (!game.activeCombat) return [];
 
         // Find Surgeon on player's side
@@ -1295,7 +1295,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
           const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
           if (dictatorSurgeon) {
             const { combatant } = dictatorSurgeon;
-            if (!isCombatDecisionPlayer(game, ctx.player, combatant.id)) return false;
+            if (!isCombatDecisionPlayer(game, ctx.player, combatant.id)) return [];
             const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
             if (combatant.combat - diceUsed >= 2) {
               const damagedAllies = getSurgeonHealTargets(combatant, dictatorCombatants);
@@ -1432,7 +1432,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         if (!pending) return undefined;
         // Must allocate exactly `hits` damage (or all available health)
         const totalHits = pending.hits - pending.allocatedHits;
-        return { min: 1, max: totalHits };
+        return { min: totalHits, max: totalHits };
       },
       choices: (ctx) => {
         const pending = game.pendingArtilleryAllocation;

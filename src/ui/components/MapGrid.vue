@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue';
+import { computed, ref, nextTick } from 'vue';
+import { useAnimationEvents } from 'boardsmith/ui';
 import SectorTile from './SectorTile.vue';
 import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
 import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
@@ -8,7 +9,6 @@ import CombatantMoveAnimation from './CombatantMoveAnimation.vue';
 import EquipmentDropAnimation from './EquipmentDropAnimation.vue';
 import MortarStrikeAnimation from './MortarStrikeAnimation.vue';
 import LandmineDetonationAnimation from './LandmineDetonationAnimation.vue';
-// Death animation data (local to MapGrid — suppressed during combat, released by CombatPanel signals)
 
 interface SectorData {
   sectorId: string;
@@ -110,8 +110,6 @@ const props = defineProps<{
   canDropEquipment?: boolean;
   dictatorBaseSectorId?: string; // Sector where dictator's base is (if revealed)
   dictatorColor?: string; // Dictator player color for base icon styling
-  combatActive?: boolean; // Whether combat panel is active (suppresses auto death animations)
-  combatDeathSignals?: { combatantId: string }[]; // Signals from CombatPanel timeline to play death animations
   mortarStrike?: {
     targetSectorId: string;
     hitCombatantIds: string[];
@@ -142,9 +140,6 @@ function handleDropEquipment(combatantElementId: number, equipmentId: number) {
 // Ref for the grid container to calculate positions
 const mapGridRef = ref<HTMLElement | null>(null);
 
-// Track previous militia counts to detect changes
-const previousMilitia = ref<Record<string, { dictator: number; rebel: Record<string, number> }>>({});
-
 // Active animations queue
 const activeAnimations = ref<MilitiaAnimation[]>([]);
 
@@ -171,69 +166,6 @@ function getSectorRect(sectorId: string): { x: number; y: number; width: number;
     height: sectorRect.height,
   };
 }
-
-// Watch for militia changes and trigger animations
-watch(
-  () => props.sectors.map(s => ({
-    id: s.sectorId,
-    dictator: s.dictatorMilitia,
-    rebel: { ...s.rebelMilitia },
-  })),
-  (newSectors, oldSectors) => {
-    // Skip on first load (oldSectors is undefined)
-    if (!oldSectors) {
-      // Initialize previous militia tracking
-      for (const sector of newSectors) {
-        previousMilitia.value[sector.id] = {
-          dictator: sector.dictator,
-          rebel: { ...sector.rebel },
-        };
-      }
-      return;
-    }
-
-    // Build lookup for old values
-    const oldLookup: Record<string, { dictator: number; rebel: Record<string, number> }> = {};
-    for (const sector of oldSectors) {
-      oldLookup[sector.id] = {
-        dictator: sector.dictator,
-        rebel: sector.rebel || {},
-      };
-    }
-
-    // Check each sector for militia increases
-    for (const sector of newSectors) {
-      const old = oldLookup[sector.id];
-      if (!old) continue;
-
-      // Check dictator militia increase
-      const dictatorIncrease = sector.dictator - old.dictator;
-      if (dictatorIncrease > 0) {
-        queueAnimation(sector.id, dictatorIncrease, props.dictatorColor, true, undefined, old.dictator);
-      }
-
-      // Check rebel militia increases (per player)
-      for (const [playerId, count] of Object.entries(sector.rebel || {})) {
-        const oldCount = old.rebel[playerId] || 0;
-        const increase = count - oldCount;
-        if (increase > 0) {
-          // Find player color
-          const player = props.players.find(p => String(p.seat) === playerId);
-          queueAnimation(sector.id, increase, player?.playerColor, false, playerId, oldCount);
-        }
-      }
-    }
-
-    // Update previous values
-    for (const sector of newSectors) {
-      previousMilitia.value[sector.id] = {
-        dictator: sector.dictator,
-        rebel: { ...sector.rebel },
-      };
-    }
-  },
-  { deep: true }
-);
 
 // Queue an animation for a sector
 function queueAnimation(
@@ -342,7 +274,7 @@ function getSectorWithDisplayMilitia(sector: SectorData): SectorData {
 // Active combatant entry animations
 const activeCombatantAnimations = ref<CombatantAnimation[]>([]);
 
-// Local death animation tracking — deaths suppressed during combat until CombatPanel signals
+// Local death animation tracking
 interface DeathAnimationData {
   id: string;
   combatantId: string;
@@ -354,22 +286,16 @@ interface DeathAnimationData {
 let deathIdCounter = 0;
 const pendingDeaths = ref<DeathAnimationData[]>([]);
 
-// Deaths suppressed during combat, keyed by combatantId — released by CombatPanel signals
-const suppressedDeaths = new Map<string, DeathAnimationData>();
-
 // Active combatant move animations
 const activeMoveAnimations = ref<CombatantMoveAnimationData[]>([]);
 
-// Moves suppressed during combat — released when combat ends
-const suppressedMoves: CombatantMoveAnimationData[] = [];
-
-// Track whether combat was already active before the current mercs watcher tick.
-// Movement into the combat sector and combatActive becoming true arrive in the same
-// reactive flush, so we use this to avoid suppressing the entry movement.
-let combatWasActive = false;
-
 // Active equipment drop animations
 const activeEquipmentAnimations = ref<EquipmentAnimationData[]>([]);
+
+const entryResolvers = new Map<string, () => void>();
+const deathResolvers = new Map<string, () => void>();
+const moveResolvers = new Map<string, () => void>();
+const equipmentResolvers = new Map<string, () => void>();
 
 // Set of combatant IDs currently animating (for hiding in SectorTile)
 const animatingCombatantIds = computed(() => {
@@ -379,45 +305,16 @@ const animatingCombatantIds = computed(() => {
   return ids;
 });
 
-// Track previous mercs to detect new arrivals and deaths
-const previousMercIds = ref<Set<string>>(new Set());
-// Store previous merc data so we can animate deaths
-const previousMercData = ref<Map<string, MercData>>(new Map());
-// Store previous equipment per merc to detect equipment changes
-// Key: combatantId, Value: Map of slotType -> equipmentId
-const previousMercEquipment = ref<Map<string, Map<string, string>>>(new Map());
-
-// Get the viewport rect of a sector's mercs-area element
-function getSectorMercsAreaRect(sectorId: string): { x: number; y: number; width: number; height: number } | null {
-  if (!mapGridRef.value) return null;
-
-  const sectorEl = mapGridRef.value.querySelector(`[data-sector-id="${sectorId}"]`);
-  if (!sectorEl) return null;
-
-  const mercsArea = sectorEl.querySelector('.mercs-area');
-  if (!mercsArea) return null;
-
-  const rect = mercsArea.getBoundingClientRect();
-  return {
-    x: rect.left,
-    y: rect.top,
-    width: rect.width,
-    height: rect.height,
-  };
-}
-
-// Queue a combatant entry animation
-function queueCombatantAnimation(merc: MercData) {
-  if (!merc.sectorId) return;
-
-  nextTick(() => {
-    activeCombatantAnimations.value.push({
-      id: getAnimationId('combatant'),
-      combatantId: merc.combatantId,
-      combatantName: merc.combatantName || merc.combatantId,
-      image: merc.image,
-      playerColor: merc.playerColor,
-      sectorId: merc.sectorId!,
+function queueCombatantAnimation(data: Omit<CombatantAnimation, 'id'>): Promise<void> {
+  if (!data.sectorId) return Promise.resolve();
+  return new Promise((resolve) => {
+    nextTick(() => {
+      const id = getAnimationId('combatant');
+      entryResolvers.set(id, resolve);
+      activeCombatantAnimations.value.push({
+        id,
+        ...data,
+      });
     });
   });
 }
@@ -425,140 +322,82 @@ function queueCombatantAnimation(merc: MercData) {
 // Handle combatant entry animation complete
 function handleCombatantAnimationComplete(animationId: string) {
   activeCombatantAnimations.value = activeCombatantAnimations.value.filter(a => a.id !== animationId);
+  const resolve = entryResolvers.get(animationId);
+  if (resolve) {
+    entryResolvers.delete(animationId);
+    resolve();
+  }
 }
 
-function buildDeathData(merc: MercData): DeathAnimationData {
+function buildDeathData(merc: Omit<DeathAnimationData, 'id'>): DeathAnimationData {
   return {
     id: `death-${Date.now()}-${++deathIdCounter}`,
     combatantId: merc.combatantId,
     combatantName: merc.combatantName || merc.combatantId,
     image: merc.image,
     playerColor: merc.playerColor,
-    sectorId: merc.sectorId!,
+    sectorId: merc.sectorId,
   };
 }
 
-// Queue a combatant death animation — suppressed during combat until CombatPanel signals
-function queueDeathAnimation(merc: MercData) {
-  if (!merc.sectorId) return;
-
-  const data = buildDeathData(merc);
-
-  if (props.combatActive) {
-    // Suppress: hold until CombatPanel's timeline emits the signal
-    suppressedDeaths.set(data.combatantId, data);
-    return;
-  }
-
-  nextTick(() => {
-    pendingDeaths.value.push(data);
+function queueDeathAnimation(merc: Omit<DeathAnimationData, 'id'>): Promise<void> {
+  if (!merc.sectorId) return Promise.resolve();
+  return new Promise((resolve) => {
+    nextTick(() => {
+      const data = buildDeathData(merc);
+      deathResolvers.set(data.id, resolve);
+      pendingDeaths.value.push(data);
+    });
   });
 }
 
 // Handle combatant death animation complete
 function handleDeathAnimationComplete(deathId: string) {
   pendingDeaths.value = pendingDeaths.value.filter(d => d.id !== deathId);
+  const resolve = deathResolvers.get(deathId);
+  if (resolve) {
+    deathResolvers.delete(deathId);
+    resolve();
+  }
 }
 
-// Release suppressed deaths when CombatPanel signals
-watch(() => props.combatDeathSignals?.length, () => {
-  const signals = props.combatDeathSignals;
-  if (!signals || signals.length === 0) return;
-
-  // Process the latest signal (array grows by one each time)
-  const latest = signals[signals.length - 1];
-  const suppressed = suppressedDeaths.get(latest.combatantId);
-  if (suppressed) {
-    suppressedDeaths.delete(latest.combatantId);
+function queueMoveAnimation(data: Omit<CombatantMoveAnimationData, 'id'>): Promise<void> {
+  if (!data.fromSectorId || !data.toSectorId) return Promise.resolve();
+  return new Promise((resolve) => {
     nextTick(() => {
-      pendingDeaths.value.push(suppressed);
+      const id = getAnimationId('move');
+      moveResolvers.set(id, resolve);
+      activeMoveAnimations.value.push({
+        id,
+        ...data,
+      });
     });
-  }
-});
-
-// Release all suppressed animations when combat ends
-watch(() => props.combatActive, (active, wasActive) => {
-  if (!wasActive || active) return;
-
-  if (suppressedDeaths.size > 0) {
-    const remainingDeaths = [...suppressedDeaths.values()];
-    suppressedDeaths.clear();
-    nextTick(() => {
-      pendingDeaths.value.push(...remainingDeaths);
-    });
-  }
-
-  if (suppressedMoves.length > 0) {
-    const remainingMoves = suppressedMoves.splice(0);
-    nextTick(() => {
-      activeMoveAnimations.value.push(...remainingMoves);
-    });
-  }
-});
-
-// Queue a combatant move animation — suppressed during combat until combat ends
-function queueMoveAnimation(merc: MercData, fromSectorId: string, toSectorId: string) {
-  const data: CombatantMoveAnimationData = {
-    id: getAnimationId('move'),
-    combatantId: merc.combatantId,
-    combatantName: merc.combatantName || merc.combatantId,
-    image: merc.image,
-    playerColor: merc.playerColor,
-    fromSectorId,
-    toSectorId,
-  };
-
-  if (combatWasActive) {
-    suppressedMoves.push(data);
-    return;
-  }
-
-  nextTick(() => {
-    activeMoveAnimations.value.push(data);
   });
 }
 
 // Handle combatant move animation complete
 function handleMoveAnimationComplete(animationId: string) {
   activeMoveAnimations.value = activeMoveAnimations.value.filter(a => a.id !== animationId);
+  const resolve = moveResolvers.get(animationId);
+  if (resolve) {
+    moveResolvers.delete(animationId);
+    resolve();
+  }
 }
 
 // ============================================================================
 // EQUIPMENT DROP ANIMATION
 // ============================================================================
 
-// Helper to extract equipment from merc data (handles both direct props and attributes)
-function getMercEquipment(merc: MercData): Map<string, EquipmentData | undefined> {
-  const equipment = new Map<string, EquipmentData | undefined>();
-
-  // Check direct props first, then fall back to attributes
-  const weapon = merc.weaponSlot || merc.attributes?.weaponSlotData;
-  const armor = merc.armorSlot || merc.attributes?.armorSlotData;
-  const accessory = merc.accessorySlot || merc.attributes?.accessorySlotData;
-
-  if (weapon) equipment.set('weapon', weapon);
-  if (armor) equipment.set('armor', armor);
-  if (accessory) equipment.set('accessory', accessory);
-
-  return equipment;
-}
-
-// Queue an equipment drop animation
-function queueEquipmentAnimation(
-  equipment: EquipmentData,
-  sectorId: string,
-  combatantId?: string,
-  direction: 'incoming' | 'outgoing' = 'incoming'
-) {
-  nextTick(() => {
-    activeEquipmentAnimations.value.push({
-      id: getAnimationId('equipment'),
-      equipmentName: equipment.equipmentName || 'Equipment',
-      equipmentType: equipment.equipmentType || 'Accessory',
-      image: equipment.image,
-      sectorId,
-      combatantId,
-      direction,
+function queueEquipmentAnimation(data: Omit<EquipmentAnimationData, 'id'>): Promise<void> {
+  return new Promise((resolve) => {
+    nextTick(() => {
+      const id = getAnimationId('equipment');
+      equipmentResolvers.set(id, resolve);
+      activeEquipmentAnimations.value.push({
+        id,
+        ...data,
+      });
     });
   });
 }
@@ -566,6 +405,49 @@ function queueEquipmentAnimation(
 // Handle equipment animation complete
 function handleEquipmentAnimationComplete(animationId: string) {
   activeEquipmentAnimations.value = activeEquipmentAnimations.value.filter(a => a.id !== animationId);
+  const resolve = equipmentResolvers.get(animationId);
+  if (resolve) {
+    equipmentResolvers.delete(animationId);
+    resolve();
+  }
+}
+
+const animationEvents = useAnimationEvents();
+if (animationEvents) {
+  animationEvents.registerHandler('map-combatant-enter', async (event) => {
+    const data = event.data as { combatants?: Omit<CombatantAnimation, 'id'>[] } | undefined;
+    const combatants = data?.combatants ?? [];
+    if (combatants.length === 0) return;
+    const promises = combatants.map((combatant) => queueCombatantAnimation(combatant));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
+
+  animationEvents.registerHandler('map-combatant-death', async (event) => {
+    const data = event.data as { combatants?: Omit<DeathAnimationData, 'id'>[] } | undefined;
+    const combatants = data?.combatants ?? [];
+    if (combatants.length === 0) return;
+    const promises = combatants.map((combatant) => queueDeathAnimation(combatant));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
+
+  animationEvents.registerHandler('map-combatant-move', async (event) => {
+    const data = event.data as { moves?: Omit<CombatantMoveAnimationData, 'id'>[] } | undefined;
+    const moves = data?.moves ?? [];
+    if (moves.length === 0) return;
+    const promises = moves.map((move) => queueMoveAnimation(move));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
+
+  animationEvents.registerHandler('map-equipment', async (event) => {
+    const data = event.data as { animations?: Omit<EquipmentAnimationData, 'id'>[] } | undefined;
+    const animations = data?.animations ?? [];
+    if (animations.length === 0) return;
+    const promises = animations.map((anim) => queueEquipmentAnimation({
+      ...anim,
+      direction: anim.direction ?? 'incoming',
+    }));
+    await Promise.all(promises);
+  }, { skip: 'drop' });
 }
 
 // ============================================================================
@@ -593,124 +475,6 @@ const landmineStrikeRect = computed(() => {
 function handleLandmineStrikeComplete() {
   emit('landmineStrikeComplete');
 }
-
-// Helper to build equipment ID map for a merc
-function buildEquipmentIdMap(merc: MercData): Map<string, string> {
-  const idMap = new Map<string, string>();
-  const equipment = getMercEquipment(merc);
-
-  for (const [slot, equip] of equipment) {
-    if (equip?.equipmentId) {
-      idMap.set(slot, equip.equipmentId);
-    } else if (equip?.equipmentName) {
-      // Fall back to name if no ID
-      idMap.set(slot, equip.equipmentName);
-    }
-  }
-
-  return idMap;
-}
-
-// Watch for new mercs appearing in sectors, deaths, moves, and equipment changes
-watch(
-  () => props.mercs,
-  (newMercs, oldMercs) => {
-    // Skip on first load (oldMercs is undefined)
-    if (!oldMercs) {
-      // Initialize tracking
-      previousMercIds.value = new Set(newMercs.map(m => m.combatantId));
-      for (const merc of newMercs) {
-        previousMercData.value.set(merc.combatantId, merc);
-        // Initialize equipment tracking
-        previousMercEquipment.value.set(merc.combatantId, buildEquipmentIdMap(merc));
-      }
-      return;
-    }
-
-    const newMercIds = new Set(newMercs.map(m => m.combatantId));
-
-    // Find mercs that are new (not in previous set) and have a sectorId
-    for (const merc of newMercs) {
-      if (merc.sectorId && !previousMercIds.value.has(merc.combatantId)) {
-        queueCombatantAnimation(merc);
-      }
-    }
-
-    // Find mercs that moved sectors (exist in both but different sectorId)
-    for (const merc of newMercs) {
-      if (!merc.sectorId) continue;
-      const prevMerc = previousMercData.value.get(merc.combatantId);
-      if (prevMerc && prevMerc.sectorId && prevMerc.sectorId !== merc.sectorId) {
-        queueMoveAnimation(merc, prevMerc.sectorId, merc.sectorId);
-      }
-    }
-
-    // Find mercs that were removed (in previous set but not in new set)
-    for (const prevId of previousMercIds.value) {
-      if (!newMercIds.has(prevId)) {
-        const prevMerc = previousMercData.value.get(prevId);
-        if (prevMerc) {
-          queueDeathAnimation(prevMerc);
-        }
-      }
-    }
-
-    // Check for equipment changes on existing mercs (skip newly added mercs)
-    for (const merc of newMercs) {
-      if (!merc.sectorId) continue;
-      // Skip mercs that just entered - they already have entry animation
-      if (!previousMercIds.value.has(merc.combatantId)) continue;
-
-      const prevEquipment = previousMercEquipment.value.get(merc.combatantId);
-      if (!prevEquipment) continue; // No previous data to compare
-
-      const currentEquipment = getMercEquipment(merc);
-      const currentEquipmentIds = buildEquipmentIdMap(merc);
-      const prevMerc = previousMercData.value.get(merc.combatantId);
-      const prevMercEquipmentData = prevMerc ? getMercEquipment(prevMerc) : new Map();
-
-      // Check each slot for newly added equipment
-      for (const [slot, equip] of currentEquipment) {
-        if (!equip) continue;
-
-        const equipId = equip.equipmentId || equip.equipmentName || '';
-        const prevEquipId = prevEquipment.get(slot);
-
-        // Equipment was added to this slot (wasn't there before, or different item)
-        if (equipId && equipId !== prevEquipId) {
-          queueEquipmentAnimation(equip, merc.sectorId, merc.combatantId, 'incoming');
-        }
-      }
-
-      // Check for removed or replaced equipment (was in prev but gone or different in current)
-      for (const [slot, prevEquipId] of prevEquipment) {
-        const currentEquipId = currentEquipmentIds.get(slot);
-
-        // Equipment was removed or replaced in this slot
-        if (prevEquipId && prevEquipId !== currentEquipId) {
-          // Get the equipment data from previous merc data
-          const removedEquip = prevMercEquipmentData.get(slot);
-          if (removedEquip) {
-            queueEquipmentAnimation(removedEquip, merc.sectorId, merc.combatantId, 'outgoing');
-          }
-        }
-      }
-    }
-
-    // Update tracking
-    previousMercIds.value = newMercIds;
-    previousMercData.value.clear();
-    previousMercEquipment.value.clear();
-    for (const merc of newMercs) {
-      previousMercData.value.set(merc.combatantId, merc);
-      previousMercEquipment.value.set(merc.combatantId, buildEquipmentIdMap(merc));
-    }
-
-    // Snapshot combat state so the next tick knows whether combat was already active
-    combatWasActive = props.combatActive ?? false;
-  },
-  { deep: true }
-);
 
 // Calculate grid dimensions
 const gridDimensions = computed(() => {

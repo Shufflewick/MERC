@@ -19,6 +19,7 @@ import {
 } from '../ai-helpers.js';
 import { getNextAIAction } from '../ai-executor.js';
 import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire } from './helpers.js';
+import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 
 // =============================================================================
@@ -457,6 +458,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       targetSquad.sectorId = targetSector.sectorId;
       game.message(`Castro deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
 
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(selectedMerc, targetSector.sectorId),
+      ]);
+
       // Update squad-based ability bonuses (Tack, Sarge, Valkyrie, etc.)
       game.updateAllSargeBonuses();
 
@@ -694,6 +699,10 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       selectedMerc.putInto(targetSquad);
       targetSquad.sectorId = targetSector.sectorId;
       game.message(`Generalissimo deployed ${selectedMerc.combatantName} to ${targetSector.sectorName}`);
+
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(selectedMerc, targetSector.sectorId),
+      ]);
 
       // Update squad-based ability bonuses
       game.updateAllSargeBonuses();

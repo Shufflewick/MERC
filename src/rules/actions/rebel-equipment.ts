@@ -28,6 +28,7 @@ import { hasMortar } from '../ai-helpers.js';
 import { rollDice } from '../combat.js';
 import { getHitThreshold } from '../merc-abilities.js';
 import { CombatConstants } from '../constants.js';
+import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId } from '../animation-events.js';
 
 // =============================================================================
 // Re-Equip Action
@@ -217,19 +218,31 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 
       // Equip the item
       const { replaced, displacedBandolierItems } = unit.equip(equipment);
+      const equipmentAnimations = [
+        buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(unit)),
+      ];
 
       if (replaced) {
         sector.addToStash(replaced);
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(unit))
+        );
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`${capitalize(unitName)} equipped ${equipment.equipmentName}`);
       }
       for (const item of displacedBandolierItems) {
-        if (!sector.addToStash(item)) {
+        if (sector.addToStash(item)) {
+          equipmentAnimations.push(
+            buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(unit))
+          );
+        } else {
           const discard = game.getEquipmentDiscard(item.equipmentType);
           if (discard) item.putInto(discard);
         }
       }
+
+      emitMapEquipmentAnimations(game, equipmentAnimations);
 
       // If there are more items in stash, chain another reEquip selection (no action cost - already spent)
       if (sector.stashCount > 0) {
@@ -362,19 +375,31 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
       // Equip the item
       const { replaced, displacedBandolierItems } = unit.equip(equipment);
+      const equipmentAnimations = [
+        buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(unit)),
+      ];
 
       if (replaced) {
         sector.addToStash(replaced);
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(unit))
+        );
         game.message(`${unitName} equipped ${equipment.equipmentName}`);
       } else {
         game.message(`${unitName} equipped ${equipment.equipmentName}`);
       }
       for (const item of displacedBandolierItems) {
-        if (!sector.addToStash(item)) {
+        if (sector.addToStash(item)) {
+          equipmentAnimations.push(
+            buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(unit))
+          );
+        } else {
           const discard = game.getEquipmentDiscard(item.equipmentType);
           if (discard) item.putInto(discard);
         }
       }
+
+      emitMapEquipmentAnimations(game, equipmentAnimations);
 
       // Chain another if more items remain
       if (sector.stashCount > 0) {
@@ -571,6 +596,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
       // Unequip the equipment based on which slot it's in
       let droppedItem: Equipment | undefined;
+      const equipmentAnimations = [];
       if (actingCombatant.weaponSlot?.id === equipment.id) {
         droppedItem = actingCombatant.unequip('Weapon');
       } else if (actingCombatant.armorSlot?.id === equipment.id) {
@@ -582,6 +608,9 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
           const bandolierItems = actingCombatant.clearBandolierSlots();
           for (const item of bandolierItems) {
             sector.addToStash(item);
+            equipmentAnimations.push(
+              buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(actingCombatant))
+            );
           }
         }
       } else {
@@ -600,6 +629,11 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
       // Add to sector stash
       sector.addToStash(droppedItem);
+      equipmentAnimations.push(
+        buildMapEquipmentAnimation(droppedItem, sector.sectorId, 'outgoing', getMapCombatantId(actingCombatant))
+      );
+
+      emitMapEquipmentAnimations(game, equipmentAnimations);
 
       g.message(`${capitalize(actingCombatant.combatantName)} dropped a piece of equipment in ${sector.sectorName}`);
       return { success: true, message: `Dropped equipment` };
@@ -720,6 +754,12 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
 
       // Equip to Feedback (or replace existing)
       const { replaced, displacedBandolierItems } = feedback.equip(selectedEquipment);
+      const feedbackSectorId = feedback.sectorId;
+      if (feedbackSectorId) {
+        emitMapEquipmentAnimations(game, [
+          buildMapEquipmentAnimation(selectedEquipment, feedbackSectorId, 'incoming', getMapCombatantId(feedback)),
+        ]);
+      }
       if (replaced) {
         // Put replaced equipment back to discard
         const replaceDiscard = game.getEquipmentDiscard(replaced.equipmentType);
@@ -789,15 +829,26 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
       // Equip to Squidhead if possible, otherwise put in player's inventory
       if (squidhead.canEquip(mine)) {
         const { replaced, displacedBandolierItems } = squidhead.equip(mine);
+        const equipmentAnimations = [
+          buildMapEquipmentAnimation(mine, sector.sectorId, 'incoming', getMapCombatantId(squidhead)),
+        ];
         if (replaced) {
           sector.addToStash(replaced);
+          equipmentAnimations.push(
+            buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(squidhead))
+          );
         }
         for (const item of displacedBandolierItems) {
-          if (!sector.addToStash(item)) {
+          if (sector.addToStash(item)) {
+            equipmentAnimations.push(
+              buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(squidhead))
+            );
+          } else {
             const discard = game.getEquipmentDiscard(item.equipmentType);
             if (discard) item.putInto(discard);
           }
         }
+        emitMapEquipmentAnimations(game, equipmentAnimations);
         game.message(`${squidhead.combatantName} disarms and collects the land mine`);
       } else {
         // Put it back in stash but mark as "disarmed" by removing from dictator's control
@@ -874,6 +925,9 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       }
 
       sector.addToStash(mine);
+      emitMapEquipmentAnimations(game, [
+        buildMapEquipmentAnimation(mine, sector.sectorId, 'outgoing', getMapCombatantId(squidhead)),
+      ]);
       game.message(`${squidhead.combatantName} arms a land mine at ${sector.sectorName}`);
 
       return { success: true, message: 'Armed land mine' };
@@ -1089,6 +1143,9 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
           const sector = game.getSector(hagnessSquad.sectorId);
           if (sector) {
             sector.addToStash(equipment);
+            emitMapEquipmentAnimations(game, [
+              buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming'),
+            ]);
             game.message(`${equipment.equipmentName} dropped in ${sector.sectorName}`);
           }
         }
@@ -1125,6 +1182,12 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
 
       // Equip
       const { replaced, displacedBandolierItems } = recipient.equip(equipment);
+      const recipientSector = recipient.sectorId ? game.getSector(recipient.sectorId) : null;
+      if (recipientSector) {
+        emitMapEquipmentAnimations(game, [
+          buildMapEquipmentAnimation(equipment, recipientSector.sectorId, 'incoming', getMapCombatantId(recipient)),
+        ]);
+      }
       if (replaced) {
         const discard = game.getEquipmentDiscard(replaced.equipmentType);
         if (discard) replaced.putInto(discard);

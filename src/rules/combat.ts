@@ -46,6 +46,7 @@ import {
   getEnemyInitiativeDebuff,
   FEMALE_MERCS,
 } from './merc-abilities.js';
+import { emitMapCombatantDeathFromData } from './animation-events.js';
 import {
   isAttackDog as checkIsAttackDog,
   discardAfterAttack as checkDiscardAfterAttack,
@@ -72,6 +73,24 @@ import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetr
  */
 export function clearActiveCombat(game: MERCGame): void {
   game.activeCombat = null;
+}
+
+function emitMapCombatantDeathForTarget(game: MERCGame, target: Combatant): void {
+  const source = target.sourceElement;
+  if (!source) return;
+  const sectorId = source.sectorId || game.activeCombat?.sectorId;
+  if (!sectorId) return;
+
+  const combatantId = source.isDictator ? `dictator-${source.combatantId}` : source.combatantId;
+  if (!combatantId) return;
+
+  emitMapCombatantDeathFromData(game, {
+    combatantId,
+    combatantName: source.combatantName || target.name,
+    image: source.image || target.image,
+    playerColor: source.playerColor || target.playerColor,
+    sectorId,
+  });
 }
 
 // =============================================================================
@@ -889,6 +908,7 @@ function applyMilitiaBatchDamage(
           targetImage: target.image,
           combatantId: getCombatantId(target),
         });
+        emitMapCombatantDeathForTarget(game, target);
         casualties.push(target);
         game.message(`Militia kills ${target.name}!`);
 
@@ -1641,6 +1661,7 @@ function selectTargetsWithDogs(
 interface CombatRoundResult {
   round: CombatRound;
   complete: boolean; // True if round finished, false if paused for player input
+  initiativeOrder?: string[]; // Combatant IDs in initiative order (for saving on pause)
   pausedForTargetSelection?: {
     attackerId: string;
     attackerName: string;
@@ -1688,6 +1709,7 @@ function executeCombatRound(
     playerSelectedDogTargets?: Map<string, string>; // attackerId -> target combatant ID for dog
     interactive?: boolean; // Whether to pause for player target selection
     attackingPlayerIsRebel?: boolean; // True if rebel initiated combat, false if dictator
+    roundInitiativeOrder?: string[]; // Preserved combatant order from round start (for mid-round resume)
   }
 ): CombatRoundResult {
   const {
@@ -1698,6 +1720,7 @@ function executeCombatRound(
     playerSelectedDogTargets,
     interactive = true,
     attackingPlayerIsRebel = true, // Default to rebel (most common case)
+    roundInitiativeOrder,
   } = options || {};
 
   // MERC-l09: Initialize dog state if not provided
@@ -1706,32 +1729,51 @@ function executeCombatRound(
     dogs: [],
   };
 
-  // MERC-54m: Refresh all combatant stats at start of round
-  // This updates initiative/combat/targets after equipment changes in previous rounds
-  for (const combatant of [...rebels, ...dictatorSide]) {
-    if (combatant.health > 0) {
-      refreshCombatantStats(combatant);
+  let allCombatants: Combatant[];
+
+  if (startIndex === 0) {
+    // Fresh round: full initialization — refresh stats, apply bonuses, sort by initiative
+    // MERC-54m: Refresh all combatant stats at start of round
+    // This updates initiative/combat/targets after equipment changes in previous rounds
+    for (const combatant of [...rebels, ...dictatorSide]) {
+      if (combatant.health > 0) {
+        refreshCombatantStats(combatant);
+      }
     }
+
+    // MERC-cm0: Apply Haarg's comparative bonus (must be after refresh, before sorting)
+    // Haarg compares to ALL combatants per rules, not just squad (unlike card display)
+    applyHaargBonus([...rebels, ...dictatorSide]);
+
+    // Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
+    applyEnemyDebuffs(rebels, dictatorSide);
+    applyEnemyDebuffs(dictatorSide, rebels);
+
+    // MERC-djs0: Apply Walter's militia initiative bonus (militia not tracked by CombatantModel)
+    applyWalterBonus(game, [...rebels, ...dictatorSide]);
+
+    // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
+    applyKhennInitiative([...rebels, ...dictatorSide], game);
+
+    // MERC-b9p4: Execute Golem's pre-combat attack (before first round)
+    executeGolemPreCombat(game, rebels, dictatorSide);
+
+    allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
+  } else if (roundInitiativeOrder) {
+    // Resuming mid-round: restore saved initiative order instead of re-sorting
+    // This prevents Khenn's random initiative from being re-rolled and changing combatant order
+    const allUnordered = [...rebels, ...dictatorSide];
+    const orderMap = new Map(roundInitiativeOrder.map((id, idx) => [id, idx]));
+    allCombatants = allUnordered.sort((a, b) =>
+      (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
+    );
+  } else {
+    // Fallback: no saved order (legacy combat state without roundInitiativeOrder)
+    allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
   }
 
-  // MERC-cm0: Apply Haarg's comparative bonus (must be after refresh, before sorting)
-  // Haarg compares to ALL combatants per rules, not just squad (unlike card display)
-  applyHaargBonus([...rebels, ...dictatorSide]);
-
-  // Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
-  applyEnemyDebuffs(rebels, dictatorSide);
-  applyEnemyDebuffs(dictatorSide, rebels);
-
-  // MERC-djs0: Apply Walter's militia initiative bonus (militia not tracked by CombatantModel)
-  applyWalterBonus(game, [...rebels, ...dictatorSide]);
-
-  // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
-  applyKhennInitiative([...rebels, ...dictatorSide], game);
-
-  // MERC-b9p4: Execute Golem's pre-combat attack (before first round)
-  executeGolemPreCombat(game, rebels, dictatorSide);
-
-  const allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
+  // Save initiative order so it can be persisted across mid-round pauses
+  const initiativeOrder = allCombatants.map(c => c.id);
 
   // MERC-t5k: Start with partial results if resuming mid-round
   const results: CombatResult[] = [...partialResults];
@@ -1808,6 +1850,7 @@ function executeCombatRound(
           return {
             round: { roundNumber, results, casualties },
             complete: false,
+            initiativeOrder,
             pausedForTargetSelection: {
               attackerId: batchLeaderId,
               attackerName: `Militia x${batch.militia.length}`,
@@ -1896,6 +1939,7 @@ function executeCombatRound(
           return {
             round: { roundNumber, results, casualties },
             complete: false,
+            initiativeOrder,
             pausedForHitAllocation: true,
             currentAttackerIndex: i,
           };
@@ -2063,6 +2107,7 @@ function executeCombatRound(
           return {
             round: { roundNumber, results, casualties },
             complete: false,
+            initiativeOrder,
             pausedForBeforeAttackHealing: {
               attackerId: attacker.id,
               attackerName: capitalize(attacker.name),
@@ -2162,6 +2207,7 @@ function executeCombatRound(
           return {
             round: { roundNumber, results, casualties },
             complete: false,
+            initiativeOrder,
             pausedForAttackDogSelection: {
               attackerId: attacker.id,
               attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
@@ -2203,6 +2249,7 @@ function executeCombatRound(
           return {
             round: { roundNumber, results, casualties },
             complete: false,
+            initiativeOrder,
             pausedForTargetSelection: {
               attackerId: attacker.id,
               attackerName: attacker.name.charAt(0).toUpperCase() + attacker.name.slice(1),
@@ -2359,6 +2406,7 @@ function executeCombatRound(
         return {
           round: { roundNumber, results, casualties },
           complete: false,
+          initiativeOrder,
           pausedForHitAllocation: true,
           currentAttackerIndex: i,
         };
@@ -2469,6 +2517,7 @@ function executeCombatRound(
             targetImage: target.image,
             combatantId: getCombatantId(target),
           });
+          emitMapCombatantDeathForTarget(game, target);
           casualties.push(target);
           game.message(`${attacker.name} kills ${target.name}!`);
 
@@ -2507,6 +2556,7 @@ function executeCombatRound(
                     return {
                       round: { roundNumber, results, casualties },
                       complete: false,
+                      initiativeOrder,
                       pausedForEpinephrine: true,
                     };
                   }
@@ -2569,6 +2619,7 @@ function executeCombatRound(
                         return {
                           round: { roundNumber, results, casualties },
                           complete: false,
+                          initiativeOrder,
                           pausedForEpinephrine: true,
                         };
                       }
@@ -2749,6 +2800,7 @@ function executeCombatRound(
   return {
     round: { roundNumber, results, casualties },
     complete: true,
+    initiativeOrder,
   };
 }
 
@@ -3042,6 +3094,7 @@ export function executeCombat(
   let currentAttackerIndex = 0;
   let roundResults: CombatResult[] = [];
   let roundCasualties: Combatant[] = [];
+  let savedRoundInitiativeOrder: string[] | undefined;
 
   if (isResuming && game.activeCombat) {
     if (game.activeCombat.selectedTargets) {
@@ -3058,6 +3111,9 @@ export function executeCombat(
     }
     if (game.activeCombat.roundCasualties) {
       roundCasualties = game.activeCombat.roundCasualties as Combatant[];
+    }
+    if (game.activeCombat.roundInitiativeOrder) {
+      savedRoundInitiativeOrder = game.activeCombat.roundInitiativeOrder;
     }
   }
 
@@ -3085,6 +3141,7 @@ export function executeCombat(
       playerSelectedDogTargets,
       interactive,
       attackingPlayerIsRebel,
+      roundInitiativeOrder: savedRoundInitiativeOrder,
     });
 
     // MERC-t5k: Check if round paused for target selection
@@ -3107,6 +3164,7 @@ export function executeCombat(
         currentAttackerIndex: pause.attackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        roundInitiativeOrder: roundResult.initiativeOrder,
         awaitingRetreatDecisions: false,
         pendingTargetSelection: {
           attackerId: pause.attackerId,
@@ -3163,6 +3221,7 @@ export function executeCombat(
         currentAttackerIndex: roundResult.currentAttackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        roundInitiativeOrder: roundResult.initiativeOrder,
         awaitingRetreatDecisions: false,
       };
 
@@ -3207,6 +3266,7 @@ export function executeCombat(
         currentAttackerIndex: pause.attackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        roundInitiativeOrder: roundResult.initiativeOrder,
         awaitingRetreatDecisions: false,
       };
 
@@ -3249,6 +3309,7 @@ export function executeCombat(
         currentAttackerIndex: roundResult.currentAttackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        roundInitiativeOrder: roundResult.initiativeOrder,
         awaitingRetreatDecisions: false,
       };
 
@@ -3288,6 +3349,7 @@ export function executeCombat(
         currentAttackerIndex: pause.attackerIndex,
         roundResults: roundResult.round.results,
         roundCasualties: roundResult.round.casualties,
+        roundInitiativeOrder: roundResult.initiativeOrder,
         awaitingRetreatDecisions: false,
         pendingAttackDogSelection: {
           attackerId: pause.attackerId,
@@ -3328,6 +3390,7 @@ export function executeCombat(
     currentAttackerIndex = 0;
     roundResults = [];
     roundCasualties = [];
+    savedRoundInitiativeOrder = undefined;
     playerSelectedTargets.clear();
     playerSelectedDogTargets.clear();
 

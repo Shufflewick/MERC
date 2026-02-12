@@ -1017,6 +1017,9 @@ export class CombatantModel extends CombatantBase {
   get isMerc(): boolean { return this.cardType === 'merc'; }
   get isDictator(): boolean { return this.cardType === 'dictator'; }
 
+  // Player color for map/combat UI animations
+  playerColor?: string;
+
   // Dictator-specific state (mercs always in play, dictators start false)
   inPlay: boolean = true;
   baseSectorId?: string; // Permanent base location for dictators (never changes after revealed)

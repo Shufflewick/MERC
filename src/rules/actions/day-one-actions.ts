@@ -20,6 +20,7 @@ import {
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer } from '../ai-helpers.js';
 import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat } from './helpers.js';
+import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -130,6 +131,21 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       // Hire the selected MERC - sectorId is derived from squad membership
       merc.putInto(player.primarySquad);
       game.message(`${player.name} hired ${merc.combatantName}`);
+      if (player.primarySquad.sectorId) {
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
+        ]);
+      }
+      if (player.primarySquad.sectorId) {
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
+        ]);
+      }
+      if (player.primarySquad.sectorId) {
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(merc, player.primarySquad.sectorId),
+        ]);
+      }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
       game.updateAllHaargBonuses();

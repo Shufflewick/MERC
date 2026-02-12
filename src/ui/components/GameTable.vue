@@ -483,7 +483,6 @@ const assignToSquadPanelRef = ref<InstanceType<typeof AssignToSquadPanel> | null
 
 const animationEvents = useAnimationEvents();
 const combatSnapshot = ref<Record<string, unknown> | null>(null);
-const combatDeathSignals = ref<{ combatantId: string }[]>([]);
 
 // MORTAR STRIKE - driven by animation events
 const activeMortarStrike = ref<{
@@ -649,15 +648,10 @@ const showGameOverOverlay = computed(() => {
   return true;
 });
 
-function handleCombatDeathSignal(payload: { combatantId: string }) {
-  combatDeathSignals.value.push(payload);
-}
-
 // Handler for when combat is truly finished
 // Emitted by CombatPanel after combat-end animation finishes
 async function handleCombatFinished() {
   combatSnapshot.value = null;
-  combatDeathSignals.value = [];
   try {
     await props.actionController.execute('clearCombatAnimations', {});
   } catch {
@@ -1353,7 +1347,6 @@ const clickableSectors = computed(() => {
       @select-retreat-sector="handleSelectRetreatSector"
       @assign-attack-dog="handleAssignAttackDog"
       @combat-finished="handleCombatFinished"
-      @combat-death-signal="handleCombatDeathSignal"
       @use-medical-kit="handleUseMedicalKit"
       @use-surgeon-heal="handleUseSurgeonHeal"
       @use-before-attack-heal="handleUseBeforeAttackHeal"
@@ -1497,8 +1490,6 @@ const clickableSectors = computed(() => {
           :can-drop-equipment="canDropEquipment"
           :dictator-base-sector-id="dictatorBaseSectorId"
           :dictator-color="dictatorPlayerColor"
-          :combat-active="hasActiveCombat"
-          :combat-death-signals="combatDeathSignals"
           :mortar-strike="activeMortarStrike"
           :landmine-strike="activeLandmineStrike"
           @sector-click="handleSectorClick"

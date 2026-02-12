@@ -16,6 +16,7 @@ import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Squad, CombatantModel } from '../elements.js';
 import { hasEnemies, queuePendingCombat } from '../combat.js';
 import { checkLandMines } from '../landmine.js';
+import { buildMapCombatantMove, emitMapCombatantMoves } from '../animation-events.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 
 // =============================================================================
@@ -195,6 +196,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       const destination = asSector(args.destination);
       const sourceSector = game.getSector(squad.sectorId!);
       const isRebel = game.isRebelPlayer(ctx.player);
+      const fromSectorId = squad.sectorId;
 
       // Spend action from each living MERC in squad
       const mercs = squad.getLivingMercs();
@@ -226,17 +228,26 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       squad.sectorId = destination.sectorId;
 
       // MERC-dict-move: If dictator player is moving and dictator combatant is in the moving squad, move it too
+      const movedCombatants: CombatantModel[] = [...mercs];
       if (!isRebel && game.dictatorPlayer?.dictator?.inPlay) {
         const dictatorCombatant = game.dictatorPlayer.dictator;
         // Check squad membership by searching for dictator combatant in squad
         if (isKimInSquad(squad, dictatorCombatant) && !dictatorCombatant.isDead) {
           useAction(dictatorCombatant, ACTION_COSTS.MOVE);
           game.message(`${dictatorCombatant.combatantName} moves with the squad`);
+          movedCombatants.push(dictatorCombatant);
         }
       }
 
       const playerName = isRebel ? asRebelPlayer(ctx.player).name : 'Dictator';
       game.message(`${playerName} moved ${mercs.length} MERC(s) to ${destination.sectorName}`);
+
+      if (fromSectorId) {
+        const moves = movedCombatants.map((combatant) =>
+          buildMapCombatantMove(combatant, fromSectorId, destination.sectorId)
+        );
+        emitMapCombatantMoves(game, moves);
+      }
 
       // Check for landmines in the destination sector
       checkLandMines(game, destination, [squad], isRebel);
@@ -344,6 +355,8 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const target = asSector(args.target);
+      const primaryFromSectorId = player.primarySquad.sectorId;
+      const secondaryFromSectorId = player.secondarySquad.sectorId;
 
       // Spend action from all living MERCs in both squads
       const primaryMercs = player.primarySquad.getLivingMercs();
@@ -358,6 +371,19 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
 
       const totalMercs = primaryMercs.length + secondaryMercs.length;
       game.message(`${player.name} launches coordinated attack with ${totalMercs} MERC(s) on ${target.sectorName}!`);
+
+      const moves: Array<ReturnType<typeof buildMapCombatantMove>> = [];
+      if (primaryFromSectorId) {
+        for (const merc of primaryMercs) {
+          moves.push(buildMapCombatantMove(merc, primaryFromSectorId, target.sectorId));
+        }
+      }
+      if (secondaryFromSectorId) {
+        for (const merc of secondaryMercs) {
+          moves.push(buildMapCombatantMove(merc, secondaryFromSectorId, target.sectorId));
+        }
+      }
+      emitMapCombatantMoves(game, moves);
 
       // Check for landmines (both squads entering together)
       checkLandMines(game, target, [player.primarySquad, player.secondarySquad], true);
