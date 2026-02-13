@@ -10,7 +10,7 @@ import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { queuePendingCombat } from '../combat.js';
-import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
+import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, emitMapMilitiaTrain, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -863,10 +863,16 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
 
       // Train militia - amount depends on player type
       let trained: number;
+      const isDictator = game.isDictatorPlayer(ctx.player);
       if (game.isRebelPlayer(ctx.player)) {
         const player = asRebelPlayer(ctx.player);
+        const startValue = sector.getRebelMilitia(`${player.seat}`);
         trained = sector.addRebelMilitia(`${player.seat}`, actingUnit.training);
         game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
+
+        if (trained > 0) {
+          emitMapMilitiaTrain(game, [{ sectorId: sector.sectorId, count: trained, isDictator: false, playerId: `${player.seat}`, startValue }]);
+        }
 
         // Check if dictator has units at this sector and trigger combat
         if (sector.dictatorMilitia > 0) {
@@ -881,12 +887,17 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
             },
           };
         }
-      } else if (game.isDictatorPlayer(ctx.player)) {
+      } else if (isDictator) {
         // Kim's base allows 20 militia instead of 10
         const isKimBase = game.dictatorPlayer?.dictator?.combatantId === 'kim' &&
                           sector.sectorId === game.dictatorPlayer?.baseSectorId;
+        const startValue = sector.dictatorMilitia;
         trained = sector.addDictatorMilitia(actingUnit.training, isKimBase);
         game.message(`${unitName} trained ${trained} militia at ${sector.sectorName}`);
+
+        if (trained > 0) {
+          emitMapMilitiaTrain(game, [{ sectorId: sector.sectorId, count: trained, isDictator: true, startValue }]);
+        }
 
         // Check if any rebel has units at this sector and trigger combat
         for (const rebel of game.rebelPlayers) {
