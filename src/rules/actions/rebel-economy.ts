@@ -10,7 +10,7 @@ import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
 import { queuePendingCombat } from '../combat.js';
-import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, getMapCombatantId } from '../animation-events.js';
+import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
 import {
   ACTION_COSTS,
   capitalize,
@@ -31,6 +31,7 @@ import {
   setCachedValue,
   clearCachedValue,
   equipNewHire,
+  equipWithSpectatorEvent,
   isNotInActiveCombat,
 } from './helpers.js';
 
@@ -403,6 +404,10 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       game.message(`${capitalize(unitName)} explored ${sector.sectorName}`);
 
       if (sector.stashCount > 0) {
+        // Open equip spectator session immediately so other players see the panel
+        // before the active player starts choosing equipment
+        const playerName = (ctx.player as { name?: string }).name;
+        emitEquipSessionStart(game, actingUnit, playerName);
 
         // Chain to collectEquipment action with pre-filled args
         // Use display option for friendly chip names while keeping IDs for lookup
@@ -525,6 +530,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
       // User chose "Done collecting"
       if (!equipment) {
+        emitEquipSessionEnd(game, unit.combatantId);
         if (sector.stashCount > 0) {
           const remaining = sector.stash.map(e => e.equipmentName).join(', ');
           game.message(`Left in stash: ${remaining}`);
@@ -532,8 +538,12 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
         return { success: true, message: 'Done collecting equipment' };
       }
 
+      // Refresh equip spectator session (idempotent — already opened by explore)
+      const playerName = (ctx.player as { name?: string }).name;
+      emitEquipSessionStart(game, unit, playerName);
+
       // Equip the item
-      const { replaced, displacedBandolierItems } = unit.equip(equipment);
+      const { replaced, displacedBandolierItems } = equipWithSpectatorEvent(game, unit, equipment);
       const equipmentAnimations = [
         buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(unit)),
       ];
@@ -560,7 +570,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
 
       emitMapEquipmentAnimations(game, equipmentAnimations);
 
-      // Chain back to collectEquipment if stash still has items
+      // Chain back to collectEquipment if stash still has items — session stays open
       if (sector.stashCount > 0) {
         return {
           success: true,
@@ -579,6 +589,8 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
         };
       }
 
+      // No more items — close session
+      emitEquipSessionEnd(game, unit.combatantId);
       return { success: true, message: `Equipped ${equipment.equipmentName}` };
     });
 }

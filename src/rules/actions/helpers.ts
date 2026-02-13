@@ -6,7 +6,7 @@
 
 import { MERCPlayer, type MERCGame, type RebelPlayer, type DictatorPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
-import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId } from '../animation-events.js';
+import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId, emitEquipUpdate, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
 
 // =============================================================================
 // Action Cost Constants
@@ -437,6 +437,40 @@ export function getTypedArg<T>(args: Record<string, unknown>, key: string): T | 
 }
 
 // =============================================================================
+// Equip Spectator Helper
+// =============================================================================
+
+/**
+ * Wraps unit.equip() with spectator animation event.
+ * Equips the item, then emits equip-update with fly-in/fly-out data
+ * so other players can see what's being equipped.
+ */
+export function equipWithSpectatorEvent(
+  game: MERCGame,
+  unit: CombatantModel,
+  equipment: Equipment
+): { replaced: Equipment | undefined; displacedBandolierItems: Equipment[] } {
+  const { replaced, displacedBandolierItems } = unit.equip(equipment);
+
+  const removedItems: Array<{ name: string; type: string; image?: string }> = [];
+  if (replaced) {
+    removedItems.push({ name: replaced.equipmentName, type: replaced.equipmentType, image: replaced.image });
+  }
+  for (const item of displacedBandolierItems) {
+    removedItems.push({ name: item.equipmentName, type: item.equipmentType, image: item.image });
+  }
+
+  emitEquipUpdate(
+    game,
+    unit,
+    { name: equipment.equipmentName, type: equipment.equipmentType, image: equipment.image },
+    removedItems.length > 0 ? removedItems : undefined,
+  );
+
+  return { replaced, displacedBandolierItems };
+}
+
+// =============================================================================
 // Hiring Helpers
 // =============================================================================
 
@@ -455,12 +489,15 @@ export function equipNewHire(
   const equipmentAnimations = [];
   const sectorId = merc.sectorId;
 
+  // Open equip spectator session for other players
+  emitEquipSessionStart(game, merc);
+
   // MERC-9mxd: Vrbansk gets bonus accessory FIRST (before starting equipment)
   let vrbanskBonus: Equipment | undefined;
   if (merc.combatantId === 'vrbansk') {
     vrbanskBonus = game.drawEquipment('Accessory');
     if (vrbanskBonus) {
-      merc.equip(vrbanskBonus);
+      equipWithSpectatorEvent(game, merc, vrbanskBonus);
       game.message(`${merc.combatantName} receives bonus accessory: ${vrbanskBonus.equipmentName}`);
       if (sectorId) {
         equipmentAnimations.push(
@@ -498,7 +535,7 @@ export function equipNewHire(
   }
 
   if (freeEquipment) {
-    const { replaced, displacedBandolierItems } = merc.equip(freeEquipment);
+    const { replaced, displacedBandolierItems } = equipWithSpectatorEvent(game, merc, freeEquipment);
     if (sectorId) {
       equipmentAnimations.push(
         buildMapEquipmentAnimation(freeEquipment, sectorId, 'incoming', getMapCombatantId(merc))
@@ -539,6 +576,9 @@ export function equipNewHire(
   }
 
   emitMapEquipmentAnimations(game, equipmentAnimations);
+
+  // Close equip spectator session
+  emitEquipSessionEnd(game, merc.combatantId);
 }
 
 // =============================================================================

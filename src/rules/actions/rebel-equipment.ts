@@ -21,6 +21,7 @@ import {
   getCachedValue,
   setCachedValue,
   clearCachedValue,
+  equipWithSpectatorEvent,
   isNotInActiveCombat,
 } from './helpers.js';
 import { isLandMine, isRepairKit, hasRangedAttack, getRangedRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
@@ -28,7 +29,7 @@ import { hasMortar } from '../ai-helpers.js';
 import { rollDice } from '../combat.js';
 import { getHitThreshold } from '../merc-abilities.js';
 import { CombatConstants } from '../constants.js';
-import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId } from '../animation-events.js';
+import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd, serializeCombatantForCard } from '../animation-events.js';
 
 // =============================================================================
 // Re-Equip Action
@@ -81,6 +82,19 @@ function canAnyUnitReEquip(player: unknown, game: MERCGame): boolean {
 }
 
 export function createReEquipAction(game: MERCGame): ActionDefinition {
+  // Track which unit was selected so onCancel can close the spectator panel
+  let onSelectUnitId: string | null = null;
+
+  // Helper to resolve unit from a chooseFrom value string ("id:name:isDictator")
+  function resolveUnitFromValue(value: string): CombatantModel | undefined {
+    const parts = value.split(':');
+    if (parts.length < 3) return undefined;
+    const unitId = parseInt(parts[0], 10);
+    const isUnitDictator = parts[parts.length - 1] === 'true';
+    if (isUnitDictator) return game.dictatorPlayer?.dictator;
+    return game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === unitId);
+  }
+
   // Helper to resolve unit from ctx.args (parses composite string "id:name:isDictator")
   function getUnit(ctx: { args?: Record<string, unknown> }): CombatantModel | undefined {
     const unitArg = ctx.args?.actingUnit;
@@ -163,6 +177,21 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         }
         return value;
       },
+      onSelect: (value, ctx) => {
+        const unit = resolveUnitFromValue(value);
+        if (!unit) return;
+        onSelectUnitId = unit.combatantId;
+        ctx.animate('equip-session-start', {
+          combatantId: unit.combatantId,
+          combatant: serializeCombatantForCard(unit),
+          playerColor: unit.playerColor,
+        } as unknown as Record<string, unknown>);
+      },
+      onCancel: (ctx) => {
+        if (!onSelectUnitId) return;
+        ctx.animate('equip-session-end', { combatantId: onSelectUnitId });
+        onSelectUnitId = null;
+      },
     })
     .chooseElement<Equipment>('equipment', {
       dependsOn: 'actingUnit', // Equipment selection depends on unit selection
@@ -204,11 +233,16 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 
       const unitName = getUnitName(unit);
 
+      // equip-session-start already emitted by onSelect when unit was picked
+      // Clear the onSelect tracking — execute owns the session now
+      onSelectUnitId = null;
+
       // Spend action upfront when first starting re-equip
       unit.actionsRemaining -= ACTION_COSTS.RE_EQUIP;
 
       // User chose "Done equipping" without picking anything
       if (!equipment) {
+        emitEquipSessionEnd(game, unit.combatantId);
         if (sector.stashCount > 0) {
           const remaining = sector.stash.map(e => e.equipmentName).join(', ');
           game.message(`Left in stash: ${remaining}`);
@@ -217,7 +251,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const { replaced, displacedBandolierItems } = unit.equip(equipment);
+      const { replaced, displacedBandolierItems } = equipWithSpectatorEvent(game, unit, equipment);
       const equipmentAnimations = [
         buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(unit)),
       ];
@@ -245,6 +279,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       emitMapEquipmentAnimations(game, equipmentAnimations);
 
       // If there are more items in stash, chain another reEquip selection (no action cost - already spent)
+      // Session stays open across followUp chain
       if (sector.stashCount > 0) {
         return {
           success: true,
@@ -266,6 +301,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         };
       }
 
+      // No more items — close session
+      emitEquipSessionEnd(game, unit.combatantId);
       return { success: true, message: `Equipped ${equipment.equipmentName}` };
     });
 }
@@ -352,6 +389,10 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
         }
         return false;
       },
+      onCancel: (ctx) => {
+        // Session was opened by reEquip's onSelect — close it if action is cancelled
+        ctx.animate('equip-session-end', {});
+      },
     })
     .execute((args, ctx) => {
       const unit = getUnit(ctx);
@@ -364,8 +405,13 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
       const unitName = getUnitDisplayName(unit);
 
+      // Idempotent session update — keeps panel open, refreshes snapshot
+      const playerName = (ctx.player as { name?: string }).name;
+      emitEquipSessionStart(game, unit, playerName);
+
       // User chose "Done equipping"
       if (!equipment) {
+        emitEquipSessionEnd(game, unit.combatantId);
         if (sector.stashCount > 0) {
           const remaining = sector.stash.map(e => e.equipmentName).join(', ');
           game.message(`Left in stash: ${remaining}`);
@@ -374,7 +420,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip the item
-      const { replaced, displacedBandolierItems } = unit.equip(equipment);
+      const { replaced, displacedBandolierItems } = equipWithSpectatorEvent(game, unit, equipment);
       const equipmentAnimations = [
         buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(unit)),
       ];
@@ -401,7 +447,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
 
       emitMapEquipmentAnimations(game, equipmentAnimations);
 
-      // Chain another if more items remain
+      // Chain another if more items remain — session stays open
       if (sector.stashCount > 0) {
         return {
           success: true,
@@ -423,6 +469,8 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
         };
       }
 
+      // No more items — close session
+      emitEquipSessionEnd(game, unit.combatantId);
       return { success: true, message: `Equipped ${equipment.equipmentName}` };
     });
 }

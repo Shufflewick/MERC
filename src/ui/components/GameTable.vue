@@ -16,6 +16,7 @@ import LandingZoneSelection from './LandingZoneSelection.vue';
 import MapGrid from './MapGrid.vue';
 import ModalContent from './ModalContent.vue';
 import MortarAttackPanel, { type MortarAttackData } from './MortarAttackPanel.vue';
+import EquipSpectatorPanel, { type EquipSessionCombatant, type EquipFlyItem } from './EquipSpectatorPanel.vue';
 import SectorPanel from './SectorPanel.vue';
 import SquadPanel from './SquadPanel.vue';
 
@@ -532,6 +533,21 @@ function handleLandmineStrikeComplete() {
   }
 }
 
+// EQUIP SPECTATOR SESSION - driven by animation events (shown to non-active players)
+const equipSessionData = ref<{ combatant: EquipSessionCombatant; playerColor: string; playerName: string } | null>(null);
+const equipFlyItems = ref<EquipFlyItem[]>([]);
+let equipFlyIdCounter = 0;
+let equipUpdateResolve: (() => void) | null = null;
+
+function handleEquipFlyComplete() {
+  equipFlyItems.value = [];
+  if (equipUpdateResolve) {
+    equipUpdateResolve();
+    equipUpdateResolve = null;
+  }
+}
+
+
 // TACTICS CARD ANIMATIONS - driven by animation events
 const activeTacticEvent = ref<{
   type: string;
@@ -562,6 +578,63 @@ const BANNER_TACTIC_EVENTS = [
 ] as const;
 
 if (animationEvents) {
+  animationEvents.registerHandler('equip-session-start', async (event) => {
+    if (props.isMyTurn) return;
+    const data = event.data as { combatant: EquipSessionCombatant; playerColor?: string; playerName?: string };
+    equipSessionData.value = {
+      combatant: data.combatant,
+      playerColor: data.playerColor || '',
+      playerName: data.playerName || data.combatant.combatantName,
+    };
+  }, { skip: 'run' });
+
+  animationEvents.registerHandler('equip-update', async (event) => {
+    if (props.isMyTurn || !equipSessionData.value) return;
+    const data = event.data as {
+      combatantId: string;
+      updatedCombatant: EquipSessionCombatant;
+      equippedItem?: { name: string; type: string; image?: string };
+      removedItems?: Array<{ name: string; type: string; image?: string }>;
+    };
+
+    // Build fly items: removed items fly out, equipped item flies in
+    const flyItems: EquipFlyItem[] = [];
+    if (data.removedItems) {
+      for (const item of data.removedItems) {
+        flyItems.push({ ...item, direction: 'out', id: ++equipFlyIdCounter });
+      }
+    }
+    if (data.equippedItem) {
+      flyItems.push({ ...data.equippedItem, direction: 'in', id: ++equipFlyIdCounter });
+    }
+
+    equipFlyItems.value = flyItems;
+
+    // Wait for fly animation to complete, then update combatant data
+    await new Promise<void>((resolve) => {
+      equipUpdateResolve = resolve;
+    });
+
+    // Session may have ended while waiting for fly animation — don't reopen
+    if (!equipSessionData.value) return;
+
+    // Update combatant snapshot after animation
+    equipSessionData.value = {
+      ...equipSessionData.value,
+      combatant: data.updatedCombatant,
+    };
+  }, { skip: 'drop' });
+
+  animationEvents.registerHandler('equip-session-end', async () => {
+    // Resolve any pending equip-update promise so the queue isn't blocked
+    if (equipUpdateResolve) {
+      equipUpdateResolve();
+      equipUpdateResolve = null;
+    }
+    equipSessionData.value = null;
+    equipFlyItems.value = [];
+  }, { skip: 'run' });
+
   animationEvents.registerHandler('landmine-detonate', async (event) => {
     const data = event.data as {
       sectorId: string;
@@ -1479,6 +1552,16 @@ const clickableSectors = computed(() => {
           :action-controller="actionController"
           :action-args="actionArgs"
           :is-dictator="currentPlayerIsDictator"
+        />
+
+        <!-- Equip Spectator Panel - shown to non-active players during equip session -->
+        <EquipSpectatorPanel
+          v-if="equipSessionData"
+          :combatant="equipSessionData.combatant"
+          :player-color="equipSessionData.playerColor"
+          :player-name="equipSessionData.playerName"
+          :fly-items="equipFlyItems"
+          @fly-complete="handleEquipFlyComplete"
         />
 
         <MapGrid

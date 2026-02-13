@@ -1343,7 +1343,6 @@ const isCurrentSelectionOptional = computed(() => {
 // Done button - skip the optional selection
 async function doneAction() {
   if (!currentPick.value) return;
-  // Skip the optional selection by filling with null
   props.actionController.skip(currentPick.value.name);
 }
 
