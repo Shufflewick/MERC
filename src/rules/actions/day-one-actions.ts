@@ -866,8 +866,9 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         };
       }
 
-      // Done placing
-      clearGlobalCachedValue(game, REMAINING_MILITIA_KEY);
+      // Done placing — set to 0 so the loop's while condition stops
+      // (clearing would make it undefined, which the loop treats as "not started yet")
+      setGlobalCachedValue(game, REMAINING_MILITIA_KEY, 0);
       game.message(`All extra militia placed`);
       return { success: true, message: 'All extra militia placed' };
     });
