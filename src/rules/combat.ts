@@ -45,6 +45,7 @@ import {
   getEnemyCombatDebuff,
   getEnemyInitiativeDebuff,
   FEMALE_MERCS,
+  healsSquadAfterCombat,
 } from './merc-abilities.js';
 import { emitMapCombatantDeathFromData } from './animation-events.js';
 import {
@@ -2941,6 +2942,38 @@ function applyCombatResults(
 
   // Update militia counts
   syncMilitiaCasualties(game, sector, rebels, dictatorSide);
+
+  // Doc auto-heal: if a surviving combatant has healsSquadAfterCombat, heal their entire squad
+  const allCombatants = [...rebels, ...dictatorSide];
+  for (const combatant of allCombatants) {
+    if (!combatant.sourceElement?.isMerc) continue;
+    if (combatant.health <= 0) continue;
+    const merc = combatant.sourceElement;
+    if (!healsSquadAfterCombat(merc.combatantId)) continue;
+
+    // Find the player who owns this merc
+    const owner = game.players.find(p => p.team.some(m => m.id === merc.id));
+    if (!owner) continue;
+
+    const squad = owner.getSquadContaining(merc);
+    if (!squad) continue;
+
+    const livingSquadMercs = squad.getLivingMercs();
+    const damagedMercs = livingSquadMercs.filter(m => m.damage > 0);
+    if (damagedMercs.length === 0) continue;
+
+    game.animate('doc-heal', {
+      healerName: merc.combatantName,
+      sectorId: sector.sectorId,
+    }, () => {
+      for (const squadMerc of damagedMercs) {
+        const healAmount = squadMerc.damage;
+        squadMerc.fullHeal();
+        game.message(`${merc.combatantName} healed ${squadMerc.combatantName} for ${healAmount} damage`);
+      }
+      game.message(`${merc.combatantName} healed ${damagedMercs.length} MERC(s) in his squad after combat`);
+    });
+  }
 }
 
 /**

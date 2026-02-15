@@ -166,8 +166,8 @@ export interface PassiveAbility {
   freeAccessoryOnHire?: boolean;
   /** Can bring militia when moving (Sonia) */
   bringsMilitia?: number;
-  /** Heals all squad outside combat (Doc) */
-  healsSquadOutsideCombat?: boolean;
+  /** Heals all squad after combat (Doc) */
+  healsSquadAfterCombat?: boolean;
   /** Can take equipment from discard (Feedback) */
   retrievesFromDiscard?: boolean;
   /** Disarms/arms land mines (Squidhead) */
@@ -554,7 +554,7 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   doc: {
     id: 'doc',
-    passive: { healsSquadOutsideCombat: true },
+    passive: { healsSquadAfterCombat: true },
   },
 
   feedback: {
@@ -857,11 +857,11 @@ export function getMilitiaBringCount(combatantId: string): number {
 }
 
 /**
- * Check if a MERC heals squad outside combat
+ * Check if a MERC heals squad after combat
  */
-export function healsSquadOutsideCombat(combatantId: string): boolean {
+export function healsSquadAfterCombat(combatantId: string): boolean {
   const ability = MERC_ABILITIES[combatantId];
-  return ability?.passive?.healsSquadOutsideCombat ?? false;
+  return ability?.passive?.healsSquadAfterCombat ?? false;
 }
 
 /**

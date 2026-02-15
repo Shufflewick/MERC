@@ -53,10 +53,8 @@ export interface SectorState {
   selectedSectorMercs: ComputedRef<any[]>;
   controlMap: ComputedRef<Record<string, string | undefined>>;
   // Ability flags
-  hasDoc: ComputedRef<boolean>;
   hasSquidhead: ComputedRef<boolean>;
   hasMortar: ComputedRef<boolean>;
-  hasDamagedMercs: ComputedRef<boolean>;
   hasLandMinesInStash: ComputedRef<boolean>;
   squidheadHasLandMine: ComputedRef<boolean>;
 }
@@ -195,7 +193,6 @@ export function useSectorState(
       'dropEquipment',
       'takeFromStash',
       'move',
-      'docHeal',
       'squidheadDisarm',
       'squidheadArm',
     ];
@@ -376,16 +373,6 @@ export function useSectorState(
     return [...(primarySquad?.mercs || []), ...(secondarySquad?.mercs || [])];
   };
 
-  // Check if player has Doc on team
-  const hasDoc = computed<boolean>(() => {
-    const allMercsInSquads = getMercsInSquads();
-    return allMercsInSquads.some(
-      (m: any) =>
-        getAttrPure(m, 'combatantId', '').toLowerCase() === 'doc' ||
-        getAttrPure(m, 'combatantName', '').toLowerCase() === 'doc'
-    );
-  });
-
   // Check if player has Squidhead on team
   const hasSquidhead = computed<boolean>(() => {
     const allMercsInSquads = getMercsInSquads();
@@ -416,15 +403,6 @@ export function useSectorState(
     });
 
     return result;
-  });
-
-  // Check if player has damaged MERCs
-  const hasDamagedMercs = computed<boolean>(() => {
-    const allMercsInSquads = getMercsInSquads();
-    return allMercsInSquads.some((m: any) => {
-      const damage = getAttrPure(m, 'damage', 0);
-      return damage > 0;
-    });
   });
 
   // Check if selected sector has land mines in stash (checks unfiltered stash data)
@@ -484,10 +462,8 @@ export function useSectorState(
     selectedSectorStash,
     selectedSectorMercs,
     controlMap,
-    hasDoc,
     hasSquidhead,
     hasMortar,
-    hasDamagedMercs,
     hasLandMinesInStash,
     squidheadHasLandMine,
   };

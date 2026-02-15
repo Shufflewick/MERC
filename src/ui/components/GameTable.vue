@@ -132,10 +132,8 @@ const {
   selectedSectorStash,
   selectedSectorMercs,
   controlMap,
-  hasDoc,
   hasSquidhead,
   hasMortar,
-  hasDamagedMercs,
   hasLandMinesInStash,
   squidheadHasLandMine,
 } = useSectorState(
@@ -739,8 +737,9 @@ async function handleReroll() {
 
 // Handle confirming hit allocation - executes the action with allocations from CombatPanel
 async function handleConfirmAllocation(allocations: string[]) {
-  if (!allocations || allocations.length === 0) return;
-  if (!props.availableActions.includes('combatAllocateHits')) return;
+  console.log('[DEBUG confirmAllocation] allocations:', allocations, 'availableActions:', props.availableActions, 'isMyTurn:', props.isMyTurn);
+  if (!allocations || allocations.length === 0) { console.log('[DEBUG confirmAllocation] BAIL: empty allocations'); return; }
+  if (!props.availableActions.includes('combatAllocateHits')) { console.log('[DEBUG confirmAllocation] BAIL: combatAllocateHits not in availableActions'); return; }
 
   await props.actionController.execute('combatAllocateHits', { allocations });
 }
@@ -1283,9 +1282,6 @@ const mercAbilitiesAvailable = computed(() => {
   }
   // Add more MERCs here as their abilities get UI buttons
   // Doc heal, Feedback discard, etc.
-  if (props.isMyTurn && props.availableActions.includes('docHeal')) {
-    available.push('doc');
-  }
   return available;
 });
 
@@ -1296,9 +1292,6 @@ async function handleActivateAbility(combatantId: string) {
     props.actionController.start('hagnessDraw');
     // Scroll to top where the Hagness UI appears
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (combatantId === 'doc' && props.availableActions.includes('docHeal')) {
-    // Execute Doc heal immediately (no selections needed)
-    await props.actionController.execute('docHeal', {});
   }
   // Add more MERC ability handlers as needed
 }
@@ -1466,10 +1459,8 @@ const clickableSectors = computed(() => {
       :base-squad="currentPlayerIsDictator ? dictatorBaseSquad : undefined"
       :all-sectors="sectors"
       :stash-contents="selectedSectorStash"
-      :has-doc="hasDoc"
       :has-squidhead="hasSquidhead"
       :has-mortar="hasMortar"
-      :has-damaged-mercs="hasDamagedMercs"
       :has-land-mines-in-stash="hasLandMinesInStash"
       :squidhead-has-land-mine="squidheadHasLandMine"
       :has-enemy-forces="selectedSectorHasEnemyForces"

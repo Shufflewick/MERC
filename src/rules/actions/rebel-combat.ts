@@ -503,15 +503,31 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
   return Action.create('combatAllocateHits')
     .prompt('Confirm hit allocation')
     .condition({
-      'has pending hit allocation': () => game.activeCombat?.pendingHitAllocation != null,
+      'has pending hit allocation': () => {
+        const result = game.activeCombat?.pendingHitAllocation != null;
+        if (!result && game.activeCombat) {
+          console.log('[DEBUG combatAllocateHits] CONDITION FAIL: pendingHitAllocation is null but activeCombat exists');
+        }
+        return result;
+      },
       'player controls this attacker': (ctx) => {
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return false;
-        const attacker = [...(game.activeCombat?.rebelCombatants ?? []),
-                          ...(game.activeCombat?.dictatorCombatants ?? [])]
-          .find(c => c.id === pending.attackerId);
-        if (!attacker) return isRebelPlayer(ctx.player); // fallback for MERCs
-        if (attacker.isDictatorSide) return game.isDictatorPlayer(ctx.player);
+        const allCombatants = [...(game.activeCombat?.rebelCombatants ?? []),
+                          ...(game.activeCombat?.dictatorCombatants ?? [])];
+        const attacker = allCombatants.find(c => c.id === pending.attackerId);
+        if (!attacker) {
+          const result = isRebelPlayer(ctx.player);
+          console.log(`[DEBUG combatAllocateHits] attacker NOT found for id=${pending.attackerId}, combatant ids=[${allCombatants.map(c => c.id).join(',')}], isRebelPlayer=${result}`);
+          return result;
+        }
+        if (attacker.isDictatorSide) {
+          const result = game.isDictatorPlayer(ctx.player);
+          if (!result) {
+            console.log(`[DEBUG combatAllocateHits] attacker is dictator-side but player is NOT dictator. player seat=${(ctx.player as any)?.seat}, role=${(ctx.player as any)?.role}`);
+          }
+          return result;
+        }
         return isRebelPlayer(ctx.player);
       },
     })
@@ -525,7 +541,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       },
       choices: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
-        if (!pending) return [];
+        if (!pending) { console.log('[DEBUG combatAllocateHits] choices(): no pending hit allocation'); return []; }
         // Build choices - each target can be selected multiple times up to their health
         const choices: string[] = [];
         for (const target of pending.validTargets) {

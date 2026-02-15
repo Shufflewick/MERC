@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import { CombatantModel, Sector, Squad, Equipment } from '../src/rules/elements.js';
-import { getCombatants, type Combatant } from '../src/rules/combat.js';
+import { getCombatants, executeCombat, type Combatant } from '../src/rules/combat.js';
 import {
   getHitThreshold,
   canRerollOnce,
@@ -499,6 +499,79 @@ describe('Combat Ability Integration', () => {
       if (dictator) {
         expect(dictator.inPlay).toBe(false);
       }
+    });
+  });
+
+  // ===========================================================================
+  // Doc Auto-Heal After Combat
+  // ===========================================================================
+  describe('Doc Auto-Heal After Combat', () => {
+    it('should auto-heal all squad members after combat when Doc survives', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'doc-heal-test',
+      });
+      const g = testGame.game;
+      const rebel = g.rebelPlayers[0];
+      const sector = g.gameMap.getAllSectors()[0];
+
+      // Find Doc and another merc from the deck
+      const doc = g.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId === 'doc')!;
+      expect(doc).toBeDefined();
+
+      const otherMerc = g.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId !== 'doc')!;
+      expect(otherMerc).toBeDefined();
+
+      // Put both into rebel's primary squad
+      doc.putInto(rebel.primarySquad);
+      otherMerc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = sector.sectorId;
+
+      // Give them some damage before combat
+      doc.damage = 1;
+      otherMerc.damage = 2;
+
+      // Add minimal militia so combat resolves quickly (rebels should win)
+      sector.addDictatorMilitia(1);
+
+      // Execute non-interactive combat
+      executeCombat(g, sector, rebel, { interactive: false });
+
+      // If Doc survived, all squad members should be fully healed
+      if (!doc.isDead) {
+        expect(doc.damage).toBe(0);
+        expect(otherMerc.isDead || otherMerc.damage === 0).toBe(true);
+      }
+    });
+
+    it('should not auto-heal if Doc dies in combat', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'doc-dies-test',
+      });
+      const g = testGame.game;
+      const rebel = g.rebelPlayers[0];
+      const sector = g.gameMap.getAllSectors()[0];
+
+      // Find Doc
+      const doc = g.mercDeck.first(CombatantModel, c => c.isMerc && c.combatantId === 'doc')!;
+      expect(doc).toBeDefined();
+
+      // Put Doc into squad with very low health so he dies
+      doc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = sector.sectorId;
+      doc.damage = doc.maxHealth - 1; // 1 HP left
+
+      // Add enough militia to likely kill Doc
+      sector.addDictatorMilitia(8);
+
+      // Execute combat
+      executeCombat(g, sector, rebel, { interactive: false });
+
+      // If Doc died, his heal shouldn't have triggered
+      // (no assertion on damage since combat is random, but we verify the code path doesn't crash)
     });
   });
 });

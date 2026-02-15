@@ -83,10 +83,8 @@ const props = defineProps<{
     image?: string;
   }>;
   // Special MERCs on team
-  hasDoc?: boolean;
   hasSquidhead?: boolean;
   hasMortar?: boolean;
-  hasDamagedMercs?: boolean;
   hasLandMinesInStash?: boolean;
   squidheadHasLandMine?: boolean;
   // Enemy forces (for mortar targeting - perspective-aware)
@@ -530,9 +528,6 @@ const inSectorActions = computed(() => {
   if (props.availableActions.includes('hireMerc')) {
     actions.push({ name: 'hireMerc', label: 'Hire', icon: '👥' });
   }
-  if (props.hasDoc && props.hasDamagedMercs && props.availableActions.includes('docHeal')) {
-    actions.push({ name: 'docHeal', label: 'Doc Heal', icon: '💊' });
-  }
   if (props.hasSquidhead && props.hasLandMinesInStash && props.availableActions.includes('squidheadDisarm')) {
     actions.push({ name: 'squidheadDisarm', label: 'Disarm', icon: '💣' });
   }
@@ -590,7 +585,7 @@ const isInActionFlow = computed(() => {
   const sectorRelevantActions = [
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'reEquipContinue', // Chained from reEquip
-    'dropEquipment', 'takeFromStash', 'move', 'docHeal', 'squidheadDisarm', 'squidheadArm',
+    'dropEquipment', 'takeFromStash', 'move', 'squidheadDisarm', 'squidheadArm',
     'mortar', 'coordinatedAttack',
     'hireMerc', // Mid-game hire (actingMerc/fireFirst steps show here, then HiringPhase takes over)
   ];

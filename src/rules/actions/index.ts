@@ -81,7 +81,6 @@ import {
   createReEquipAction,
   createReEquipContinueAction,
   createDropEquipmentAction,
-  createDocHealAction,
   createFeedbackDiscardAction,
   createSquidheadDisarmAction,
   createSquidheadArmAction,
@@ -139,7 +138,6 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createReEquipAction(game));
   game.registerAction(createReEquipContinueAction(game));
   game.registerAction(createDropEquipmentAction(game));
-  game.registerAction(createDocHealAction(game)); // MERC-m4k: Doc's free heal
   game.registerAction(createFeedbackDiscardAction(game)); // MERC-24h: Feedback discard retrieval
   game.registerAction(createSquidheadDisarmAction(game)); // MERC-4qd: Squidhead disarm mines
   game.registerAction(createSquidheadArmAction(game)); // MERC-4qd: Squidhead arm mines

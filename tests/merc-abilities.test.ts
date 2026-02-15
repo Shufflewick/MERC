@@ -30,7 +30,7 @@ import {
   allSlotsAccessories,
   getsFreeAccessoryOnHire,
   getMilitiaBringCount,
-  healsSquadOutsideCombat,
+  healsSquadAfterCombat,
   canRetrieveFromDiscard,
   handlesLandMines,
   drawsEquipmentForSquad,
@@ -309,8 +309,8 @@ describe('MERC Ability Registry', () => {
   });
 
   describe('Special Abilities', () => {
-    it('should identify Doc as healing squad outside combat', () => {
-      expect(healsSquadOutsideCombat('doc')).toBe(true);
+    it('should identify Doc as healing squad after combat', () => {
+      expect(healsSquadAfterCombat('doc')).toBe(true);
     });
 
     it('should identify Feedback as retrieving from discard', () => {
@@ -326,7 +326,7 @@ describe('MERC Ability Registry', () => {
     });
 
     it('should not give special abilities to regular MERCs', () => {
-      expect(healsSquadOutsideCombat('basic')).toBe(false);
+      expect(healsSquadAfterCombat('basic')).toBe(false);
       expect(canRetrieveFromDiscard('basic')).toBe(false);
       expect(handlesLandMines('basic')).toBe(false);
       expect(drawsEquipmentForSquad('basic')).toBe(false);
