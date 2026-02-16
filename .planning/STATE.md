@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-09)
+See: .planning/PROJECT.md (updated 2026-02-16)
 
-**Core value:** Ship Confidence — the game should behave correctly, consistently, and visibly.
-**Current focus:** Planning next milestone
+**Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
+**Current focus:** v2.0 Simultaneous Rebel Turns
 
 ## Current Position
 
-Phase: 50 of 50 — v1.10 Grievances COMPLETE
-Plan: Not started (next milestone)
+Phase: 51 of 55 (Extract Combat Sub-Flow)
+Plan: Not started
 Status: Ready to plan
-Last activity: 2026-02-09 — v1.10 milestone complete
+Last activity: 2026-02-16 -- v2.0 roadmap created
 
-Progress: [==========] 100% (v1.10 Grievances shipped)
+Progress: [..........] 0%
 
 ## Milestones Completed
 
@@ -36,7 +36,6 @@ Total: 50 phases, 100 plans, 11 milestones shipped
 
 **Velocity:**
 - Total plans completed: 100
-- v1.10 duration: 1 day (9 plans across 4 phases)
 
 ## Accumulated Context
 
@@ -56,6 +55,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-09
-Stopped at: v1.10 milestone archived and tagged.
+Last session: 2026-02-16
+Stopped at: v2.0 roadmap created, ready to plan Phase 51.
 Resume file: None

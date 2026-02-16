@@ -54,28 +54,28 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FLOW-01 | TBD | Pending |
-| FLOW-02 | TBD | Pending |
-| FLOW-03 | TBD | Pending |
-| FLOW-04 | TBD | Pending |
-| FLOW-05 | TBD | Pending |
-| FLOW-06 | TBD | Pending |
-| FLOW-07 | TBD | Pending |
-| ACT-01 | TBD | Pending |
-| ACT-02 | TBD | Pending |
-| ACT-03 | TBD | Pending |
-| ACT-04 | TBD | Pending |
-| AI-01 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
+| FLOW-01 | Phase 51 | Pending |
+| FLOW-02 | Phase 52 | Pending |
+| FLOW-03 | Phase 53 | Pending |
+| FLOW-04 | Phase 53 | Pending |
+| FLOW-05 | Phase 54 | Pending |
+| FLOW-06 | Phase 52 | Pending |
+| FLOW-07 | Phase 52 | Pending |
+| ACT-01 | Phase 52 | Pending |
+| ACT-02 | Phase 52 | Pending |
+| ACT-03 | Phase 52 | Pending |
+| ACT-04 | Phase 52 | Pending |
+| AI-01 | Phase 54 | Pending |
+| UI-01 | Phase 55 | Pending |
+| UI-02 | Phase 55 | Pending |
+| UI-03 | Phase 55 | Pending |
+| UI-04 | Phase 55 | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-16*
-*Last updated: 2026-02-16 after initial definition*
+*Last updated: 2026-02-16 after roadmap creation*
