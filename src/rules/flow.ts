@@ -406,6 +406,20 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
   );
 }
 
+/** Check if a rebel has completed Day 1 setup (landed + hired MERCs) */
+function isDay1Complete(game: MERCGame, player: Player): boolean {
+  if (!game.isRebelPlayer(player)) return true;
+  const rebel = player as RebelPlayer;
+  // Must have landed
+  if (!rebel.primarySquad.sectorId) return false;
+  // Must have at least 2 MERCs (conservative: if Teresa is on team with only 2,
+  // hireThirdMerc action may still be available. The engine auto-completes players
+  // with no available actions, so returning false here is safe.)
+  const hasTeresa = rebel.team.some(m => m.combatantId === 'teresa');
+  const requiredSize = hasTeresa ? 3 : 2;
+  return rebel.team.length >= requiredSize;
+}
+
 export function createGameFlow(game: MERCGame): FlowDefinition {
   return {
     root: sequence(
@@ -431,46 +445,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             game.message('--- Rebel Phase ---');
           }),
 
-          // Each rebel performs their Day 1 setup
-          eachPlayer({
+          // Each rebel performs their Day 1 setup simultaneously
+          loop({
             name: 'rebel-landing',
-            filter: (player) => game.isRebelPlayer(player), // Only rebels, skip dictator
-            do: sequence(
-              // Step 1: Choose landing sector first
-              actionStep({
-                name: 'place-landing',
-                actions: ['placeLanding'],
-                prompt: 'Choose an edge sector for your landing zone',
-              }),
-
-              // Step 2: Hire first MERC (draw 3, pick 1) and equip
-              actionStep({
-                name: 'hire-first-merc',
-                actions: ['hireFirstMerc'],
-                prompt: 'Hire your first MERC',
-              }),
-
-              // Step 3: Hire second MERC (pick from remaining 2) and equip
-              actionStep({
-                name: 'hire-second-merc',
-                actions: ['hireSecondMerc'],
-                prompt: 'Hire your second MERC',
-              }),
-
-              // Step 4: Optional third MERC (if Teresa was hired - she doesn't count toward limit)
-              actionStep({
-                name: 'hire-third-merc',
-                actions: ['hireThirdMerc'],
-                prompt: 'Hire your third MERC (Teresa bonus)',
-                skipIf: (ctx) => {
-                  // Skip if Teresa is not on the team
-                  const player = ctx.player;
-                  if (!player || !game.isRebelPlayer(player)) return true;
-                  const hasTeresa = player.team?.some((m: { combatantId: string }) => m.combatantId === 'teresa');
-                  return !hasTeresa;
-                },
-              }),
-            ),
+            while: () => !game.isFinished() && game.rebelPlayers.some(p => !isDay1Complete(game, p)),
+            maxIterations: 50,
+            do: simultaneousActionStep({
+              name: 'rebel-landing-actions',
+              players: () => game.rebelPlayers,
+              actions: ['placeLanding', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc'],
+              skipPlayer: (_ctx, player) => isDay1Complete(game, player),
+              playerDone: (_ctx, player) => isDay1Complete(game, player),
+            }),
           }),
 
           // ===== DICTATOR PHASE =====

@@ -510,14 +510,20 @@ describe('MCTS Clone Divergence', () => {
       },
     };
 
-    // Without the fix, this clone's dictator would NOT be AI
-    const { clone, flowState: cloneFlow } = cloneGame(strippedSnapshot);
+    // Without the fix, this clone's dictator would NOT be AI.
+    // The stripped clone may throw during action replay because the flow topology
+    // diverges (e.g., designatePrivacyPlayer is skipped when dictator isn't AI,
+    // causing subsequent actions to replay against the wrong flow step).
+    // This is expected — the stripped snapshot is deliberately broken.
+    try {
+      cloneGame(strippedSnapshot);
+    } catch {
+      // Expected: stripped snapshot causes flow divergence during replay
+    }
     const origFlow = game.getFlowState()!;
 
-    // The clone with stripped options won't have isAI set — this is expected
-    // because we stripped playerConfigs from the snapshot. The fix is that
-    // getConstructorOptions() on the ORIGINAL game preserves playerConfigs,
-    // so the real snapshot (not our stripped one) would have them.
+    // The fix is that getConstructorOptions() on the ORIGINAL game preserves
+    // playerConfigs, so the real snapshot (not our stripped one) would have them.
     // This test verifies that the real snapshot has the correct options.
 
     // Verify the REAL snapshot produces a correct clone

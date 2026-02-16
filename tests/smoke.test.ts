@@ -88,10 +88,10 @@ describe('MERC Smoke Tests', () => {
         seed: 'flow-test-2',
       });
 
-      // Use assertFlowState helper for cleaner assertions
-      assertFlowState(testGame, {
-        currentPlayer: 1, // Rebel player (1-indexed)
-      });
+      // Day 1 uses simultaneousActionStep — rebel players are in awaitingPlayers
+      const flowState = testGame.getFlowState();
+      expect(flowState?.awaitingPlayers).toBeDefined();
+      expect(flowState!.awaitingPlayers!.some(p => p.playerIndex === 1)).toBe(true);
     });
 
     it('should have placeLanding as first available action', () => {
@@ -101,8 +101,11 @@ describe('MERC Smoke Tests', () => {
         seed: 'action-test',
       });
 
-      // Landing zone is now chosen first, before hiring MERCs
-      assertActionAvailable(testGame, 1, 'placeLanding');
+      // Day 1 uses simultaneousActionStep — placeLanding is in rebel's awaiting actions
+      const flowState = testGame.getFlowState();
+      const rebelEntry = flowState?.awaitingPlayers?.find(p => p.playerIndex === 1);
+      expect(rebelEntry).toBeDefined();
+      expect(rebelEntry!.availableActions).toContain('placeLanding');
     });
   });
 

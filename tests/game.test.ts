@@ -188,9 +188,11 @@ describe('MERCGame', () => {
         seed: 'test-seed',
       });
 
-      // Landing zone is now chosen first, before hiring MERCs
+      // Day 1 uses simultaneousActionStep — placeLanding is in rebel's awaiting actions
       const flowState = testGame.getFlowState();
-      expect(flowState?.availableActions).toContain('placeLanding');
+      const rebelEntry = flowState?.awaitingPlayers?.find(p => p.playerIndex === 1);
+      expect(rebelEntry).toBeDefined();
+      expect(rebelEntry!.availableActions).toContain('placeLanding');
     });
   });
 
