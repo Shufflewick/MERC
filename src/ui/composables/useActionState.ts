@@ -51,6 +51,7 @@ export interface ActionStateReturn {
   isSelectingSector: ComputedRef<boolean>;
   showAssignToSquad: ComputedRef<boolean>;
   isHagnessSelectingType: ComputedRef<boolean>;
+  isHagnessSelectingFromDrawn: ComputedRef<boolean>;
   isHagnessSelectingRecipient: ComputedRef<boolean>;
 
   // Derived state
@@ -65,6 +66,7 @@ export interface ActionStateReturn {
 
   // Hagness state
   hagnessEquipmentTypeChoices: ComputedRef<Array<{ value: string; label: string }>>;
+  hagnessDrawnChoices: ComputedRef<any[]>;
   hagnessDrawnEquipment: ComputedRef<any>;
   hagnessSquadMates: ComputedRef<HagnessSquadMate[]>;
 
@@ -285,10 +287,10 @@ export function useActionState(
   });
 
   // Use actionController to detect when Hagness draw action is active
-  // Both hagnessDrawType (step 1) and hagnessGiveEquipment (step 2) are part of the flow
+  // All 3 steps of the flow: hagnessDrawType, hagnessSelectFromDrawn, hagnessGiveEquipment
   const isHagnessDrawActive = computed(() => {
     const action = props.actionController.currentAction.value;
-    return action === 'hagnessDrawType' || action === 'hagnessGiveEquipment';
+    return action === 'hagnessDrawType' || action === 'hagnessSelectFromDrawn' || action === 'hagnessGiveEquipment';
   });
 
   // Check if we're in landing placement mode
@@ -340,7 +342,12 @@ export function useActionState(
     return props.actionController.currentAction.value === 'hagnessDrawType';
   });
 
-  // Check if Hagness is selecting recipient (step 2: hagnessGiveEquipment action)
+  // Check if Hagness is selecting from 3 drawn equipment (step 2: hagnessSelectFromDrawn action)
+  const isHagnessSelectingFromDrawn = computed(() => {
+    return props.actionController.currentAction.value === 'hagnessSelectFromDrawn';
+  });
+
+  // Check if Hagness is selecting recipient (step 3: hagnessGiveEquipment action)
   const isHagnessSelectingRecipient = computed(() => {
     return props.actionController.currentAction.value === 'hagnessGiveEquipment';
   });
@@ -564,6 +571,23 @@ export function useActionState(
     });
   });
 
+  // Get Hagness's 3 drawn choices from settings (for draw-3-pick-1 step)
+  // Data is stored in settings.hagnessDrawnChoices:{playerId} during the selectedEquipment pick
+  const hagnessDrawnChoices = computed<any[]>(() => {
+    if (!isHagnessSelectingFromDrawn.value) return [];
+
+    const playerKey = `${props.playerSeat}`;
+    const gameView = props.getGameView ? props.getGameView() : props.gameView;
+    const settings = gameView?.settings || gameView?.attributes?.settings || props.state?.state?.settings;
+
+    const cache = settings?.[`hagnessDrawnChoices:${playerKey}`];
+    if (cache?.equipmentData) {
+      return cache.equipmentData;
+    }
+
+    return [];
+  });
+
   // Get Hagness's drawn equipment from settings
   // Equipment is stored in settings.hagnessDrawnEquipmentData[playerId] after hagnessDrawType executes
   const hagnessDrawnEquipment = computed(() => {
@@ -664,6 +688,7 @@ export function useActionState(
     isSelectingSector,
     showAssignToSquad,
     isHagnessSelectingType,
+    isHagnessSelectingFromDrawn,
     isHagnessSelectingRecipient,
 
     // Derived state
@@ -678,6 +703,7 @@ export function useActionState(
 
     // Hagness state
     hagnessEquipmentTypeChoices,
+    hagnessDrawnChoices,
     hagnessDrawnEquipment,
     hagnessSquadMates,
 

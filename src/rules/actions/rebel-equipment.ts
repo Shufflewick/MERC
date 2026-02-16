@@ -21,6 +21,9 @@ import {
   getCachedValue,
   setCachedValue,
   clearCachedValue,
+  getGlobalCachedValue,
+  setGlobalCachedValue,
+  clearGlobalCachedValue,
   equipWithSpectatorEvent,
   isNotInActiveCombat,
 } from './helpers.js';
@@ -943,25 +946,40 @@ function getHagnessCacheKey(playerId: string): string {
 }
 
 /**
- * Type for cached Hagness equipment data.
+ * Type for cached Hagness equipment data (single chosen card for give step).
  */
 interface HagnessEquipmentCache {
   equipmentId: number;
   equipmentType: string;
-  equipmentData: {
-    equipmentId: number;
-    equipmentName: string;
-    equipmentType: string;
-    description: string;
-    combatBonus: number;
-    initiative: number;
-    training: number;
-    targets: number;
-    armorBonus: number;
-    negatesArmor: boolean;
-    serial: number;
-    image: string;
-  };
+  equipmentData: HagnessEquipmentData;
+}
+
+/**
+ * Serialized equipment data for UI display.
+ */
+interface HagnessEquipmentData {
+  equipmentId: number;
+  equipmentName: string;
+  equipmentType: string;
+  description: string;
+  combatBonus: number;
+  initiative: number;
+  training: number;
+  targets: number;
+  armorBonus: number;
+  negatesArmor: boolean;
+  serial: number;
+  image: string;
+}
+
+/**
+ * Cache for the 3 drawn equipment choices during Hagness draw-3-pick-1.
+ * Includes equipmentType so stale caches from cancelled actions are detected.
+ */
+interface HagnessDrawnChoicesCache {
+  equipmentType: string;
+  elementIds: number[];
+  equipmentData: HagnessEquipmentData[];
 }
 
 /**
@@ -991,18 +1009,61 @@ function clearHagnessCache(game: MERCGame, playerId: string): void {
   delete game.hagnessDrawnEquipmentData[playerId];
 }
 
+// Settings key for drawn choices cache (draw 3, pick 1)
+const HAGNESS_DRAWN_CHOICES_PREFIX = 'hagnessDrawnChoices';
+
+function getHagnessDrawnChoicesCacheKey(playerId: string): string {
+  return `${HAGNESS_DRAWN_CHOICES_PREFIX}:${playerId}`;
+}
+
+function getHagnessDrawnChoicesCache(game: MERCGame, playerId: string): HagnessDrawnChoicesCache | undefined {
+  const key = getHagnessDrawnChoicesCacheKey(playerId);
+  return (game.settings as Record<string, unknown>)[key] as HagnessDrawnChoicesCache | undefined;
+}
+
+function setHagnessDrawnChoicesCache(game: MERCGame, playerId: string, cache: HagnessDrawnChoicesCache): void {
+  const key = getHagnessDrawnChoicesCacheKey(playerId);
+  (game.settings as Record<string, unknown>)[key] = cache;
+}
+
+function clearHagnessDrawnChoicesCache(game: MERCGame, playerId: string): void {
+  const key = getHagnessDrawnChoicesCacheKey(playerId);
+  delete (game.settings as Record<string, unknown>)[key];
+}
+
 /**
- * MERC-jrph: Hagness Draw Type Action (Step 1)
+ * Serialize equipment data for UI display.
+ */
+function serializeEquipmentForCard(equipment: Equipment): HagnessEquipmentData {
+  return {
+    equipmentId: equipment.id,
+    equipmentName: equipment.equipmentName,
+    equipmentType: equipment.equipmentType,
+    description: equipment.description || '',
+    combatBonus: equipment.combatBonus || 0,
+    initiative: equipment.initiative || 0,
+    training: equipment.training || 0,
+    targets: equipment.targets || 0,
+    armorBonus: equipment.armorBonus || 0,
+    negatesArmor: equipment.negatesArmor || false,
+    serial: equipment.serial || 0,
+    image: equipment.image || '',
+  };
+}
+
+/**
+ * MERC-jrph: Hagness Draw Type Action (Step 1 of 3)
  *
  * First action in the Hagness draw flow:
  * 1. Choose equipment type (Weapon, Armor, or Accessory)
- * 2. Draw 1 equipment of that type
- * 3. Subtract 1 action from Hagness
- * 4. Store equipment in settings for the give action
- * 5. Chain to hagnessGiveEquipment via followUp
+ * 2. Draw 3 equipment of that type, store in settings
+ * 3. Chain to hagnessSelectFromDrawn via followUp
  *
- * This separation ensures equipment is drawn and synced to clients BEFORE
- * the recipient selection UI appears.
+ * Drawing happens in execute() so settings mutations sync to the client
+ * before the next action's UI renders.
+ *
+ * Per card text: "Draw 3 pieces of equipment, choose 1 and give it to any
+ * member of his squad."
  */
 export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
   return Action.create('hagnessDrawType')
@@ -1023,34 +1084,110 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
       const player = ctx.player as MERCPlayer;
       const playerId = `${player.seat}`;
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-      const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
 
-      // Draw equipment
-      const equipment = game.drawEquipment(equipmentType);
-      if (!equipment) {
+      // Clear any stale drawn choices cache from a cancelled previous activation
+      clearHagnessDrawnChoicesCache(game, playerId);
+
+      // Draw 3 equipment of the chosen type
+      const drawn: Equipment[] = [];
+      for (let i = 0; i < 3; i++) {
+        const eq = game.drawEquipment(equipmentType);
+        if (eq) drawn.push(eq);
+      }
+
+      if (drawn.length === 0) {
         return { success: false, message: `No ${equipmentType} cards in deck` };
       }
 
-      // Store equipment in settings for the give action and UI
-      const cache: HagnessEquipmentCache = {
-        equipmentId: equipment.id,
+      // Store in settings — execute() mutations sync to client before next action renders
+      const cache: HagnessDrawnChoicesCache = {
         equipmentType,
-        equipmentData: {
-          equipmentId: equipment.id,
-          equipmentName: equipment.equipmentName,
-          equipmentType: equipment.equipmentType,
-          description: equipment.description || '',
-          combatBonus: equipment.combatBonus || 0,
-          initiative: equipment.initiative || 0,
-          training: equipment.training || 0,
-          targets: equipment.targets || 0,
-          armorBonus: equipment.armorBonus || 0,
-          negatesArmor: equipment.negatesArmor || false,
-          serial: equipment.serial || 0,
-          image: equipment.image || '',
+        elementIds: drawn.map(e => e.id),
+        equipmentData: drawn.map(e => serializeEquipmentForCard(e)),
+      };
+      setHagnessDrawnChoicesCache(game, playerId, cache);
+
+      // Chain to the pick-1 action
+      return {
+        success: true,
+        message: `Drew ${drawn.length} ${equipmentType} cards`,
+        followUp: {
+          action: 'hagnessSelectFromDrawn',
+          args: {},
+          display: {},
         },
       };
-      setHagnessCache(game, playerId, cache);
+    });
+}
+
+/**
+ * MERC-jrph: Hagness Select From Drawn Action (Step 2 of 3)
+ *
+ * Second action in the Hagness draw flow (chained via followUp):
+ * 1. Present the 3 drawn equipment as choices
+ * 2. Player picks 1
+ * 3. Subtract action, store chosen in give cache, chain to hagnessGiveEquipment
+ *
+ * The drawn equipment data is already in settings (set by hagnessDrawType's execute),
+ * so the custom UI can render the 3 cards.
+ */
+export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefinition {
+  return Action.create('hagnessSelectFromDrawn')
+    .prompt('Choose equipment to keep')
+    .condition({
+      'has drawn choices cached': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
+        const playerId = `${player.seat}`;
+        return getHagnessDrawnChoicesCache(game, playerId) != null;
+      },
+    })
+    .chooseFrom<string>('selectedEquipment', {
+      prompt: 'Choose 1 of 3 drawn equipment',
+      choices: (ctx) => {
+        const player = ctx.player as MERCPlayer;
+        const playerId = `${player.seat}`;
+        const cache = getHagnessDrawnChoicesCache(game, playerId);
+        if (!cache) return [];
+        return cache.equipmentData.map(d => d.equipmentName);
+      },
+    })
+    .execute((args, ctx) => {
+      const player = ctx.player as MERCPlayer;
+      const playerId = `${player.seat}`;
+      const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
+      const selectedName = args.selectedEquipment as string;
+
+      const drawnCache = getHagnessDrawnChoicesCache(game, playerId);
+      if (!drawnCache || drawnCache.elementIds.length === 0) {
+        return { success: false, message: 'No equipment was drawn' };
+      }
+
+      // Find the selected equipment by name
+      const selectedIndex = drawnCache.equipmentData.findIndex(d => d.equipmentName === selectedName);
+      if (selectedIndex === -1) {
+        return { success: false, message: 'Selected equipment not found' };
+      }
+
+      const selectedElementId = drawnCache.elementIds[selectedIndex];
+      const equipment = game.getElementById(selectedElementId) as Equipment | undefined;
+      if (!equipment) {
+        clearHagnessDrawnChoicesCache(game, playerId);
+        return { success: false, message: 'Equipment element not found' };
+      }
+
+      // Unchosen equipment stays in discard (drawEquipment drew them there as holding area)
+
+      // Store the chosen equipment in the single-item cache for the give step
+      const giveCache: HagnessEquipmentCache = {
+        equipmentId: equipment.id,
+        equipmentType: equipment.equipmentType,
+        equipmentData: serializeEquipmentForCard(equipment),
+      };
+      setHagnessCache(game, playerId, giveCache);
+
+      // Clear the drawn choices cache
+      clearHagnessDrawnChoicesCache(game, playerId);
 
       // Subtract action from Hagness
       hagness.useAction(1);
@@ -1058,7 +1195,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
       // Chain to the give action
       return {
         success: true,
-        message: `Drew ${equipment.equipmentName}`,
+        message: `Chose ${equipment.equipmentName}`,
         followUp: {
           action: 'hagnessGiveEquipment',
           args: { equipmentId: equipment.id },

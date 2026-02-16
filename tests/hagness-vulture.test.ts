@@ -182,7 +182,7 @@ describe('Hagness Ability Tests', () => {
   });
 
   describe('Full Hagness Action Flow (Unit Test)', () => {
-    it('should complete full draw-and-equip flow', () => {
+    it('should draw 3 and pick 1 to equip to squad mate', () => {
       const setup = setupHagnessSquad();
       if (!setup) return;
       const { hagness, squadMate } = setup;
@@ -190,23 +190,81 @@ describe('Hagness Ability Tests', () => {
       const initialActions = hagness.actionsRemaining;
       const initialWeaponCount = game.weaponsDeck.count(Equipment);
 
-      // Simulate Hagness action:
-      // 1. Draw weapon
-      const weapon = game.drawEquipment('Weapon');
-      expect(weapon).toBeDefined();
-      expect(weapon?.equipmentType).toBe('Weapon');
+      // Simulate Hagness draw-3-pick-1 flow:
+      // 1. Draw 3 weapons
+      const drawn: Equipment[] = [];
+      for (let i = 0; i < 3; i++) {
+        const eq = game.drawEquipment('Weapon');
+        if (eq) drawn.push(eq);
+      }
+      expect(drawn.length).toBe(3);
+      expect(drawn.every(e => e.equipmentType === 'Weapon')).toBe(true);
 
-      // 2. Equip to squad mate
-      const result = squadMate.equip(weapon!);
+      // 2. Pick one (first drawn)
+      const chosen = drawn[0];
+
+      // 3. Unchosen 2 stay in discard (drawEquipment draws to discard as holding area)
+      // No explicit action needed — they remain in weaponsDiscard
+
+      // 4. Equip chosen to squad mate
+      const result = squadMate.equip(chosen);
       expect(result.replaced).toBeUndefined();
 
-      // 3. Consume action
+      // 5. Consume action
       hagness.useAction(1);
 
       // Verify results
-      expect(squadMate.weaponSlot).toBe(weapon);
+      expect(squadMate.weaponSlot).toBe(chosen);
       expect(hagness.actionsRemaining).toBe(initialActions - 1);
-      expect(game.weaponsDeck.count(Equipment)).toBe(initialWeaponCount - 1);
+      // 3 drawn from deck
+      expect(game.weaponsDeck.count(Equipment)).toBe(initialWeaponCount - 3);
+    });
+
+    it('drawing 3 reduces deck by 3, unchosen 2 remain in discard (net -1 from deck)', () => {
+      const initialWeaponDeckCount = game.weaponsDeck.count(Equipment);
+      const initialWeaponDiscardCount = game.weaponsDiscard?.count(Equipment) ?? 0;
+
+      // Draw 3
+      const drawn: Equipment[] = [];
+      for (let i = 0; i < 3; i++) {
+        const eq = game.drawEquipment('Weapon');
+        if (eq) drawn.push(eq);
+      }
+      expect(drawn.length).toBe(3);
+
+      // Deck reduced by 3
+      expect(game.weaponsDeck.count(Equipment)).toBe(initialWeaponDeckCount - 3);
+      // All 3 are in discard (drawEquipment draws to discard as holding area)
+      expect(game.weaponsDiscard.count(Equipment)).toBe(initialWeaponDiscardCount + 3);
+
+      // Simulate choosing one: move it out of discard to a MERC
+      const setup = setupHagnessSquad();
+      if (!setup) return;
+      const { squadMate } = setup;
+      squadMate.equip(drawn[0]);
+
+      // Now discard has 2 unchosen, deck is -3
+      expect(game.weaponsDiscard.count(Equipment)).toBe(initialWeaponDiscardCount + 2);
+    });
+
+    it('should handle fewer than 3 cards available in deck', () => {
+      // Drain the weapon deck to only 2 cards
+      const weaponCount = game.weaponsDeck.count(Equipment);
+      for (let i = 0; i < weaponCount - 2; i++) {
+        game.drawEquipment('Weapon');
+      }
+      expect(game.weaponsDeck.count(Equipment)).toBe(2);
+
+      // Draw 3 — should get only 2
+      const drawn: Equipment[] = [];
+      for (let i = 0; i < 3; i++) {
+        const eq = game.drawEquipment('Weapon');
+        if (eq) drawn.push(eq);
+      }
+
+      // Should have drawn 2 (or possibly more if reshuffle kicked in)
+      expect(drawn.length).toBeGreaterThanOrEqual(2);
+      expect(drawn.every(e => e.equipmentType === 'Weapon')).toBe(true);
     });
 
     it('should draw from correct deck type (not cross-contaminate)', () => {

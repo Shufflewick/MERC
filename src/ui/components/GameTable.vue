@@ -190,6 +190,7 @@ const {
   isSelectingSector,
   showAssignToSquad,
   isHagnessSelectingType,
+  isHagnessSelectingFromDrawn,
   isHagnessSelectingRecipient,
   retreatSectorChoices,
   sectorChoices,
@@ -200,6 +201,7 @@ const {
   selectedMercId,
   equipmentTypeChoices,
   hagnessEquipmentTypeChoices,
+  hagnessDrawnChoices,
   hagnessDrawnEquipment,
   hagnessSquadMates,
   deferredChoicesLoading,
@@ -1132,14 +1134,13 @@ async function selectEquipmentType(equipType: string) {
   await props.actionController.fill(selection.name, equipType);
 }
 
+// Handle Hagness selecting 1 of 3 drawn equipment
+async function selectHagnessEquipment(name: string) {
+  await props.actionController.fill('selectedEquipment', name);
+}
+
 // Handle Hagness selecting a recipient for equipment
 async function selectHagnessRecipient(choice: any) {
-  // Verify hagnessDraw action is available
-  if (!props.availableActions.includes('hagnessDraw')) return;
-
-  // Verify we have equipmentType already selected
-  if (props.actionArgs['equipmentType'] === undefined) return;
-
   // Extract the recipient value from the choice
   // Choice can be: string | { value: string, display: string, equipment?: object }
   let recipientValue: string;
@@ -1509,12 +1510,15 @@ const clickableSectors = computed(() => {
     <HagnessDrawEquipment
       v-if="isHagnessDrawActive"
       :is-selecting-type="isHagnessSelectingType"
+      :is-selecting-from-drawn="isHagnessSelectingFromDrawn"
       :is-selecting-recipient="isHagnessSelectingRecipient"
       :equipment-type-choices="hagnessEquipmentTypeChoices"
+      :drawn-choices="hagnessDrawnChoices"
       :drawn-equipment="hagnessDrawnEquipment"
       :squad-mates="hagnessSquadMates"
       :player-color="currentPlayerColor"
       @equipment-type-selected="selectEquipmentType"
+      @equipment-selected="selectHagnessEquipment"
       @recipient-selected="selectHagnessRecipient"
     />
 

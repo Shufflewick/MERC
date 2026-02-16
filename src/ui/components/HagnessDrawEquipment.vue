@@ -13,8 +13,10 @@ export interface HagnessSquadMate {
 
 interface Props {
   isSelectingType: boolean;
+  isSelectingFromDrawn: boolean;
   isSelectingRecipient: boolean;
   equipmentTypeChoices: Array<{ value: string; label: string }>;
+  drawnChoices: any[];
   drawnEquipment: any | null;
   squadMates: HagnessSquadMate[];
   playerColor: string;
@@ -24,11 +26,16 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   'equipment-type-selected': [value: string];
+  'equipment-selected': [name: string];
   'recipient-selected': [choice: { value: string }];
 }>();
 
 function handleEquipmentTypeSelect(value: string) {
   emit('equipment-type-selected', value);
+}
+
+function handleEquipmentSelect(name: string) {
+  emit('equipment-selected', name);
 }
 
 function handleRecipientSelect(choice: { value: string }) {
@@ -43,18 +50,30 @@ function handleRecipientSelect(choice: { value: string }) {
       <div class="hagness-content">
         <h2 class="hagness-title">Hagness: Draw Equipment</h2>
         <p class="hagness-prompt">
-          {{ isSelectingType ? 'Choose equipment type to draw' : isSelectingRecipient ? 'Choose who receives the equipment' : 'Drawing equipment...' }}
+          {{ isSelectingType ? 'Choose equipment type to draw' : isSelectingFromDrawn ? 'Choose 1 of 3 drawn equipment' : isSelectingRecipient ? 'Choose who receives the equipment' : 'Drawing equipment...' }}
         </p>
       </div>
     </div>
 
-    <!-- Step 1: Equipment type selection -->
+    <!-- Step 1a: Equipment type selection -->
     <DrawEquipmentType
       v-if="isSelectingType && equipmentTypeChoices.length > 0"
       :choices="equipmentTypeChoices"
       prompt="Choose equipment type:"
       @select="handleEquipmentTypeSelect"
     />
+
+    <!-- Step 1b: Pick 1 from 3 drawn equipment -->
+    <div class="hagness-drawn-choices" v-else-if="isSelectingFromDrawn && drawnChoices.length > 0">
+      <div
+        v-for="(equip, index) in drawnChoices"
+        :key="index"
+        class="hagness-choice-card"
+        @click="handleEquipmentSelect(equip.equipmentName)"
+      >
+        <EquipmentCard :equipment="equip" />
+      </div>
+    </div>
 
     <!-- Step 2: Show drawn equipment and recipient selection -->
     <div class="hagness-equipment-display" v-else-if="isSelectingRecipient">
@@ -125,6 +144,26 @@ function handleRecipientSelect(choice: { value: string }) {
   font-size: 1rem;
 }
 
+/* Draw 3 choices layout */
+.hagness-drawn-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+.hagness-choice-card {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hagness-choice-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(129, 212, 168, 0.4);
+}
+
 .hagness-equipment-display {
   display: flex;
   flex-direction: row;
@@ -172,6 +211,11 @@ function handleRecipientSelect(choice: { value: string }) {
 
 /* On narrow screens, stack vertically and center */
 @media (max-width: 600px) {
+  .hagness-drawn-choices {
+    flex-direction: column;
+    align-items: center;
+  }
+
   .hagness-equipment-display {
     flex-direction: column;
   }
