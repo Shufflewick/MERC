@@ -548,6 +548,9 @@ function handleEquipFlyComplete() {
 }
 
 
+// COMBAT BARRIER OVERLAY - shown when simultaneous actions pause for combat
+const combatBarrierActive = ref(false);
+
 // TACTICS CARD ANIMATIONS - driven by animation events
 const activeTacticEvent = ref<{
   type: string;
@@ -666,6 +669,16 @@ if (animationEvents) {
   animationEvents.registerHandler('combat-panel', async (event) => {
     combatSnapshot.value = event.data as Record<string, unknown>;
   }, { skip: 'run' });
+
+  animationEvents.registerHandler('combat-barrier', async () => {
+    combatBarrierActive.value = true;
+    await new Promise<void>((resolve) => {
+      setTimeout(() => {
+        combatBarrierActive.value = false;
+        resolve();
+      }, 2000);
+    });
+  }, { skip: 'drop' });
 
   // Register handlers for all 8 sector-targeted tactics events
   for (const eventType of SECTOR_TACTIC_EVENTS) {
@@ -1398,6 +1411,14 @@ const clickableSectors = computed(() => {
       </div>
     </GameOverlay>
 
+    <!-- Combat Barrier Banner - shown when simultaneous actions pause for combat -->
+    <GameOverlay :active="combatBarrierActive" :backdrop-opacity="0.5">
+      <div class="combat-barrier-content" @click.stop>
+        <div class="combat-barrier-label">Combat Detected</div>
+        <div class="combat-barrier-description">Simultaneous actions paused while combat resolves</div>
+      </div>
+    </GameOverlay>
+
     <!-- Combat Panel - shown when combat snapshot is present -->
     <CombatPanel
       v-if="hasActiveCombat"
@@ -1903,5 +1924,32 @@ const clickableSectors = computed(() => {
   max-width: 500px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* Combat Barrier Banner */
+.combat-barrier-content {
+  text-align: center;
+  color: white;
+  animation: barrier-fade-in 0.3s ease-out;
+}
+
+.combat-barrier-label {
+  font-size: 2rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #ff6b6b;
+  text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+}
+
+.combat-barrier-description {
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+  opacity: 0.85;
+}
+
+@keyframes barrier-fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 </style>
