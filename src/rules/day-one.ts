@@ -12,7 +12,7 @@ import { Equipment, Sector, TacticsCard, isGrenadeOrMortar, CombatantModel } fro
 import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId, buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain, type MapMilitiaTrainEventData } from './animation-events.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
-import { selectNewMercLocation } from './ai-helpers.js';
+import { selectNewMercLocation, distributeExtraMilitiaEvenly } from './ai-helpers.js';
 import { equipNewHire } from './actions/helpers.js';
 
 // =============================================================================
@@ -428,7 +428,7 @@ export function placeExtraMilitia(
  * Note: For card-based placement during play, use selectMilitiaPlacementSector.
  */
 export function autoPlaceExtraMilitia(game: MERCGame): number {
-  const { distributeExtraMilitiaEvenly } = require('./ai-helpers.js');
+  // distributeExtraMilitiaEvenly imported statically at top of file
   const extraBudget = game.setupConfig.dictatorStrength.extra;
 
   if (extraBudget === 0) {
