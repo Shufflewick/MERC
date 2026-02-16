@@ -65,10 +65,10 @@ Plans:
   1. Dictator turn triggers combat through the shared sub-flow extracted in Phase 51 (not duplicate inline code)
   2. AI rebel players submit actions in batched rounds -- all AI rebels submit first actions, those resolve, then all submit second actions
   3. Mixed games (human + AI rebels) work correctly with AI batching inside the simultaneous step
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 54-01: TBD
+- [ ] 54-01-PLAN.md -- FLOW-05 verification tests + AI rebel action batching (round tracking, action conditions, integration tests)
 
 ### Phase 55: Simultaneous Play UI
 **Goal**: Players have clear visual feedback about simultaneous play state, waiting conditions, and barrier transitions
@@ -93,5 +93,5 @@ Plans:
 | 51. Extract Combat Sub-Flow | 1/1 | ✓ Complete | 2026-02-16 |
 | 52. Simultaneous Rebel Step | 2/2 | ✓ Complete | 2026-02-16 |
 | 53. Combat Barriers | 1/1 | ✓ Complete | 2026-02-16 |
-| 54. Dictator and AI Alignment | 0/TBD | Not started | - |
+| 54. Dictator and AI Alignment | 0/1 | In progress | - |
 | 55. Simultaneous Play UI | 0/TBD | Not started | - |
