@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 52 of 55 (Simultaneous Rebel Step)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-16 -- Phase 51 complete, verified
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-16 -- Completed 52-01-PLAN.md
 
-Progress: [██........] 20% (v2.0: Phase 51 complete)
+Progress: [████......] 40% (v2.0: 52-01 complete)
 
 ## Milestones Completed
 
@@ -46,6 +46,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 - 51-01: Kept combatResolutionFlow in flow.ts (uses same helpers, private to flow definition)
 - 51-01: Normalized loop name prefixes to consistent ${prefix}-* pattern (no tests reference loop names)
 - 51-01: Sub-flow pattern: function returning sequence() with parameterized prefix
+- 52-01: Cast player to RebelPlayer in skipPlayer/playerDone (BoardSmith Player base lacks team property)
+- 52-01: Mortar/coordinated attack in outer loop, not inside simultaneousActionStep (anti-pattern avoidance)
 
 ### Deferred Issues
 
@@ -60,5 +62,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Phase 51 complete. Ready to plan Phase 52.
+Stopped at: Completed 52-01-PLAN.md
 Resume file: None
