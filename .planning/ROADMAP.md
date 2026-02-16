@@ -9,7 +9,7 @@
 
 - [x] **Phase 51: Extract Combat Sub-Flow** - Pull combat resolution out of rebel/dictator phases into a shared callable sub-flow
 - [x] **Phase 52: Simultaneous Rebel Step** - Replace sequential rebel turns with loop + simultaneousActionStep for all rebels
-- [ ] **Phase 53: Combat Barriers** - Combat and coordinated attacks exit the simultaneous step, resolve sequentially, then re-enter
+- [x] **Phase 53: Combat Barriers** - Combat and coordinated attacks exit the simultaneous step, resolve sequentially, then re-enter
 - [ ] **Phase 54: Dictator and AI Alignment** - Dictator phase uses shared combat sub-flow; AI rebels batch actions correctly
 - [ ] **Phase 55: Simultaneous Play UI** - Turn indicators, waiting messages, and visual transitions for simultaneous play
 
@@ -55,7 +55,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 53-01-PLAN.md -- Verify barrier architecture with integration tests for combat, coordinated attack, and done preservation
+- [x] 53-01-PLAN.md -- Verify barrier architecture with integration tests for combat, coordinated attack, and done preservation
 
 ### Phase 54: Dictator and AI Alignment
 **Goal**: Dictator phase uses the shared combat sub-flow; AI rebel players batch actions correctly within simultaneous play
@@ -92,6 +92,6 @@ Plans:
 |-------|----------------|--------|-----------|
 | 51. Extract Combat Sub-Flow | 1/1 | ✓ Complete | 2026-02-16 |
 | 52. Simultaneous Rebel Step | 2/2 | ✓ Complete | 2026-02-16 |
-| 53. Combat Barriers | 0/1 | Not started | - |
+| 53. Combat Barriers | 1/1 | ✓ Complete | 2026-02-16 |
 | 54. Dictator and AI Alignment | 0/TBD | Not started | - |
 | 55. Simultaneous Play UI | 0/TBD | Not started | - |

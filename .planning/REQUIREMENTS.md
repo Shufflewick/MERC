@@ -56,8 +56,8 @@
 |-------------|-------|--------|
 | FLOW-01 | Phase 51 | Complete |
 | FLOW-02 | Phase 52 | Complete |
-| FLOW-03 | Phase 53 | Pending |
-| FLOW-04 | Phase 53 | Pending |
+| FLOW-03 | Phase 53 | Complete |
+| FLOW-04 | Phase 53 | Complete |
 | FLOW-05 | Phase 54 | Pending |
 | FLOW-06 | Phase 52 | Complete |
 | FLOW-07 | Phase 52 | Complete |
