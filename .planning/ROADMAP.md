@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 through v1.10 (Phases 1-50) -- shipped, see STATE.md
-- **v2.0 Simultaneous Rebel Turns** - Phases 51-55 (in progress)
+- **v2.0 Simultaneous Rebel Turns** - Phases 51-55 (complete)
 
 ## Phases
 
@@ -11,7 +11,7 @@
 - [x] **Phase 52: Simultaneous Rebel Step** - Replace sequential rebel turns with loop + simultaneousActionStep for all rebels
 - [x] **Phase 53: Combat Barriers** - Combat and coordinated attacks exit the simultaneous step, resolve sequentially, then re-enter
 - [x] **Phase 54: Dictator and AI Alignment** - Dictator phase uses shared combat sub-flow; AI rebels batch actions correctly
-- [ ] **Phase 55: Simultaneous Play UI** - Turn indicators, waiting messages, and visual transitions for simultaneous play
+- [x] **Phase 55: Simultaneous Play UI** - Turn indicators, waiting messages, and visual transitions for simultaneous play
 
 ## Phase Details
 
@@ -82,7 +82,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 55-01-PLAN.md -- Combat barrier overlay + verify existing BoardSmith simultaneous play UI infrastructure
+- [x] 55-01-PLAN.md -- Combat barrier overlay + verify existing BoardSmith simultaneous play UI infrastructure
 
 ## Progress
 
@@ -94,4 +94,4 @@ Plans:
 | 52. Simultaneous Rebel Step | 2/2 | ✓ Complete | 2026-02-16 |
 | 53. Combat Barriers | 1/1 | ✓ Complete | 2026-02-16 |
 | 54. Dictator and AI Alignment | 1/1 | ✓ Complete | 2026-02-16 |
-| 55. Simultaneous Play UI | 0/1 | Not started | - |
+| 55. Simultaneous Play UI | 1/1 | ✓ Complete | 2026-02-16 |

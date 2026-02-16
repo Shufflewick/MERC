@@ -7,10 +7,10 @@
 
 ### Flow Architecture
 
-- [ ] **FLOW-01**: Extract combat into a shared standalone sub-flow callable from both rebel and dictator phases
+- [x] **FLOW-01**: Extract combat into a shared standalone sub-flow callable from both rebel and dictator phases
 - [x] **FLOW-02**: Replace sequential `eachPlayer('rebel-turns')` with a loop wrapping `simultaneousActionStep` for all rebel players
-- [ ] **FLOW-03**: Combat acts as a barrier — when any rebel triggers combat, the simultaneous step exits via `allDone`, combat runs sequentially to completion, then the loop re-enters the simultaneous step
-- [ ] **FLOW-04**: Coordinated attack acts as a barrier — declare exits simultaneous step, commit/decline flow runs for other rebels, then combat resolves, then simultaneous step resumes
+- [x] **FLOW-03**: Combat acts as a barrier — when any rebel triggers combat, the simultaneous step exits via `allDone`, combat runs sequentially to completion, then the loop re-enters the simultaneous step
+- [x] **FLOW-04**: Coordinated attack acts as a barrier — declare exits simultaneous step, commit/decline flow runs for other rebels, then combat resolves, then simultaneous step resumes
 - [x] **FLOW-05**: Refactor dictator turn to use the shared combat sub-flow for consistency
 - [x] **FLOW-06**: Day 1 rebel phase uses the same simultaneous model as Day 2+
 - [x] **FLOW-07**: Players who have ended their turn are skipped on simultaneous step re-entry via `skipPlayer`
@@ -28,10 +28,10 @@
 
 ### UI
 
-- [ ] **UI-01**: Turn indicator in PlayersPanel shows all active rebels during simultaneous step (not just one)
-- [ ] **UI-02**: Waiting message in ActionPanel shows which specific players haven't finished when current player is done
-- [ ] **UI-03**: All actions visible to all players (including dictator) in real-time as they resolve
-- [ ] **UI-04**: Clear visual transition when combat barrier activates — players understand why simultaneous actions paused
+- [x] **UI-01**: Turn indicator in PlayersPanel shows all active rebels during simultaneous step (not just one)
+- [x] **UI-02**: Waiting message in ActionPanel shows which specific players haven't finished when current player is done
+- [x] **UI-03**: All actions visible to all players (including dictator) in real-time as they resolve
+- [x] **UI-04**: Clear visual transition when combat barrier activates — players understand why simultaneous actions paused
 
 ## v2 Requirements
 
@@ -66,10 +66,10 @@
 | ACT-03 | Phase 52 | Complete |
 | ACT-04 | Phase 52 | Complete |
 | AI-01 | Phase 54 | Complete |
-| UI-01 | Phase 55 | Pending |
-| UI-02 | Phase 55 | Pending |
-| UI-03 | Phase 55 | Pending |
-| UI-04 | Phase 55 | Pending |
+| UI-01 | Phase 55 | Complete |
+| UI-02 | Phase 55 | Complete |
+| UI-03 | Phase 55 | Complete |
+| UI-04 | Phase 55 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total
