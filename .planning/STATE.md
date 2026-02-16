@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 51 of 55 (Extract Combat Sub-Flow)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-16 -- v2.0 roadmap created
+Plan: 1 of 1 complete
+Status: Phase complete
+Last activity: 2026-02-16 -- Completed 51-01-PLAN.md
 
-Progress: [..........] 0%
+Progress: [..........] 0% (v2.0: 1 of ~5 plans)
 
 ## Milestones Completed
 
@@ -30,18 +30,22 @@ Progress: [..........] 0%
 - v1.9 BoardSmith v3.0 Animation Timeline Migration (Phases 42-46) - 7 plans
 - v1.10 Grievances (Phases 47-50) - 10 plans
 
-Total: 50 phases, 100 plans, 11 milestones shipped
+Total: 50 phases, 101 plans, 11 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 100
+- Total plans completed: 101
 
 ## Accumulated Context
 
 ### Decisions
 
 All decisions captured in PROJECT.md Key Decisions table.
+
+- 51-01: Kept combatResolutionFlow in flow.ts (uses same helpers, private to flow definition)
+- 51-01: Normalized loop name prefixes to consistent ${prefix}-* pattern (no tests reference loop names)
+- 51-01: Sub-flow pattern: function returning sequence() with parameterized prefix
 
 ### Deferred Issues
 
@@ -56,5 +60,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: v2.0 roadmap created, ready to plan Phase 51.
+Stopped at: Completed 51-01-PLAN.md (Extract Combat Sub-Flow)
 Resume file: None
