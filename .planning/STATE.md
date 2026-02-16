@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 ## Current Position
 
 Phase: 52 of 55 (Simultaneous Rebel Step)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-16 -- Completed 52-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-16 -- Completed 52-02-PLAN.md
 
-Progress: [████......] 40% (v2.0: 52-01 complete)
+Progress: [██████....] 60% (v2.0: 52-01, 52-02 complete)
 
 ## Milestones Completed
 
@@ -48,6 +48,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 - 51-01: Sub-flow pattern: function returning sequence() with parameterized prefix
 - 52-01: Cast player to RebelPlayer in skipPlayer/playerDone (BoardSmith Player base lacks team property)
 - 52-01: Mortar/coordinated attack in outer loop, not inside simultaneousActionStep (anti-pattern avoidance)
+- 52-02: Conservative isDay1Complete helper with engine auto-complete fallback for Teresa skip edge case
+- 52-02: Action conditions on Day 1 actions naturally gate per-player progression (no explicit flow sequencing needed)
 
 ### Deferred Issues
 
@@ -62,5 +64,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 52-01-PLAN.md
+Stopped at: Completed 52-02-PLAN.md (Phase 52 complete)
 Resume file: None
