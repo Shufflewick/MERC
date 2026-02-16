@@ -142,6 +142,270 @@ function getEpinephrineDecisionPlayer(game: MERCGame, fallback: Player): Player 
   return fallback;
 }
 
+/**
+ * Combat Resolution Sub-Flow
+ *
+ * Encapsulates the 10-block combat resolution pipeline that was previously
+ * duplicated at 4 call sites (rebel, tactics, dictator, Kim militia).
+ * Each block handles one phase of combat decision-making:
+ *
+ * 1. Before-attack healing
+ * 2. Attack dog selection
+ * 3. Target selection
+ * 4. Hit allocation
+ * 5. Wolverine 6s allocation
+ * 6. Epinephrine decision
+ * 7. Combat continue (non-retreat rounds)
+ * 8. Retreat decision (simultaneous)
+ * 9. Auto-clear for all-AI games
+ * 10. Animation wait for human games
+ *
+ * @param game - The game instance
+ * @param prefix - Loop name prefix for uniqueness (e.g., 'combat', 'tactics-combat')
+ */
+function combatResolutionFlow(game: MERCGame, prefix: string) {
+  return sequence(
+    // 1. Before-attack healing - "On your initiative, before your attack, discard dice to heal"
+    loop({
+      name: `${prefix}-before-attack-healing`,
+      while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
+      maxIterations: 50,
+      do: actionStep({
+        name: 'before-attack-heal',
+        player: (ctx) => {
+          const pending = game.activeCombat?.pendingBeforeAttackHealing;
+          if (!pending) return ctx.player!;
+          return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+        },
+        actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
+      }),
+    }),
+
+    // 2. Attack Dog assignment - when player needs to choose dog target
+    loop({
+      name: `${prefix}-attack-dog-selection`,
+      while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
+      maxIterations: 50,
+      do: actionStep({
+        name: 'assign-attack-dog',
+        player: (ctx) => {
+          const pending = game.activeCombat?.pendingAttackDogSelection;
+          if (!pending) return ctx.player!;
+          return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+        },
+        actions: ['combatAssignAttackDog'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
+      }),
+    }),
+
+    // 3. Combat target selection - only when targets need to be selected
+    loop({
+      name: `${prefix}-target-selection`,
+      while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
+      maxIterations: 50,
+      do: actionStep({
+        name: 'select-targets',
+        player: (ctx) => {
+          const pending = game.activeCombat?.pendingTargetSelection;
+          if (!pending) return ctx.player!;
+          return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+        },
+        actions: ['combatSelectTarget'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
+      }),
+    }),
+
+    // 4. Hit allocation loop - when player needs to allocate hits
+    loop({
+      name: `${prefix}-hit-allocation`,
+      while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
+      maxIterations: 50,
+      do: actionStep({
+        name: 'allocate-hits',
+        player: (ctx) => {
+          const pending = game.activeCombat?.pendingHitAllocation;
+          if (!pending) return ctx.player!;
+          return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
+        },
+        actions: ['combatAllocateHits', 'combatBasicReroll'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
+      }),
+    }),
+
+    // 5. Wolverine 6s allocation loop
+    loop({
+      name: `${prefix}-wolverine-sixes`,
+      while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
+      maxIterations: 50,
+      do: actionStep({
+        name: 'allocate-wolverine-sixes',
+        actions: ['combatAllocateWolverineSixes'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
+      }),
+    }),
+
+    // 6. Epinephrine Shot choice loop
+    loop({
+      name: `${prefix}-epinephrine`,
+      while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
+      maxIterations: 10,
+      do: actionStep({
+        name: 'use-epinephrine',
+        player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
+        actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
+      }),
+    }),
+
+    // 7. Combat continue/retreat - only when no pending decisions
+    // Also skip when combatComplete (UI is animating)
+    loop({
+      name: `${prefix}-continue`,
+      while: () => game.activeCombat !== null &&
+                  !game.activeCombat.combatComplete &&
+                  !game.activeCombat.awaitingRetreatDecisions &&
+                  game.activeCombat.pendingBeforeAttackHealing == null &&
+                  game.activeCombat.pendingAttackDogSelection == null &&
+                  game.activeCombat.pendingTargetSelection == null &&
+                  game.activeCombat.pendingHitAllocation == null &&
+                  game.activeCombat.pendingWolverineSixes == null &&
+                  game.activeCombat.pendingEpinephrine == null &&
+                  !game.isFinished(),
+      maxIterations: 50,
+      do: actionStep({
+        name: 'combat-continue',
+        actions: ['combatContinue'],
+        skipIf: () => game.isFinished() || game.activeCombat === null ||
+                      game.activeCombat.combatComplete ||
+                      game.activeCombat.awaitingRetreatDecisions ||
+                      game.activeCombat.pendingBeforeAttackHealing != null ||
+                      game.activeCombat.pendingAttackDogSelection != null ||
+                      game.activeCombat.pendingTargetSelection != null ||
+                      game.activeCombat.pendingHitAllocation != null ||
+                      game.activeCombat.pendingWolverineSixes != null ||
+                      game.activeCombat.pendingEpinephrine != null,
+      }),
+    }),
+
+    // 8. Retreat decision (simultaneous action step + execute for retreat processing)
+    loop({
+      name: `${prefix}-retreat-decision`,
+      while: () => game.activeCombat !== null &&
+                  !game.activeCombat.combatComplete &&
+                  game.activeCombat.awaitingRetreatDecisions === true &&
+                  game.activeCombat.pendingBeforeAttackHealing == null &&
+                  game.activeCombat.pendingAttackDogSelection == null &&
+                  game.activeCombat.pendingTargetSelection == null &&
+                  game.activeCombat.pendingHitAllocation == null &&
+                  game.activeCombat.pendingWolverineSixes == null &&
+                  game.activeCombat.pendingEpinephrine == null &&
+                  !game.isFinished(),
+      maxIterations: 50,
+      do: sequence(
+        execute(() => {
+          if (!game.activeCombat) return;
+          if (!game.activeCombat.retreatDecisions) {
+            game.activeCombat.retreatDecisions = new Map();
+          } else {
+            game.activeCombat.retreatDecisions.clear();
+          }
+        }),
+        simultaneousActionStep({
+          name: 'continue-or-retreat',
+          players: () => getCombatDecisionParticipants(game),
+          actions: ['combatContinue', 'combatRetreat'],
+          playerDone: (_ctx, player) => {
+            return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
+          },
+          allDone: () => game.isFinished() || game.activeCombat === null ||
+                        game.activeCombat.combatComplete ||
+                        game.activeCombat.awaitingRetreatDecisions !== true ||
+                        game.activeCombat.pendingBeforeAttackHealing != null ||
+                        game.activeCombat.pendingAttackDogSelection != null ||
+                        game.activeCombat.pendingTargetSelection != null ||
+                        game.activeCombat.pendingHitAllocation != null ||
+                        game.activeCombat.pendingWolverineSixes != null ||
+                        game.activeCombat.pendingEpinephrine != null ||
+                        getCombatDecisionParticipants(game).every(p =>
+                          game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
+        }),
+        execute(() => {
+          if (!game.activeCombat || game.activeCombat.combatComplete) return;
+
+          const decisions = game.activeCombat.retreatDecisions;
+          const continueChosen = decisions
+            ? Array.from(decisions.values()).some(d => d.action === 'continue')
+            : false;
+          const retreatEntries = decisions
+            ? Array.from(decisions.entries())
+              .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
+            : [];
+
+          retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+          for (const [seat, decision] of retreatEntries) {
+            if (!game.activeCombat || game.activeCombat.combatComplete) break;
+            const player = getPlayerBySeat(game, seat);
+            if (!player) continue;
+            if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
+            const combatSector = game.getSector(game.activeCombat.sectorId);
+            const retreatSector = decision.retreatSectorId
+              ? game.getSector(decision.retreatSectorId)
+              : null;
+            if (!combatSector || !retreatSector) continue;
+            if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
+            executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
+          }
+
+          if (game.activeCombat && !game.activeCombat.combatComplete) {
+            const remainingHumans = getCombatDecisionParticipants(game);
+            if (continueChosen || remainingHumans.length === 0) {
+              const sector = game.getSector(game.activeCombat.sectorId);
+              const attackingPlayer = game.rebelPlayers.find(
+                p => `${p.seat}` === game.activeCombat!.attackingPlayerId
+              );
+              if (sector && attackingPlayer) {
+                executeCombat(game, sector, attackingPlayer);
+              }
+            }
+          }
+
+          if (game.activeCombat) {
+            // Clear processed decisions but DO NOT override awaitingRetreatDecisions.
+            // executeCombat sets it correctly — forcing it to false caused the flow
+            // to skip the simultaneous retreat-decision step, leaving the non-context
+            // player stuck with no buttons in two-human-player games.
+            game.activeCombat.retreatDecisions?.clear();
+          }
+        }),
+      ),
+    }),
+
+    // 9. Auto-clear in fully AI games
+    execute(() => {
+      if (game.activeCombat?.combatComplete &&
+          game.dictatorPlayer?.isAI &&
+          game.rebelPlayers.every(p => p.isAI)) {
+        clearActiveCombat(game);
+      }
+    }),
+
+    // 10. Animation wait loop — CombatPanel triggers clear for human games
+    loop({
+      name: `${prefix}-animation-wait`,
+      while: () => game.activeCombat?.combatComplete === true &&
+        !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
+      maxIterations: 5,
+      do: actionStep({
+        name: 'wait-for-combat-animations',
+        actions: ['clearCombatAnimations'],
+        skipIf: () => !game.activeCombat?.combatComplete,
+      }),
+    }),
+  );
+}
+
 export function createGameFlow(game: MERCGame): FlowDefinition {
   return {
     root: sequence(
@@ -392,242 +656,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }
                 }),
 
-                // Before-attack healing - "On your initiative, before your attack, discard dice to heal"
-                loop({
-                  name: 'combat-before-attack-healing',
-                  while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
-                  maxIterations: 50,
-                  do: actionStep({
-                    name: 'before-attack-heal',
-                    player: (ctx) => {
-                      const pending = game.activeCombat?.pendingBeforeAttackHealing;
-                      if (!pending) return ctx.player!;
-                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                    },
-                    actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
-                    skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
-                  }),
-                }),
-
-                // MERC-l09: Attack Dog assignment - when player needs to choose dog target
-                loop({
-                  name: 'combat-attack-dog-selection',
-                  while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
-                  maxIterations: 50,
-                  do: actionStep({
-                    name: 'assign-attack-dog',
-                    player: (ctx) => {
-                      const pending = game.activeCombat?.pendingAttackDogSelection;
-                      if (!pending) return ctx.player!;
-                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                    },
-                    actions: ['combatAssignAttackDog'],
-                    skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
-                  }),
-                }),
-
-                // MERC-t5k: Combat target selection - only when targets need to be selected
-                loop({
-                  name: 'combat-target-selection',
-                  while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
-                  maxIterations: 50,
-                  do: actionStep({
-                    name: 'select-targets',
-                    player: (ctx) => {
-                      const pending = game.activeCombat?.pendingTargetSelection;
-                      if (!pending) return ctx.player!;
-                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                    },
-                    actions: ['combatSelectTarget'],
-                    skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
-                  }),
-                }),
-
-                // MERC-dice: Hit allocation loop - when player needs to allocate hits
-                loop({
-                  name: 'combat-hit-allocation',
-                  while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
-                  maxIterations: 50,
-                  do: actionStep({
-                    name: 'allocate-hits',
-                    player: (ctx) => {
-                      const pending = game.activeCombat?.pendingHitAllocation;
-                      if (!pending) return ctx.player!;
-                      return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                    },
-                    actions: ['combatAllocateHits', 'combatBasicReroll'],
-                    skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
-                  }),
-                }),
-
-                // MERC-dice: Wolverine 6s allocation loop
-                loop({
-                  name: 'combat-wolverine-sixes',
-                  while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
-                  maxIterations: 50,
-                  do: actionStep({
-                    name: 'allocate-wolverine-sixes',
-                    actions: ['combatAllocateWolverineSixes'],
-                    skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
-                  }),
-                }),
-
-                // MERC-4.9: Epinephrine Shot choice loop
-                loop({
-                  name: 'combat-epinephrine',
-                  while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
-                  maxIterations: 10,
-                  do: actionStep({
-                    name: 'use-epinephrine',
-                    player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
-                    actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
-                    skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
-                  }),
-                }),
-
-                // MERC-n1f: Combat continue/retreat - only when no pending decisions
-                // Also skip when combatComplete (UI is animating)
-                loop({
-                  name: 'combat-continue',
-                  while: () => game.activeCombat !== null &&
-                              !game.activeCombat.combatComplete &&
-                              !game.activeCombat.awaitingRetreatDecisions &&
-                              game.activeCombat.pendingBeforeAttackHealing == null &&
-                              game.activeCombat.pendingAttackDogSelection == null &&
-                              game.activeCombat.pendingTargetSelection == null &&
-                              game.activeCombat.pendingHitAllocation == null &&
-                              game.activeCombat.pendingWolverineSixes == null &&
-                              game.activeCombat.pendingEpinephrine == null &&
-                              !game.isFinished(),
-                  maxIterations: 50,
-                  do: actionStep({
-                    name: 'combat-continue',
-                    actions: ['combatContinue'],
-                    skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                  game.activeCombat.combatComplete ||
-                                  game.activeCombat.awaitingRetreatDecisions ||
-                                  game.activeCombat.pendingBeforeAttackHealing != null ||
-                                  game.activeCombat.pendingAttackDogSelection != null ||
-                                  game.activeCombat.pendingTargetSelection != null ||
-                                  game.activeCombat.pendingHitAllocation != null ||
-                                  game.activeCombat.pendingWolverineSixes != null ||
-                                  game.activeCombat.pendingEpinephrine != null,
-                  }),
-                }),
-
-                loop({
-                  name: 'combat-retreat-decision',
-                  while: () => game.activeCombat !== null &&
-                              !game.activeCombat.combatComplete &&
-                              game.activeCombat.awaitingRetreatDecisions === true &&
-                              game.activeCombat.pendingBeforeAttackHealing == null &&
-                              game.activeCombat.pendingAttackDogSelection == null &&
-                              game.activeCombat.pendingTargetSelection == null &&
-                              game.activeCombat.pendingHitAllocation == null &&
-                              game.activeCombat.pendingWolverineSixes == null &&
-                              game.activeCombat.pendingEpinephrine == null &&
-                              !game.isFinished(),
-                  maxIterations: 50,
-                  do: sequence(
-                    execute(() => {
-                      if (!game.activeCombat) return;
-                      if (!game.activeCombat.retreatDecisions) {
-                        game.activeCombat.retreatDecisions = new Map();
-                      } else {
-                        game.activeCombat.retreatDecisions.clear();
-                      }
-                    }),
-                    simultaneousActionStep({
-                      name: 'continue-or-retreat',
-                      players: () => getCombatDecisionParticipants(game),
-                      actions: ['combatContinue', 'combatRetreat'],
-                      playerDone: (_ctx, player) => {
-                        return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
-                      },
-                      allDone: () => game.isFinished() || game.activeCombat === null ||
-                                    game.activeCombat.combatComplete ||
-                                    game.activeCombat.awaitingRetreatDecisions !== true ||
-                                    game.activeCombat.pendingBeforeAttackHealing != null ||
-                                    game.activeCombat.pendingAttackDogSelection != null ||
-                                    game.activeCombat.pendingTargetSelection != null ||
-                                    game.activeCombat.pendingHitAllocation != null ||
-                                    game.activeCombat.pendingWolverineSixes != null ||
-                                    game.activeCombat.pendingEpinephrine != null ||
-                                    getCombatDecisionParticipants(game).every(p =>
-                                      game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
-                    }),
-                    execute(() => {
-                      if (!game.activeCombat || game.activeCombat.combatComplete) return;
-
-                      const decisions = game.activeCombat.retreatDecisions;
-                      const continueChosen = decisions
-                        ? Array.from(decisions.values()).some(d => d.action === 'continue')
-                        : false;
-                      const retreatEntries = decisions
-                        ? Array.from(decisions.entries())
-                          .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
-                        : [];
-
-                      retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
-
-                      for (const [seat, decision] of retreatEntries) {
-                        if (!game.activeCombat || game.activeCombat.combatComplete) break;
-                        const player = getPlayerBySeat(game, seat);
-                        if (!player) continue;
-                        if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
-                        const combatSector = game.getSector(game.activeCombat.sectorId);
-                        const retreatSector = decision.retreatSectorId
-                          ? game.getSector(decision.retreatSectorId)
-                          : null;
-                        if (!combatSector || !retreatSector) continue;
-                        if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
-                        executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
-                      }
-
-                      if (game.activeCombat && !game.activeCombat.combatComplete) {
-                        const remainingHumans = getCombatDecisionParticipants(game);
-                        if (continueChosen || remainingHumans.length === 0) {
-                          const sector = game.getSector(game.activeCombat.sectorId);
-                          const attackingPlayer = game.rebelPlayers.find(
-                            p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-                          );
-                          if (sector && attackingPlayer) {
-                            executeCombat(game, sector, attackingPlayer);
-                          }
-                        }
-                      }
-
-                      if (game.activeCombat) {
-                        // Clear processed decisions but DO NOT override awaitingRetreatDecisions.
-                        // executeCombat sets it correctly — forcing it to false caused the flow
-                        // to skip the simultaneous retreat-decision step, leaving the non-context
-                        // player stuck with no buttons in two-human-player games.
-                        game.activeCombat.retreatDecisions?.clear();
-                      }
-                    }),
-                  ),
-                }),
-
-                // Wait for UI to play combat animations before clearing.
-                // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
-                execute(() => {
-                  if (game.activeCombat?.combatComplete &&
-                      game.dictatorPlayer?.isAI &&
-                      game.rebelPlayers.every(p => p.isAI)) {
-                    clearActiveCombat(game);
-                  }
-                }),
-                loop({
-                  name: 'rebel-combat-animation-wait',
-                  while: () => game.activeCombat?.combatComplete === true &&
-                    !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
-                  maxIterations: 5,
-                  do: actionStep({
-                    name: 'wait-for-combat-animations',
-                    actions: ['clearCombatAnimations'],
-                    skipIf: () => !game.activeCombat?.combatComplete,
-                  }),
-                }),
+                // Combat resolution sub-flow (rebel)
+                combatResolutionFlow(game, 'combat'),
 
                 // Regular action step - only runs when not in combat
                 actionStep({
@@ -802,239 +832,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               }),
 
-              // Combat handling after tactics card (e.g., Fodder triggers immediate combat)
-              // Before-attack healing loop
-              loop({
-                name: 'tactics-combat-before-attack-healing',
-                while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'before-attack-heal',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingBeforeAttackHealing;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
-                }),
-              }),
-
-              // Attack Dog assignment loop
-              loop({
-                name: 'tactics-combat-attack-dog-selection',
-                while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'assign-attack-dog',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingAttackDogSelection;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatAssignAttackDog'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
-                }),
-              }),
-
-              // Target selection loop
-              loop({
-                name: 'tactics-combat-target-selection',
-                while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'select-targets',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingTargetSelection;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatSelectTarget'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
-                }),
-              }),
-
-              // Hit allocation loop
-              loop({
-                name: 'tactics-combat-hit-allocation',
-                while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'allocate-hits',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingHitAllocation;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatAllocateHits', 'combatBasicReroll'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
-                }),
-              }),
-
-              // Wolverine 6s allocation loop
-              loop({
-                name: 'tactics-combat-wolverine-sixes',
-                while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'allocate-wolverine-sixes',
-                  actions: ['combatAllocateWolverineSixes'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
-                }),
-              }),
-
-              // MERC-4.9: Epinephrine Shot choice loop
-              loop({
-                name: 'tactics-combat-epinephrine',
-                while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
-                maxIterations: 10,
-                do: actionStep({
-                  name: 'use-epinephrine',
-                  player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
-                  actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
-                }),
-              }),
-
-              // Combat continue/retreat decision
-              // Skip when combatComplete (UI is animating)
-              loop({
-                name: 'tactics-combat-decision',
-                while: () => game.activeCombat !== null &&
-                            !game.activeCombat.combatComplete &&
-                            !game.activeCombat.awaitingRetreatDecisions &&
-                            game.activeCombat.pendingBeforeAttackHealing == null &&
-                            game.activeCombat.pendingAttackDogSelection == null &&
-                            game.activeCombat.pendingTargetSelection == null &&
-                            game.activeCombat.pendingHitAllocation == null &&
-                            game.activeCombat.pendingWolverineSixes == null &&
-                            game.activeCombat.pendingEpinephrine == null &&
-                            !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'combat-continue',
-                  actions: ['combatContinue'],
-                  skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                game.activeCombat.combatComplete ||
-                                game.activeCombat.awaitingRetreatDecisions ||
-                                game.activeCombat.pendingBeforeAttackHealing != null ||
-                                game.activeCombat.pendingAttackDogSelection != null ||
-                                game.activeCombat.pendingTargetSelection != null ||
-                                game.activeCombat.pendingHitAllocation != null ||
-                                game.activeCombat.pendingWolverineSixes != null ||
-                                game.activeCombat.pendingEpinephrine != null,
-                }),
-              }),
-
-              loop({
-                name: 'tactics-combat-retreat-decision',
-                while: () => game.activeCombat !== null &&
-                            !game.activeCombat.combatComplete &&
-                            game.activeCombat.awaitingRetreatDecisions === true &&
-                            game.activeCombat.pendingBeforeAttackHealing == null &&
-                            game.activeCombat.pendingAttackDogSelection == null &&
-                            game.activeCombat.pendingTargetSelection == null &&
-                            game.activeCombat.pendingHitAllocation == null &&
-                            game.activeCombat.pendingWolverineSixes == null &&
-                            game.activeCombat.pendingEpinephrine == null &&
-                            !game.isFinished(),
-                maxIterations: 50,
-                do: sequence(
-                  execute(() => {
-                    if (!game.activeCombat) return;
-                    if (!game.activeCombat.retreatDecisions) {
-                      game.activeCombat.retreatDecisions = new Map();
-                    } else {
-                      game.activeCombat.retreatDecisions.clear();
-                    }
-                  }),
-                  simultaneousActionStep({
-                    name: 'continue-or-retreat',
-                    players: () => getCombatDecisionParticipants(game),
-                    actions: ['combatContinue', 'combatRetreat'],
-                    playerDone: (_ctx, player) => {
-                      return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
-                    },
-                    allDone: () => game.isFinished() || game.activeCombat === null ||
-                                  game.activeCombat.combatComplete ||
-                                  game.activeCombat.awaitingRetreatDecisions !== true ||
-                                  game.activeCombat.pendingBeforeAttackHealing != null ||
-                                  game.activeCombat.pendingAttackDogSelection != null ||
-                                  game.activeCombat.pendingTargetSelection != null ||
-                                  game.activeCombat.pendingHitAllocation != null ||
-                                  game.activeCombat.pendingWolverineSixes != null ||
-                                  game.activeCombat.pendingEpinephrine != null ||
-                                  getCombatDecisionParticipants(game).every(p =>
-                                    game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
-                  }),
-                  execute(() => {
-                    if (!game.activeCombat || game.activeCombat.combatComplete) return;
-
-                    const decisions = game.activeCombat.retreatDecisions;
-                    const continueChosen = decisions
-                      ? Array.from(decisions.values()).some(d => d.action === 'continue')
-                      : false;
-                    const retreatEntries = decisions
-                      ? Array.from(decisions.entries())
-                        .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
-                      : [];
-
-                    retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
-
-                    for (const [seat, decision] of retreatEntries) {
-                      if (!game.activeCombat || game.activeCombat.combatComplete) break;
-                      const player = getPlayerBySeat(game, seat);
-                      if (!player) continue;
-                      if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
-                      const combatSector = game.getSector(game.activeCombat.sectorId);
-                      const retreatSector = decision.retreatSectorId
-                        ? game.getSector(decision.retreatSectorId)
-                        : null;
-                      if (!combatSector || !retreatSector) continue;
-                      if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
-                      executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
-                    }
-
-                    if (game.activeCombat && !game.activeCombat.combatComplete) {
-                      const remainingHumans = getCombatDecisionParticipants(game);
-                      if (continueChosen || remainingHumans.length === 0) {
-                        const sector = game.getSector(game.activeCombat.sectorId);
-                        const attackingPlayer = game.rebelPlayers.find(
-                          p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-                        );
-                        if (sector && attackingPlayer) {
-                          executeCombat(game, sector, attackingPlayer);
-                        }
-                      }
-                    }
-
-                    if (game.activeCombat) {
-                      game.activeCombat.retreatDecisions?.clear();
-                    }
-                  }),
-                ),
-              }),
-
-              // Wait for UI to play combat animations before clearing.
-              // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
-              execute(() => {
-                if (game.activeCombat?.combatComplete &&
-                    game.dictatorPlayer?.isAI &&
-                    game.rebelPlayers.every(p => p.isAI)) {
-                  clearActiveCombat(game);
-                }
-              }),
-              loop({
-                name: 'tactics-combat-animation-wait',
-                while: () => game.activeCombat?.combatComplete === true &&
-                  !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
-                maxIterations: 5,
-                do: actionStep({
-                  name: 'wait-for-combat-animations',
-                  actions: ['clearCombatAnimations'],
-                  skipIf: () => !game.activeCombat?.combatComplete,
-                }),
-              }),
+              // Combat resolution sub-flow (tactics card combat, e.g. Fodder)
+              combatResolutionFlow(game, 'tactics-combat'),
 
               // Step 2: Dictator MERC actions (if any MERCs)
               // Uses unified action names (same as rebels)
@@ -1075,238 +874,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     }
                   }),
 
-                  // Before-attack healing loop
-                  loop({
-                    name: 'dictator-combat-before-attack-healing',
-                    while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
-                    maxIterations: 50,
-                    do: actionStep({
-                      name: 'before-attack-heal',
-                      player: (ctx) => {
-                        const pending = game.activeCombat?.pendingBeforeAttackHealing;
-                        if (!pending) return ctx.player!;
-                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                      },
-                      actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
-                      skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
-                    }),
-                  }),
-
-                  // Attack Dog assignment loop
-                  loop({
-                    name: 'dictator-combat-attack-dog-selection',
-                    while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
-                    maxIterations: 50,
-                    do: actionStep({
-                      name: 'assign-attack-dog',
-                      player: (ctx) => {
-                        const pending = game.activeCombat?.pendingAttackDogSelection;
-                        if (!pending) return ctx.player!;
-                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                      },
-                      actions: ['combatAssignAttackDog'],
-                      skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
-                    }),
-                  }),
-
-                  // Combat target selection loop
-                  loop({
-                    name: 'dictator-combat-target-selection',
-                    while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
-                    maxIterations: 50,
-                    do: actionStep({
-                      name: 'select-targets',
-                      player: (ctx) => {
-                        const pending = game.activeCombat?.pendingTargetSelection;
-                        if (!pending) return ctx.player!;
-                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                      },
-                      actions: ['combatSelectTarget'],
-                      skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
-                    }),
-                  }),
-
-                  // Hit allocation loop
-                  loop({
-                    name: 'dictator-combat-hit-allocation',
-                    while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
-                    maxIterations: 50,
-                    do: actionStep({
-                      name: 'allocate-hits',
-                      player: (ctx) => {
-                        const pending = game.activeCombat?.pendingHitAllocation;
-                        if (!pending) return ctx.player!;
-                        return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                      },
-                      actions: ['combatAllocateHits', 'combatBasicReroll'],
-                      skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
-                    }),
-                  }),
-
-                  // Wolverine 6s allocation loop
-                  loop({
-                    name: 'dictator-combat-wolverine-sixes',
-                    while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
-                    maxIterations: 50,
-                    do: actionStep({
-                      name: 'allocate-wolverine-sixes',
-                      actions: ['combatAllocateWolverineSixes'],
-                      skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
-                    }),
-                  }),
-
-                  // MERC-4.9: Epinephrine Shot choice loop
-                  loop({
-                    name: 'dictator-combat-epinephrine',
-                    while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
-                    maxIterations: 10,
-                    do: actionStep({
-                      name: 'use-epinephrine',
-                      player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
-                      actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
-                      skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
-                    }),
-                  }),
-
-                  // Combat continue/retreat decision
-                  // Skip when combatComplete (UI is animating)
-                  loop({
-                    name: 'dictator-combat-decision',
-                    while: () => game.activeCombat !== null &&
-                                !game.activeCombat.combatComplete &&
-                                !game.activeCombat.awaitingRetreatDecisions &&
-                                game.activeCombat.pendingBeforeAttackHealing == null &&
-                                game.activeCombat.pendingAttackDogSelection == null &&
-                                game.activeCombat.pendingTargetSelection == null &&
-                                game.activeCombat.pendingHitAllocation == null &&
-                                game.activeCombat.pendingWolverineSixes == null &&
-                                game.activeCombat.pendingEpinephrine == null &&
-                                !game.isFinished(),
-                    maxIterations: 50,
-                    do: actionStep({
-                      name: 'combat-continue',
-                      actions: ['combatContinue'],
-                      skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                    game.activeCombat.combatComplete ||
-                                    game.activeCombat.awaitingRetreatDecisions ||
-                                    game.activeCombat.pendingBeforeAttackHealing != null ||
-                                    game.activeCombat.pendingAttackDogSelection != null ||
-                                    game.activeCombat.pendingTargetSelection != null ||
-                                    game.activeCombat.pendingHitAllocation != null ||
-                                    game.activeCombat.pendingWolverineSixes != null ||
-                                    game.activeCombat.pendingEpinephrine != null,
-                    }),
-                  }),
-
-                  loop({
-                    name: 'dictator-combat-retreat-decision',
-                    while: () => game.activeCombat !== null &&
-                                !game.activeCombat.combatComplete &&
-                                game.activeCombat.awaitingRetreatDecisions === true &&
-                                game.activeCombat.pendingBeforeAttackHealing == null &&
-                                game.activeCombat.pendingAttackDogSelection == null &&
-                                game.activeCombat.pendingTargetSelection == null &&
-                                game.activeCombat.pendingHitAllocation == null &&
-                                game.activeCombat.pendingWolverineSixes == null &&
-                                game.activeCombat.pendingEpinephrine == null &&
-                                !game.isFinished(),
-                    maxIterations: 50,
-                    do: sequence(
-                      execute(() => {
-                        if (!game.activeCombat) return;
-                        if (!game.activeCombat.retreatDecisions) {
-                          game.activeCombat.retreatDecisions = new Map();
-                        } else {
-                          game.activeCombat.retreatDecisions.clear();
-                        }
-                      }),
-                      simultaneousActionStep({
-                        name: 'continue-or-retreat',
-                        players: () => getCombatDecisionParticipants(game),
-                        actions: ['combatContinue', 'combatRetreat'],
-                        playerDone: (_ctx, player) => {
-                          return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
-                        },
-                        allDone: () => game.isFinished() || game.activeCombat === null ||
-                                      game.activeCombat.combatComplete ||
-                                      game.activeCombat.awaitingRetreatDecisions !== true ||
-                                      game.activeCombat.pendingBeforeAttackHealing != null ||
-                                      game.activeCombat.pendingAttackDogSelection != null ||
-                                      game.activeCombat.pendingTargetSelection != null ||
-                                      game.activeCombat.pendingHitAllocation != null ||
-                                      game.activeCombat.pendingWolverineSixes != null ||
-                                      game.activeCombat.pendingEpinephrine != null ||
-                                      getCombatDecisionParticipants(game).every(p =>
-                                        game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
-                      }),
-                      execute(() => {
-                        if (!game.activeCombat || game.activeCombat.combatComplete) return;
-
-                        const decisions = game.activeCombat.retreatDecisions;
-                        const continueChosen = decisions
-                          ? Array.from(decisions.values()).some(d => d.action === 'continue')
-                          : false;
-                        const retreatEntries = decisions
-                          ? Array.from(decisions.entries())
-                            .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
-                          : [];
-
-                        retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
-
-                        for (const [seat, decision] of retreatEntries) {
-                          if (!game.activeCombat || game.activeCombat.combatComplete) break;
-                          const player = getPlayerBySeat(game, seat);
-                          if (!player) continue;
-                          if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
-                          const combatSector = game.getSector(game.activeCombat.sectorId);
-                          const retreatSector = decision.retreatSectorId
-                            ? game.getSector(decision.retreatSectorId)
-                            : null;
-                          if (!combatSector || !retreatSector) continue;
-                          if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
-                          executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
-                        }
-
-                        if (game.activeCombat && !game.activeCombat.combatComplete) {
-                          const remainingHumans = getCombatDecisionParticipants(game);
-                          if (continueChosen || remainingHumans.length === 0) {
-                            const sector = game.getSector(game.activeCombat.sectorId);
-                            const attackingPlayer = game.rebelPlayers.find(
-                              p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-                            );
-                            if (sector && attackingPlayer) {
-                              executeCombat(game, sector, attackingPlayer);
-                            }
-                          }
-                        }
-
-                        if (game.activeCombat) {
-                          game.activeCombat.retreatDecisions?.clear();
-                        }
-                      }),
-                    ),
-                  }),
-
-                    // Wait for UI to play combat animations before clearing.
-                    // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
-                    execute(() => {
-                      if (game.activeCombat?.combatComplete &&
-                          game.dictatorPlayer?.isAI &&
-                          game.rebelPlayers.every(p => p.isAI)) {
-                        clearActiveCombat(game);
-                      }
-                    }),
-                    loop({
-                      name: 'dictator-combat-animation-wait',
-                      while: () => game.activeCombat?.combatComplete === true &&
-                        !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
-                      maxIterations: 5,
-                      do: actionStep({
-                        name: 'wait-for-combat-animations',
-                        actions: ['clearCombatAnimations'],
-                        skipIf: () => !game.activeCombat?.combatComplete,
-                      }),
-                    }),
+                  // Combat resolution sub-flow (dictator MERC combat)
+                  combatResolutionFlow(game, 'dictator-combat'),
 
                   // Regular action step - only runs when not in combat
                   actionStep({
@@ -1391,239 +960,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }
               }),
 
-              // Combat handling after Kim's militia placement ability
-              // Before-attack healing loop
-              loop({
-                name: 'kim-militia-combat-before-attack-healing',
-                while: () => game.activeCombat?.pendingBeforeAttackHealing != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'before-attack-heal',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingBeforeAttackHealing;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
-                }),
-              }),
-
-              // Attack Dog assignment loop
-              loop({
-                name: 'kim-militia-combat-attack-dog-selection',
-                while: () => game.activeCombat?.pendingAttackDogSelection != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'assign-attack-dog',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingAttackDogSelection;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatAssignAttackDog'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingAttackDogSelection == null,
-                }),
-              }),
-
-              // Target selection loop
-              loop({
-                name: 'kim-militia-combat-target-selection',
-                while: () => game.activeCombat?.pendingTargetSelection != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'select-targets',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingTargetSelection;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatSelectTarget'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingTargetSelection == null,
-                }),
-              }),
-
-              // Hit allocation loop
-              loop({
-                name: 'kim-militia-combat-hit-allocation',
-                while: () => game.activeCombat?.pendingHitAllocation != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'allocate-hits',
-                  player: (ctx) => {
-                    const pending = game.activeCombat?.pendingHitAllocation;
-                    if (!pending) return ctx.player!;
-                    return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
-                  },
-                  actions: ['combatAllocateHits', 'combatBasicReroll'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingHitAllocation == null,
-                }),
-              }),
-
-              // Wolverine 6s allocation loop
-              loop({
-                name: 'kim-militia-combat-wolverine-sixes',
-                while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'allocate-wolverine-sixes',
-                  actions: ['combatAllocateWolverineSixes'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
-                }),
-              }),
-
-              // Epinephrine Shot choice loop
-              loop({
-                name: 'kim-militia-combat-epinephrine',
-                while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
-                maxIterations: 10,
-                do: actionStep({
-                  name: 'use-epinephrine',
-                  player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
-                  actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
-                  skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
-                }),
-              }),
-
-              // Combat continue/retreat decision
-              // Skip when combatComplete (UI is animating)
-              loop({
-                name: 'kim-militia-combat-decision',
-                while: () => game.activeCombat !== null &&
-                            !game.activeCombat.combatComplete &&
-                            !game.activeCombat.awaitingRetreatDecisions &&
-                            game.activeCombat.pendingBeforeAttackHealing == null &&
-                            game.activeCombat.pendingAttackDogSelection == null &&
-                            game.activeCombat.pendingTargetSelection == null &&
-                            game.activeCombat.pendingHitAllocation == null &&
-                            game.activeCombat.pendingWolverineSixes == null &&
-                            game.activeCombat.pendingEpinephrine == null &&
-                            !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'combat-continue',
-                  actions: ['combatContinue'],
-                  skipIf: () => game.isFinished() || game.activeCombat === null ||
-                                game.activeCombat.combatComplete ||
-                                game.activeCombat.awaitingRetreatDecisions ||
-                                game.activeCombat.pendingBeforeAttackHealing != null ||
-                                game.activeCombat.pendingAttackDogSelection != null ||
-                                game.activeCombat.pendingTargetSelection != null ||
-                                game.activeCombat.pendingHitAllocation != null ||
-                                game.activeCombat.pendingWolverineSixes != null ||
-                                game.activeCombat.pendingEpinephrine != null,
-                }),
-              }),
-
-              loop({
-                name: 'kim-militia-combat-retreat-decision',
-                while: () => game.activeCombat !== null &&
-                            !game.activeCombat.combatComplete &&
-                            game.activeCombat.awaitingRetreatDecisions === true &&
-                            game.activeCombat.pendingBeforeAttackHealing == null &&
-                            game.activeCombat.pendingAttackDogSelection == null &&
-                            game.activeCombat.pendingTargetSelection == null &&
-                            game.activeCombat.pendingHitAllocation == null &&
-                            game.activeCombat.pendingWolverineSixes == null &&
-                            game.activeCombat.pendingEpinephrine == null &&
-                            !game.isFinished(),
-                maxIterations: 50,
-                do: sequence(
-                  execute(() => {
-                    if (!game.activeCombat) return;
-                    if (!game.activeCombat.retreatDecisions) {
-                      game.activeCombat.retreatDecisions = new Map();
-                    } else {
-                      game.activeCombat.retreatDecisions.clear();
-                    }
-                  }),
-                  simultaneousActionStep({
-                    name: 'continue-or-retreat',
-                    players: () => getCombatDecisionParticipants(game),
-                    actions: ['combatContinue', 'combatRetreat'],
-                    playerDone: (_ctx, player) => {
-                      return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
-                    },
-                    allDone: () => game.isFinished() || game.activeCombat === null ||
-                                  game.activeCombat.combatComplete ||
-                                  game.activeCombat.awaitingRetreatDecisions !== true ||
-                                  game.activeCombat.pendingBeforeAttackHealing != null ||
-                                  game.activeCombat.pendingAttackDogSelection != null ||
-                                  game.activeCombat.pendingTargetSelection != null ||
-                                  game.activeCombat.pendingHitAllocation != null ||
-                                  game.activeCombat.pendingWolverineSixes != null ||
-                                  game.activeCombat.pendingEpinephrine != null ||
-                                  getCombatDecisionParticipants(game).every(p =>
-                                    game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
-                  }),
-                  execute(() => {
-                    if (!game.activeCombat || game.activeCombat.combatComplete) return;
-
-                    const decisions = game.activeCombat.retreatDecisions;
-                    const continueChosen = decisions
-                      ? Array.from(decisions.values()).some(d => d.action === 'continue')
-                      : false;
-                    const retreatEntries = decisions
-                      ? Array.from(decisions.entries())
-                        .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
-                      : [];
-
-                    retreatEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
-
-                    for (const [seat, decision] of retreatEntries) {
-                      if (!game.activeCombat || game.activeCombat.combatComplete) break;
-                      const player = getPlayerBySeat(game, seat);
-                      if (!player) continue;
-                      if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) continue;
-                      const combatSector = game.getSector(game.activeCombat.sectorId);
-                      const retreatSector = decision.retreatSectorId
-                        ? game.getSector(decision.retreatSectorId)
-                        : null;
-                      if (!combatSector || !retreatSector) continue;
-                      if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
-                      executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
-                    }
-
-                    if (game.activeCombat && !game.activeCombat.combatComplete) {
-                      const remainingHumans = getCombatDecisionParticipants(game);
-                      if (continueChosen || remainingHumans.length === 0) {
-                        const sector = game.getSector(game.activeCombat.sectorId);
-                        const attackingPlayer = game.rebelPlayers.find(
-                          p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-                        );
-                        if (sector && attackingPlayer) {
-                          executeCombat(game, sector, attackingPlayer);
-                        }
-                      }
-                    }
-
-                    if (game.activeCombat) {
-                      game.activeCombat.retreatDecisions?.clear();
-                    }
-                  }),
-                ),
-              }),
-
-                // Wait for UI to play combat animations before clearing.
-                // Auto-clear in fully AI games; otherwise CombatPanel triggers clear.
-                execute(() => {
-                  if (game.activeCombat?.combatComplete &&
-                      game.dictatorPlayer?.isAI &&
-                      game.rebelPlayers.every(p => p.isAI)) {
-                    clearActiveCombat(game);
-                  }
-                }),
-                loop({
-                  name: 'kim-militia-combat-animation-wait',
-                  while: () => game.activeCombat?.combatComplete === true &&
-                    !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
-                  maxIterations: 5,
-                  do: actionStep({
-                    name: 'wait-for-combat-animations',
-                    actions: ['clearCombatAnimations'],
-                    skipIf: () => !game.activeCombat?.combatComplete,
-                  }),
-                }),
+              // Combat resolution sub-flow (Kim militia combat)
+              combatResolutionFlow(game, 'kim-militia-combat'),
 
               // Apply end-of-turn effects (Conscripts)
               execute(() => {
