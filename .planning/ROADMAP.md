@@ -38,10 +38,11 @@ Plans:
   3. A rebel who ends their turn (explicitly or by exhausting actions) is skipped when the simultaneous step re-enters
   4. The rebel phase completes only when all rebels are done
   5. Day 1 rebel phase uses the same simultaneous model as Day 2+ (no special-casing)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 52-01: TBD
+- [ ] 52-01-PLAN.md -- Replace Day 2+ eachPlayer rebel-turns with loop + simultaneousActionStep
+- [ ] 52-02-PLAN.md -- Replace Day 1 eachPlayer rebel-landing with loop + simultaneousActionStep
 
 ### Phase 53: Combat Barriers
 **Goal**: Combat and coordinated attacks act as synchronization barriers that pause simultaneous play, resolve sequentially, then resume
@@ -90,7 +91,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 51. Extract Combat Sub-Flow | 1/1 | ✓ Complete | 2026-02-16 |
-| 52. Simultaneous Rebel Step | 0/TBD | Not started | - |
+| 52. Simultaneous Rebel Step | 0/2 | Planned | - |
 | 53. Combat Barriers | 0/TBD | Not started | - |
 | 54. Dictator and AI Alignment | 0/TBD | Not started | - |
 | 55. Simultaneous Play UI | 0/TBD | Not started | - |
