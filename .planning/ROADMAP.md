@@ -79,10 +79,10 @@ Plans:
   2. When a player finishes their turn, ActionPanel shows which specific players are still acting
   3. All player actions are visible to all players (including dictator) as they resolve in real-time
   4. When a combat barrier activates, there is a clear visual transition explaining why simultaneous actions paused
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 55-01: TBD
+- [ ] 55-01-PLAN.md -- Combat barrier overlay + verify existing BoardSmith simultaneous play UI infrastructure
 
 ## Progress
 
@@ -94,4 +94,4 @@ Plans:
 | 52. Simultaneous Rebel Step | 2/2 | ✓ Complete | 2026-02-16 |
 | 53. Combat Barriers | 1/1 | ✓ Complete | 2026-02-16 |
 | 54. Dictator and AI Alignment | 1/1 | ✓ Complete | 2026-02-16 |
-| 55. Simultaneous Play UI | 0/TBD | Not started | - |
+| 55. Simultaneous Play UI | 0/1 | Not started | - |
