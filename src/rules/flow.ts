@@ -450,13 +450,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             name: 'rebel-landing',
             while: () => !game.isFinished() && game.rebelPlayers.some(p => !isDay1Complete(game, p)),
             maxIterations: 50,
-            do: simultaneousActionStep({
-              name: 'rebel-landing-actions',
-              players: () => game.rebelPlayers,
-              actions: ['placeLanding', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc'],
-              skipPlayer: (_ctx, player) => isDay1Complete(game, player),
-              playerDone: (_ctx, player) => isDay1Complete(game, player),
-            }),
+            do: sequence(
+              execute(() => {
+                game.resetRebelBatching();
+              }),
+              simultaneousActionStep({
+                name: 'rebel-landing-actions',
+                players: () => game.rebelPlayers,
+                actions: ['placeLanding', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc'],
+                skipPlayer: (_ctx, player) => isDay1Complete(game, player),
+                playerDone: (_ctx, player) => isDay1Complete(game, player),
+              }),
+            ),
           }),
 
           // ===== DICTATOR PHASE =====
@@ -689,6 +694,12 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     }
                   }),
                 ),
+              }),
+
+              // Reset AI rebel batching state before entering the simultaneous step
+              // (including re-entry after combat barrier resolution)
+              execute(() => {
+                game.resetRebelBatching();
               }),
 
               // Main simultaneous action step — all rebels act in parallel

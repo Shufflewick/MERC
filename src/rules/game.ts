@@ -590,6 +590,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Flag to track if game end has been announced (prevents duplicate messages)
   private _gameEndAnnounced: boolean = false;
 
+  // AI rebel action batching state (private = ephemeral, not serialized to clients)
+  // Tracks per-AI-rebel action counts and the current batch round within a simultaneous step
+  private _rebelActionCounts: Map<number, number> = new Map();
+  private _rebelBatchRound: number = 0;
+
   // Pending artillery allocation - rebels choose how to allocate hits during dictator's turn
   pendingArtilleryAllocation: {
     sectorId: string;        // Which sector is being attacked
@@ -1883,6 +1888,55 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    */
   isDayLimitReached(): boolean {
     return this.currentDay > GameDurationConstants.LAST_DAY;
+  }
+
+  // ==========================================================================
+  // AI Rebel Action Batching
+  // ==========================================================================
+
+  /**
+   * Reset batching state at the start of each simultaneous step entry
+   * (including re-entry after combat barriers).
+   */
+  resetRebelBatching(): void {
+    this._rebelBatchRound = 0;
+    this._rebelActionCounts.clear();
+  }
+
+  /**
+   * Check if an AI rebel player should be gated from taking an action.
+   * Returns true if the player is ahead of the current batch round and must wait.
+   * Humans are never gated. Dictator actions are never gated.
+   */
+  shouldGateAIAction(player: MERCPlayer): boolean {
+    if (!player.isAI) return false;
+    if (!player.isRebel()) return false;
+    const count = this._rebelActionCounts.get(player.seat) ?? 0;
+    if (count > this._rebelBatchRound) return true;
+    return false;
+  }
+
+  /**
+   * Record that an AI rebel player has taken an action in the current batch.
+   * After recording, checks if all AI rebels have caught up or are done,
+   * and advances the batch round if so.
+   */
+  recordRebelActionForBatching(player: MERCPlayer): void {
+    const currentCount = this._rebelActionCounts.get(player.seat) ?? 0;
+    this._rebelActionCounts.set(player.seat, currentCount + 1);
+
+    // Check if all AI rebels have taken at least _rebelBatchRound + 1 actions, or are "done"
+    const aiRebels = this.rebelPlayers.filter(p => p.isAI);
+    const allCaughtUp = aiRebels.every(p => {
+      const actionCount = this._rebelActionCounts.get(p.seat) ?? 0;
+      if (actionCount >= this._rebelBatchRound + 1) return true;
+      // Player is "done" if no MERCs have actions remaining
+      return !p.team.some(m => m.actionsRemaining > 0);
+    });
+
+    if (allCaughtUp) {
+      this._rebelBatchRound++;
+    }
   }
 
 }
