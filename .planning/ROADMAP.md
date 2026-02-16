@@ -23,10 +23,10 @@
   1. Combat triggered during rebel phase resolves through the extracted sub-flow, not inline rebel flow code
   2. Combat triggered during dictator phase resolves through the same extracted sub-flow
   3. All existing combat tests pass without modification (no behavioral regression)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 51-01: TBD
+- [ ] 51-01-PLAN.md -- Extract combatResolutionFlow function and replace 4 inline duplication sites
 
 ### Phase 52: Simultaneous Rebel Step
 **Goal**: All rebels act freely during the rebel phase through a simultaneousActionStep, with per-player action evaluation and done tracking
@@ -89,7 +89,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 51. Extract Combat Sub-Flow | 0/TBD | Not started | - |
+| 51. Extract Combat Sub-Flow | 0/1 | Planned | - |
 | 52. Simultaneous Rebel Step | 0/TBD | Not started | - |
 | 53. Combat Barriers | 0/TBD | Not started | - |
 | 54. Dictator and AI Alignment | 0/TBD | Not started | - |
