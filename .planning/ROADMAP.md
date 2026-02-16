@@ -91,7 +91,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 51. Extract Combat Sub-Flow | 1/1 | ✓ Complete | 2026-02-16 |
-| 52. Simultaneous Rebel Step | 2/2 | Complete | 2026-02-16 |
+| 52. Simultaneous Rebel Step | 2/2 | ✓ Complete | 2026-02-16 |
 | 53. Combat Barriers | 0/TBD | Not started | - |
 | 54. Dictator and AI Alignment | 0/TBD | Not started | - |
 | 55. Simultaneous Play UI | 0/TBD | Not started | - |

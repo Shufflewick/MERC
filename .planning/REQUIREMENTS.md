@@ -8,19 +8,19 @@
 ### Flow Architecture
 
 - [ ] **FLOW-01**: Extract combat into a shared standalone sub-flow callable from both rebel and dictator phases
-- [ ] **FLOW-02**: Replace sequential `eachPlayer('rebel-turns')` with a loop wrapping `simultaneousActionStep` for all rebel players
+- [x] **FLOW-02**: Replace sequential `eachPlayer('rebel-turns')` with a loop wrapping `simultaneousActionStep` for all rebel players
 - [ ] **FLOW-03**: Combat acts as a barrier — when any rebel triggers combat, the simultaneous step exits via `allDone`, combat runs sequentially to completion, then the loop re-enters the simultaneous step
 - [ ] **FLOW-04**: Coordinated attack acts as a barrier — declare exits simultaneous step, commit/decline flow runs for other rebels, then combat resolves, then simultaneous step resumes
 - [ ] **FLOW-05**: Refactor dictator turn to use the shared combat sub-flow for consistency
-- [ ] **FLOW-06**: Day 1 rebel phase uses the same simultaneous model as Day 2+
-- [ ] **FLOW-07**: Players who have ended their turn are skipped on simultaneous step re-entry via `skipPlayer`
+- [x] **FLOW-06**: Day 1 rebel phase uses the same simultaneous model as Day 2+
+- [x] **FLOW-07**: Players who have ended their turn are skipped on simultaneous step re-entry via `skipPlayer`
 
 ### Action System
 
-- [ ] **ACT-01**: Each rebel gets independently evaluated action list based on own state + board state (per-player `actions` function)
-- [ ] **ACT-02**: Server-side validation rejects stale/invalid actions and returns contextual error messages explaining why the action failed
-- [ ] **ACT-03**: A rebel is "done" when all their MERCs have exhausted actions OR they explicitly end turn
-- [ ] **ACT-04**: Rebel phase completes when all rebels are done (all `playerDone` returns true)
+- [x] **ACT-01**: Each rebel gets independently evaluated action list based on own state + board state (per-player `actions` function)
+- [x] **ACT-02**: Server-side validation rejects stale/invalid actions and returns contextual error messages explaining why the action failed
+- [x] **ACT-03**: A rebel is "done" when all their MERCs have exhausted actions OR they explicitly end turn
+- [x] **ACT-04**: Rebel phase completes when all rebels are done (all `playerDone` returns true)
 
 ### AI
 
@@ -55,16 +55,16 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FLOW-01 | Phase 51 | Complete |
-| FLOW-02 | Phase 52 | Pending |
+| FLOW-02 | Phase 52 | Complete |
 | FLOW-03 | Phase 53 | Pending |
 | FLOW-04 | Phase 53 | Pending |
 | FLOW-05 | Phase 54 | Pending |
-| FLOW-06 | Phase 52 | Pending |
-| FLOW-07 | Phase 52 | Pending |
-| ACT-01 | Phase 52 | Pending |
-| ACT-02 | Phase 52 | Pending |
-| ACT-03 | Phase 52 | Pending |
-| ACT-04 | Phase 52 | Pending |
+| FLOW-06 | Phase 52 | Complete |
+| FLOW-07 | Phase 52 | Complete |
+| ACT-01 | Phase 52 | Complete |
+| ACT-02 | Phase 52 | Complete |
+| ACT-03 | Phase 52 | Complete |
+| ACT-04 | Phase 52 | Complete |
 | AI-01 | Phase 54 | Pending |
 | UI-01 | Phase 55 | Pending |
 | UI-02 | Phase 55 | Pending |
