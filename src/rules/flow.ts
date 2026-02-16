@@ -605,144 +605,152 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             game.message(`Day ${game.currentDay} begins`);
           }),
 
-          // Rebel turns
-          eachPlayer({
-            name: 'rebel-turns',
-            filter: (player) => game.isRebelPlayer(player) && !game.isFinished(),
+          // MERC-vqmi: Apply Oil Reserves free action for all rebels at start of rebel phase
+          execute(() => {
+            for (const player of game.rebelPlayers) {
+              applyOilReservesEffect(game, true, player);
+            }
+          }),
+
+          // Rebel phase — all rebels act simultaneously
+          loop({
+            name: 'rebel-phase',
+            while: () => {
+              if (game.isFinished()) return false;
+              // Keep going while combat is active or pending
+              if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
+              if (game.pendingCombat !== null || game.pendingCombatQueue.length > 0) return true;
+              if (game.coordinatedAttack !== null) return true;
+              if (game.pendingMortarAttack != null) return true;
+              // Continue while any rebel has actions remaining
+              return game.rebelPlayers.some(p => p.team.some(m => m.actionsRemaining > 0));
+            },
+            maxIterations: 200,
             do: sequence(
-              // MERC-vqmi: Apply Oil Reserves free action at start of turn
-              execute((ctx) => {
-                const player = ctx?.player as RebelPlayer | undefined;
-                if (player) {
-                  applyOilReservesEffect(game, true, player);
+              // Initiate pending combat (from move action or queue)
+              execute(() => {
+                if (!game.pendingCombat && game.pendingCombatQueue.length > 0) {
+                  game.pendingCombat = game.pendingCombatQueue.shift() || null;
+                }
+                if (game.pendingCombat && !game.activeCombat) {
+                  const sector = game.getSector(game.pendingCombat.sectorId);
+                  const player = game.rebelPlayers.find(
+                    p => `${p.seat}` === game.pendingCombat!.playerId
+                  );
+                  if (sector && player) {
+                    executeCombat(game, sector, player, {
+                      attackingPlayerIsRebel: game.pendingCombat.attackingPlayerIsRebel ?? true,
+                    });
+                  }
+                  game.pendingCombat = null;
                 }
               }),
 
+              // Combat resolution sub-flow (rebel)
+              combatResolutionFlow(game, 'combat'),
+
+              // Mortar hit allocation — player: override resolves firing player from pendingMortarAttack
               loop({
-                name: 'rebel-action-loop',
-              while: (ctx) => {
-                if (game.isFinished()) return false;
-                // MERC-t5k: Keep player in loop while combat is active or pending
-                // BUT exit if combatComplete is true (UI is animating, player can continue)
-                if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
-                if (game.pendingCombat !== null || game.pendingCombatQueue.length > 0) return true; // Combat about to start
-                // Check if current player has any MERCs with actions remaining
-                const player = ctx?.player as RebelPlayer | undefined;
-                if (player) {
-                  const hasActionsLeft = player.team.some(m => m.actionsRemaining > 0);
-                  return hasActionsLeft;
-                }
-                return true; // Continue if no player context (shouldn't happen)
-              },
-              maxIterations: 50, // Safety limit per turn
-              do: sequence(
-                // MERC-t5k: Check for pending combat (from move action) and initiate it
-                // This execute step runs BEFORE the action step, ensuring UI refresh
-                execute((ctx) => {
-                  if (!game.pendingCombat && game.pendingCombatQueue.length > 0) {
-                    game.pendingCombat = game.pendingCombatQueue.shift() || null;
-                  }
-                  if (game.pendingCombat && !game.activeCombat) {
-                    const sector = game.getSector(game.pendingCombat.sectorId);
-                    const player = game.rebelPlayers.find(
-                      p => `${p.seat}` === game.pendingCombat!.playerId
-                    );
-                    if (sector && player) {
-                      executeCombat(game, sector, player, {
-                        attackingPlayerIsRebel: game.pendingCombat.attackingPlayerIsRebel ?? true,
+                name: 'rebel-mortar-allocation',
+                while: () => game.pendingMortarAttack != null && !game.isFinished(),
+                maxIterations: 10,
+                do: actionStep({
+                  name: 'rebel-mortar-allocate',
+                  player: () => {
+                    const pending = game.pendingMortarAttack;
+                    if (!pending) return game.rebelPlayers[0];
+                    const firingPlayer = game.rebelPlayers.find(p => `${p.seat}` === pending.attackingPlayerId);
+                    return firingPlayer ?? game.rebelPlayers[0];
+                  },
+                  actions: ['mortarAllocateHits'],
+                  prompt: 'Allocate mortar hits to targets',
+                  skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
+                }),
+              }),
+
+              // MERC-a2h: Multi-player coordinated attack — simultaneous response from other rebels
+              loop({
+                name: 'coordinated-attack-response',
+                while: () => game.coordinatedAttack !== null,
+                maxIterations: 1,
+                do: sequence(
+                  simultaneousActionStep({
+                    name: 'coordinated-attack-commit',
+                    players: () => {
+                      const attack = game.coordinatedAttack;
+                      if (!attack) return [];
+                      return game.rebelPlayers.filter(p => {
+                        // Include declaring player only if they have a second eligible squad
+                        if (p.seat === attack.declaringPlayerSeat) {
+                          return game.getEligibleSquadsForCoordinatedAttack(p).length > 0;
+                        }
+                        return game.getEligibleSquadsForCoordinatedAttack(p).length > 0
+                          || !game.hasPlayerRespondedToCoordinatedAttack(p.seat);
                       });
-                    }
-                    game.pendingCombat = null;
-                  }
-                }),
-
-                // Combat resolution sub-flow (rebel)
-                combatResolutionFlow(game, 'combat'),
-
-                // Regular action step - only runs when not in combat
-                actionStep({
-                  name: 'rebel-action',
-                  // Per rules (05-main-game-loop.md): Combat triggers via movement, not as separate action
-                  // MERC-wrq: Added coordinatedAttack for same-player multi-squad attacks
-                  // MERC-a2h: Added multi-player coordinated attack actions
-                  // assignToSquad is free action, available anytime
-                  actions: [
-                    'move',
-                    'coordinatedAttack', // MERC-wrq: Same player, both squads
-                    'declareMultiPlayerAttack', // MERC-a2h: Declare multi-player coordinated attack
-                    'explore', // collectEquipment chains via followUp
-                    'train',
-                    'hireMerc',
-                    'reEquip',
-                    'dropEquipment',
-                    'hospital',
-                    'feedbackDiscard', // MERC-24h: Feedback discard retrieval
-                    'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
-                    'squidheadArm', // MERC-4qd: Squidhead arm mines
-                    'hagnessDrawType', // MERC-jrph: Hagness draw equipment (step 1)
-                    'hagnessGiveEquipment', // MERC-jrph: Hagness give equipment (step 2, via followUp)
-                    'armsDealer',
-                    'repairKit', // MERC-3po: Repair Kit retrieve from discard
-                    'mortar', // Mortar attack on adjacent sector
-                    'assignToSquad', // Free action available anytime
-                    'endTurn',
-                  ],
-                  // Allow regular actions if combat is complete (UI animating)
-                  skipIf: () => game.isFinished() || (game.activeCombat !== null && !game.activeCombat.combatComplete),
-                }),
-
-                // Mortar hit allocation — yields so human player can allocate hits via MortarAttackPanel
-                loop({
-                  name: 'rebel-mortar-allocation',
-                  while: () => game.pendingMortarAttack != null && !game.isFinished(),
-                  maxIterations: 10,
-                  do: actionStep({
-                    name: 'rebel-mortar-allocate',
-                    actions: ['mortarAllocateHits'],
-                    prompt: 'Allocate mortar hits to targets',
-                    skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
+                    },
+                    actions: ['commitSquadToCoordinatedAttack', 'declineCoordinatedAttack'],
+                    playerDone: (_ctx, player) => {
+                      return game.hasPlayerRespondedToCoordinatedAttack(player.seat);
+                    },
                   }),
-                }),
+                  execute(() => {
+                    const result = game.executeCoordinatedAttack();
+                    if (!result) return;
+                    const { targetSector, enteringSquads, firstRebel } = result;
+                    checkLandMines(game, targetSector, enteringSquads, true);
+                    if (firstRebel && hasEnemies(game, targetSector, firstRebel as RebelPlayer)) {
+                      queuePendingCombat(game, targetSector, firstRebel as RebelPlayer, true);
+                    }
+                  }),
+                ),
+              }),
 
-                // MERC-a2h: Multi-player coordinated attack — simultaneous response from other rebels
-                loop({
-                  name: 'coordinated-attack-response',
-                  while: () => game.coordinatedAttack !== null,
-                  maxIterations: 1,
-                  do: sequence(
-                    simultaneousActionStep({
-                      name: 'coordinated-attack-commit',
-                      players: () => {
-                        const attack = game.coordinatedAttack;
-                        if (!attack) return [];
-                        return game.rebelPlayers.filter(p => {
-                          // Include declaring player only if they have a second eligible squad
-                          if (p.seat === attack.declaringPlayerSeat) {
-                            return game.getEligibleSquadsForCoordinatedAttack(p).length > 0;
-                          }
-                          return game.getEligibleSquadsForCoordinatedAttack(p).length > 0
-                            || !game.hasPlayerRespondedToCoordinatedAttack(p.seat);
-                        });
-                      },
-                      actions: ['commitSquadToCoordinatedAttack', 'declineCoordinatedAttack'],
-                      playerDone: (_ctx, player) => {
-                        return game.hasPlayerRespondedToCoordinatedAttack(player.seat);
-                      },
-                    }),
-                    execute(() => {
-                      const result = game.executeCoordinatedAttack();
-                      if (!result) return;
-                      const { targetSector, enteringSquads, firstRebel } = result;
-                      checkLandMines(game, targetSector, enteringSquads, true);
-                      if (firstRebel && hasEnemies(game, targetSector, firstRebel as RebelPlayer)) {
-                        queuePendingCombat(game, targetSector, firstRebel as RebelPlayer, true);
-                      }
-                    }),
-                  ),
-                }),
-              ),
-            }),
-            ), // Close sequence wrapper for rebel turn
+              // Main simultaneous action step — all rebels act in parallel
+              simultaneousActionStep({
+                name: 'rebel-actions',
+                players: () => game.rebelPlayers,
+                actions: [
+                  'move',
+                  'coordinatedAttack',
+                  'declareMultiPlayerAttack',
+                  'explore',
+                  'train',
+                  'hireMerc',
+                  'reEquip',
+                  'dropEquipment',
+                  'hospital',
+                  'feedbackDiscard',
+                  'squidheadDisarm',
+                  'squidheadArm',
+                  'hagnessDrawType',
+                  'hagnessGiveEquipment',
+                  'armsDealer',
+                  'repairKit',
+                  'mortar',
+                  'assignToSquad',
+                  'endTurn',
+                ],
+                skipPlayer: (_ctx, player) => {
+                  if (game.isFinished()) return true;
+                  const rebel = player as RebelPlayer;
+                  return !rebel.team.some(m => m.actionsRemaining > 0);
+                },
+                playerDone: (_ctx, player) => {
+                  const rebel = player as RebelPlayer;
+                  return !rebel.team.some(m => m.actionsRemaining > 0);
+                },
+                allDone: () => {
+                  if (game.isFinished()) return true;
+                  // Break out for combat resolution
+                  if (game.activeCombat !== null && !game.activeCombat.combatComplete) return true;
+                  if (game.pendingCombat !== null || game.pendingCombatQueue.length > 0) return true;
+                  if (game.coordinatedAttack !== null) return true;
+                  if (game.pendingMortarAttack != null) return true;
+                  // All rebels done
+                  return game.rebelPlayers.every(p => !p.team.some(m => m.actionsRemaining > 0));
+                },
+              }),
+            ),
           }),
 
           // Dictator turn
