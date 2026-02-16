@@ -8,6 +8,17 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 
 **Ship Confidence** — the game should behave correctly, consistently, and visibly. Every game mechanic works as designed, every UI action is properly wired, and every significant game event has a visible animation.
 
+## Current Milestone: v2.0 Simultaneous Rebel Turns
+
+**Goal:** Replace sequential rebel turns with simultaneous play — all rebels act freely during the rebel phase with combat as a synchronization barrier.
+
+**Design decisions (from design discussion):**
+- Loop pattern wrapping `simultaneousActionStep` + conditional barriers (no BoardSmith engine changes)
+- Single-threaded server guarantees deterministic action ordering — no race conditions
+- Combat and coordinated attacks exit the simultaneous step, run sequentially, then loop re-enters
+- `playerDone`/`skipPlayer` on the simultaneous step handle resume state after barriers
+- All action guards are per-player (no cross-player dependencies)
+
 ## Current State
 
 **Shipped:** v1.10 Grievances (2026-02-09)
@@ -87,11 +98,23 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 
 ### Active
 
-(None — next milestone not yet planned)
+- [ ] Simultaneous rebel turns — all rebels act freely during the rebel phase, actions resolve in server arrival order
+- [ ] Combat barrier pattern — combat pauses all simultaneous actions, resolves sequentially, then resumes
+- [ ] Coordinated attack barrier — declare pauses simultaneous step, commit/decline flow runs, then combat, then resume
+- [ ] Shared combat flow — extract combat into standalone sub-flow usable from both rebel and dictator phases
+- [ ] Dictator turn refactor — dictator turn uses shared combat flow for consistency
+- [ ] Per-player action evaluation — each rebel gets independent action list based on own state + board state
+- [ ] Player done detection — rebel is done when actions exhausted OR explicit end turn; rebel phase ends when all done
+- [ ] AI rebel support — bot rebels batch by action number (all first actions, then all second actions)
+- [ ] Contextual error messages — rebels see why their action failed during simultaneous play
+- [ ] Day 1 simultaneous — Day 1 rebel phase uses same simultaneous model as Day 2+
+- [ ] UI cosmetic fixes — turn indicator shows all active rebels, waiting message shows player names
+- [ ] Real-time board updates — all actions visible to all players (including dictator) as they happen
 
 ### Out of Scope
 
-(None currently)
+- Advanced rebel coordination (turn-undo, action queuing) — get basics working first
+- Simultaneous dictator play — dictator is always a single player
 
 ## Context
 
@@ -163,5 +186,11 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 | Remove fabricated tactics bonuses | generalisimoActive/lockdownActive had no basis in CSV rules | ✓ Good |
 | Loop-based animation registration | Single activeTacticEvent ref shared across all 14 event types | ✓ Good |
 
+| Loop pattern for simultaneous+barrier | Composable with existing BoardSmith primitives, serializes correctly | — Pending |
+| Combat as synchronization barrier | Simplest model — one combat at a time, all rebels pause | — Pending |
+| No BoardSmith engine changes | Use existing simultaneousActionStep + loop, avoid engine modifications | — Pending |
+| Contextual error messages | Rebels need to understand why actions failed during simultaneous play | — Pending |
+| AI rebels batch by action number | Simple, deterministic — all first actions then all second actions | — Pending |
+
 ---
-*Last updated: 2026-02-09 after v1.10 milestone complete*
+*Last updated: 2026-02-16 after v2.0 milestone start*
