@@ -52,10 +52,10 @@ Plans:
   1. When a rebel triggers combat, all rebels exit the simultaneous step, combat resolves to completion, then the simultaneous step resumes for remaining players
   2. When a rebel declares a coordinated attack, the simultaneous step exits, other rebels get commit/decline flow, combat resolves, then simultaneous play resumes
   3. Players who had already ended their turn before the barrier remain done after the barrier resolves
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 53-01: TBD
+- [ ] 53-01-PLAN.md -- Verify barrier architecture with integration tests for combat, coordinated attack, and done preservation
 
 ### Phase 54: Dictator and AI Alignment
 **Goal**: Dictator phase uses the shared combat sub-flow; AI rebel players batch actions correctly within simultaneous play
@@ -92,6 +92,6 @@ Plans:
 |-------|----------------|--------|-----------|
 | 51. Extract Combat Sub-Flow | 1/1 | ✓ Complete | 2026-02-16 |
 | 52. Simultaneous Rebel Step | 2/2 | ✓ Complete | 2026-02-16 |
-| 53. Combat Barriers | 0/TBD | Not started | - |
+| 53. Combat Barriers | 0/1 | Not started | - |
 | 54. Dictator and AI Alignment | 0/TBD | Not started | - |
 | 55. Simultaneous Play UI | 0/TBD | Not started | - |
