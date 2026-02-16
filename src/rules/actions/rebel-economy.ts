@@ -5,7 +5,7 @@
  */
 
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
-import type { MERCGame, RebelPlayer } from '../game.js';
+import type { MERCGame, MERCPlayer, RebelPlayer } from '../game.js';
 import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { drawMercsForHiring } from '../day-one.js';
@@ -64,6 +64,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
       'can hire MERC': (ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
         const player = asRebelPlayer(ctx.player);
@@ -255,6 +256,10 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
 
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
+
       if (hired.length > 0) {
         game.message(`${player.name} hired: ${hired.join(', ')}`);
         return { success: true, message: `Hired ${hired.length} MERC(s)`, data: { hired } };
@@ -339,6 +344,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         const livingUnits = getPlayerUnitsForExplore(ctx.player, game);
         return livingUnits.some(u => canUnitExplore(u, ctx.player, game));
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseElement<CombatantModel>('actingUnit', {
       prompt: 'Which unit explores?',
@@ -368,6 +374,10 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Not enough actions to explore' };
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.EXPLORE;
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       // Draw equipment to stash
       for (let i = 0; i < sector.weaponLoot; i++) {
@@ -810,6 +820,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         const livingUnits = getPlayerUnitsForTrain(ctx.player, game);
         return livingUnits.some(u => canUnitTrain(u, ctx.player, game));
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseFrom<string>('unit', {
       prompt: 'Select unit to train militia',
@@ -856,6 +867,10 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         actingUnit.actionsRemaining -= ACTION_COSTS.TRAIN;
       } else {
         useTrainingAction(actingUnit as CombatantModel, ACTION_COSTS.TRAIN);
+      }
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
       }
 
       // Get unit name for messages
@@ -1000,6 +1015,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         const sector = findCitySectorForPlayer(ctx.player, game);
         return !!sector?.hasHospital;
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
       'has damaged unit with actions': (ctx) => {
         const sector = findCitySectorForPlayer(ctx.player, game);
         if (!sector) return false;
@@ -1022,7 +1038,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         return capitalize(name);
       },
     })
-    .execute((args) => {
+    .execute((args, ctx) => {
       const unitChoiceStr = args.actingUnit as string;
 
       // Parse string format: "id:name:isDictator"
@@ -1047,6 +1063,10 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'Not enough actions' };
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.HOSPITAL;
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       const healedAmount = actingUnit.damage;
       actingUnit.fullHeal();
@@ -1090,6 +1110,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const sector = findCitySectorForPlayer(ctx.player, game);
         return !!sector?.hasArmsDealer;
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
       'has unit with actions': (ctx) => {
         const sector = findCitySectorForPlayer(ctx.player, game);
         if (!sector) return false;
@@ -1206,6 +1227,10 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
 
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
+
       const actingUnitName = getUnitName(actingUnit);
 
       // Get equipment from cache (stored by choices function)
@@ -1294,6 +1319,7 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'day 2 or later': () => game.currentDay >= 2,
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseFrom<string>('confirm', {
       prompt: 'End your turn?',
@@ -1308,6 +1334,10 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
           merc.actionsRemaining = 0;
         }
         game.message(`${player.name} ends their turn`);
+
+        if (ctx.player.isRebel() && ctx.player.isAI) {
+          game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+        }
       } else if (game.isDictatorPlayer(ctx.player)) {
         // Clear all remaining actions from dictator MERCs
         const mercs = game.dictatorPlayer?.hiredMercs || [];

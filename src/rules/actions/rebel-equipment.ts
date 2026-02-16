@@ -5,7 +5,7 @@
  */
 
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
-import type { MERCGame, RebelPlayer, MERCPlayer } from '../game.js';
+import type { MERCGame, MERCPlayer, RebelPlayer } from '../game.js';
 import { Sector, Equipment, isGrenadeOrMortar, CombatantModel } from '../elements.js';
 import {
   ACTION_COSTS,
@@ -161,6 +161,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit that can re-equip': (ctx) => canAnyUnitReEquip(ctx.player, game),
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseFrom<string>('actingUnit', {
       prompt: 'Which unit equips?',
@@ -242,6 +243,10 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
 
       // Spend action upfront when first starting re-equip
       unit.actionsRemaining -= ACTION_COSTS.RE_EQUIP;
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       // User chose "Done equipping" without picking anything
       if (!equipment) {
@@ -564,6 +569,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         const combatants = getPlayerCombatantsFromCtx(ctx);
         return combatants.some(m => getMercEquipment(m).length > 0);
       },
+      'ai batch gate': (ctx) => !(ctx.game as MERCGame).shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .fromElements<CombatantModel>('actingMerc', {
       prompt: 'Select combatant to drop equipment from',
@@ -687,6 +693,11 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       emitMapEquipmentAnimations(game, equipmentAnimations);
 
       g.message(`${capitalize(actingCombatant.combatantName)} dropped a piece of equipment in ${sector.sectorName}`);
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        g.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
+
       return { success: true, message: `Dropped equipment` };
     });
 }
@@ -720,6 +731,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
         const hasAccessories = accessoryDiscard && accessoryDiscard.count(Equipment) > 0;
         return (hasWeapons || hasArmor || hasAccessories) ?? false;
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseElement<Equipment>('equipment', {
       prompt: 'Select equipment from discard pile',
@@ -774,6 +786,11 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       }
 
       feedback.useAction(ACTION_COSTS.RE_EQUIP);
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
+
       return { success: true, message: `Retrieved ${selectedEquipment.equipmentName}` };
     });
 }
@@ -804,6 +821,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         const stash = sector.getStashContents();
         return stash.some(e => isLandMine(e.equipmentId));
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
@@ -852,6 +870,10 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         game.message(`${squidhead.combatantName} disarms the land mine (left in stash)`);
       }
 
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
+
       return { success: true, message: 'Disarmed land mine' };
     });
 }
@@ -881,6 +903,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
         const hasLandMineInBandolier = squidhead.bandolierSlots.some(e => isLandMine(e.equipmentId));
         return hasLandMineInSlots || hasLandMineInBandolier;
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
@@ -925,6 +948,10 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
         buildMapEquipmentAnimation(mine, sector.sectorId, 'outgoing', getMapCombatantId(squidhead)),
       ]);
       game.message(`${squidhead.combatantName} arms a land mine at ${sector.sectorName}`);
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       return { success: true, message: 'Armed land mine' };
     });
@@ -1075,6 +1102,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
         const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
         return hagness != null && hagness.actionsRemaining >= 1;
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseFrom<string>('equipmentType', {
       prompt: 'Choose equipment type to draw',
@@ -1106,6 +1134,10 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
         equipmentData: drawn.map(e => serializeEquipmentForCard(e)),
       };
       setHagnessDrawnChoicesCache(game, playerId, cache);
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       // Chain to the pick-1 action
       return {
@@ -1225,6 +1257,7 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
         const playerId = `${player.seat}`;
         return getHagnessCache(game, playerId) != null;
       },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseFrom<string>('recipient', {
       prompt: 'Give to which squad member?',
@@ -1335,6 +1368,11 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
       clearHagnessCache(game, playerId);
 
       game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.combatantName}`);
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
+
       return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.combatantName}` };
     });
 }
@@ -1423,6 +1461,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'has combatant with repair kit': (ctx) => getCombatantsWithRepairKit(ctx.player, game).length > 0,
       'has equipment in discard piles': () => getDiscardPileEquipment(game).length > 0,
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     .chooseElement<CombatantModel>('combatant', {
       prompt: 'Select combatant to use Repair Kit',
@@ -1510,6 +1549,10 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       }
 
       game.message(`${combatant.combatantName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
+
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       return {
         success: true,
@@ -1649,6 +1692,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
     .prompt('Fire Mortar')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit with mortar and valid targets': (ctx) => {
         const mercsWithMortars = getMercsWithMortars(game, ctx.player);
@@ -1719,6 +1763,11 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
 
       // Use action
       unit.useAction(1);
+
+      // Record for AI batching
+      if (ctx.player.isRebel() && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      }
 
       const unitDisplayName = (unit as CombatantModel).combatantName;
 
