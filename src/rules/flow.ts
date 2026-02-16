@@ -618,6 +618,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             },
             maxIterations: 200,
             do: sequence(
+              // Fire combat-barrier UI signal when re-entering due to combat/mortar/coordinated attack
+              execute(() => {
+                const hasCombatBarrier =
+                  (game.pendingCombat !== null || game.pendingCombatQueue.length > 0) ||
+                  (game.activeCombat !== null && !game.activeCombat.combatComplete) ||
+                  game.coordinatedAttack !== null ||
+                  game.pendingMortarAttack != null;
+                if (hasCombatBarrier) {
+                  game.animate('combat-barrier', {}, () => {});
+                }
+              }),
+
               // Initiate pending combat (from move action or queue)
               execute(() => {
                 if (!game.pendingCombat && game.pendingCombatQueue.length > 0) {
