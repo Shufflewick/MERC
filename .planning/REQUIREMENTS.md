@@ -14,11 +14,11 @@
 
 - [x] **TURN-01**: Gaddafi — hire 1 random MERC per turn
 - [ ] **TURN-02**: Hitler — hire 1 random MERC per turn; pick a rebel to have auto-initiative over (persistent until switched, can switch once per turn)
-- [ ] **TURN-03**: Mao — place militia equal to rebel-controlled sector count into any wilderness sectors
-- [ ] **TURN-04**: Mussolini — add militia equal to rebel count to a controlled sector, then move militia from that sector to adjacent sectors
+- [x] **TURN-03**: Mao — place militia equal to rebel-controlled sector count into any wilderness sectors
+- [x] **TURN-04**: Mussolini — add militia equal to rebel count to a controlled sector, then move militia from that sector to adjacent sectors
 - [ ] **TURN-05**: Noriega — convert 1 militia from each rebel sector to dictator militia, move all to one chosen non-rebel sector; hire 1 random MERC if controlling fewer sectors than rebels
 - [ ] **TURN-06**: Pinochet — distribute damage equal to rebel-controlled sector count as evenly as possible across all rebel forces (MERCs and militia)
-- [ ] **TURN-07**: Pol Pot — add militia equal to rebel-controlled sector count to any one rebel sector (max 10); hire 1 random MERC if combat lost
+- [x] **TURN-07**: Pol Pot — add militia equal to rebel-controlled sector count to any one rebel sector (max 10); hire 1 random MERC if combat lost
 - [x] **TURN-08**: Stalin — hire 1 random MERC to primary squad; if base revealed, also hire 1 to secondary squad
 
 ### Setup-Phase Abilities
@@ -67,11 +67,11 @@
 | DATA-02 | Phase 56 | Complete |
 | TURN-01 | Phase 57 | Complete |
 | TURN-02 | Phase 60 | Pending |
-| TURN-03 | Phase 59 | Pending |
-| TURN-04 | Phase 59 | Pending |
+| TURN-03 | Phase 59 | Complete |
+| TURN-04 | Phase 59 | Complete |
 | TURN-05 | Phase 60 | Pending |
 | TURN-06 | Phase 61 | Pending |
-| TURN-07 | Phase 59 | Pending |
+| TURN-07 | Phase 59 | Complete |
 | TURN-08 | Phase 57 | Complete |
 | SETUP-01 | Phase 58 | Complete |
 | SETUP-02 | Phase 58 | Complete |

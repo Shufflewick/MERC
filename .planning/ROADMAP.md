@@ -83,9 +83,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 59-01-PLAN.md -- Mao multi-sector wilderness militia distribution (AI + human + flow loop)
-- [ ] 59-02-PLAN.md -- Mussolini two-step militia place and spread (AI + human + flow loops)
-- [ ] 59-03-PLAN.md -- Pol Pot rebel sector militia with conditional MERC hire on combat loss
+- [x] 59-01-PLAN.md -- Mao multi-sector wilderness militia distribution (AI + human + flow loop)
+- [x] 59-02-PLAN.md -- Mussolini two-step militia place and spread (AI + human + flow loops)
+- [x] 59-03-PLAN.md -- Pol Pot rebel sector militia with conditional MERC hire on combat loss
 
 **Success Criteria:**
 1. Mao places militia equal to rebel-controlled sector count into any wilderness sectors each turn
@@ -151,7 +151,7 @@ Plans:
 | 56 | Data Foundation | ✓ Complete | DATA-01, DATA-02 |
 | 57 | Simple Hire Abilities | ✓ Complete | TURN-01, TURN-08 |
 | 58 | Setup-Phase Abilities | ✓ Complete | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
-| 59 | Militia Placement Abilities | In Progress | TURN-03, TURN-04, TURN-07 |
+| 59 | Militia Placement Abilities | ✓ Complete | TURN-03, TURN-04, TURN-07 |
 | 60 | Complex Interactive Abilities | Pending | TURN-02, TURN-05 |
 | 61 | Reactive Abilities | Pending | REACT-02, REACT-03, TURN-06 |
 | 62 | AI & Comprehensive Testing | Pending | AI-01, AI-02, AI-03, TEST-01, TEST-02, TEST-03, TEST-04 |
@@ -160,4 +160,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 59 planning complete*
+*Last updated: 2026-02-17 after Phase 59 execution complete*

@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.1 Expansion Dictators -- Phase 59 Militia Placement Abilities
+**Current focus:** v2.1 Expansion Dictators -- Phase 60 Complex Interactive Abilities
 
 ## Current Position
 
-Phase: 59 of 62 (v2.1)
-Plan: 03 of 3 (Pol Pot militia placement)
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 59-03-PLAN.md (Pol Pot militia placement)
+Phase: 60 of 62 (v2.1)
+Plan: Awaiting planning
+Status: Phase 59 complete, Phase 60 pending
+Last activity: 2026-02-17 -- Phase 59 executed and verified (3 plans, 3 waves)
 
-Progress: [####......] 43% (3/7 phases)
+Progress: [######....] 57% (4/7 phases)
 
 ## Milestones Completed
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 117
+- Total plans completed: 120
 
 ## Accumulated Context
 
@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 59-03-PLAN.md (Pol Pot militia placement) -- Phase 59 complete
+Stopped at: Phase 59 complete, ready for Phase 60 planning
 Resume file: None
