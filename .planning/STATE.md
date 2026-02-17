@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.1 Expansion Dictators -- Phase 58 Setup-Phase Abilities
+**Current focus:** v2.1 Expansion Dictators -- Phase 59 Militia Placement Abilities
 
 ## Current Position
 
-Phase: 58 of 62 (v2.1)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 58-02-PLAN.md
+Phase: 59 of 62 (v2.1)
+Plan: Awaiting planning
+Status: Phase 58 complete, Phase 59 pending
+Last activity: 2026-02-17 -- Phase 58 executed and verified (2 plans, 2 waves)
 
 Progress: [###.......] 43% (3/7 phases)
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 113
+- Total plans completed: 114
 
 ## Accumulated Context
 
@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 58-02-PLAN.md (Phase 58 complete)
+Stopped at: Phase 58 complete, ready for Phase 59 planning
 Resume file: None

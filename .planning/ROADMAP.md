@@ -143,7 +143,7 @@ Plans:
 |-------|------|--------|--------------|
 | 56 | Data Foundation | ✓ Complete | DATA-01, DATA-02 |
 | 57 | Simple Hire Abilities | ✓ Complete | TURN-01, TURN-08 |
-| 58 | Setup-Phase Abilities | Complete | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
+| 58 | Setup-Phase Abilities | ✓ Complete | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
 | 59 | Militia Placement Abilities | Pending | TURN-03, TURN-04, TURN-07 |
 | 60 | Complex Interactive Abilities | Pending | TURN-02, TURN-05 |
 | 61 | Reactive Abilities | Pending | REACT-02, REACT-03, TURN-06 |
@@ -153,4 +153,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 58 planning complete*
+*Last updated: 2026-02-17 after Phase 58 execution complete*

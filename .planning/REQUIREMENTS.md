@@ -23,13 +23,13 @@
 
 ### Setup-Phase Abilities
 
-- [ ] **SETUP-01**: Hussein — start with 10 tactics cards instead of 5
-- [ ] **SETUP-02**: Mao — start with 1 random MERC per rebel (dictator chooses squad placement)
-- [ ] **SETUP-03**: Mussolini — start with 1 random MERC per rebel (dictator chooses squad placement)
+- [x] **SETUP-01**: Hussein — start with 10 tactics cards instead of 5
+- [x] **SETUP-02**: Mao — start with 1 random MERC per rebel (dictator chooses squad placement)
+- [x] **SETUP-03**: Mussolini — start with 1 random MERC per rebel (dictator chooses squad placement)
 
 ### Persistent/Reactive Abilities
 
-- [ ] **REACT-01**: Hussein — draw and play a second tactics card each turn
+- [x] **REACT-01**: Hussein — draw and play a second tactics card each turn
 - [ ] **REACT-02**: Gaddafi — when dictator forces kill a MERC, offer their equipment to dictator MERCs in the sector instead of discarding
 - [ ] **REACT-03**: Pinochet — queue a free MERC hire when losing control of a sector (placed at start of next turn)
 
@@ -65,18 +65,18 @@
 |-------------|-------|--------|
 | DATA-01 | Phase 56 | Complete |
 | DATA-02 | Phase 56 | Complete |
-| TURN-01 | Phase 57 | Pending |
+| TURN-01 | Phase 57 | Complete |
 | TURN-02 | Phase 60 | Pending |
 | TURN-03 | Phase 59 | Pending |
 | TURN-04 | Phase 59 | Pending |
 | TURN-05 | Phase 60 | Pending |
 | TURN-06 | Phase 61 | Pending |
 | TURN-07 | Phase 59 | Pending |
-| TURN-08 | Phase 57 | Pending |
-| SETUP-01 | Phase 58 | Pending |
-| SETUP-02 | Phase 58 | Pending |
-| SETUP-03 | Phase 58 | Pending |
-| REACT-01 | Phase 58 | Pending |
+| TURN-08 | Phase 57 | Complete |
+| SETUP-01 | Phase 58 | Complete |
+| SETUP-02 | Phase 58 | Complete |
+| SETUP-03 | Phase 58 | Complete |
+| REACT-01 | Phase 58 | Complete |
 | REACT-02 | Phase 61 | Pending |
 | REACT-03 | Phase 61 | Pending |
 | AI-01 | Phase 62 | Pending |
@@ -94,4 +94,4 @@
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 56 completion*
+*Last updated: 2026-02-17 after Phase 58 completion*
