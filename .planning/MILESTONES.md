@@ -1,5 +1,34 @@
 # Project Milestones: MERC
 
+## v2.1 Expansion Dictators (Shipped: 2026-02-17)
+
+**Delivered:** Added 9 expansion dictators (Gaddafi, Hitler, Hussein, Mao, Mussolini, Noriega, Pinochet, Pol Pot, Stalin) with unique per-turn, setup, and reactive abilities, full AI support, and 42 new tests.
+
+**Phases completed:** 56-62 (15 plans total)
+
+**Key accomplishments:**
+
+- Added 9 expansion dictators to combatants.json with full stats, ability text, and lobby selection (11 total playable dictators)
+- Implemented per-turn abilities for all 9 dictators: hiring, militia placement, damage spread, initiative override, tactics draw
+- Built setup-phase abilities: Hussein 10-card tactics deck, Mao/Mussolini bonus starting MERCs with interactive squad choice
+- Completed reactive abilities: Gaddafi equipment loot on MERC kill, Pinochet hire on sector loss, Pol Pot hire on combat loss
+- Delivered consistent two-path ability architecture (AI auto-execute + human interactive flow) for all 9 dictators
+- Created 42 new tests — unit tests for all abilities plus 18 integration tests (2 seeds x 9 dictators)
+
+**Stats:**
+
+- 60 files changed (+11,989/-71 lines)
+- 60,200 lines of TypeScript/Vue
+- 7 phases, 15 plans, 24 commits
+- 735 tests passing (42 new)
+- 1 day (2026-02-17)
+
+**Git range:** `feat(56-01)` → `feat(62-03)`
+
+**What's next:** TBD — next milestone via `/gsd:new-milestone`
+
+---
+
 ## v2.0 Simultaneous Rebel Turns (Shipped: 2026-02-16)
 
 **Delivered:** Replaced sequential rebel turns with simultaneous play — all rebels act in parallel with combat as a synchronization barrier, AI batch gating, and visual feedback.

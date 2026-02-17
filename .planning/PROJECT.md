@@ -10,20 +10,19 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 
 ## Current State
 
-**Shipped:** v2.0 Simultaneous Rebel Turns (2026-02-16)
+**Shipped:** v2.1 Expansion Dictators (2026-02-17)
 
-- 44,001 lines of TypeScript/Vue (+5,012/-1,156 from v2.0)
-- Simultaneous rebel turns via loop + simultaneousActionStep (Day 1 and Day 2+)
-- Combat barrier architecture — combat/coordinated attacks pause simultaneous play, resolve sequentially
-- AI rebel batch gating — round-robin across 19 rebel actions
-- combatResolutionFlow shared sub-flow (4 call sites: rebel, tactics, dictator, Kim militia)
-- Combat barrier overlay with red-tinted visual transition
+- 60,200 lines of TypeScript/Vue (+11,989/-71 from v2.1)
+- 9 expansion dictators with unique per-turn, setup, and reactive abilities
+- Two-path ability architecture: AI auto-execute + human interactive flow for all 11 dictators
+- Simultaneous rebel turns with combat barrier synchronization
+- combatResolutionFlow shared sub-flow (5 call sites: rebel, tactics, dictator, Kim militia, Gaddafi loot)
 - Zero `as any` casts in src/rules/
 - Unified class hierarchy: CombatantBase → CombatantModel (concrete class)
 - CombatPanel is 100% event-driven animation player
 - CLAUDE.md architecture guide for AI navigation
-- 693 tests passing
-- 12 milestones shipped, 55 phases, 107 plans
+- 735 tests passing (42 new for expansion dictators)
+- 13 milestones shipped, 62 phases, 129 plans
 
 ## Requirements
 
@@ -91,22 +90,25 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - ✓ Turn indicators — PlayersPanel shows all active rebels during simultaneous step — v2.0
 - ✓ Real-time board updates — all actions visible to all players as they happen — v2.0
 - ✓ Combat barrier overlay — red-tinted visual transition when simultaneous play pauses — v2.0
+- ✓ 9 expansion dictators in combatants.json with stats, abilities, and images — v2.1
+- ✓ Dictator selection UI for all 11 dictators — v2.1
+- ✓ Per-turn abilities for all 9 expansion dictators (hire, militia, damage, initiative, tactics) — v2.1
+- ✓ Setup-phase abilities (Hussein 10 tactics, Mao/Mussolini bonus MERCs with squad choice) — v2.1
+- ✓ Persistent/reactive abilities (Hussein double tactics, Gaddafi loot, Pinochet sector-loss hire) — v2.1
+- ✓ Complex per-turn effects (Noriega convert+relocate, Pinochet damage spread, Mao/Mussolini militia) — v2.1
+- ✓ Full AI support for all 9 expansion dictator abilities — v2.1
+- ✓ 42 new tests — unit + integration coverage for all expansion dictator abilities — v2.1
 
 ### Active
 
-- [ ] Add 9 expansion dictators to combatants.json data (Gaddafi, Hitler, Hussein, Mao, Mussolini, Noriega, Pinochet, Pol Pot, Stalin)
-- [ ] Implement per-turn abilities following Castro/Kim action pattern for all 9 dictators
-- [ ] Implement setup-phase abilities (Hussein: 10 tactics cards, Mao/Mussolini: bonus starting MERCs with squad choice)
-- [ ] Implement persistent game-state abilities (Hitler: targeted initiative debuff, Hussein: double tactics draw)
-- [ ] Implement reactive abilities (Gaddafi: loot killed MERC equipment, Pinochet: hire MERC on sector loss, Pol Pot: hire on combat loss)
-- [ ] Implement complex per-turn effects (Noriega: convert + relocate militia, Pinochet: distribute damage, Mao/Mussolini: militia placement)
-- [ ] Full AI support for all 9 dictator abilities
-- [ ] Dictator selection UI — players can choose from all available dictators
+(None — planning next milestone)
 
 ### Out of Scope
 
 - Advanced rebel coordination (turn-undo, action queuing) — get basics working first
 - Simultaneous dictator play — dictator is always a single player
+- Expansion MERC characters — separate milestone, dictators only for v2.1
+- Balancing/tuning passes — ship first, tune later based on playtesting
 
 ## Context
 
@@ -114,14 +116,15 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - Brownfield project with working game implementation
 - TypeScript 5.7.0 with strict mode enabled
 - BoardSmith v3.0 fully integrated (animation timeline, no theatre view)
-- 44,001 lines of TypeScript/Vue code
-- 693 tests (combat, abilities, equipment, conditions, state persistence, error handling, combat events, landmines, barriers, AI batching)
+- 60,200 lines of TypeScript/Vue code
+- 735 tests (combat, abilities, equipment, conditions, state persistence, error handling, combat events, landmines, barriers, AI batching, expansion dictators)
 - Clean class hierarchy: CombatantBase → CombatantModel (concrete)
+- 11 playable dictators (2 base + 9 expansion) with full AI support
 - Simultaneous rebel turns with combat barrier synchronization
 - AI rebel batch gating for deterministic bot play
 - CombatPanel is event-driven animation player
 - Architecture documented in CLAUDE.md
-- 12 milestones shipped (v1.0-v1.10, v2.0)
+- 13 milestones shipped (v1.0-v1.10, v2.0-v2.1)
 
 **Codebase Map:**
 - `.planning/codebase/CONCERNS.md` - Full list of identified issues
@@ -187,16 +190,13 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 | RebelPlayer cast in skipPlayer/playerDone | BoardSmith Player base lacks team property, safe because players are RebelPlayer | ✓ Good |
 | Private properties for AI batch state | Not serialized by BoardSmith, ephemeral to simultaneous step | ✓ Good |
 | Conservative isDay1Complete | Engine auto-completes players with no available actions as fallback | ✓ Good |
-
-## Current Milestone: v2.1 Expansion Dictators
-
-**Goal:** Implement all 9 expansion dictators with unique abilities, AI support, and dictator selection.
-
-**Target features:**
-- 9 new playable dictators (Gaddafi, Hitler, Hussein, Mao, Mussolini, Noriega, Pinochet, Pol Pot, Stalin)
-- Each with unique per-turn, setup, persistent, or reactive abilities
-- Full AI decision-making for all dictator abilities
-- Dictator selection during game setup
+| sortByInitiative optional game param | Backward-compatible Hitler initiative override | ✓ Good |
+| Hitler initiative as separate flow step | Cleaner separation from hire step | ✓ Good |
+| Noriega AI: prefer non-rebel sector with most adjacent rebel sectors | Smart militia positioning | ✓ Good |
+| Pinochet damage: MERCs first then militia | Maximize impact of damage spread | ✓ Good |
+| Gaddafi loot uses BoardSmith element ID | Reliable discard pile lookup | ✓ Good |
+| createTestGame + setupDictator pattern | Consistent test setup across all dictator unit tests | ✓ Good |
+| Two-path ability architecture | AI auto-execute + human interactive flow for all dictators | ✓ Good |
 
 ---
-*Last updated: 2026-02-17 after v2.1 milestone start*
+*Last updated: 2026-02-17 after v2.1 milestone*

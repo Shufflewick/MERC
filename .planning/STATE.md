@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.1 Expansion Dictators -- Phase 62 AI & Comprehensive Testing
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 62 of 62 (v2.1)
-Plan: 03 of 3 (in phase 62)
-Status: Phase 62 complete and verified
-Last activity: 2026-02-17 -- Phase 62 executed and verified (3 plans, 2 waves)
+Phase: N/A (between milestones)
+Plan: N/A
+Status: Ready to plan next milestone
+Last activity: 2026-02-17 -- v2.1 Expansion Dictators milestone complete
 
-Progress: [##########] 100% (7/7 phases)
+Progress: Milestone v2.1 shipped
 
 ## Milestones Completed
 
@@ -30,28 +30,20 @@ Progress: [##########] 100% (7/7 phases)
 - v1.9 BoardSmith v3.0 Animation Timeline Migration (Phases 42-46) - 7 plans
 - v1.10 Grievances (Phases 47-50) - 10 plans
 - v2.0 Simultaneous Rebel Turns (Phases 51-55) - 6 plans
+- v2.1 Expansion Dictators (Phases 56-62) - 15 plans
 
-Total: 62 phases, 129 plans, 12 milestones shipped
+Total: 62 phases, 129 plans, 13 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 128
+- Total plans completed: 129
 
 ## Accumulated Context
 
 ### Decisions
 
 All decisions captured in PROJECT.md Key Decisions table.
-
-- sortByInitiative takes optional game parameter for Hitler initiative override (backward compatible)
-- Hitler initiative target pick is a separate flow step after hire step
-- Noriega AI sector strategy: prefer non-rebel sector with most adjacent rebel sectors
-- Pinochet damage spread: MERCs first then militia for remainder allocation; no Gaddafi loot trigger
-- Gaddafi loot uses BoardSmith element ID (number) for discard pile lookup, not equipment string ID
-- Dictator ability unit tests use createTestGame + setupDictator('id') pattern with isAI=true
-- Setup/reactive ability tests use GameRunner with dictatorChoice (not nested gameOptions.dictatorCharacter)
-- Pol Pot conditional hire is flow-driven, not a standalone function (deferred to integration tests)
 
 ### Deferred Issues
 
@@ -67,5 +59,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 62 complete and verified, milestone v2.1 ready for audit
+Stopped at: v2.1 milestone complete, ready for next milestone
 Resume file: None
