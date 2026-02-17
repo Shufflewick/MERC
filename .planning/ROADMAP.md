@@ -60,7 +60,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 58-01-PLAN.md -- Setup abilities for Hussein (extra tactics), Mao and Mussolini (bonus MERCs with squad choice)
+- [x] 58-01-PLAN.md -- Setup abilities for Hussein (extra tactics), Mao and Mussolini (bonus MERCs with squad choice)
 - [ ] 58-02-PLAN.md -- Hussein per-turn double tactics with post-effects and UI wiring
 
 **Success Criteria:**
