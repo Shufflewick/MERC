@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 60 of 62 (v2.1)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-17 -- Completed 60-01-PLAN.md (Hitler per-turn ability)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-17 -- Completed 60-02-PLAN.md (Noriega per-turn ability)
 
 Progress: [######....] 57% (4/7 phases)
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 121
+- Total plans completed: 122
 
 ## Accumulated Context
 
@@ -46,6 +46,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 
 - sortByInitiative takes optional game parameter for Hitler initiative override (backward compatible)
 - Hitler initiative target pick is a separate flow step after hire step
+- Noriega AI sector strategy: prefer non-rebel sector with most adjacent rebel sectors
 
 ### Deferred Issues
 
@@ -61,5 +62,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 60-01-PLAN.md
+Stopped at: Completed 60-02-PLAN.md
 Resume file: None
