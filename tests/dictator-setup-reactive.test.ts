@@ -264,6 +264,38 @@ describe('Reactive Abilities', () => {
     processGaddafiLoot(game);
   });
 
+  it('Pinochet pending hires processes multiple hires', () => {
+    const { game } = createDictatorGame('pinochet', 'pinochet-multi-hire-test');
+
+    expect(game.dictatorPlayer.dictator!.combatantId).toBe('pinochet');
+
+    const mercsBefore = game.dictatorPlayer.hiredMercs.length;
+
+    // Set pending hires to 3 (simulating multiple sector losses)
+    game._pinochetPendingHires = 3;
+
+    applyPinochetPendingHires(game);
+
+    // Verify 3 MERCs were hired
+    const mercsAfter = game.dictatorPlayer.hiredMercs.length;
+    expect(mercsAfter).toBe(mercsBefore + 3);
+
+    // Counter fully cleared
+    expect(game._pinochetPendingHires).toBe(0);
+  });
+
+  it('Pinochet damage spread with no rebel sectors does nothing', () => {
+    const { game } = createDictatorGame('pinochet', 'pinochet-no-rebels-test');
+
+    // No rebel militia or MERCs placed -- rebels control 0 sectors
+    const rebel = game.rebelPlayers[0];
+    const controlledSectors = game.getControlledSectors(rebel);
+    expect(controlledSectors.length).toBe(0);
+
+    // Should return without error (no damage to spread)
+    applyPinochetDamageSpread(game);
+  });
+
   it('Gaddafi loot skips equipment when no MERC has an open slot', () => {
     const { game } = createDictatorGame('gadafi', 'gadafi-full-slots-test');
 
