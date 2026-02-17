@@ -23,7 +23,10 @@ import { equipNewHire } from './actions/helpers.js';
 // Dictator Ability Types
 // =============================================================================
 
-export type DictatorAbilityType = 'castro' | 'kim';
+export type DictatorAbilityType =
+  | 'castro' | 'kim'
+  | 'gadafi' | 'hitler' | 'hussein' | 'mao'
+  | 'mussolini' | 'noriega' | 'pinochet' | 'polpot' | 'stalin';
 
 export interface DictatorAbilityResult {
   success: boolean;
