@@ -1080,6 +1080,213 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
 }
 
 // =============================================================================
+// Pol Pot's Per-Turn Militia Placement Action (Human Players)
+// =============================================================================
+
+/**
+ * Pol Pot's ability: "Once per turn, add militia equal to rebel-controlled sector count
+ * to any one rebel sector (max 10 per sector)."
+ * Human players choose which rebel-controlled sector to target.
+ */
+export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('polpotBonusMilitia')
+    .prompt("Pol Pot's Ability: Place militia on a rebel sector")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Pol Pot': () => game.dictatorPlayer?.dictator?.combatantId === 'polpot',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose rebel-controlled sector to place militia',
+      choices: () => {
+        // Get all rebel-controlled sectors with room for militia
+        const rebelSectors: Sector[] = [];
+        for (const rebel of game.rebelPlayers) {
+          for (const sector of game.getControlledSectors(rebel)) {
+            if (sector.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE &&
+                !rebelSectors.some(s => s.sectorId === sector.sectorId)) {
+              rebelSectors.push(sector);
+            }
+          }
+        }
+        return rebelSectors.map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      // Count rebel-controlled sectors
+      let rebelSectorCount = 0;
+      for (const rebel of game.rebelPlayers) {
+        rebelSectorCount += game.getControlledSectors(rebel).length;
+      }
+
+      if (rebelSectorCount === 0) {
+        game.message('Pol Pot: Rebels control no sectors - no militia to place');
+        return { success: true, message: 'No militia to place' };
+      }
+
+      // Find sector by name
+      const targetSectorName = args.targetSector as string;
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
+      if (!targetSector) {
+        return { success: false, message: `Invalid sector: "${targetSectorName}"` };
+      }
+
+      // Place militia (standard cap)
+      const placed = targetSector.addDictatorMilitia(rebelSectorCount);
+      game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
+
+      // Track target for post-combat outcome detection
+      game._polpotTargetSectorId = targetSector.sectorId;
+
+      // Queue combat - target is a rebel sector, so always triggers
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+          rebel.secondarySquad.sectorId === targetSector.sectorId;
+        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+          queuePendingCombat(game, targetSector, rebel, false);
+          return {
+            success: true,
+            message: `Placed ${placed} militia and engaged in combat`,
+            data: {
+              combatTriggered: true,
+              combatQueued: true,
+            },
+          };
+        }
+      }
+
+      return { success: true, message: `Placed ${placed} militia` };
+    });
+}
+
+// =============================================================================
+// Pol Pot's Conditional Hire Action (Human Players)
+// =============================================================================
+
+/**
+ * Pol Pot's conditional hire: "If dictator loses the combat triggered by this ability
+ * (rebel victory only, not retreat), hire 1 random MERC."
+ * Human dictator chooses which squad to place the hired MERC in.
+ */
+export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
+  const DRAWN_MERC_KEY = '_polpot_drawn_merc';
+
+  return Action.create('polpotBonusHire')
+    .prompt("Pol Pot: Hire a MERC (combat loss consolation)")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Pol Pot': () => game.dictatorPlayer?.dictator?.combatantId === 'polpot',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'rebel won combat': () => game.lastAbilityCombatOutcome?.rebelVictory === true,
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'MERC drawn for hire (combat loss consolation)',
+      choices: () => {
+        // Draw 1 MERC if not already drawn
+        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
+          const merc = game.drawMerc();
+          if (merc) {
+            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+          }
+        }
+
+        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+        if (!mercId) {
+          return ['No MERCs available'];
+        }
+
+        const merc = game.getElementById(mercId);
+        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+          return ['No MERCs available'];
+        }
+
+        return [capitalize(merc.combatantName)];
+      },
+    })
+    .chooseFrom<string>('targetSquad', {
+      prompt: 'Choose squad for the hired MERC',
+      choices: () => {
+        const squads: string[] = [];
+        if (!game.dictatorPlayer.primarySquad.isFull) {
+          squads.push('Primary Squad');
+        }
+        if (!game.dictatorPlayer.secondarySquad.isFull) {
+          squads.push('Secondary Squad');
+        }
+        if (squads.length === 0) {
+          squads.push('All squads full');
+        }
+        return squads;
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .execute((args) => {
+      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+      const selectedMercName = args.selectedMerc as string;
+
+      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.lastAbilityCombatOutcome = null;
+        return { success: false, message: 'No MERC available' };
+      }
+
+      const merc = game.getElementById(mercId);
+      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.lastAbilityCombatOutcome = null;
+        return { success: false, message: 'MERC not found' };
+      }
+
+      const squadChoice = args.targetSquad as string;
+      if (squadChoice === 'All squads full') {
+        merc.putInto(game.mercDiscard);
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.lastAbilityCombatOutcome = null;
+        game.message('Pol Pot: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
+      }
+
+      const targetSquad = squadChoice === 'Primary Squad'
+        ? game.dictatorPlayer.primarySquad
+        : game.dictatorPlayer.secondarySquad;
+
+      merc.putInto(targetSquad);
+
+      // Set squad location if not assigned yet
+      if (!targetSquad.sectorId) {
+        const targetSector = selectNewMercLocation(game);
+        if (targetSector) {
+          targetSquad.sectorId = targetSector.sectorId;
+        }
+      }
+
+      game.message(`Pol Pot deployed ${merc.combatantName} to ${squadChoice}`);
+
+      const sectorId = targetSquad.sectorId;
+      if (sectorId) {
+        emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, sectorId)]);
+      }
+
+      game.updateAllSargeBonuses();
+
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, merc, equipType);
+
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+      game.lastAbilityCombatOutcome = null;
+
+      game.message(`Pol Pot hired ${merc.combatantName} as consolation for combat loss`);
+      return { success: true, message: `Hired ${merc.combatantName}` };
+    });
+}
+
+// =============================================================================
 // Gaddafi's Per-Turn Hire Action (Human Players)
 // =============================================================================
 

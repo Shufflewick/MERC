@@ -106,6 +106,8 @@ import {
   createStalinBonusHireAction,
   createHusseinBonusTacticsAction,
   createHusseinBonusReinforceAction,
+  createPolpotBonusMilitiaAction,
+  createPolpotBonusHireAction,
 } from './dictator-actions.js';
 
 import {
@@ -222,6 +224,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createStalinBonusHireAction(game)); // Stalin per-turn hire
   game.registerAction(createHusseinBonusTacticsAction(game)); // Hussein per-turn bonus tactics
   game.registerAction(createHusseinBonusReinforceAction(game)); // Hussein per-turn bonus reinforce
+  game.registerAction(createPolpotBonusMilitiaAction(game)); // Pol Pot per-turn rebel sector militia
+  game.registerAction(createPolpotBonusHireAction(game)); // Pol Pot conditional hire on combat loss
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions

@@ -998,7 +998,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for AI)
               actionStep({
                 name: 'dictator-ability',
-                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
@@ -1092,6 +1092,24 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     game.updateAllSargeBonuses();
                     game.message(`Pol Pot lost combat - hired ${merc.combatantName} as consolation`);
                   }
+                  game.lastAbilityCombatOutcome = null;
+                }
+              }),
+
+              // Pol Pot: Human conditional hire after combat loss
+              actionStep({
+                name: 'polpot-bonus-hire',
+                actions: ['polpotBonusHire'],
+                prompt: "Pol Pot lost combat - hire a consolation MERC",
+                skipIf: () => game.isFinished() ||
+                  game.dictatorPlayer?.dictator?.combatantId !== 'polpot' ||
+                  game.dictatorPlayer?.isAI === true ||
+                  !game.lastAbilityCombatOutcome?.rebelVictory,
+              }),
+
+              // Clear outcome after human hire step (whether it ran or not)
+              execute(() => {
+                if (game.lastAbilityCombatOutcome) {
                   game.lastAbilityCombatOutcome = null;
                 }
               }),
