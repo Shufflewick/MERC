@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 62 of 62 (v2.1)
-Plan: Awaiting planning
-Status: Phase 61 complete and verified, Phase 62 pending
-Last activity: 2026-02-17 -- Phase 61 executed and verified (2 plans, 2 waves)
+Plan: 01 of 62 (in progress)
+Status: In progress - Plan 01 complete
+Last activity: 2026-02-17 -- Completed 62-01-PLAN.md (shared test helpers + dictator ability unit tests)
 
 Progress: [########..] 86% (6/7 phases)
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 126
+- Total plans completed: 127
 
 ## Accumulated Context
 
@@ -49,6 +49,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Noriega AI sector strategy: prefer non-rebel sector with most adjacent rebel sectors
 - Pinochet damage spread: MERCs first then militia for remainder allocation; no Gaddafi loot trigger
 - Gaddafi loot uses BoardSmith element ID (number) for discard pile lookup, not equipment string ID
+- Dictator ability unit tests use createTestGame + setupDictator('id') pattern with isAI=true
 
 ### Deferred Issues
 
@@ -64,5 +65,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 61 complete and verified, ready for Phase 62 planning
+Stopped at: Completed 62-01-PLAN.md
 Resume file: None
