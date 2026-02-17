@@ -17,7 +17,7 @@ Add 9 expansion dictators (Gaddafi, Hitler, Hussein, Mao, Mussolini, Noriega, Pi
 **Plans:** 1 plan
 
 Plans:
-- [ ] 56-01-PLAN.md -- Add 9 expansion dictators to combatants.json, lobby dropdown, and DictatorAbilityType
+- [x] 56-01-PLAN.md -- Add 9 expansion dictators to combatants.json, lobby dropdown, and DictatorAbilityType
 
 **Success Criteria:**
 1. All 9 expansion dictators appear in combatants.json with correct stats, ability descriptions, and image references
@@ -129,7 +129,7 @@ Plans:
 
 | Phase | Name | Status | Requirements |
 |-------|------|--------|--------------|
-| 56 | Data Foundation | Planned | DATA-01, DATA-02 |
+| 56 | Data Foundation | ✓ Complete | DATA-01, DATA-02 |
 | 57 | Simple Hire Abilities | Pending | TURN-01, TURN-08 |
 | 58 | Setup-Phase Abilities | Pending | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
 | 59 | Militia Placement Abilities | Pending | TURN-03, TURN-04, TURN-07 |
@@ -141,4 +141,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-17 after Phase 56 completion*

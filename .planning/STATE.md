@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.1 Expansion Dictators -- Phase 56 Data Foundation
+**Current focus:** v2.1 Expansion Dictators -- Phase 57 Simple Hire Abilities
 
 ## Current Position
 
-Phase: 56 of 62 (v2.1)
-Plan: 1 of 1 (Phase 56 complete)
-Status: Phase 56 complete, ready for Phase 57
-Last activity: 2026-02-17 -- Completed 56-01-PLAN.md
+Phase: 57 of 62 (v2.1)
+Plan: None yet -- awaiting plan-phase
+Status: Phase 56 complete, ready to plan Phase 57
+Last activity: 2026-02-17 -- Phase 56 Data Foundation completed
 
 Progress: [#.........] 14% (1/7 phases)
 
