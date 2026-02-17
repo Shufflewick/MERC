@@ -14,6 +14,7 @@ import {
   getMortarTargets,
   selectMortarTarget,
   selectMilitiaPlacementSector,
+  selectNewMercLocation,
   mercNeedsHealing,
   getAIHealingPriority,
 } from '../ai-helpers.js';
@@ -827,5 +828,354 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
       }
 
       return { success: true, message: `Placed ${placed} militia` };
+    });
+}
+
+// =============================================================================
+// Gaddafi's Per-Turn Hire Action (Human Players)
+// =============================================================================
+
+/**
+ * Gaddafi's ability: "Once per turn, hire 1 random MERC."
+ * Human players see the drawn MERC, choose equipment type and deployment sector.
+ */
+export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
+  const DRAWN_MERC_KEY = '_gadafi_drawn_merc';
+
+  return Action.create('gadafiBonusHire')
+    .prompt("Gaddafi's Ability: Hire a MERC")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'MERC drawn for hire',
+      choices: () => {
+        // Draw 1 MERC if not already drawn
+        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
+          const merc = game.drawMerc();
+          if (merc) {
+            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+          }
+        }
+
+        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+        if (!mercId) {
+          return ['No MERCs available'];
+        }
+
+        const merc = game.getElementById(mercId);
+        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+          return ['No MERCs available'];
+        }
+
+        return [capitalize(merc.combatantName)];
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy the new MERC',
+      choices: () => {
+        const primarySquad = game.dictatorPlayer.primarySquad;
+        const secondarySquad = game.dictatorPlayer.secondarySquad;
+        const primaryHasSector = !!primarySquad.sectorId && primarySquad.getLivingMercs().length > 0;
+        const secondaryHasSector = !!secondarySquad.sectorId && secondarySquad.getLivingMercs().length > 0;
+
+        // If both squads are already deployed, only allow their current sectors
+        if (primaryHasSector && secondaryHasSector) {
+          const validSectorIds = new Set<string>();
+          if (primarySquad.sectorId) validSectorIds.add(primarySquad.sectorId);
+          if (secondarySquad.sectorId) validSectorIds.add(secondarySquad.sectorId);
+
+          return game.gameMap.getAllSectors()
+            .filter(s => validSectorIds.has(s.sectorId))
+            .map(s => s.sectorName);
+        }
+
+        // Otherwise, show all dictator-controlled sectors
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
+
+        if (sectors.length === 0) {
+          const industries = game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry');
+          return industries.map(s => s.sectorName);
+        }
+
+        return sectors.map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+      const selectedMercName = args.selectedMerc as string;
+
+      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No MERC available' };
+      }
+
+      const merc = game.getElementById(mercId);
+      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'MERC not found' };
+      }
+
+      // Find target sector
+      const targetSectorChoice = args.targetSector as string;
+      const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      const allSectors = game.gameMap.getAllSectors();
+      let targetSector = allSectors.find(s => s.sectorName === sectorName);
+
+      if (!targetSector) {
+        targetSector = allSectors.find(s => targetSectorChoice.startsWith(s.sectorName));
+      }
+
+      if (!targetSector) {
+        game.message(`WARNING: Could not find sector "${sectorName}" from choice "${targetSectorChoice}"`);
+        targetSector = allSectors.find(s => s.dictatorMilitia > 0);
+        if (targetSector) {
+          game.message(`Falling back to ${targetSector.sectorName}`);
+        }
+      }
+
+      if (!targetSector) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No valid sector found' };
+      }
+
+      // Determine which squad to use based on target sector
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      const primaryMercs = primarySquad.getLivingMercs();
+      const secondaryMercs = secondarySquad.getLivingMercs();
+
+      let targetSquad: typeof primarySquad;
+      if ((primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) && !primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Placing ${merc.combatantName} in primary squad at ${targetSector.sectorName}`);
+      } else if ((secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) && !secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Placing ${merc.combatantName} in secondary squad at ${targetSector.sectorName}`);
+      } else if (!primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Both squads occupied - adding to primary squad`);
+      } else if (!secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Primary full - adding to secondary squad`);
+      } else {
+        merc.putInto(game.mercDiscard);
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.message('Gaddafi: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
+      }
+
+      merc.putInto(targetSquad);
+      targetSquad.sectorId = targetSector.sectorId;
+      game.message(`Gaddafi deployed ${merc.combatantName} to ${targetSector.sectorName}`);
+
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(merc, targetSector.sectorId),
+      ]);
+
+      game.updateAllSargeBonuses();
+
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, merc, equipType);
+
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+
+      game.message(`Gaddafi hired ${merc.combatantName}`);
+      return { success: true, message: `Hired ${merc.combatantName}` };
+    });
+}
+
+// =============================================================================
+// Stalin's Per-Turn Hire Action (Human Players)
+// =============================================================================
+
+/**
+ * Stalin's ability: "Once per turn, hire 1 random MERC to primary squad;
+ * if base revealed, also hire 1 to secondary squad."
+ *
+ * Human players choose equipment and sector for the primary hire.
+ * The secondary hire (when base is revealed) is auto-placed in execute.
+ */
+export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
+  const DRAWN_MERC_KEY = '_stalin_drawn_merc_primary';
+
+  return Action.create('stalinBonusHire')
+    .prompt("Stalin's Ability: Hire MERCs")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Stalin': () => game.dictatorPlayer?.dictator?.combatantId === 'stalin',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'MERC drawn for primary squad',
+      choices: () => {
+        // Draw 1 MERC if not already drawn
+        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
+          const merc = game.drawMerc();
+          if (merc) {
+            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+          }
+        }
+
+        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+        if (!mercId) {
+          return ['No MERCs available'];
+        }
+
+        const merc = game.getElementById(mercId);
+        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+          return ['No MERCs available'];
+        }
+
+        return [capitalize(merc.combatantName)];
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy the new MERC',
+      choices: () => {
+        const primarySquad = game.dictatorPlayer.primarySquad;
+        const secondarySquad = game.dictatorPlayer.secondarySquad;
+        const primaryHasSector = !!primarySquad.sectorId && primarySquad.getLivingMercs().length > 0;
+        const secondaryHasSector = !!secondarySquad.sectorId && secondarySquad.getLivingMercs().length > 0;
+
+        if (primaryHasSector && secondaryHasSector) {
+          const validSectorIds = new Set<string>();
+          if (primarySquad.sectorId) validSectorIds.add(primarySquad.sectorId);
+          if (secondarySquad.sectorId) validSectorIds.add(secondarySquad.sectorId);
+
+          return game.gameMap.getAllSectors()
+            .filter(s => validSectorIds.has(s.sectorId))
+            .map(s => s.sectorName);
+        }
+
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
+
+        if (sectors.length === 0) {
+          const industries = game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry');
+          return industries.map(s => s.sectorName);
+        }
+
+        return sectors.map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+      const selectedMercName = args.selectedMerc as string;
+
+      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No MERC available' };
+      }
+
+      const merc = game.getElementById(mercId);
+      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'MERC not found' };
+      }
+
+      // Find target sector
+      const targetSectorChoice = args.targetSector as string;
+      const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      const allSectors = game.gameMap.getAllSectors();
+      let targetSector = allSectors.find(s => s.sectorName === sectorName);
+
+      if (!targetSector) {
+        targetSector = allSectors.find(s => targetSectorChoice.startsWith(s.sectorName));
+      }
+
+      if (!targetSector) {
+        game.message(`WARNING: Could not find sector "${sectorName}" from choice "${targetSectorChoice}"`);
+        targetSector = allSectors.find(s => s.dictatorMilitia > 0);
+        if (targetSector) {
+          game.message(`Falling back to ${targetSector.sectorName}`);
+        }
+      }
+
+      if (!targetSector) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No valid sector found' };
+      }
+
+      // Determine which squad for primary hire
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      const primaryMercs = primarySquad.getLivingMercs();
+      const secondaryMercs = secondarySquad.getLivingMercs();
+
+      let targetSquad: typeof primarySquad;
+      if ((primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) && !primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Placing ${merc.combatantName} in primary squad at ${targetSector.sectorName}`);
+      } else if ((secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) && !secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Placing ${merc.combatantName} in secondary squad at ${targetSector.sectorName}`);
+      } else if (!primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Both squads occupied - adding to primary squad`);
+      } else if (!secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Primary full - adding to secondary squad`);
+      } else {
+        merc.putInto(game.mercDiscard);
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.message('Stalin: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
+      }
+
+      merc.putInto(targetSquad);
+      targetSquad.sectorId = targetSector.sectorId;
+      game.message(`Stalin deployed ${merc.combatantName} to ${targetSector.sectorName}`);
+
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(merc, targetSector.sectorId),
+      ]);
+
+      game.updateAllSargeBonuses();
+
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, merc, equipType);
+
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+
+      game.message(`Stalin hired ${merc.combatantName} to primary squad`);
+
+      // Second hire: auto-placed when base is revealed
+      if (game.dictatorPlayer.baseRevealed && !secondarySquad.isFull) {
+        const merc2 = game.drawMerc();
+        if (merc2) {
+          merc2.putInto(secondarySquad);
+          const autoSector = selectNewMercLocation(game);
+          if (autoSector) secondarySquad.sectorId = autoSector.sectorId;
+
+          let autoEquipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+          if (merc2.weaponSlot) autoEquipType = merc2.armorSlot ? 'Accessory' : 'Armor';
+          equipNewHire(game, merc2, autoEquipType);
+
+          emitMapCombatantEntries(game, [
+            buildMapCombatantEntry(merc2, secondarySquad.sectorId ?? ''),
+          ]);
+
+          game.updateAllSargeBonuses();
+          game.message(`Stalin hired ${merc2.combatantName} to secondary squad`);
+        }
+      } else if (game.dictatorPlayer.baseRevealed && secondarySquad.isFull) {
+        game.message('Stalin: Secondary squad full, skipping second hire');
+      }
+
+      return { success: true, message: 'Stalin hire complete' };
     });
 }

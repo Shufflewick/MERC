@@ -99,6 +99,8 @@ import {
   createKimBonusMilitiaAction,
   createGeneralissimoPickAction,
   createLockdownPlaceMilitiaAction,
+  createGadafiBonusHireAction,
+  createStalinBonusHireAction,
 } from './dictator-actions.js';
 
 import {
@@ -206,6 +208,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createKimBonusMilitiaAction(game));
   game.registerAction(createGeneralissimoPickAction(game)); // Generalissimo MERC hire
   game.registerAction(createLockdownPlaceMilitiaAction(game)); // Lockdown militia placement
+  game.registerAction(createGadafiBonusHireAction(game)); // Gaddafi per-turn hire
+  game.registerAction(createStalinBonusHireAction(game)); // Stalin per-turn hire
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions
