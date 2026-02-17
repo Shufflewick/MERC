@@ -251,7 +251,7 @@ describe('MCTS Clone Divergence', () => {
     let anyError = false;
     let totalBotPlays = 0;
     const startTime = Date.now();
-    const timeBudgetMs = 100_000; // Stop starting new seeds after 100s to stay within 120s timeout
+    const timeBudgetMs = 60_000; // Stop starting new seeds well before 120s timeout (last seed may take 30s+)
 
     for (const seed of seeds) {
       if (Date.now() - startTime > timeBudgetMs) {
