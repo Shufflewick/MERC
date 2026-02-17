@@ -20,6 +20,7 @@ import {
 import { queuePendingCombat } from './combat.js';
 import { equipNewHire } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
+import { executeTacticsEffect } from './tactics-effects.js';
 
 // =============================================================================
 // Dictator Ability Types
@@ -576,6 +577,46 @@ export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
   }
 
   return { success: true, message: 'Stalin hire complete' };
+}
+
+// =============================================================================
+// Hussein's Per-Turn Bonus Tactics (AI Path)
+// =============================================================================
+
+/**
+ * Apply Hussein's per-turn ability (AI path):
+ * "Draw and play a second tactics card at the end of each turn."
+ * AI auto-plays the top card from the deck.
+ */
+export function applyHusseinBonusTactics(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'hussein') {
+    return { success: false, message: 'Not Hussein' };
+  }
+
+  const tacticsDeck = game.dictatorPlayer.tacticsDeck;
+  if (!tacticsDeck) {
+    return { success: false, message: 'No tactics deck' };
+  }
+
+  const card = tacticsDeck.first(TacticsCard);
+  if (!card) {
+    return { success: true, message: 'No cards remaining' };
+  }
+
+  // Move card to discard
+  card.putInto(game.dictatorPlayer.tacticsDiscard!);
+
+  // Execute the card's effect (handles base reveal, militia placement, etc.)
+  const result = executeTacticsEffect(game, card);
+
+  game.message(`Hussein plays bonus tactics card: ${card.tacticsName}`);
+
+  return {
+    success: true,
+    message: `Hussein bonus tactics: ${card.tacticsName} - ${result.message}`,
+    data: result.data,
+  };
 }
 
 // =============================================================================

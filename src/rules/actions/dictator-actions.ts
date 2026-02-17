@@ -1179,3 +1179,189 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       return { success: true, message: 'Stalin hire complete' };
     });
 }
+
+// =============================================================================
+// Hussein's Per-Turn Bonus Tactics Action (Human Players)
+// =============================================================================
+
+/**
+ * Hussein's ability: "Draw and play a second tactics card at the end of each turn."
+ * Human players choose which card to play (from hand), with full base reveal support.
+ * This is intentionally a near-copy of playTactics with a distinct action name
+ * for clear UX prompting ("Hussein's Ability").
+ */
+export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinition {
+  return Action.create('husseinBonusTactics')
+    .prompt("Hussein's Ability: Play a second tactics card")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Hussein': () => game.dictatorPlayer?.dictator?.combatantId === 'hussein',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'has tactics cards in hand': () => (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0,
+    })
+    .chooseElement<TacticsCard>('card', {
+      prompt: 'Select a tactics card to play',
+      elementClass: TacticsCard,
+      display: (card: TacticsCard) => card.tacticsName,
+      filter: (element) => {
+        const card = asTacticsCard(element);
+        const handCards = game.dictatorPlayer?.tacticsHand?.all(TacticsCard) ?? [];
+        return handCards.some(c => c.id === card.id);
+      },
+    })
+    .chooseFrom<string>('baseLocation', {
+      prompt: 'Choose the location for your base',
+      dependsOn: 'card',
+      choices: (ctx: ActionContext) => {
+        if (game.dictatorPlayer?.baseRevealed) {
+          return ['(skipped)'];
+        }
+        const card = ctx.args?.card as TacticsCard | undefined;
+        if (!card || !card.revealsBase) {
+          return ['(skipped)'];
+        }
+        const industries = game.gameMap.getAllSectors()
+          .filter(s => s.sectorType === 'Industry' && s.dictatorMilitia > 0);
+        if (industries.length === 0) {
+          return game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry')
+            .map(s => s.sectorName);
+        }
+        return industries.map(s => s.sectorName);
+      },
+    })
+    .chooseFrom<string>('dictatorEquipment', {
+      prompt: 'Choose starting equipment for the Dictator',
+      dependsOn: 'baseLocation',
+      choices: (ctx: ActionContext) => {
+        if (game.dictatorPlayer?.baseRevealed) return ['(skipped)'];
+        const card = ctx.args?.card as TacticsCard | undefined;
+        if (!card || !card.revealsBase) return ['(skipped)'];
+        return ['Weapon', 'Armor', 'Accessory'];
+      },
+    })
+    .execute((args) => {
+      const card = asTacticsCard(args.card);
+      game.message(`Hussein plays bonus tactics: ${card.tacticsName}`);
+
+      // Move card to discard
+      card.putInto(game.dictatorPlayer.tacticsDiscard!);
+
+      // For human players playing base-reveal cards, set base location first
+      if (!game.dictatorPlayer?.isAI &&
+          card.revealsBase &&
+          !game.dictatorPlayer?.baseRevealed &&
+          args.baseLocation) {
+        const baseName = args.baseLocation as string;
+        const baseSector = game.gameMap.getAllSectors().find(s => s.sectorName === baseName);
+        if (baseSector) {
+          game.dictatorPlayer.baseSectorId = baseSector.sectorId;
+          if (game.dictatorPlayer.dictator) {
+            game.dictatorPlayer.dictator.baseSectorId = baseSector.sectorId;
+          }
+          game.message(`Dictator established base at ${baseSector.sectorName}`);
+        }
+      }
+
+      // Execute the card's effect
+      const result = executeTacticsEffect(game, card);
+
+      // For human players playing base-reveal cards, equip the dictator
+      if (!game.dictatorPlayer?.isAI &&
+          card.revealsBase &&
+          game.dictatorPlayer?.dictator?.inPlay &&
+          args.dictatorEquipment) {
+        const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
+        const equipment = game.drawEquipment(equipType);
+        if (equipment && game.dictatorPlayer.dictator) {
+          const { displacedBandolierItems } = game.dictatorPlayer.dictator.equip(equipment);
+          for (const item of displacedBandolierItems) {
+            const discard = game.getEquipmentDiscard(item.equipmentType);
+            if (discard) item.putInto(discard);
+          }
+          game.message(`${game.dictatorPlayer.dictator.combatantName} equipped ${equipment.equipmentName}`);
+        }
+      }
+
+      return {
+        success: result.success,
+        message: `Hussein bonus tactics: ${card.tacticsName}: ${result.message}`,
+        data: result.data,
+      };
+    });
+}
+
+/**
+ * Hussein's bonus reinforce: Discard a tactics card from hand to reinforce instead of playing.
+ * Identical to reinforce but with Hussein/human checks and distinct action name.
+ */
+export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinition {
+  return Action.create('husseinBonusReinforce')
+    .prompt("Hussein's Ability: Reinforce instead of playing tactics")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Hussein': () => game.dictatorPlayer?.dictator?.combatantId === 'hussein',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'has tactics cards in hand': () => (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0,
+    })
+    .chooseElement<TacticsCard>('card', {
+      prompt: 'Discard a tactics card to reinforce',
+      elementClass: TacticsCard,
+      display: (card: TacticsCard) => card.tacticsName,
+      filter: (element) => {
+        const card = asTacticsCard(element);
+        const handCards = game.dictatorPlayer?.tacticsHand?.all(TacticsCard) ?? [];
+        return handCards.some(c => c.id === card.id);
+      },
+    })
+    .chooseElement<Sector>('sector', {
+      prompt: 'Place reinforcement militia where?',
+      elementClass: Sector,
+      filter: (element) => {
+        const sector = asSector(element);
+        const isControlled = sector.dictatorMilitia >= sector.getTotalRebelMilitia() &&
+          sector.dictatorMilitia > 0;
+        const isBase = game.dictatorPlayer.baseSectorId === sector.sectorId;
+        return isControlled || isBase;
+      },
+      boardRef: (element: Sector) => ({ id: asSector(element).id }),
+    })
+    .execute((args) => {
+      const card = asTacticsCard(args.card);
+      const sector = asSector(args.sector);
+
+      // Calculate reinforcement amount
+      const reinforcements = game.getReinforcementAmount();
+
+      // Discard the card
+      card.putInto(game.dictatorPlayer.tacticsDiscard!);
+
+      // Place militia
+      const placed = sector.addDictatorMilitia(reinforcements);
+
+      game.message(`Hussein discards ${card.tacticsName} to reinforce`);
+      game.message(`Placed ${placed} militia at ${sector.sectorName}`);
+
+      // Check if any rebel has units at this sector and trigger combat
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+          rebel.secondarySquad.sectorId === sector.sectorId;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+          queuePendingCombat(game, sector, rebel, false);
+          return {
+            success: true,
+            message: `Reinforced with ${placed} militia and engaged in combat`,
+            data: {
+              combatTriggered: true,
+              combatQueued: true,
+            },
+          };
+        }
+      }
+
+      return { success: true, message: `Reinforced with ${placed} militia` };
+    });
+}
