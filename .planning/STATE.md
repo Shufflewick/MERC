@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 61 of 62 (v2.1)
-Plan: 1 of 2 (Phase 61)
-Status: In progress
-Last activity: 2026-02-17 -- Completed 61-01-PLAN.md (Pinochet abilities)
+Plan: 2 of 2 (Phase 61)
+Status: Phase complete
+Last activity: 2026-02-17 -- Completed 61-02-PLAN.md (Gaddafi equipment loot)
 
-Progress: [#######...] 71% (5/7 phases)
+Progress: [########..] 86% (6/7 phases)
 
 ## Milestones Completed
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 125
+- Total plans completed: 126
 
 ## Accumulated Context
 
@@ -48,6 +48,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Hitler initiative target pick is a separate flow step after hire step
 - Noriega AI sector strategy: prefer non-rebel sector with most adjacent rebel sectors
 - Pinochet damage spread: MERCs first then militia for remainder allocation; no Gaddafi loot trigger
+- Gaddafi loot uses BoardSmith element ID (number) for discard pile lookup, not equipment string ID
 
 ### Deferred Issues
 
@@ -63,5 +64,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 61-01-PLAN.md, ready for 61-02
+Stopped at: Completed 61-02-PLAN.md, Phase 61 complete
 Resume file: None
