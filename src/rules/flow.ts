@@ -31,7 +31,8 @@ import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
 import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
-import { getGlobalCachedValue, setGlobalCachedValue } from './actions/helpers.js';
+import { getGlobalCachedValue, setGlobalCachedValue, equipNewHire } from './actions/helpers.js';
+import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
 
 /**
@@ -1046,8 +1047,54 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }
               }),
 
-              // Combat resolution sub-flow (Kim militia combat)
+              // Combat resolution sub-flow (ability-triggered combat: Kim, Pol Pot, Mussolini, etc.)
               combatResolutionFlow(game, 'kim-militia-combat'),
+
+              // Pol Pot: Capture combat outcome for conditional hire
+              execute(() => {
+                if (game.isFinished()) return;
+                const dictator = game.dictatorPlayer?.dictator;
+                if (dictator?.combatantId !== 'polpot') return;
+                if (!game._polpotTargetSectorId) return;
+
+                const sector = game.getSector(game._polpotTargetSectorId);
+                if (sector) {
+                  // Check if any rebel still controls this sector (means dictator lost)
+                  const rebelControls = game.rebelPlayers.some(r =>
+                    game.getControlledSectors(r).some(s => s.sectorId === sector.sectorId)
+                  );
+                  if (rebelControls) {
+                    game.lastAbilityCombatOutcome = { rebelVictory: true, sectorId: sector.sectorId };
+                  }
+                }
+                game._polpotTargetSectorId = null;
+
+                // AI Pol Pot: auto-hire on combat loss
+                if (game.dictatorPlayer?.isAI && game.lastAbilityCombatOutcome?.rebelVictory) {
+                  const merc = game.drawMerc();
+                  if (merc) {
+                    const primarySquad = game.dictatorPlayer.primarySquad;
+                    const secondarySquad = game.dictatorPlayer.secondarySquad;
+                    const squad = !primarySquad.isFull ? primarySquad : secondarySquad;
+                    merc.putInto(squad);
+
+                    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+                    if (merc.weaponSlot) {
+                      equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+                    }
+                    equipNewHire(game, merc, equipType);
+
+                    const sectorId = squad.sectorId;
+                    if (sectorId) {
+                      emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, sectorId)]);
+                    }
+
+                    game.updateAllSargeBonuses();
+                    game.message(`Pol Pot lost combat - hired ${merc.combatantName} as consolation`);
+                  }
+                  game.lastAbilityCombatOutcome = null;
+                }
+              }),
 
               // Apply end-of-turn effects (Conscripts)
               execute(() => {

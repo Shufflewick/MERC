@@ -657,6 +657,84 @@ export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult
 }
 
 /**
+ * Apply Pol Pot's per-turn ability:
+ * "Once per turn, add militia equal to rebel-controlled sector count
+ * to any one rebel sector (max 10 per sector). If dictator loses
+ * the resulting combat (rebel victory only), hire 1 random MERC."
+ */
+export function applyPolpotTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'polpot') {
+    return { success: false, message: 'Not Pol Pot' };
+  }
+
+  // Count rebel-controlled sectors
+  let rebelSectorCount = 0;
+  for (const rebel of game.rebelPlayers) {
+    rebelSectorCount += game.getControlledSectors(rebel).length;
+  }
+
+  if (rebelSectorCount === 0) {
+    game.message('Pol Pot: Rebels control no sectors, no militia to place');
+    return { success: true, message: 'No rebel sectors', data: { militiaPlaced: 0 } };
+  }
+
+  // Get rebel-controlled sectors with room for militia
+  const rebelSectors = getRebelControlledSectors(game)
+    .filter(s => s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE);
+
+  if (rebelSectors.length === 0) {
+    game.message('Pol Pot: All rebel sectors at militia capacity');
+    return { success: true, message: 'No valid targets', data: { militiaPlaced: 0 } };
+  }
+
+  // AI picks target sector
+  const targetSector = selectMilitiaPlacementSector(game, rebelSectors, 'rebel');
+  if (!targetSector) {
+    game.message('Pol Pot: Could not select a placement sector');
+    return { success: true, message: 'No target sector', data: { militiaPlaced: 0 } };
+  }
+
+  // Place militia equal to rebel-controlled sector count (standard cap)
+  const placed = targetSector.addDictatorMilitia(rebelSectorCount);
+  game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
+
+  // Track target for post-combat outcome detection
+  game._polpotTargetSectorId = targetSector.sectorId;
+
+  // Queue combat - target is always a rebel sector, so combat always triggers
+  // Find the rebel who controls this sector
+  for (const rebel of game.rebelPlayers) {
+    const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+      rebel.secondarySquad.sectorId === targetSector.sectorId;
+    const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+    if (hasSquad || hasMilitia) {
+      game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+      queuePendingCombat(game, targetSector, rebel, false);
+      return {
+        success: true,
+        message: `Placed ${placed} militia and engaged in combat`,
+        data: {
+          militiaPlaced: placed,
+          targetSector: targetSector.sectorName,
+          combatTriggered: true,
+          combatQueued: true,
+        },
+      };
+    }
+  }
+
+  // Edge case: rebel controls sector via militia only but no units detected
+  // (shouldn't happen since getRebelControlledSectors returns sectors with rebel units)
+  return {
+    success: true,
+    message: `Placed ${placed} militia`,
+    data: { militiaPlaced: placed, targetSector: targetSector.sectorName },
+  };
+}
+
+/**
  * Apply Gaddafi's per-turn ability:
  * "Once per turn, hire 1 random MERC."
  */
@@ -855,6 +933,9 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'mussolini':
       applyMussoliniTurnAbility(game);
+      break;
+    case 'polpot':
+      applyPolpotTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling

@@ -659,6 +659,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.pendingMussoliniSpread !== null;
   }
 
+  // Pol Pot: track which sector the ability targeted for post-combat loss detection
+  _polpotTargetSectorId: string | null = null;
+
+  // Track the outcome of combat triggered by a dictator ability (for Pol Pot's conditional hire)
+  lastAbilityCombatOutcome: {
+    rebelVictory: boolean;
+    sectorId: string;
+  } | null = null;
+
   /** Pending mortar attack hit allocation (attacker rolled dice, player chooses targets) */
   pendingMortarAttack: {
     attackerName: string;
