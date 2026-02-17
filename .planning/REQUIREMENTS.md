@@ -63,35 +63,35 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| TURN-01 | TBD | Pending |
-| TURN-02 | TBD | Pending |
-| TURN-03 | TBD | Pending |
-| TURN-04 | TBD | Pending |
-| TURN-05 | TBD | Pending |
-| TURN-06 | TBD | Pending |
-| TURN-07 | TBD | Pending |
-| TURN-08 | TBD | Pending |
-| SETUP-01 | TBD | Pending |
-| SETUP-02 | TBD | Pending |
-| SETUP-03 | TBD | Pending |
-| REACT-01 | TBD | Pending |
-| REACT-02 | TBD | Pending |
-| REACT-03 | TBD | Pending |
-| AI-01 | TBD | Pending |
-| AI-02 | TBD | Pending |
-| AI-03 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
+| DATA-01 | Phase 56 | Pending |
+| DATA-02 | Phase 56 | Pending |
+| TURN-01 | Phase 57 | Pending |
+| TURN-02 | Phase 60 | Pending |
+| TURN-03 | Phase 59 | Pending |
+| TURN-04 | Phase 59 | Pending |
+| TURN-05 | Phase 60 | Pending |
+| TURN-06 | Phase 61 | Pending |
+| TURN-07 | Phase 59 | Pending |
+| TURN-08 | Phase 57 | Pending |
+| SETUP-01 | Phase 58 | Pending |
+| SETUP-02 | Phase 58 | Pending |
+| SETUP-03 | Phase 58 | Pending |
+| REACT-01 | Phase 58 | Pending |
+| REACT-02 | Phase 61 | Pending |
+| REACT-03 | Phase 61 | Pending |
+| AI-01 | Phase 62 | Pending |
+| AI-02 | Phase 62 | Pending |
+| AI-03 | Phase 62 | Pending |
+| TEST-01 | Phase 62 | Pending |
+| TEST-02 | Phase 62 | Pending |
+| TEST-03 | Phase 62 | Pending |
+| TEST-04 | Phase 62 | Pending |
 
 **Coverage:**
 - v1 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after initial definition*
+*Last updated: 2026-02-17 after roadmap creation*

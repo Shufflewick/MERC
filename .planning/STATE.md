@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-16)
+See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** Planning next milestone
+**Current focus:** v2.1 Expansion Dictators -- Phase 56 Data Foundation
 
 ## Current Position
 
-Phase: 55 of 55 (v2.0 complete)
-Plan: N/A
-Status: Milestone complete — ready for next milestone
-Last activity: 2026-02-16 -- v2.0 Simultaneous Rebel Turns shipped
+Phase: 56 of 62 (v2.1)
+Plan: None yet -- awaiting plan-phase
+Status: Roadmap created, ready to plan Phase 56
+Last activity: 2026-02-17 -- v2.1 roadmap created
 
-Progress: [██████████] 100% (v2.0 complete)
+Progress: [..........] 0% (0/7 phases)
 
 ## Milestones Completed
 
@@ -57,6 +57,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: v2.0 milestone archived
+Last session: 2026-02-17
+Stopped at: Roadmap created for v2.1 Expansion Dictators
 Resume file: None
