@@ -997,7 +997,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for AI)
               actionStep({
                 name: 'dictator-ability',
-                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
@@ -1011,6 +1011,19 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   actions: ['maoBonusMilitia'],
                   prompt: "Mao's Ability: Distribute militia to wilderness sectors",
                   skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
+                }),
+              }),
+
+              // Mussolini spread loop (human only - spread militia from source to adjacent)
+              loop({
+                name: 'mussolini-spread',
+                while: () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'mussolini-spread-militia',
+                  actions: ['mussoliniSpreadMilitia'],
+                  prompt: "Mussolini: Move militia to adjacent sectors (or done)",
+                  skipIf: () => game.isFinished() || game.pendingMussoliniSpread == null || game.pendingMussoliniSpread.remaining <= 0,
                 }),
               }),
 

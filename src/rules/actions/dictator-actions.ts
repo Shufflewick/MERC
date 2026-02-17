@@ -909,6 +909,177 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
+// Mussolini's Per-Turn Militia Placement Action (Human Players) - Step 1
+// =============================================================================
+
+/**
+ * Mussolini's ability Step 1: Place militia equal to rebel count on a controlled sector.
+ * After placing, sets up pendingMussoliniSpread for the spread loop.
+ */
+export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('mussoliniBonusMilitia')
+    .prompt("Mussolini's Ability: Add militia to a controlled sector")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Mussolini': () => game.dictatorPlayer?.dictator?.combatantId === 'mussolini',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'has not placed yet': () => game.pendingMussoliniSpread == null,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose controlled sector to add militia',
+      choices: () => {
+        const allSectors = game.gameMap.getAllSectors();
+        return allSectors
+          .filter(s => {
+            if (s.dictatorMilitia > 0) return true;
+            if (game.getDictatorMercsInSector(s).length > 0) return true;
+            if (game.dictatorPlayer.baseRevealed && game.dictatorPlayer.baseSectorId === s.sectorId) return true;
+            return false;
+          })
+          .map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      const sectorName = args.targetSector as string;
+      const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+      if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+
+      const rebelCount = game.rebelCount;
+      if (rebelCount === 0) {
+        game.message('Mussolini: No rebels, no militia to place');
+        return { success: true, message: 'No militia to place' };
+      }
+
+      const placed = sector.addDictatorMilitia(rebelCount);
+      game.message(`Mussolini placed ${placed} militia at ${sector.sectorName} (${rebelCount} rebels)`);
+
+      // Set up spread state: remaining is total militia in source sector after placement
+      game.pendingMussoliniSpread = {
+        sourceSectorId: sector.sectorId,
+        remaining: sector.dictatorMilitia,
+      };
+
+      // Check for combat at placement sector
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+          rebel.secondarySquad.sectorId === sector.sectorId;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+          queuePendingCombat(game, sector, rebel, false);
+          break;
+        }
+      }
+
+      return { success: true, message: `Placed ${placed} militia` };
+    });
+}
+
+// =============================================================================
+// Mussolini's Per-Turn Spread Action (Human Players) - Step 2
+// =============================================================================
+
+/**
+ * Mussolini's ability Step 2: Spread militia from source sector to adjacent sectors.
+ * Can choose "Done spreading" to skip. Loop continues until done or no militia left.
+ */
+export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('mussoliniSpreadMilitia')
+    .prompt("Mussolini: Spread militia to adjacent sectors (or skip)")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Mussolini': () => game.dictatorPlayer?.dictator?.combatantId === 'mussolini',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'has pending spread': () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose adjacent sector to spread militia (or Done)',
+      choices: () => {
+        const pending = game.pendingMussoliniSpread;
+        if (!pending) return ['Done spreading'];
+
+        const sourceSector = game.getSector(pending.sourceSectorId);
+        if (!sourceSector) return ['Done spreading'];
+
+        const adjacent = game.getAdjacentSectors(sourceSector)
+          .filter(s => s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE)
+          .map(s => s.sectorName);
+
+        return ['Done spreading', ...adjacent];
+      },
+    })
+    .chooseFrom<string>('amount', {
+      prompt: 'How many militia to move?',
+      choices: () => {
+        const remaining = game.pendingMussoliniSpread?.remaining ?? 0;
+        const sourceSector = game.pendingMussoliniSpread
+          ? game.getSector(game.pendingMussoliniSpread.sourceSectorId)
+          : null;
+        const sourceAvailable = sourceSector?.dictatorMilitia ?? 0;
+        const max = Math.min(remaining, sourceAvailable, Sector.MAX_MILITIA_PER_SIDE);
+        if (max <= 0) return ['0'];
+        return Array.from({ length: max }, (_, i) => `${i + 1}`);
+      },
+    })
+    .execute((args) => {
+      const targetSectorName = args.targetSector as string;
+
+      // Handle "Done spreading"
+      if (targetSectorName === 'Done spreading') {
+        game.pendingMussoliniSpread = null;
+        game.message('Mussolini: Done spreading militia');
+        return { success: true, message: 'Done spreading' };
+      }
+
+      const pending = game.pendingMussoliniSpread;
+      if (!pending) return { success: false, message: 'No pending spread' };
+
+      const sourceSector = game.getSector(pending.sourceSectorId);
+      if (!sourceSector) return { success: false, message: 'Source sector not found' };
+
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
+      if (!targetSector) return { success: false, message: `Invalid sector: "${targetSectorName}"` };
+
+      const requestedAmount = parseInt(args.amount as string, 10);
+      if (isNaN(requestedAmount) || requestedAmount <= 0) {
+        return { success: false, message: 'Invalid amount' };
+      }
+
+      // Compute actual amount respecting source availability and target cap
+      const targetRoom = Sector.MAX_MILITIA_PER_SIDE - targetSector.dictatorMilitia;
+      const amount = Math.min(requestedAmount, targetRoom, sourceSector.dictatorMilitia, pending.remaining);
+      if (amount <= 0) return { success: false, message: 'Cannot move militia (no room or no source militia)' };
+
+      sourceSector.removeDictatorMilitia(amount);
+      targetSector.addDictatorMilitia(amount);
+      pending.remaining -= amount;
+
+      game.message(`Mussolini moved ${amount} militia from ${sourceSector.sectorName} to ${targetSector.sectorName} (${pending.remaining} remaining)`);
+
+      // Check for combat on target
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+          rebel.secondarySquad.sectorId === targetSector.sectorId;
+        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+          queuePendingCombat(game, targetSector, rebel, false);
+          break;
+        }
+      }
+
+      // Clear pending if source has 0 militia left or remaining is 0
+      if (sourceSector.dictatorMilitia <= 0 || pending.remaining <= 0) {
+        game.pendingMussoliniSpread = null;
+      }
+
+      return { success: true, message: `Moved ${amount} militia` };
+    });
+}
+
+// =============================================================================
 // Gaddafi's Per-Turn Hire Action (Human Players)
 // =============================================================================
 
