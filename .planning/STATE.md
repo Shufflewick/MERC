@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 62 of 62 (v2.1)
-Plan: 01 of 62 (in progress)
-Status: In progress - Plan 01 complete
-Last activity: 2026-02-17 -- Completed 62-01-PLAN.md (shared test helpers + dictator ability unit tests)
+Plan: 02 of 3 (in phase 62)
+Status: In progress - Plan 02 complete
+Last activity: 2026-02-17 -- Completed 62-02-PLAN.md (dictator setup & reactive ability tests)
 
 Progress: [########..] 86% (6/7 phases)
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 127
+- Total plans completed: 128
 
 ## Accumulated Context
 
@@ -50,6 +50,8 @@ All decisions captured in PROJECT.md Key Decisions table.
 - Pinochet damage spread: MERCs first then militia for remainder allocation; no Gaddafi loot trigger
 - Gaddafi loot uses BoardSmith element ID (number) for discard pile lookup, not equipment string ID
 - Dictator ability unit tests use createTestGame + setupDictator('id') pattern with isAI=true
+- Setup/reactive ability tests use GameRunner with dictatorChoice (not nested gameOptions.dictatorCharacter)
+- Pol Pot conditional hire is flow-driven, not a standalone function (deferred to integration tests)
 
 ### Deferred Issues
 
@@ -65,5 +67,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 62-01-PLAN.md
+Stopped at: Completed 62-02-PLAN.md
 Resume file: None
