@@ -26,7 +26,7 @@ function actionStep(config: MERCActionStepConfig) {
 }
 import { TacticsCard, Sector } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
-import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread } from './dictator-abilities.js';
+import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
 import type { Combatant } from './combat-types.js';
@@ -383,7 +383,36 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       ),
     }),
 
-    // 9. Auto-clear in fully AI games
+    // 9. Gaddafi: AI auto-loot after combat
+    execute(() => {
+      if (game.dictatorPlayer?.dictator?.combatantId !== 'gadafi') return;
+      if (!game._gaddafiLootableEquipment || game._gaddafiLootableEquipment.length === 0) return;
+      if (!game.activeCombat?.combatComplete) return;
+      if (game.dictatorPlayer?.isAI) {
+        processGaddafiLoot(game);
+      }
+    }),
+
+    // 10. Gaddafi: Human equipment loot choices after combat
+    loop({
+      name: `${prefix}-gaddafi-loot`,
+      while: () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi' &&
+        game.dictatorPlayer?.isAI !== true &&
+        game._gaddafiLootableEquipment != null &&
+        game._gaddafiLootableEquipment.length > 0 &&
+        !game.isFinished(),
+      maxIterations: 20,
+      do: actionStep({
+        name: 'gaddafi-loot-equipment',
+        actions: ['gaddafiLootEquipment', 'gaddafiDiscardLoot'],
+        prompt: "Gaddafi's Ability: Equip looted equipment on your MERCs",
+        skipIf: () => game.isFinished() ||
+          !game._gaddafiLootableEquipment ||
+          game._gaddafiLootableEquipment.length === 0,
+      }),
+    }),
+
+    // 11. Auto-clear in fully AI games
     execute(() => {
       if (game.activeCombat?.combatComplete &&
           game.dictatorPlayer?.isAI &&

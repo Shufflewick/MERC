@@ -22,6 +22,7 @@ import { getNextAIAction } from '../ai-executor.js';
 import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
+import { findEquipmentInDiscards } from '../dictator-abilities.js';
 
 // =============================================================================
 // Dictator Unit Type and Helpers
@@ -2471,5 +2472,154 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
 
       game.message(`Pinochet lost a sector - hired ${merc.combatantName}`);
       return { success: true, message: `Hired ${merc.combatantName}` };
+    });
+}
+
+// =============================================================================
+// Gaddafi Reactive Equipment Loot Actions (Human Flow)
+// =============================================================================
+
+/**
+ * Gaddafi loot: human player picks a looted equipment item and assigns it to a dictator MERC.
+ * Selection 1: Choose which equipment to loot (from staged items)
+ * Selection 2: Choose which dictator MERC receives it (must have open slot of matching type)
+ */
+export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefinition {
+  // Closure variable to store selected equipment index between selection steps
+  let selectedItemIndex = -1;
+
+  return Action.create('gaddafiLootEquipment')
+    .prompt("Gaddafi's Ability: Equip looted equipment on a MERC")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
+      'not AI': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+      'has loot available': () =>
+        game._gaddafiLootableEquipment != null &&
+        game._gaddafiLootableEquipment.length > 0,
+    })
+    .chooseFrom<string>('equipment', {
+      prompt: 'Choose equipment to loot',
+      choices: () => {
+        if (!game._gaddafiLootableEquipment) return [];
+
+        const choices: string[] = [];
+        for (let i = 0; i < game._gaddafiLootableEquipment.length; i++) {
+          const item = game._gaddafiLootableEquipment[i];
+          const equipment = findEquipmentInDiscards(game, item.equipmentId);
+          if (!equipment) continue;
+
+          // Check if any dictator MERC in the sector has an open slot
+          const sector = game.getSector(item.sectorId);
+          if (!sector) continue;
+          const mercs = game.getDictatorMercsInSector(sector);
+          const equipType = equipment.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+          const hasRecipient = mercs.some(m => {
+            if (equipType === 'Weapon') return !m.weaponSlot;
+            if (equipType === 'Armor') return !m.armorSlot;
+            if (equipType === 'Accessory') return !m.accessorySlot;
+            return false;
+          });
+
+          if (hasRecipient) {
+            // Encode index at start of string for parsing in execute
+            choices.push(`${i}:${equipment.equipmentName} (${equipType}) at ${sector.sectorName}`);
+          }
+        }
+
+        return choices;
+      },
+      onSelect: (value) => { selectedItemIndex = parseInt(value.split(':')[0], 10); },
+    })
+    .chooseElement<CombatantModel>('recipient', {
+      prompt: 'Choose a MERC to receive the equipment',
+      elementClass: CombatantModel,
+      dependsOn: 'equipment',
+      display: (merc) => capitalize(merc.combatantName),
+      filter: (element) => {
+        if (!isCombatantModel(element)) return false;
+        const merc = element as CombatantModel;
+        if (merc.isDead) return false;
+
+        if (selectedItemIndex < 0 || !game._gaddafiLootableEquipment) return false;
+        const item = game._gaddafiLootableEquipment[selectedItemIndex];
+        if (!item) return false;
+
+        // Must be in the combat sector
+        if (merc.sectorId !== item.sectorId) return false;
+
+        // Must be a dictator MERC in that sector
+        const sector = game.getSector(item.sectorId);
+        if (!sector) return false;
+        const dictatorMercs = game.getDictatorMercsInSector(sector);
+        if (!dictatorMercs.some(m => m.id === merc.id)) return false;
+
+        const equipment = findEquipmentInDiscards(game, item.equipmentId);
+        if (!equipment) return false;
+
+        const equipType = equipment.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+        if (equipType === 'Weapon') return !merc.weaponSlot;
+        if (equipType === 'Armor') return !merc.armorSlot;
+        if (equipType === 'Accessory') return !merc.accessorySlot;
+        return false;
+      },
+    })
+    .execute((args) => {
+      const itemIndex = parseInt((args.equipment as string).split(':')[0], 10);
+      if (!game._gaddafiLootableEquipment || isNaN(itemIndex)) {
+        return { success: false, message: 'Invalid equipment selection' };
+      }
+      const item = game._gaddafiLootableEquipment[itemIndex];
+      if (!item) {
+        return { success: false, message: 'Equipment item not found in staging' };
+      }
+
+      const equipment = findEquipmentInDiscards(game, item.equipmentId);
+      if (!equipment) {
+        // Equipment no longer in discard — remove from staging
+        game._gaddafiLootableEquipment.splice(itemIndex, 1);
+        if (game._gaddafiLootableEquipment.length === 0) game._gaddafiLootableEquipment = null;
+        return { success: false, message: 'Equipment no longer available' };
+      }
+
+      const recipient = args.recipient as CombatantModel;
+      if (!recipient) {
+        return { success: false, message: 'No recipient selected' };
+      }
+
+      recipient.equip(equipment);
+      game.message(`Gaddafi loots ${equipment.equipmentName} onto ${recipient.combatantName}`);
+
+      // Remove from staging
+      game._gaddafiLootableEquipment.splice(itemIndex, 1);
+      if (game._gaddafiLootableEquipment.length === 0) game._gaddafiLootableEquipment = null;
+
+      selectedItemIndex = -1;
+
+      return { success: true, message: `Looted ${equipment.equipmentName}` };
+    });
+}
+
+/**
+ * Gaddafi loot: human player declines remaining looted equipment.
+ * Clears the staging field so the loot loop exits.
+ */
+export function createGaddafiDiscardLootAction(game: MERCGame): ActionDefinition {
+  return Action.create('gaddafiDiscardLoot')
+    .prompt("Decline remaining loot")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
+      'not AI': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+      'has loot available': () =>
+        game._gaddafiLootableEquipment != null &&
+        game._gaddafiLootableEquipment.length > 0,
+    })
+    .execute(() => {
+      game._gaddafiLootableEquipment = null;
+      game.message('Gaddafi declines remaining loot');
+      return { success: true, message: 'Loot declined' };
     });
 }

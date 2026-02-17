@@ -133,7 +133,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia', 'polpotBonusMilitia', 'polpotBonusHire', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'hitlerPickInitiativeTarget', 'husseinBonusTactics', 'husseinBonusReinforce', 'noriegaConvertMilitia', 'noriegaPlaceMilitia', 'noriegaBonusHire', 'pinochetBonusHire'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia', 'polpotBonusMilitia', 'polpotBonusHire', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'hitlerPickInitiativeTarget', 'husseinBonusTactics', 'husseinBonusReinforce', 'noriegaConvertMilitia', 'noriegaPlaceMilitia', 'noriegaBonusHire', 'pinochetBonusHire', 'gaddafiLootEquipment', 'gaddafiDiscardLoot'];
   return dictatorSpecificActions.includes(currentAction);
 });
 

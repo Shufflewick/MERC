@@ -114,6 +114,8 @@ import {
   createNoriegaPlaceMilitiaAction,
   createNoriegaBonusHireAction,
   createPinochetBonusHireAction,
+  createGaddafiLootEquipmentAction,
+  createGaddafiDiscardLootAction,
 } from './dictator-actions.js';
 
 import {
@@ -238,6 +240,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createNoriegaPlaceMilitiaAction(game)); // Noriega converted militia placement
   game.registerAction(createNoriegaBonusHireAction(game)); // Noriega conditional hire
   game.registerAction(createPinochetBonusHireAction(game)); // Pinochet sector-loss hire
+  game.registerAction(createGaddafiLootEquipmentAction(game)); // Gaddafi post-combat loot equip
+  game.registerAction(createGaddafiDiscardLootAction(game)); // Gaddafi decline remaining loot
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions
