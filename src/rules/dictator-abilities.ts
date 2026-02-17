@@ -905,6 +905,170 @@ export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 // =============================================================================
+// Pinochet's Per-Turn Abilities (AI + Human Paths)
+// =============================================================================
+
+/**
+ * Apply Pinochet's pending hires from sector losses (AI auto-hire).
+ * For each pending hire: draw a MERC, place in non-full squad, auto-equip, emit map entry.
+ */
+export function applyPinochetPendingHires(game: MERCGame): void {
+  if (game._pinochetPendingHires <= 0) return;
+
+  const hiresToProcess = game._pinochetPendingHires;
+  game._pinochetPendingHires = 0;
+
+  for (let i = 0; i < hiresToProcess; i++) {
+    const merc = game.drawMerc();
+    if (!merc) {
+      game.message('Pinochet: No MERCs available to hire');
+      break;
+    }
+
+    const primarySquad = game.dictatorPlayer.primarySquad;
+    const secondarySquad = game.dictatorPlayer.secondarySquad;
+    const targetSquad = !primarySquad.isFull ? primarySquad
+      : !secondarySquad.isFull ? secondarySquad
+      : null;
+
+    if (!targetSquad) {
+      merc.putInto(game.mercDiscard);
+      game.message('Pinochet: All squads full, cannot hire');
+      continue;
+    }
+
+    merc.putInto(targetSquad);
+
+    // Set squad location if not assigned yet
+    if (!targetSquad.sectorId) {
+      const targetSector = selectNewMercLocation(game);
+      if (targetSector) {
+        targetSquad.sectorId = targetSector.sectorId;
+      }
+    }
+
+    // Auto-equip: Weapon first, then Armor, then Accessory
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (merc.weaponSlot) {
+      equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+    }
+    equipNewHire(game, merc, equipType);
+    game.updateAllSargeBonuses();
+
+    // Emit map entry animation
+    if (targetSquad.sectorId) {
+      emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
+    }
+
+    game.message(`Pinochet lost a sector - hired ${merc.combatantName}`);
+  }
+}
+
+/**
+ * Apply Pinochet's damage spread ability.
+ * Distributes damage equal to rebel-controlled sector count across all rebel forces.
+ * Damage is spread as evenly as possible across living MERCs and militia.
+ * Runs for both AI and human Pinochet (no player choices required).
+ */
+export function applyPinochetDamageSpread(game: MERCGame): void {
+  // Count rebel-controlled sectors
+  let rebelSectorCount = 0;
+  for (const rebel of game.rebelPlayers) {
+    rebelSectorCount += game.getControlledSectors(rebel).length;
+  }
+
+  if (rebelSectorCount === 0) {
+    game.message('Pinochet: Rebels control no sectors - no damage to distribute');
+    return;
+  }
+
+  const totalDamage = rebelSectorCount;
+
+  // Gather all rebel forces as a flat array of targets
+  // MERCs first (determines who gets remainder damage), then militia
+  interface DamageTarget {
+    type: 'merc' | 'militia';
+    merc?: CombatantModel;
+    sector?: Sector;
+    playerId?: string;
+  }
+
+  const targets: DamageTarget[] = [];
+
+  // MERCs first
+  for (const rebel of game.rebelPlayers) {
+    for (const merc of rebel.team) {
+      if (!merc.isDead) {
+        targets.push({ type: 'merc', merc });
+      }
+    }
+  }
+
+  // Then militia
+  for (const rebel of game.rebelPlayers) {
+    const playerId = String(rebel.seat);
+    for (const sector of game.gameMap.getAllSectors()) {
+      const militiaCount = sector.getRebelMilitia(playerId);
+      for (let i = 0; i < militiaCount; i++) {
+        targets.push({ type: 'militia', sector, playerId });
+      }
+    }
+  }
+
+  if (targets.length === 0) {
+    game.message('Pinochet: No rebel forces to damage');
+    return;
+  }
+
+  // Distribute damage evenly
+  const perUnit = Math.floor(totalDamage / targets.length);
+  const remainder = totalDamage % targets.length;
+
+  let totalApplied = 0;
+
+  for (let i = 0; i < targets.length; i++) {
+    const dmg = i < remainder ? perUnit + 1 : perUnit;
+    if (dmg <= 0) continue;
+
+    const target = targets[i];
+
+    if (target.type === 'merc' && target.merc) {
+      const merc = target.merc;
+      merc.takeDamage(dmg);
+      totalApplied += dmg;
+
+      if (merc.isDead) {
+        // Discard all equipment (same pattern as combat.ts death handling)
+        const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
+        for (const eqType of equipmentTypes) {
+          const equipment = merc.unequip(eqType);
+          if (equipment) {
+            const discard = game.getEquipmentDiscard(eqType);
+            if (discard) equipment.putInto(discard);
+          }
+        }
+        merc.putInto(game.mercDiscard);
+        game.message(`${merc.combatantName} killed by Pinochet's damage spread!`);
+      }
+    } else if (target.type === 'militia' && target.sector && target.playerId) {
+      target.sector.removeRebelMilitia(target.playerId, dmg);
+      totalApplied += dmg;
+    }
+  }
+
+  game.message(`Pinochet distributes ${totalApplied} damage across rebel forces (rebels control ${rebelSectorCount} sectors)`);
+}
+
+/**
+ * Apply Pinochet's per-turn ability (AI dispatcher entry point).
+ * Processes pending hires first (from sector losses), then applies damage spread.
+ */
+export function applyPinochetTurnAbility(game: MERCGame): void {
+  applyPinochetPendingHires(game);
+  applyPinochetDamageSpread(game);
+}
+
+// =============================================================================
 // Noriega's Per-Turn Ability (AI Path)
 // =============================================================================
 
@@ -1148,6 +1312,9 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'noriega':
       applyNoriegaTurnAbility(game);
+      break;
+    case 'pinochet':
+      applyPinochetTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling

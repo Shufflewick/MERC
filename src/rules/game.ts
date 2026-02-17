@@ -665,6 +665,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Pol Pot: track which sector the ability targeted for post-combat loss detection
   _polpotTargetSectorId: string | null = null;
 
+  // Pinochet: snapshot of dictator-controlled sector IDs before rebel phase for before/after comparison
+  _pinochetControlledSnapshot: Set<string> | null = null;
+
+  // Pinochet: queued hires from sector losses (counter, not boolean, to handle multiple losses)
+  _pinochetPendingHires: number = 0;
+
   // Hitler: persistent initiative target (which rebel player is targeted for auto-initiative override)
   // Serialized to clients so all players can see the current target
   hitlerInitiativeTargetSeat: number | null = null;
