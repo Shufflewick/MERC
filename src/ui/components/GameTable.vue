@@ -9,6 +9,7 @@ import { useBoardInteraction, type UseActionControllerReturn, useAnimationEvents
 import AssignToSquadPanel from './AssignToSquadPanel.vue';
 import CombatPanel from './CombatPanel.vue';
 import CombatantCard from './CombatantCard.vue';
+import CoordinatedAttackPanel from './CoordinatedAttackPanel.vue';
 import DictatorPanel from './DictatorPanel.vue';
 import HagnessDrawEquipment from './HagnessDrawEquipment.vue';
 import HiringPhase from './HiringPhase.vue';
@@ -295,6 +296,69 @@ const hasExplosivesComponents = computed(() => {
   }
 
   return hasDetonator && hasExplosives;
+});
+
+// ============================================================================
+// COORDINATED ATTACK STATE
+// ============================================================================
+
+const coordinatedAttackData = computed(() => {
+  const gv = props.gameView;
+  if (!gv) return null;
+  return getAttr(gv, 'coordinatedAttack', null) as {
+    targetSectorId: string;
+    declaringPlayerSeat: number;
+    committedSquads: Array<{ playerSeat: number; squadType: 'primary' | 'secondary' }>;
+    declinedPlayers: number[];
+  } | null;
+});
+
+const showCoordinatedAttackPanel = computed(() =>
+  props.availableActions.includes('commitSquadToCoordinatedAttack') ||
+  props.availableActions.includes('declineCoordinatedAttack')
+);
+
+const coordinatedAttackTargetSector = computed(() => {
+  const data = coordinatedAttackData.value;
+  if (!data) return null;
+  return sectors.value.find(s => s.sectorId === data.targetSectorId) || null;
+});
+
+const coordinatedAttackEligibleSquads = computed(() => {
+  const data = coordinatedAttackData.value;
+  const target = coordinatedAttackTargetSector.value;
+  if (!data || !target) return [];
+
+  const result: Array<{ squadType: 'primary' | 'secondary'; label: string; mercs: any[] }> = [];
+  const squads = [
+    ['primary', primarySquad.value],
+    ['secondary', secondarySquad.value],
+  ] as const;
+
+  for (const [squadType, squad] of squads) {
+    if (!squad?.sectorId || !squad.mercs?.length) continue;
+    // Already committed?
+    if (data.committedSquads.some((s: any) => s.playerSeat === props.playerSeat && s.squadType === squadType)) continue;
+    // Adjacent?
+    const squadSector = sectors.value.find(s => s.sectorId === squad.sectorId);
+    if (!squadSector) continue;
+    const isAdj = Math.abs(squadSector.row - target.row) + Math.abs(squadSector.col - target.col) === 1;
+    if (!isAdj) continue;
+    // MERCs with actions?
+    if (!squad.mercs.every((m: any) => (getAttr(m, 'actionsRemaining', 0) as number) >= 1)) continue;
+    result.push({
+      squadType,
+      label: squadType === 'primary' ? 'Primary Squad' : 'Secondary Squad',
+      mercs: squad.mercs,
+    });
+  }
+  return result;
+});
+
+const coordinatedAttackDeclaringColor = computed(() => {
+  const data = coordinatedAttackData.value;
+  if (!data) return '';
+  return seatToColor(data.declaringPlayerSeat);
 });
 
 // MERC-rwdv: Get dictator card data (for DictatorPanel)
@@ -1559,6 +1623,16 @@ const clickableSectors = computed(() => {
 
         <h2 v-if="isSelectingRetreatSector" class="action-title">Retreat</h2>
         <p v-if="isSelectingRetreatSector" class="action-subtitle">Select an adjacent sector to retreat to</p>
+
+        <!-- Coordinated Attack Panel - shown when player can join/decline -->
+        <CoordinatedAttackPanel
+          v-if="showCoordinatedAttackPanel"
+          :target-sector="coordinatedAttackTargetSector"
+          :declaring-player-color="coordinatedAttackDeclaringColor"
+          :eligible-squads="coordinatedAttackEligibleSquads"
+          :player-color="currentPlayerColor"
+          :action-controller="actionController"
+        />
 
         <!-- Assign to Squad UI (shown above map when action is active) -->
         <AssignToSquadPanel
