@@ -125,6 +125,12 @@ Plans:
 
 **Requirements:** REACT-02, REACT-03, TURN-06
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 61-01-PLAN.md -- Pinochet per-turn damage spread and sector-loss reactive hire (AI + human + snapshot mechanism)
+- [ ] 61-02-PLAN.md -- Gaddafi equipment loot on rebel MERC kill (combat hooks + post-combat flow)
+
 **Success Criteria:**
 1. When dictator forces kill a MERC under Gaddafi, the dictator is offered the dead MERC's equipment for dictator MERCs in that sector
 2. When Pinochet loses control of a sector, a free MERC hire is queued and placed at the start of the next turn
@@ -166,4 +172,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 60 execution complete*
+*Last updated: 2026-02-17 after Phase 61 planning complete*
