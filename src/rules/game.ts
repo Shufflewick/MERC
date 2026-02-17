@@ -659,6 +659,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.pendingMussoliniSpread !== null;
   }
 
+  // Noriega: pending militia conversion for human flow path
+  pendingNoriegaConversion: { convertedCount: number } | null = null;
+
   // Pol Pot: track which sector the ability targeted for post-combat loss detection
   _polpotTargetSectorId: string | null = null;
 

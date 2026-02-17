@@ -905,6 +905,143 @@ export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 // =============================================================================
+// Noriega's Per-Turn Ability (AI Path)
+// =============================================================================
+
+/**
+ * Apply Noriega's per-turn ability:
+ * "Convert 1 militia from each rebel-controlled sector to dictator militia,
+ * move all converted to one chosen non-rebel sector.
+ * If dictator controls fewer sectors than rebels (post-conversion), hire 1 MERC."
+ */
+export function applyNoriegaTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'noriega') {
+    return { success: false, message: 'Not Noriega' };
+  }
+
+  // Step 1: Convert 1 rebel militia from each rebel-controlled sector
+  let totalConverted = 0;
+  for (const rebel of game.rebelPlayers) {
+    const controlledSectors = game.getControlledSectors(rebel);
+    for (const sector of controlledSectors) {
+      const removed = sector.removeRebelMilitia(String(rebel.seat), 1);
+      if (removed > 0) {
+        totalConverted += removed;
+        game.message(`Noriega converts 1 militia in ${sector.sectorName}`);
+      }
+    }
+  }
+
+  if (totalConverted === 0) {
+    game.message('Noriega: No rebel militia to convert');
+  }
+
+  // Step 2: Place converted militia in a non-rebel sector
+  if (totalConverted > 0) {
+    // Find all non-rebel-controlled sectors
+    const rebelControlledIds = new Set<string>();
+    for (const rebel of game.rebelPlayers) {
+      for (const sector of game.getControlledSectors(rebel)) {
+        rebelControlledIds.add(sector.sectorId);
+      }
+    }
+    const nonRebelSectors = game.gameMap.getAllSectors()
+      .filter(s => !rebelControlledIds.has(s.sectorId));
+
+    if (nonRebelSectors.length === 0) {
+      // Edge case: all sectors are rebel-controlled, place on any sector with dictator presence
+      const fallback = game.gameMap.getAllSectors().find(s => s.dictatorMilitia > 0);
+      if (fallback) {
+        fallback.addDictatorMilitia(totalConverted);
+        game.message(`Noriega moved ${totalConverted} converted militia to ${fallback.sectorName}`);
+      }
+    } else {
+      // AI strategy: prefer non-rebel sector with most adjacent rebel sectors
+      let bestSector = nonRebelSectors[0];
+      let bestScore = -1;
+
+      for (const sector of nonRebelSectors) {
+        const adjacent = game.getAdjacentSectors(sector);
+        const adjacentRebelCount = adjacent.filter(a => rebelControlledIds.has(a.sectorId)).length;
+        if (adjacentRebelCount > bestScore) {
+          bestScore = adjacentRebelCount;
+          bestSector = sector;
+        }
+      }
+
+      bestSector.addDictatorMilitia(totalConverted);
+      game.message(`Noriega moved ${totalConverted} converted militia to ${bestSector.sectorName}`);
+
+      // Check for combat in destination sector
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === bestSector.sectorId ||
+          rebel.secondarySquad.sectorId === bestSector.sectorId;
+        const hasMilitia = bestSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${bestSector.sectorName} - combat begins!`);
+          queuePendingCombat(game, bestSector, rebel, false);
+        }
+      }
+    }
+  }
+
+  // Step 3: Conditional hire -- compare post-conversion sector counts
+  const dictatorSectors = game.getControlledSectors(game.dictatorPlayer).length;
+  let totalRebelSectors = 0;
+  for (const rebel of game.rebelPlayers) {
+    totalRebelSectors += game.getControlledSectors(rebel).length;
+  }
+
+  if (dictatorSectors < totalRebelSectors) {
+    const merc = game.drawMerc();
+    if (merc) {
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      const targetSquad = !primarySquad.isFull ? primarySquad
+        : !secondarySquad.isFull ? secondarySquad
+        : null;
+
+      if (!targetSquad) {
+        merc.putInto(game.mercDiscard);
+        game.message('Noriega: All squads full, cannot hire');
+      } else {
+        merc.putInto(targetSquad);
+        const targetSector = selectNewMercLocation(game);
+        if (targetSector) {
+          targetSquad.sectorId = targetSector.sectorId;
+        }
+
+        let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+        if (merc.weaponSlot) {
+          equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+        }
+        equipNewHire(game, merc, equipType);
+
+        game.updateAllSargeBonuses();
+
+        if (targetSquad.sectorId) {
+          emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
+        }
+
+        game.message(`Noriega hired ${merc.combatantName} (controlling fewer sectors than rebels)`);
+      }
+    } else {
+      game.message('Noriega: No MERCs available to hire');
+    }
+  } else {
+    game.message('Noriega controls enough sectors - no bonus hire');
+  }
+
+  return {
+    success: true,
+    message: `Converted ${totalConverted} militia`,
+    data: { totalConverted, dictatorSectors, totalRebelSectors },
+  };
+}
+
+// =============================================================================
 // Hussein's Per-Turn Bonus Tactics (AI Path)
 // =============================================================================
 
@@ -1008,6 +1145,9 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'hitler':
       applyHitlerTurnAbility(game);
+      break;
+    case 'noriega':
+      applyNoriegaTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling
