@@ -656,6 +656,9 @@ if (animationEvents) {
       hitCombatantIds: string[];
       militiaKilled: number;
     };
+    // Dismiss the allocation panel on all clients (the active player already
+    // cleared it locally, but spectators/opponents still have it open).
+    mortarAttackData.value = null;
     activeMortarStrike.value = data;
     await new Promise<void>((resolve) => {
       mortarStrikeResolve = resolve;
