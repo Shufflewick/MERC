@@ -94,7 +94,14 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 
 ### Active
 
-(None — next milestone requirements TBD via `/gsd:new-milestone`)
+- [ ] Add 9 expansion dictators to combatants.json data (Gaddafi, Hitler, Hussein, Mao, Mussolini, Noriega, Pinochet, Pol Pot, Stalin)
+- [ ] Implement per-turn abilities following Castro/Kim action pattern for all 9 dictators
+- [ ] Implement setup-phase abilities (Hussein: 10 tactics cards, Mao/Mussolini: bonus starting MERCs with squad choice)
+- [ ] Implement persistent game-state abilities (Hitler: targeted initiative debuff, Hussein: double tactics draw)
+- [ ] Implement reactive abilities (Gaddafi: loot killed MERC equipment, Pinochet: hire MERC on sector loss, Pol Pot: hire on combat loss)
+- [ ] Implement complex per-turn effects (Noriega: convert + relocate militia, Pinochet: distribute damage, Mao/Mussolini: militia placement)
+- [ ] Full AI support for all 9 dictator abilities
+- [ ] Dictator selection UI — players can choose from all available dictators
 
 ### Out of Scope
 
@@ -181,5 +188,15 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 | Private properties for AI batch state | Not serialized by BoardSmith, ephemeral to simultaneous step | ✓ Good |
 | Conservative isDay1Complete | Engine auto-completes players with no available actions as fallback | ✓ Good |
 
+## Current Milestone: v2.1 Expansion Dictators
+
+**Goal:** Implement all 9 expansion dictators with unique abilities, AI support, and dictator selection.
+
+**Target features:**
+- 9 new playable dictators (Gaddafi, Hitler, Hussein, Mao, Mussolini, Noriega, Pinochet, Pol Pot, Stalin)
+- Each with unique per-turn, setup, persistent, or reactive abilities
+- Full AI decision-making for all dictator abilities
+- Dictator selection during game setup
+
 ---
-*Last updated: 2026-02-16 after v2.0 milestone*
+*Last updated: 2026-02-17 after v2.1 milestone start*
