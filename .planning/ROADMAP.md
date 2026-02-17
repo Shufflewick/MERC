@@ -106,8 +106,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 60-01-PLAN.md -- Hitler hire + persistent initiative target override (AI + human + combat.ts hook)
-- [ ] 60-02-PLAN.md -- Noriega militia conversion, placement, and conditional hire (AI + human + multi-step flow)
+- [x] 60-01-PLAN.md -- Hitler hire + persistent initiative target override (AI + human + combat.ts hook)
+- [x] 60-02-PLAN.md -- Noriega militia conversion, placement, and conditional hire (AI + human + multi-step flow)
 
 **Success Criteria:**
 1. Hitler hires 1 random MERC per turn AND picks a rebel to have auto-initiative over (persistent until switched, switchable once per turn)
@@ -158,7 +158,7 @@ Plans:
 | 57 | Simple Hire Abilities | ✓ Complete | TURN-01, TURN-08 |
 | 58 | Setup-Phase Abilities | ✓ Complete | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
 | 59 | Militia Placement Abilities | ✓ Complete | TURN-03, TURN-04, TURN-07 |
-| 60 | Complex Interactive Abilities | In Progress | TURN-02, TURN-05 |
+| 60 | Complex Interactive Abilities | ✓ Complete | TURN-02, TURN-05 |
 | 61 | Reactive Abilities | Pending | REACT-02, REACT-03, TURN-06 |
 | 62 | AI & Comprehensive Testing | Pending | AI-01, AI-02, AI-03, TEST-01, TEST-02, TEST-03, TEST-04 |
 
@@ -166,4 +166,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 60 planning complete*
+*Last updated: 2026-02-17 after Phase 60 execution complete*

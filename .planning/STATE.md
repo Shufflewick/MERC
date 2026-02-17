@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.1 Expansion Dictators -- Phase 60 Complex Interactive Abilities
+**Current focus:** v2.1 Expansion Dictators -- Phase 61 Reactive Abilities
 
 ## Current Position
 
-Phase: 60 of 62 (v2.1)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 60-02-PLAN.md (Noriega per-turn ability)
+Phase: 61 of 62 (v2.1)
+Plan: Awaiting planning
+Status: Phase 60 complete, Phase 61 pending
+Last activity: 2026-02-17 -- Phase 60 executed and verified (2 plans, 2 waves)
 
-Progress: [######....] 57% (4/7 phases)
+Progress: [#######...] 71% (5/7 phases)
 
 ## Milestones Completed
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 122
+- Total plans completed: 124
 
 ## Accumulated Context
 
@@ -62,5 +62,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 60-02-PLAN.md
+Stopped at: Phase 60 complete, ready for Phase 61 planning
 Resume file: None
