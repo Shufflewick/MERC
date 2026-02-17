@@ -31,7 +31,7 @@ import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
 import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
-import { getGlobalCachedValue } from './actions/helpers.js';
+import { getGlobalCachedValue, setGlobalCachedValue } from './actions/helpers.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
 
 /**
@@ -539,6 +539,33 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Skip for Kim (already applied above)
                   return dictator?.combatantId === 'kim';
                 },
+              }),
+
+              // Mao/Mussolini: Initialize bonus MERC counter for human path
+              execute(() => {
+                const dictator = game.dictatorPlayer?.dictator;
+                if (!dictator) return;
+                if (dictator.combatantId !== 'mao' && dictator.combatantId !== 'mussolini') return;
+                if (game.dictatorPlayer?.isAI) return; // AI handled in applyDictatorSetupAbilities
+                setGlobalCachedValue(game, '_bonus_mercs_remaining', game.rebelCount);
+              }),
+
+              // Mao/Mussolini: Bonus MERC squad placement loop (human only)
+              loop({
+                name: 'bonus-merc-placement',
+                while: () => {
+                  const dictator = game.dictatorPlayer?.dictator;
+                  if (dictator?.combatantId !== 'mao' && dictator?.combatantId !== 'mussolini') return false;
+                  if (game.dictatorPlayer?.isAI) return false;
+                  const remaining = getGlobalCachedValue<number>(game, '_bonus_mercs_remaining');
+                  return remaining !== undefined && remaining > 0;
+                },
+                maxIterations: 10,
+                do: actionStep({
+                  name: 'bonus-merc-squad-choice',
+                  actions: ['bonusMercSetup'],
+                  prompt: "Dictator Ability: Choose squad for bonus MERC",
+                }),
               }),
 
               // Step 4: Draw tactics hand

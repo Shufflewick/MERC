@@ -119,6 +119,7 @@ import {
   createDictatorPlaceExtraMilitiaAction,
   createDictatorSkipExtraMilitiaAction,
   createDesignatePrivacyPlayerAction,
+  createBonusMercSetupAction,
 } from './day-one-actions.js';
 
 // =============================================================================
@@ -198,6 +199,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createDictatorDrawTacticsAction(game));
   game.registerAction(createDictatorPlaceExtraMilitiaAction(game));
   game.registerAction(createDictatorSkipExtraMilitiaAction(game));
+  game.registerAction(createBonusMercSetupAction(game)); // Mao/Mussolini bonus MERC squad choice
 
   // Dictator actions
   game.registerAction(createPlayTacticsAction(game));

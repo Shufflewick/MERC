@@ -18,8 +18,8 @@ import {
   autoPlaceExtraMilitia,
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
-import { setPrivacyPlayer } from '../ai-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat } from './helpers.js';
+import { setPrivacyPlayer, selectNewMercLocation } from '../ai-helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain } from '../animation-events.js';
 
 // =============================================================================
@@ -898,6 +898,148 @@ export function createDictatorSkipExtraMilitiaAction(game: MERCGame): ActionDefi
     })
     .execute(() => {
       return { success: true, message: 'No extra militia' };
+    });
+}
+
+// =============================================================================
+// Mao/Mussolini: Bonus MERC Squad Choice (Human Path)
+// =============================================================================
+
+/**
+ * Shared action for Mao and Mussolini bonus MERC placement during Day 1.
+ * Human dictator draws a random MERC, chooses which squad to place it in,
+ * and chooses starting equipment. Runs once per iteration of the
+ * bonus-merc-placement loop in flow.ts.
+ */
+export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
+  const REMAINING_KEY = '_bonus_mercs_remaining';
+  const DRAWN_MERC_KEY = '_bonus_drawn_merc_id';
+
+  // Helper to find the drawn MERC from cache
+  const getDrawnMerc = (): CombatantModel | null => {
+    const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+    if (!mercId) return null;
+    const el = game.getElementById(mercId);
+    return (isCombatantModel(el) && el.isMerc) ? el : null;
+  };
+
+  return Action.create('bonusMercSetup')
+    .prompt('Dictator Ability: Choose squad for bonus MERC')
+    .notUndoable()
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Mao or Mussolini': () => {
+        const dictator = game.dictatorPlayer?.dictator;
+        return dictator?.combatantId === 'mao' || dictator?.combatantId === 'mussolini';
+      },
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'has mercs to place': () => {
+        const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY);
+        return remaining !== undefined && remaining > 0;
+      },
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'Bonus MERC drawn',
+      choices: () => {
+        // Check if MERC already drawn (cached from previous choices render)
+        const existing = getDrawnMerc();
+        if (existing) {
+          return [existing.combatantName];
+        }
+
+        // Draw a new MERC and cache it
+        const merc = game.drawMerc();
+        if (!merc) {
+          return ['No MERCs available'];
+        }
+        setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+        return [merc.combatantName];
+      },
+    })
+    .chooseFrom<string>('targetSquad', {
+      prompt: 'Assign to which squad?',
+      choices: () => {
+        const choices: string[] = [];
+        if (!game.dictatorPlayer.primarySquad.isFull) choices.push('Primary Squad');
+        if (!game.dictatorPlayer.secondarySquad.isFull) choices.push('Secondary Squad');
+        if (choices.length === 0) choices.push('Squads full - MERC will be discarded');
+        return choices;
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => {
+        const merc = getDrawnMerc();
+        if (!merc) return ['Weapon', 'Armor', 'Accessory'];
+        const choices: string[] = [];
+        if (!merc.weaponSlot) choices.push('Weapon');
+        if (!merc.armorSlot) choices.push('Armor');
+        if (!merc.accessorySlot) choices.push('Accessory');
+        // If all slots filled, offer all types (equipment will replace)
+        if (choices.length === 0) return ['Weapon', 'Armor', 'Accessory'];
+        return choices;
+      },
+    })
+    .execute((args) => {
+      const merc = getDrawnMerc();
+      if (!merc) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        // Decrement counter even on failure to prevent infinite loop
+        const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
+        setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
+        return { success: false, message: 'No MERC drawn' };
+      }
+
+      const squadChoice = args.targetSquad as string;
+      const dictatorName = game.dictatorPlayer.dictator?.combatantName ?? 'Dictator';
+
+      // Handle squads full case
+      if (squadChoice === 'Squads full - MERC will be discarded') {
+        merc.putInto(game.mercDiscard);
+        game.message(`${dictatorName}: ${merc.combatantName} discarded (squads full)`);
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
+        setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
+        return { success: true, message: `${merc.combatantName} discarded` };
+      }
+
+      // Determine target squad
+      const targetSquad = squadChoice === 'Primary Squad'
+        ? game.dictatorPlayer.primarySquad
+        : game.dictatorPlayer.secondarySquad;
+
+      merc.putInto(targetSquad);
+
+      // Set squad location if not assigned yet
+      if (!targetSquad.sectorId) {
+        const targetSector = selectNewMercLocation(game);
+        if (targetSector) {
+          targetSquad.sectorId = targetSector.sectorId;
+        }
+      }
+
+      // Equip chosen equipment type
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, merc, equipType);
+      game.updateAllSargeBonuses();
+
+      // Emit map entry animation
+      if (targetSquad.sectorId) {
+        emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
+      }
+
+      game.message(`${dictatorName} hired bonus MERC: ${merc.combatantName} to ${squadChoice}`);
+
+      // Decrement counter and clear drawn MERC cache
+      const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
+      setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+
+      return {
+        success: true,
+        message: `Hired ${merc.combatantName} to ${squadChoice}`,
+        data: { hiredMerc: merc.combatantName, squad: squadChoice },
+      };
     });
 }
 
