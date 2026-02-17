@@ -61,7 +61,7 @@ Plans:
 
 Plans:
 - [x] 58-01-PLAN.md -- Setup abilities for Hussein (extra tactics), Mao and Mussolini (bonus MERCs with squad choice)
-- [ ] 58-02-PLAN.md -- Hussein per-turn double tactics with post-effects and UI wiring
+- [x] 58-02-PLAN.md -- Hussein per-turn double tactics with post-effects and UI wiring
 
 **Success Criteria:**
 1. Hussein starts the game with 10 tactics cards instead of 5
@@ -143,7 +143,7 @@ Plans:
 |-------|------|--------|--------------|
 | 56 | Data Foundation | ✓ Complete | DATA-01, DATA-02 |
 | 57 | Simple Hire Abilities | ✓ Complete | TURN-01, TURN-08 |
-| 58 | Setup-Phase Abilities | In Progress | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
+| 58 | Setup-Phase Abilities | Complete | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
 | 59 | Militia Placement Abilities | Pending | TURN-03, TURN-04, TURN-07 |
 | 60 | Complex Interactive Abilities | Pending | TURN-02, TURN-05 |
 | 61 | Reactive Abilities | Pending | REACT-02, REACT-03, TURN-06 |
