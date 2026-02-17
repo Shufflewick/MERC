@@ -48,6 +48,8 @@ export interface ActionStateReturn {
   isEquipping: ComputedRef<boolean>;
   isSelectingEquipmentType: ComputedRef<boolean>;
   isCastroHiring: ComputedRef<boolean>;
+  isGadafiHiring: ComputedRef<boolean>;
+  isStalinHiring: ComputedRef<boolean>;
   isSelectingSector: ComputedRef<boolean>;
   showAssignToSquad: ComputedRef<boolean>;
   isHagnessSelectingType: ComputedRef<boolean>;
@@ -169,7 +171,9 @@ export function useActionState(
              metadata.hireSecondMerc ||
              metadata.hireThirdMerc ||
              metadata.dictatorHireFirstMerc ||
-             metadata.castroBonusHire;
+             metadata.castroBonusHire ||
+             metadata.gadafiBonusHire ||
+             metadata.stalinBonusHire;
     }
 
     // Check for Hagness draw action FIRST (when user is actively interacting with it)
@@ -227,6 +231,8 @@ export function useActionState(
     if (props.availableActions.includes('hireSecondMerc')) return 'hireSecondMerc';
     if (props.availableActions.includes('hireThirdMerc')) return 'hireThirdMerc';
     if (props.actionController.currentAction.value === 'castroBonusHire') return 'castroBonusHire';
+    if (props.actionController.currentAction.value === 'gadafiBonusHire') return 'gadafiBonusHire';
+    if (props.actionController.currentAction.value === 'stalinBonusHire') return 'stalinBonusHire';
     if (props.actionController.currentAction.value === 'selectDictator') return 'selectDictator';
     // Check Hagness actions (when user is actively interacting with them)
     if (isHagnessDrawActive.value) return 'hagnessDrawType';
@@ -243,7 +249,7 @@ export function useActionState(
   // Simplified: check availableActions OR currentAction (no selection state check)
   const isHiringMercs = computed(() => {
     const currentAction = props.actionController.currentAction.value;
-    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire', 'selectDictator'];
+    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire', 'gadafiBonusHire', 'stalinBonusHire', 'selectDictator'];
 
     // Check if any hiring action is available
     const hasHiringAction = props.availableActions.some(a => hiringActions.includes(a));
@@ -321,6 +327,16 @@ export function useActionState(
   // Check if we're in Castro hiring flow (to show equipment selection properly)
   const isCastroHiring = computed(() => {
     return props.actionController.currentAction.value === 'castroBonusHire';
+  });
+
+  // Check if we're in Gaddafi hiring flow
+  const isGadafiHiring = computed(() => {
+    return props.actionController.currentAction.value === 'gadafiBonusHire';
+  });
+
+  // Check if we're in Stalin hiring flow
+  const isStalinHiring = computed(() => {
+    return props.actionController.currentAction.value === 'stalinBonusHire';
   });
 
   // Check if current selection is for sector (Castro hire placement)
@@ -685,6 +701,8 @@ export function useActionState(
     isEquipping,
     isSelectingEquipmentType,
     isCastroHiring,
+    isGadafiHiring,
+    isStalinHiring,
     isSelectingSector,
     showAssignToSquad,
     isHagnessSelectingType,

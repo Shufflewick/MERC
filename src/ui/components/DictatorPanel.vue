@@ -125,7 +125,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -133,6 +133,16 @@ const isInActionFlow = computed(() => {
 // Note: Castro hire now uses the main hiring phase UI in GameTable.vue
 const isCastroHiring = computed(() => {
   return props.actionController.currentAction.value === 'castroBonusHire';
+});
+
+// Check if we're in Gaddafi's hire action
+const isGadafiHiring = computed(() => {
+  return props.actionController.currentAction.value === 'gadafiBonusHire';
+});
+
+// Check if we're in Stalin's hire action
+const isStalinHiring = computed(() => {
+  return props.actionController.currentAction.value === 'stalinBonusHire';
 });
 
 // Check if we're selecting a MERC (Generalissimo hire)
@@ -149,7 +159,7 @@ const isSelectingSector = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
-  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia') {
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire') {
     return sel.name === 'targetSector';
   }
   // Base location selection during playTactics or chooseKimBase

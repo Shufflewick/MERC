@@ -188,6 +188,8 @@ const {
   isEquipping,
   isSelectingEquipmentType,
   isCastroHiring,
+  isGadafiHiring,
+  isStalinHiring,
   isSelectingSector,
   showAssignToSquad,
   isHagnessSelectingType,
@@ -900,7 +902,7 @@ watch(
     if (currentAction) return;
 
     // Check for hiring/selection actions and start them (Landing + Day 1 + Castro + Dictator selection)
-    const hiringActions = ['placeLanding', 'selectDictator', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire'];
+    const hiringActions = ['placeLanding', 'selectDictator', 'hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire', 'gadafiBonusHire', 'stalinBonusHire'];
     for (const action of hiringActions) {
       if (actions.includes(action)) {
         props.actionController.start(action);

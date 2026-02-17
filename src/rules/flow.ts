@@ -958,7 +958,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for AI)
               actionStep({
                 name: 'dictator-ability',
-                actions: ['castroBonusHire', 'kimBonusMilitia'],
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
