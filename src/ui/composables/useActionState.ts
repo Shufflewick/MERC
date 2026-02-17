@@ -50,6 +50,7 @@ export interface ActionStateReturn {
   isCastroHiring: ComputedRef<boolean>;
   isGadafiHiring: ComputedRef<boolean>;
   isStalinHiring: ComputedRef<boolean>;
+  isHitlerHiring: ComputedRef<boolean>;
   isSelectingSector: ComputedRef<boolean>;
   showAssignToSquad: ComputedRef<boolean>;
   isHagnessSelectingType: ComputedRef<boolean>;
@@ -337,6 +338,11 @@ export function useActionState(
   // Check if we're in Stalin hiring flow
   const isStalinHiring = computed(() => {
     return props.actionController.currentAction.value === 'stalinBonusHire';
+  });
+
+  // Check if we're in Hitler hiring flow
+  const isHitlerHiring = computed(() => {
+    return props.actionController.currentAction.value === 'hitlerBonusHire';
   });
 
   // Check if current selection is for sector (Castro hire placement)
@@ -703,6 +709,7 @@ export function useActionState(
     isCastroHiring,
     isGadafiHiring,
     isStalinHiring,
+    isHitlerHiring,
     isSelectingSector,
     showAssignToSquad,
     isHagnessSelectingType,

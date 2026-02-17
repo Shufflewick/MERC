@@ -133,7 +133,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia', 'polpotBonusMilitia', 'polpotBonusHire', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'husseinBonusTactics', 'husseinBonusReinforce'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia', 'polpotBonusMilitia', 'polpotBonusHire', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'hitlerPickInitiativeTarget', 'husseinBonusTactics', 'husseinBonusReinforce'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -153,6 +153,11 @@ const isStalinHiring = computed(() => {
   return props.actionController.currentAction.value === 'stalinBonusHire';
 });
 
+// Check if we're in Hitler's hire action
+const isHitlerHiring = computed(() => {
+  return props.actionController.currentAction.value === 'hitlerBonusHire';
+});
+
 // Check if we're selecting a MERC (Generalissimo hire)
 const isSelectingMerc = computed(() => {
   const currentAction = props.actionController.currentAction.value;
@@ -167,7 +172,7 @@ const isSelectingSector = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
-  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'maoBonusMilitia' || currentAction === 'mussoliniBonusMilitia' || currentAction === 'mussoliniSpreadMilitia' || currentAction === 'polpotBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire') {
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'maoBonusMilitia' || currentAction === 'mussoliniBonusMilitia' || currentAction === 'mussoliniSpreadMilitia' || currentAction === 'polpotBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire' || currentAction === 'hitlerBonusHire') {
     return sel.name === 'targetSector';
   }
   // Base location selection during playTactics, husseinBonusTactics, or chooseKimBase

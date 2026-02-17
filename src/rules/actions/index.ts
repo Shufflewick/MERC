@@ -102,6 +102,8 @@ import {
   createMaoBonusMilitiaAction,
   createMussoliniBonusMilitiaAction,
   createMussoliniSpreadMilitiaAction,
+  createHitlerBonusHireAction,
+  createHitlerPickInitiativeTargetAction,
   createGadafiBonusHireAction,
   createStalinBonusHireAction,
   createHusseinBonusTacticsAction,
@@ -220,6 +222,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createMaoBonusMilitiaAction(game)); // Mao per-turn wilderness militia
   game.registerAction(createMussoliniBonusMilitiaAction(game)); // Mussolini per-turn militia placement
   game.registerAction(createMussoliniSpreadMilitiaAction(game)); // Mussolini militia spread
+  game.registerAction(createHitlerBonusHireAction(game)); // Hitler per-turn hire
+  game.registerAction(createHitlerPickInitiativeTargetAction(game)); // Hitler initiative target pick
   game.registerAction(createGadafiBonusHireAction(game)); // Gaddafi per-turn hire
   game.registerAction(createStalinBonusHireAction(game)); // Stalin per-turn hire
   game.registerAction(createHusseinBonusTacticsAction(game)); // Hussein per-turn bonus tactics

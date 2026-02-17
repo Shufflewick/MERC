@@ -1287,6 +1287,223 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
+// Hitler's Per-Turn Hire Action (Human Players)
+// =============================================================================
+
+/**
+ * Hitler's ability (Step 1): "Once per turn, hire 1 random MERC."
+ * Human players see the drawn MERC, choose equipment type and deployment sector.
+ * Follows the Gaddafi bonus hire pattern.
+ */
+export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
+  const DRAWN_MERC_KEY = '_hitler_drawn_merc';
+
+  return Action.create('hitlerBonusHire')
+    .prompt("Hitler's Ability: Hire a MERC")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Hitler': () => game.dictatorPlayer?.dictator?.combatantId === 'hitler',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+      'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'MERC drawn for hire',
+      choices: () => {
+        // Draw 1 MERC if not already drawn
+        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
+          const merc = game.drawMerc();
+          if (merc) {
+            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+          }
+        }
+
+        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+        if (!mercId) {
+          return ['No MERCs available'];
+        }
+
+        const merc = game.getElementById(mercId);
+        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+          return ['No MERCs available'];
+        }
+
+        return [capitalize(merc.combatantName)];
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy the new MERC',
+      choices: () => {
+        const primarySquad = game.dictatorPlayer.primarySquad;
+        const secondarySquad = game.dictatorPlayer.secondarySquad;
+        const primaryHasSector = !!primarySquad.sectorId && primarySquad.getLivingMercs().length > 0;
+        const secondaryHasSector = !!secondarySquad.sectorId && secondarySquad.getLivingMercs().length > 0;
+
+        // If both squads are already deployed, only allow their current sectors
+        if (primaryHasSector && secondaryHasSector) {
+          const validSectorIds = new Set<string>();
+          if (primarySquad.sectorId) validSectorIds.add(primarySquad.sectorId);
+          if (secondarySquad.sectorId) validSectorIds.add(secondarySquad.sectorId);
+
+          return game.gameMap.getAllSectors()
+            .filter(s => validSectorIds.has(s.sectorId))
+            .map(s => s.sectorName);
+        }
+
+        // Otherwise, show all dictator-controlled sectors
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
+
+        if (sectors.length === 0) {
+          const industries = game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry');
+          return industries.map(s => s.sectorName);
+        }
+
+        return sectors.map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+      const selectedMercName = args.selectedMerc as string;
+
+      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No MERC available' };
+      }
+
+      const merc = game.getElementById(mercId);
+      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'MERC not found' };
+      }
+
+      // Find target sector
+      const targetSectorChoice = args.targetSector as string;
+      const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      const allSectors = game.gameMap.getAllSectors();
+      let targetSector = allSectors.find(s => s.sectorName === sectorName);
+
+      if (!targetSector) {
+        targetSector = allSectors.find(s => targetSectorChoice.startsWith(s.sectorName));
+      }
+
+      if (!targetSector) {
+        game.message(`WARNING: Could not find sector "${sectorName}" from choice "${targetSectorChoice}"`);
+        targetSector = allSectors.find(s => s.dictatorMilitia > 0);
+        if (targetSector) {
+          game.message(`Falling back to ${targetSector.sectorName}`);
+        }
+      }
+
+      if (!targetSector) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No valid sector found' };
+      }
+
+      // Determine which squad to use based on target sector
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      const primaryMercs = primarySquad.getLivingMercs();
+      const secondaryMercs = secondarySquad.getLivingMercs();
+
+      let targetSquad: typeof primarySquad;
+      if ((primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) && !primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Placing ${merc.combatantName} in primary squad at ${targetSector.sectorName}`);
+      } else if ((secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) && !secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Placing ${merc.combatantName} in secondary squad at ${targetSector.sectorName}`);
+      } else if (!primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Both squads occupied - adding to primary squad`);
+      } else if (!secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Primary full - adding to secondary squad`);
+      } else {
+        merc.putInto(game.mercDiscard);
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.message('Hitler: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
+      }
+
+      merc.putInto(targetSquad);
+      targetSquad.sectorId = targetSector.sectorId;
+      game.message(`Hitler deployed ${merc.combatantName} to ${targetSector.sectorName}`);
+
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(merc, targetSector.sectorId),
+      ]);
+
+      game.updateAllSargeBonuses();
+
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, merc, equipType);
+
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+
+      game.message(`Hitler hired ${merc.combatantName}`);
+      return { success: true, message: `Hired ${merc.combatantName}` };
+    });
+}
+
+// =============================================================================
+// Hitler's Initiative Target Pick Action (Human Players)
+// =============================================================================
+
+/**
+ * Hitler's ability (Step 2): "Pick a rebel for auto-initiative override."
+ * Human players choose which rebel to target. If only 1 rebel, auto-selects.
+ */
+export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDefinition {
+  return Action.create('hitlerPickInitiativeTarget')
+    .prompt("Hitler's Ability: Choose a rebel for auto-initiative")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Hitler': () => game.dictatorPlayer?.dictator?.combatantId === 'hitler',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+    })
+    .chooseFrom<string>('targetRebel', {
+      prompt: 'Choose which rebel to target for auto-initiative',
+      choices: () => {
+        const rebels = game.rebelPlayers;
+        // If only 1 rebel, auto-select (still show for confirmation)
+        return rebels.map(r => {
+          const label = r.name || `Rebel ${r.seat}`;
+          const isCurrent = game.hitlerInitiativeTargetSeat === r.seat;
+          return isCurrent ? `${label} (current)` : label;
+        });
+      },
+    })
+    .execute((args) => {
+      const rebels = game.rebelPlayers;
+      const selectedLabel = args.targetRebel as string;
+
+      // Find selected rebel by matching label
+      const targetRebel = rebels.find(r => {
+        const label = r.name || `Rebel ${r.seat}`;
+        return selectedLabel === label || selectedLabel === `${label} (current)`;
+      });
+
+      if (!targetRebel) {
+        return { success: false, message: 'Invalid rebel selection' };
+      }
+
+      game.hitlerInitiativeTargetSeat = targetRebel.seat;
+      game.hitlerInitiativeSwitchedThisTurn = true;
+      const targetName = targetRebel.name || `Rebel ${targetRebel.seat}`;
+      game.message(`Hitler targets ${targetName} for auto-initiative`);
+
+      return { success: true, message: `Targeting ${targetName}` };
+    });
+}
+
+// =============================================================================
 // Gaddafi's Per-Turn Hire Action (Human Players)
 // =============================================================================
 

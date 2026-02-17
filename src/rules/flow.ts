@@ -998,8 +998,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for AI)
               actionStep({
                 name: 'dictator-ability',
-                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
+              }),
+
+              // Hitler initiative target pick (human only, after hire)
+              actionStep({
+                name: 'hitler-pick-target',
+                actions: ['hitlerPickInitiativeTarget'],
+                prompt: "Hitler's Ability: Choose a rebel for auto-initiative",
+                skipIf: () => game.isFinished() ||
+                  game.dictatorPlayer?.dictator?.combatantId !== 'hitler' ||
+                  game.dictatorPlayer?.isAI === true,
               }),
 
               // Mao militia distribution loop (human only, subsequent placements after first)
