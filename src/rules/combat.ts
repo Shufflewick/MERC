@@ -942,6 +942,17 @@ function applyMilitiaBatchDamage(
             if (equip) {
               const discardPile = game.getEquipmentDiscard(slotName);
               if (discardPile) equip.putInto(discardPile);
+
+              // Gaddafi loot: stage equipment from rebel MERC deaths
+              if (game.dictatorPlayer?.dictator?.combatantId === 'gadafi'
+                  && game.activeCombat
+                  && !merc.isDictator) {
+                if (!game._gaddafiLootableEquipment) game._gaddafiLootableEquipment = [];
+                game._gaddafiLootableEquipment.push({
+                  equipmentId: equip.id,
+                  sectorId: game.activeCombat.sectorId,
+                });
+              }
             }
           }
         }
@@ -2687,6 +2698,17 @@ function executeCombatRound(
                 if (equip) {
                   const discardPile = game.getEquipmentDiscard(slotName);
                   if (discardPile) equip.putInto(discardPile);
+
+                  // Gaddafi loot: stage equipment from rebel MERC deaths
+                  if (game.dictatorPlayer?.dictator?.combatantId === 'gadafi'
+                      && game.activeCombat
+                      && !merc.isDictator) {
+                    if (!game._gaddafiLootableEquipment) game._gaddafiLootableEquipment = [];
+                    game._gaddafiLootableEquipment.push({
+                      equipmentId: equip.id,
+                      sectorId: game.activeCombat.sectorId,
+                    });
+                  }
                 }
               }
             }
@@ -2940,6 +2962,17 @@ function applyCombatResults(
             if (equipment) {
               const discard = game.getEquipmentDiscard(eqType);
               if (discard) equipment.putInto(discard);
+
+              // Gaddafi loot: stage equipment from rebel MERC deaths
+              if (game.dictatorPlayer?.dictator?.combatantId === 'gadafi'
+                  && game.activeCombat
+                  && !merc.isDictator) {
+                if (!game._gaddafiLootableEquipment) game._gaddafiLootableEquipment = [];
+                game._gaddafiLootableEquipment.push({
+                  equipmentId: equipment.id,
+                  sectorId: game.activeCombat.sectorId,
+                });
+              }
             }
           }
 

@@ -9,7 +9,7 @@
  */
 
 import type { MERCGame } from './game.js';
-import { CombatantModel, Sector, TacticsCard } from './elements.js';
+import { CombatantModel, Equipment, Sector, TacticsCard } from './elements.js';
 import { SectorConstants, DictatorConstants } from './constants.js';
 import type { TacticsData } from './setup.js';
 import {
@@ -1319,5 +1319,66 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
     default:
       // Unknown dictator - no special handling
       break;
+  }
+}
+
+// =============================================================================
+// Gaddafi's Reactive Equipment Loot (Post-Combat)
+// =============================================================================
+
+/**
+ * Search all 3 equipment discard piles for an equipment element by its BoardSmith ID.
+ * Returns the Equipment if found, undefined otherwise.
+ */
+export function findEquipmentInDiscards(game: MERCGame, equipmentId: number): Equipment | undefined {
+  for (const type of ['Weapon', 'Armor', 'Accessory'] as const) {
+    const discard = game.getEquipmentDiscard(type);
+    if (!discard) continue;
+    const found = discard.first(Equipment, e => e.id === equipmentId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Process Gaddafi's looted equipment (AI auto-equip path).
+ * For each staged equipment item, find a dictator MERC in the combat sector
+ * with an open slot of the matching type and equip it.
+ * Equipment with no valid recipient stays in the discard pile.
+ */
+export function processGaddafiLoot(game: MERCGame): void {
+  if (!game._gaddafiLootableEquipment || game._gaddafiLootableEquipment.length === 0) return;
+
+  const lootItems = [...game._gaddafiLootableEquipment];
+  game._gaddafiLootableEquipment = null;
+
+  for (const item of lootItems) {
+    const sector = game.getSector(item.sectorId);
+    if (!sector) continue;
+
+    const dictatorMercs = game.getDictatorMercsInSector(sector);
+    if (dictatorMercs.length === 0) continue;
+
+    const equipment = findEquipmentInDiscards(game, item.equipmentId);
+    if (!equipment) continue;
+
+    const equipType = equipment.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+
+    // Find dictator MERC with open slot of matching type
+    const recipient = dictatorMercs.find(m => {
+      if (equipType === 'Weapon') return !m.weaponSlot;
+      if (equipType === 'Armor') return !m.armorSlot;
+      if (equipType === 'Accessory') return !m.accessorySlot;
+      return false;
+    });
+
+    if (!recipient) {
+      game.message(`Gaddafi: No MERC in sector can use ${equipment.equipmentName} - discarded`);
+      continue;
+    }
+
+    // equip() handles moving equipment from its current container (discard pile) to the MERC's slot
+    recipient.equip(equipment);
+    game.message(`Gaddafi loots ${equipment.equipmentName} onto ${recipient.combatantName}`);
   }
 }

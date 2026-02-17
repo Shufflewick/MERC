@@ -671,6 +671,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Pinochet: queued hires from sector losses (counter, not boolean, to handle multiple losses)
   _pinochetPendingHires: number = 0;
 
+  // Gaddafi: staged equipment from rebel MERC deaths in combat, waiting for loot assignment
+  _gaddafiLootableEquipment: Array<{ equipmentId: number; sectorId: string }> | null = null;
+
   // Hitler: persistent initiative target (which rebel player is targeted for auto-initiative override)
   // Serialized to clients so all players can see the current target
   hitlerInitiativeTargetSeat: number | null = null;
