@@ -106,6 +106,9 @@ export const DictatorConstants = {
   /** Number of Tactics cards in active play */
   ACTIVE_TACTICS_CARDS: 5,
 
+  /** Hussein starts with 10 Tactics cards instead of 5 */
+  HUSSEIN_TACTICS_CARDS: 10,
+
   /** Dictator has no team limit */
   TEAM_LIMIT: Infinity,
 } as const;

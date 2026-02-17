@@ -9,8 +9,9 @@
  */
 
 import type { MERCGame } from './game.js';
-import { CombatantModel, Sector } from './elements.js';
-import { SectorConstants } from './constants.js';
+import { CombatantModel, Sector, TacticsCard } from './elements.js';
+import { SectorConstants, DictatorConstants } from './constants.js';
+import type { TacticsData } from './setup.js';
 import {
   selectNewMercLocation,
   selectMilitiaPlacementSector,
@@ -18,6 +19,7 @@ import {
 } from './ai-helpers.js';
 import { queuePendingCombat } from './combat.js';
 import { equipNewHire } from './actions/helpers.js';
+import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 
 // =============================================================================
 // Dictator Ability Types
@@ -97,6 +99,214 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
     success: true,
     message: `Base revealed with ${placed} militia`,
     data: { militiaPlaced: placed },
+  };
+}
+
+/**
+ * Apply Hussein's setup ability:
+ * "Hussein starts the game with 10 tactics cards instead of 5"
+ */
+export function applyHusseinSetupAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'hussein') {
+    return { success: false, message: 'Not Hussein' };
+  }
+
+  const tacticsDeck = game.dictatorPlayer.tacticsDeck;
+  if (!tacticsDeck) {
+    return { success: false, message: 'No tactics deck' };
+  }
+
+  const currentCount = tacticsDeck.count(TacticsCard);
+  const additionalNeeded = DictatorConstants.HUSSEIN_TACTICS_CARDS - currentCount;
+
+  if (additionalNeeded <= 0) {
+    return { success: true, message: 'Deck already at target size', data: { deckSize: currentCount } };
+  }
+
+  // Build pool of all available tactics (expanded by quantity)
+  const allTactics: TacticsData[] = [];
+  for (const t of game.tacticsData as TacticsData[]) {
+    for (let q = 0; q < t.quantity; q++) {
+      allTactics.push(t);
+    }
+  }
+
+  // Select additional random tactics from pool
+  const pool = [...allTactics];
+  const selected: TacticsData[] = [];
+  for (let i = 0; i < additionalNeeded && pool.length > 0; i++) {
+    const idx = Math.floor(game.random() * pool.length);
+    selected.push(pool.splice(idx, 1)[0]);
+  }
+
+  // Create new TacticsCard elements in the deck
+  for (let i = 0; i < selected.length; i++) {
+    const t = selected[i];
+    tacticsDeck.create(TacticsCard, `tactics-hussein-${t.id}-${i}`, {
+      tacticsId: t.id,
+      tacticsName: t.name,
+      story: t.story,
+      description: t.description,
+      revealsBase: t.revealsBase ?? false,
+    });
+  }
+
+  // Shuffle the expanded deck
+  tacticsDeck.shuffle();
+
+  const deckSize = tacticsDeck.count(TacticsCard);
+  game.message(`Hussein starts with ${deckSize} tactics cards!`);
+  return {
+    success: true,
+    message: `Deck expanded to ${deckSize} cards`,
+    data: { deckSize },
+  };
+}
+
+/**
+ * Apply Mao's setup ability:
+ * "Mao starts with 1 random MERC per rebel player, placed into chosen squads"
+ */
+export function applyMaoSetupAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'mao') {
+    return { success: false, message: 'Not Mao' };
+  }
+
+  // Human path is handled via interactive flow (bonusMercSetup action loop)
+  if (!game.dictatorPlayer?.isAI) {
+    game.message(`Mao's ability: Hire ${game.rebelCount} bonus MERC(s) — choose squads below`);
+    return { success: true, message: 'Handled via interactive flow' };
+  }
+
+  // AI path: auto-hire N bonus MERCs
+  const bonusCount = game.rebelCount;
+  let hired = 0;
+
+  for (let i = 0; i < bonusCount; i++) {
+    const merc = game.drawMerc();
+    if (!merc) {
+      game.message('Mao: No more MERCs available');
+      break;
+    }
+
+    const primarySquad = game.dictatorPlayer.primarySquad;
+    const secondarySquad = game.dictatorPlayer.secondarySquad;
+    const targetSquad = !primarySquad.isFull ? primarySquad
+      : !secondarySquad.isFull ? secondarySquad
+      : null;
+
+    if (!targetSquad) {
+      merc.putInto(game.mercDiscard);
+      game.message('Mao: All squads full, discarding MERC');
+      continue;
+    }
+
+    merc.putInto(targetSquad);
+
+    // Set squad location if not assigned yet
+    if (!targetSquad.sectorId) {
+      const targetSector = selectNewMercLocation(game);
+      if (targetSector) {
+        targetSquad.sectorId = targetSector.sectorId;
+      }
+    }
+
+    // Auto-equip: Weapon first, then Armor, then Accessory
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (merc.weaponSlot) {
+      equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+    }
+    equipNewHire(game, merc, equipType);
+    game.updateAllSargeBonuses();
+
+    // Emit map entry animation
+    if (targetSquad.sectorId) {
+      emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
+    }
+
+    game.message(`Mao hired bonus MERC: ${merc.combatantName}`);
+    hired++;
+  }
+
+  return {
+    success: true,
+    message: `Mao hired ${hired} bonus MERCs`,
+    data: { hired },
+  };
+}
+
+/**
+ * Apply Mussolini's setup ability:
+ * "Mussolini starts with 1 random MERC per rebel player, placed into chosen squads"
+ */
+export function applyMussoliniSetupAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'mussolini') {
+    return { success: false, message: 'Not Mussolini' };
+  }
+
+  // Human path is handled via interactive flow (bonusMercSetup action loop)
+  if (!game.dictatorPlayer?.isAI) {
+    game.message(`Mussolini's ability: Hire ${game.rebelCount} bonus MERC(s) — choose squads below`);
+    return { success: true, message: 'Handled via interactive flow' };
+  }
+
+  // AI path: auto-hire N bonus MERCs (identical logic to Mao)
+  const bonusCount = game.rebelCount;
+  let hired = 0;
+
+  for (let i = 0; i < bonusCount; i++) {
+    const merc = game.drawMerc();
+    if (!merc) {
+      game.message('Mussolini: No more MERCs available');
+      break;
+    }
+
+    const primarySquad = game.dictatorPlayer.primarySquad;
+    const secondarySquad = game.dictatorPlayer.secondarySquad;
+    const targetSquad = !primarySquad.isFull ? primarySquad
+      : !secondarySquad.isFull ? secondarySquad
+      : null;
+
+    if (!targetSquad) {
+      merc.putInto(game.mercDiscard);
+      game.message('Mussolini: All squads full, discarding MERC');
+      continue;
+    }
+
+    merc.putInto(targetSquad);
+
+    // Set squad location if not assigned yet
+    if (!targetSquad.sectorId) {
+      const targetSector = selectNewMercLocation(game);
+      if (targetSector) {
+        targetSquad.sectorId = targetSector.sectorId;
+      }
+    }
+
+    // Auto-equip: Weapon first, then Armor, then Accessory
+    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+    if (merc.weaponSlot) {
+      equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+    }
+    equipNewHire(game, merc, equipType);
+    game.updateAllSargeBonuses();
+
+    // Emit map entry animation
+    if (targetSquad.sectorId) {
+      emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
+    }
+
+    game.message(`Mussolini hired bonus MERC: ${merc.combatantName}`);
+    hired++;
+  }
+
+  return {
+    success: true,
+    message: `Mussolini hired ${hired} bonus MERCs`,
+    data: { hired },
   };
 }
 
@@ -382,6 +592,15 @@ export function applyDictatorSetupAbilities(game: MERCGame): void {
   switch (dictator.combatantId) {
     case 'kim':
       applyKimSetupAbility(game);
+      break;
+    case 'hussein':
+      applyHusseinSetupAbility(game);
+      break;
+    case 'mao':
+      applyMaoSetupAbility(game);
+      break;
+    case 'mussolini':
+      applyMussoliniSetupAbility(game);
       break;
     case 'castro':
       // Castro has no special setup ability
