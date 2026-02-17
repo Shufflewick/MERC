@@ -649,6 +649,16 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.pendingMaoMilitia !== null;
   }
 
+  // Pending Mussolini spread — dictator moves militia from source sector to adjacent
+  pendingMussoliniSpread: {
+    sourceSectorId: string;
+    remaining: number;  // militia available to move from source to adjacent
+  } | null = null;
+
+  get hasMussoliniSpreadPending(): boolean {
+    return this.pendingMussoliniSpread !== null;
+  }
+
   /** Pending mortar attack hit allocation (attacker rolled dice, player chooses targets) */
   pendingMortarAttack: {
     attackerName: string;

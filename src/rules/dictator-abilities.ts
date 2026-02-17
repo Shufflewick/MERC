@@ -549,6 +549,114 @@ export function applyMaoTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 /**
+ * Apply Mussolini's per-turn ability:
+ * "Once per turn, add militia equal to rebel count to a chosen controlled sector,
+ * then optionally spread militia from that sector to adjacent sectors."
+ */
+export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'mussolini') {
+    return { success: false, message: 'Not Mussolini' };
+  }
+
+  const rebelCount = game.rebelCount;
+  if (rebelCount === 0) {
+    game.message('Mussolini: No rebels, no militia to place');
+    return { success: true, message: 'No rebels', data: { militiaPlaced: 0 } };
+  }
+
+  // Get sectors the dictator controls: militia > 0, dictator MERCs present,
+  // or the revealed base sector
+  const allSectors = game.gameMap.getAllSectors();
+  const controlledSectors = allSectors.filter(s => {
+    if (s.dictatorMilitia > 0) return true;
+    if (game.getDictatorMercsInSector(s).length > 0) return true;
+    if (game.dictatorPlayer.baseRevealed && game.dictatorPlayer.baseSectorId === s.sectorId) return true;
+    return false;
+  });
+
+  if (controlledSectors.length === 0) {
+    game.message('Mussolini: No controlled sectors for militia placement');
+    return { success: true, message: 'No controlled sectors', data: { militiaPlaced: 0 } };
+  }
+
+  // AI picks target sector
+  const targetSector = selectMilitiaPlacementSector(game, controlledSectors, 'dictator');
+  if (!targetSector) {
+    game.message('Mussolini: Could not select a placement sector');
+    return { success: true, message: 'No target sector', data: { militiaPlaced: 0 } };
+  }
+
+  // Place militia equal to rebel count (standard cap)
+  const placed = targetSector.addDictatorMilitia(rebelCount);
+  game.message(`Mussolini placed ${placed} militia at ${targetSector.sectorName} (${rebelCount} rebels)`);
+
+  // Check for combat at placement sector
+  for (const rebel of game.rebelPlayers) {
+    const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+      rebel.secondarySquad.sectorId === targetSector.sectorId;
+    const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+    if (hasSquad || hasMilitia) {
+      game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+      queuePendingCombat(game, targetSector, rebel, false);
+    }
+  }
+
+  // AI spread: move militia from source to adjacent sectors opportunistically
+  const adjacentSectors = game.getAdjacentSectors(targetSector);
+  let spreadTotal = 0;
+
+  // Prioritize adjacent rebel sectors for combat, then neutral
+  const rebelAdjacent = adjacentSectors.filter(s => {
+    for (const rebel of game.rebelPlayers) {
+      const hasSquad = rebel.primarySquad.sectorId === s.sectorId ||
+        rebel.secondarySquad.sectorId === s.sectorId;
+      const hasMilitia = s.getRebelMilitia(`${rebel.seat}`) > 0;
+      if (hasSquad || hasMilitia) return true;
+    }
+    return false;
+  });
+  const neutralAdjacent = adjacentSectors.filter(s =>
+    s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE &&
+    !rebelAdjacent.includes(s)
+  );
+  const spreadOrder = [...rebelAdjacent, ...neutralAdjacent];
+
+  for (const adjSector of spreadOrder) {
+    if (targetSector.dictatorMilitia <= 0) break;
+    const room = Sector.MAX_MILITIA_PER_SIDE - adjSector.dictatorMilitia;
+    if (room <= 0) continue;
+
+    targetSector.removeDictatorMilitia(1);
+    adjSector.addDictatorMilitia(1);
+    spreadTotal++;
+
+    // Check for combat on spread target
+    for (const rebel of game.rebelPlayers) {
+      const hasSquad = rebel.primarySquad.sectorId === adjSector.sectorId ||
+        rebel.secondarySquad.sectorId === adjSector.sectorId;
+      const hasMilitia = adjSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+      if (hasSquad || hasMilitia) {
+        game.message(`Rebels detected at ${adjSector.sectorName} - combat begins!`);
+        queuePendingCombat(game, adjSector, rebel, false);
+      }
+    }
+  }
+
+  if (spreadTotal > 0) {
+    game.message(`Mussolini spread ${spreadTotal} militia to adjacent sectors`);
+  }
+
+  return {
+    success: true,
+    message: `Placed ${placed} militia, spread ${spreadTotal}`,
+    data: { militiaPlaced: placed, militiaSpread: spreadTotal },
+  };
+}
+
+/**
  * Apply Gaddafi's per-turn ability:
  * "Once per turn, hire 1 random MERC."
  */
@@ -744,6 +852,9 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'mao':
       applyMaoTurnAbility(game);
+      break;
+    case 'mussolini':
+      applyMussoliniTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling
