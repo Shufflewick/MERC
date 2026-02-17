@@ -640,6 +640,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.pendingLockdownMilitia !== null;
   }
 
+  // Pending Mao militia placement — dictator places militia on wilderness sectors
+  pendingMaoMilitia: {
+    remaining: number;
+  } | null = null;
+
+  get hasMaoMilitiaPending(): boolean {
+    return this.pendingMaoMilitia !== null;
+  }
+
   /** Pending mortar attack hit allocation (attacker rolled dice, player chooses targets) */
   pendingMortarAttack: {
     attackerName: string;

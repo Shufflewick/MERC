@@ -479,6 +479,76 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 /**
+ * Apply Mao's per-turn ability:
+ * "Once per turn, count rebel-controlled sectors and place that many militia
+ * on any wilderness sectors (distributed across sectors)."
+ */
+export function applyMaoTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'mao') {
+    return { success: false, message: 'Not Mao' };
+  }
+
+  // Count rebel-controlled sectors
+  let rebelSectorCount = 0;
+  for (const rebel of game.rebelPlayers) {
+    rebelSectorCount += game.getControlledSectors(rebel).length;
+  }
+
+  if (rebelSectorCount === 0) {
+    game.message('Mao: Rebels control no sectors, no militia to place');
+    return { success: true, message: 'No rebel sectors', data: { militiaPlaced: 0 } };
+  }
+
+  // Filter to wilderness sectors only
+  const wildernessSectors = game.gameMap.getAllSectors().filter(s => s.isWilderness);
+  if (wildernessSectors.length === 0) {
+    game.message('Mao: No wilderness sectors available for militia placement');
+    return { success: true, message: 'No wilderness sectors', data: { militiaPlaced: 0 } };
+  }
+
+  // AI distribution: place one at a time to spread across sectors
+  let totalPlaced = 0;
+  let remaining = rebelSectorCount;
+
+  while (remaining > 0) {
+    // Filter to wilderness sectors with room
+    const available = wildernessSectors.filter(s => s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE);
+    if (available.length === 0) {
+      game.message(`Mao: All wilderness sectors at capacity, ${remaining} militia unplaced`);
+      break;
+    }
+
+    const targetSector = selectMilitiaPlacementSector(game, available, 'neutral');
+    if (!targetSector) break;
+
+    const placed = targetSector.addDictatorMilitia(1);
+    totalPlaced += placed;
+    remaining--;
+
+    // Check for rebel presence and queue combat
+    for (const rebel of game.rebelPlayers) {
+      const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+        rebel.secondarySquad.sectorId === targetSector.sectorId;
+      const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+      if (hasSquad || hasMilitia) {
+        game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+        queuePendingCombat(game, targetSector, rebel, false);
+      }
+    }
+  }
+
+  game.message(`Mao placed ${totalPlaced} militia across wilderness sectors (rebels control ${rebelSectorCount} sectors)`);
+
+  return {
+    success: true,
+    message: `Placed ${totalPlaced} militia`,
+    data: { militiaPlaced: totalPlaced },
+  };
+}
+
+/**
  * Apply Gaddafi's per-turn ability:
  * "Once per turn, hire 1 random MERC."
  */
@@ -671,6 +741,9 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'stalin':
       applyStalinTurnAbility(game);
+      break;
+    case 'mao':
+      applyMaoTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling
