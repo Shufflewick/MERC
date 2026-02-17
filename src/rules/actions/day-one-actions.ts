@@ -772,6 +772,8 @@ export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinitio
 export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDefinition {
   // Key for tracking remaining militia to place
   const REMAINING_MILITIA_KEY = '_extra_militia_remaining';
+  // Tracks the sector chosen in the current selection so amount choices can cap by capacity
+  let selectedSectorName: string | undefined;
 
   return Action.create('dictatorPlaceExtraMilitia')
     .prompt('Place extra militia')
@@ -784,21 +786,25 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
         return remaining === undefined || remaining > 0;
       },
+      'has sectors with capacity': () => {
+        return game.gameMap.getAllSectors().some(s => s.dictatorMilitia > 0 && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE);
+      },
     })
     .chooseFrom<string>('targetSector', {
       prompt: 'Choose sector to place militia',
       choices: () => {
-        // Get dictator-controlled sectors
+        // Only show sectors that have militia AND room below the cap
         const sectors = game.gameMap.getAllSectors()
-          .filter(s => s.dictatorMilitia > 0);
+          .filter(s => s.dictatorMilitia > 0 && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE);
         if (sectors.length === 0) {
-          // Fallback to any industry
+          // Fallback to any industry with room
           return game.gameMap.getAllSectors()
-            .filter(s => s.isIndustry)
+            .filter(s => s.isIndustry && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE)
             .map(s => s.sectorName);
         }
         return sectors.map(s => s.sectorName);
       },
+      onSelect: (value) => { selectedSectorName = value; },
     })
     .chooseFrom<string>('amount', {
       prompt: 'How many militia to place here?',
@@ -807,13 +813,20 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
         const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
         const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
         const toPlace = remaining ?? total;
-        // Offer 1 to remaining amount
+        // Cap by selected sector's available capacity
+        const sector = selectedSectorName
+          ? game.gameMap.getAllSectors().find(s => s.sectorName === selectedSectorName)
+          : undefined;
+        const sectorCapacity = sector
+          ? Sector.MAX_MILITIA_PER_SIDE - sector.dictatorMilitia
+          : Sector.MAX_MILITIA_PER_SIDE;
+        const maxPlaceable = Math.min(toPlace, sectorCapacity);
         const options: string[] = [];
-        for (let i = 1; i <= Math.min(toPlace, 10); i++) {
+        for (let i = 1; i <= Math.min(maxPlaceable, 10); i++) {
           options.push(`${i}`);
         }
-        if (toPlace > 10) {
-          options.push(`${toPlace} (all)`);
+        if (maxPlaceable > 10) {
+          options.push(`${maxPlaceable} (all)`);
         }
         return options;
       },

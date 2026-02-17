@@ -24,7 +24,7 @@ function actionStep(config: MERCActionStepConfig) {
   const { prompt, ...rest } = config;
   return boardsmithActionStep(rest);
 }
-import { TacticsCard } from './elements.js';
+import { TacticsCard, Sector } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
@@ -559,9 +559,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
                     return remaining === undefined; // Run once, then stop
                   }
-                  // For human, continue while militia remaining
+                  // For human, continue while militia remaining AND sectors have capacity
                   const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
-                  return remaining === undefined || remaining > 0;
+                  if (remaining !== undefined && remaining <= 0) return false;
+                  const hasCapacity = game.gameMap.getAllSectors().some(
+                    s => s.dictatorMilitia > 0 && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE
+                  );
+                  return hasCapacity;
                 },
                 maxIterations: 20,
                 do: actionStep({

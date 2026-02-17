@@ -1296,11 +1296,11 @@ export class Sector extends GridCell {
     if (bypassCap) {
       // Kim's ability allows up to 20 militia
       const kimMax = 20;
-      const canAdd = Math.min(count, kimMax - this.dictatorMilitia);
+      const canAdd = Math.max(0, Math.min(count, kimMax - this.dictatorMilitia));
       this.dictatorMilitia += canAdd;
       return canAdd;
     }
-    const canAdd = Math.min(count, Sector.MAX_MILITIA_PER_SIDE - this.dictatorMilitia);
+    const canAdd = Math.max(0, Math.min(count, Sector.MAX_MILITIA_PER_SIDE - this.dictatorMilitia));
     this.dictatorMilitia += canAdd;
     return canAdd;
   }
@@ -1308,7 +1308,7 @@ export class Sector extends GridCell {
   addRebelMilitia(playerId: string, count: number): number {
     const current = this.getRebelMilitia(playerId);
     const totalRebel = this.getTotalRebelMilitia();
-    const canAdd = Math.min(count, Sector.MAX_MILITIA_PER_SIDE - totalRebel);
+    const canAdd = Math.max(0, Math.min(count, Sector.MAX_MILITIA_PER_SIDE - totalRebel));
     this.rebelMilitia[playerId] = current + canAdd;
     return canAdd;
   }
