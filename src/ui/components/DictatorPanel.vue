@@ -133,7 +133,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia', 'polpotBonusMilitia', 'polpotBonusHire', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'hitlerPickInitiativeTarget', 'husseinBonusTactics', 'husseinBonusReinforce', 'noriegaConvertMilitia', 'noriegaPlaceMilitia', 'noriegaBonusHire'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia', 'polpotBonusMilitia', 'polpotBonusHire', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'hitlerPickInitiativeTarget', 'husseinBonusTactics', 'husseinBonusReinforce', 'noriegaConvertMilitia', 'noriegaPlaceMilitia', 'noriegaBonusHire', 'pinochetBonusHire'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -163,6 +163,11 @@ const isNoriegaHiring = computed(() => {
   return props.actionController.currentAction.value === 'noriegaBonusHire';
 });
 
+// Check if we're in Pinochet's hire action
+const isPinochetHiring = computed(() => {
+  return props.actionController.currentAction.value === 'pinochetBonusHire';
+});
+
 // Check if we're selecting a MERC (Generalissimo hire)
 const isSelectingMerc = computed(() => {
   const currentAction = props.actionController.currentAction.value;
@@ -177,7 +182,7 @@ const isSelectingSector = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
-  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'maoBonusMilitia' || currentAction === 'mussoliniBonusMilitia' || currentAction === 'mussoliniSpreadMilitia' || currentAction === 'polpotBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire' || currentAction === 'hitlerBonusHire' || currentAction === 'noriegaPlaceMilitia' || currentAction === 'noriegaBonusHire') {
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'maoBonusMilitia' || currentAction === 'mussoliniBonusMilitia' || currentAction === 'mussoliniSpreadMilitia' || currentAction === 'polpotBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire' || currentAction === 'hitlerBonusHire' || currentAction === 'noriegaPlaceMilitia' || currentAction === 'noriegaBonusHire' || currentAction === 'pinochetBonusHire') {
     return sel.name === 'targetSector';
   }
   // Base location selection during playTactics, husseinBonusTactics, or chooseKimBase

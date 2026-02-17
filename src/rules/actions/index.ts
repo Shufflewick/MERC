@@ -113,6 +113,7 @@ import {
   createNoriegaConvertMilitiaAction,
   createNoriegaPlaceMilitiaAction,
   createNoriegaBonusHireAction,
+  createPinochetBonusHireAction,
 } from './dictator-actions.js';
 
 import {
@@ -236,6 +237,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createNoriegaConvertMilitiaAction(game)); // Noriega per-turn militia conversion
   game.registerAction(createNoriegaPlaceMilitiaAction(game)); // Noriega converted militia placement
   game.registerAction(createNoriegaBonusHireAction(game)); // Noriega conditional hire
+  game.registerAction(createPinochetBonusHireAction(game)); // Pinochet sector-loss hire
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions

@@ -26,7 +26,7 @@ function actionStep(config: MERCActionStepConfig) {
 }
 import { TacticsCard, Sector } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
-import { applyDictatorTurnAbilities, applyHusseinBonusTactics } from './dictator-abilities.js';
+import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
 import type { Combatant } from './combat-types.js';
@@ -635,6 +635,14 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             }
           }),
 
+          // Pinochet: Snapshot controlled sectors before rebel turns
+          execute(() => {
+            if (game.dictatorPlayer?.dictator?.combatantId !== 'pinochet') return;
+            game._pinochetControlledSnapshot = new Set(
+              game.getControlledSectors(game.dictatorPlayer).map(s => s.sectorId)
+            );
+          }),
+
           // Rebel phase — all rebels act simultaneously
           loop({
             name: 'rebel-phase',
@@ -792,6 +800,21 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 },
               }),
             ),
+          }),
+
+          // Pinochet: Compare controlled sectors after rebel turns
+          execute(() => {
+            if (!game._pinochetControlledSnapshot) return;
+            const currentControlled = new Set(
+              game.getControlledSectors(game.dictatorPlayer).map(s => s.sectorId)
+            );
+            for (const sectorId of game._pinochetControlledSnapshot) {
+              if (!currentControlled.has(sectorId)) {
+                game._pinochetPendingHires = (game._pinochetPendingHires || 0) + 1;
+                game.message('Pinochet lost control of a sector - MERC hire queued');
+              }
+            }
+            game._pinochetControlledSnapshot = null;
           }),
 
           // Dictator turn
@@ -991,6 +1014,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       game.pendingMaoMilitia = { remaining: rebelSectorCount };
                     }
                   }
+                } else if (game.dictatorPlayer?.dictator?.combatantId === 'pinochet') {
+                  // Human Pinochet: auto-apply damage spread (no choices)
+                  // Pending hires are handled by the pinochetBonusHire actionStep below
+                  applyPinochetDamageSpread(game);
                 }
                 // Human players use the actionStep below
               }),
@@ -1151,6 +1178,22 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 if (game.lastAbilityCombatOutcome) {
                   game.lastAbilityCombatOutcome = null;
                 }
+              }),
+
+              // Pinochet: Human bonus hire from sector losses
+              loop({
+                name: 'pinochet-bonus-hire',
+                while: () => !game.isFinished() &&
+                  game.dictatorPlayer?.dictator?.combatantId === 'pinochet' &&
+                  game.dictatorPlayer?.isAI !== true &&
+                  game._pinochetPendingHires > 0,
+                maxIterations: 20,
+                do: actionStep({
+                  name: 'pinochet-hire',
+                  actions: ['pinochetBonusHire'],
+                  prompt: 'Pinochet lost a sector - hire a bonus MERC',
+                  skipIf: () => game.isFinished() || game._pinochetPendingHires <= 0,
+                }),
               }),
 
               // Apply end-of-turn effects (Conscripts)
