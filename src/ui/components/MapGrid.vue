@@ -19,6 +19,9 @@ interface SectorData {
   col: number;
   image?: string;
   explored: boolean;
+  weaponLoot: number;
+  armorLoot: number;
+  accessoryLoot: number;
   dictatorMilitia: number;
   rebelMilitia?: Record<string, number>;
 }

@@ -209,8 +209,8 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       game.message(`(${mercs.length} action(s) consumed)`);
 
       // Record action for AI rebel batching (before any early returns from combat)
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       // MERC-iz7: Sonia can bring militia when moving (rebel only)
@@ -372,8 +372,8 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         useAction(merc, ACTION_COSTS.MOVE);
       }
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       // Move both squads to target - MERCs inherit sectorId via computed getter
@@ -497,8 +497,8 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
       game.initCoordinatedAttack(target.sectorId, player.seat, squadType);
       game.message(`${player.name} declared a coordinated attack on ${target.sectorName} with their ${squadType} squad`);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       return {
@@ -660,11 +660,11 @@ function getValidTargetSquads(
     const sameSector = primaryHasSector && secondaryHasSector && primary.sectorId === secondary.sectorId;
     const currentSquadCount = getSquadCombatantCount(currentSquad);
 
-    // Same-sector transfers: free movement
+    // Same-sector transfers: free movement (skip full target squads)
     if (sameSector) {
-      if (currentSquad.isPrimary) {
+      if (currentSquad.isPrimary && !secondary.isFull) {
         choices.push({ label: 'Secondary Squad', value: 'secondary' });
-      } else {
+      } else if (!currentSquad.isPrimary && !primary.isFull) {
         choices.push({ label: 'Primary Squad', value: 'primary' });
       }
     }
@@ -716,27 +716,27 @@ function getValidTargetSquads(
     const secondarySameSector = secondaryHasSector && secondary.sectorId === currentSector;
     const baseSameSector = baseHasSector && base?.sectorId === currentSector;
 
-    // Same-sector transfers: free movement to any squad at same sector
-    if (!currentSquad.isBase && !currentSquad.isPrimary && primarySameSector) {
+    // Same-sector transfers: free movement to any squad at same sector (skip full targets)
+    if (!currentSquad.isBase && !currentSquad.isPrimary && primarySameSector && !primary.isFull) {
       choices.push({ label: 'Primary Squad', value: 'primary' });
     }
-    if (!currentSquad.isBase && currentSquad.isPrimary && secondarySameSector) {
+    if (!currentSquad.isBase && currentSquad.isPrimary && secondarySameSector && !secondary.isFull) {
       choices.push({ label: 'Secondary Squad', value: 'secondary' });
     }
-    if (!currentSquad.isBase && baseSameSector) {
+    if (!currentSquad.isBase && baseSameSector && base && !base.isFull) {
       choices.push({ label: 'Base Squad', value: 'base' });
     }
 
     // From base squad: can transfer to primary/secondary if at same sector
     // OR can create new squad to deploy from base
     if (currentSquad.isBase) {
-      if (primarySameSector) {
+      if (primarySameSector && !primary.isFull) {
         choices.push({ label: 'Primary Squad', value: 'primary' });
       } else if (!primaryHasSector) {
         // Can deploy from base to create primary squad at base sector
         choices.push({ label: 'Create Primary Squad', value: 'primary' });
       }
-      if (secondarySameSector) {
+      if (secondarySameSector && !secondary.isFull) {
         choices.push({ label: 'Secondary Squad', value: 'secondary' });
       } else if (!secondaryHasSector) {
         // Can deploy from base to create secondary squad at base sector
@@ -852,8 +852,8 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
 
         game.message(`${player.name} assigned ${merc.combatantName} to ${targetType} squad`);
 
-        if (ctx.player.isRebel() && ctx.player.isAI) {
-          game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+        if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+          game.recordRebelActionForBatching(ctx.player);
         }
 
         return { success: true, message: `Assigned ${merc.combatantName} to ${targetType} squad` };

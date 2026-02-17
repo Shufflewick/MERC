@@ -14,6 +14,9 @@ interface SectorData {
   value: number;
   image?: string;
   explored: boolean;
+  weaponLoot: number;
+  armorLoot: number;
+  accessoryLoot: number;
   dictatorMilitia: number;
   rebelMilitia?: Record<string, number>;
 }
@@ -102,6 +105,12 @@ const baseIconStyle = computed(() => {
     borderColor: color,
     boxShadow: `0 0 6px 2px ${color}80`, // 80 = 50% opacity in hex
   };
+});
+
+const hasLoot = computed(() => {
+  return props.sector.weaponLoot > 0
+    || props.sector.armorLoot > 0
+    || props.sector.accessoryLoot > 0;
 });
 
 const displayName = computed(() => {
@@ -210,7 +219,12 @@ function closeMercModal() {
       <template v-if="!sector.explored && !hideQuestionMark">
         <div class="unexplored">
           <span class="question-mark">?</span>
-          <span class="unexplored-text">Unexplored</span>
+          <div v-if="hasLoot" class="loot-icons">
+            <span v-if="sector.weaponLoot > 0" class="loot-badge" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
+            <span v-if="sector.armorLoot > 0" class="loot-badge" title="Armor">🛡️{{ sector.armorLoot }}</span>
+            <span v-if="sector.accessoryLoot > 0" class="loot-badge" title="Accessories">💍{{ sector.accessoryLoot }}</span>
+          </div>
+          <span v-else class="unexplored-text">Unexplored</span>
         </div>
       </template>
     </div>
@@ -425,6 +439,21 @@ function closeMercModal() {
 .unexplored-text {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.loot-icons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  padding: 2px 8px;
+}
+
+.loot-badge {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 

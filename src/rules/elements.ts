@@ -5,6 +5,7 @@ import {
   SectorConstants,
   DictatorConstants,
   AdjacencyConstants,
+  TeamConstants,
 } from './constants.js';
 import {
   getExtraAccessorySlots,
@@ -1460,6 +1461,10 @@ export class Squad extends Space {
 
   get hasNoMercs(): boolean {
     return this.mercCount === 0;
+  }
+
+  get isFull(): boolean {
+    return this.all(CombatantModel).filter(c => c.isMerc || c.isDictator).length >= TeamConstants.MAX_SQUAD_SIZE;
   }
 }
 

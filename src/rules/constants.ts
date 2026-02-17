@@ -82,6 +82,9 @@ export const TeamConstants = {
   /** Primary and Secondary squads */
   MAX_SQUADS: 2,
 
+  /** Maximum combatants (MERCs + dictator card) per squad */
+  MAX_SQUAD_SIZE: 4,
+
   /**
    * Team Limit Formula: 1 + controlled sectors
    * One MERC per controlled sector + free MERC

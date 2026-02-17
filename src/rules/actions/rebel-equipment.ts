@@ -244,8 +244,8 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       // Spend action upfront when first starting re-equip
       unit.actionsRemaining -= ACTION_COSTS.RE_EQUIP;
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       // User chose "Done equipping" without picking anything
@@ -694,8 +694,8 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
       g.message(`${capitalize(actingCombatant.combatantName)} dropped a piece of equipment in ${sector.sectorName}`);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        g.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (g.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        g.recordRebelActionForBatching(ctx.player);
       }
 
       return { success: true, message: `Dropped equipment` };
@@ -787,8 +787,8 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
 
       feedback.useAction(ACTION_COSTS.RE_EQUIP);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       return { success: true, message: `Retrieved ${selectedEquipment.equipmentName}` };
@@ -870,8 +870,8 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         game.message(`${squidhead.combatantName} disarms the land mine (left in stash)`);
       }
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       return { success: true, message: 'Disarmed land mine' };
@@ -949,8 +949,8 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       ]);
       game.message(`${squidhead.combatantName} arms a land mine at ${sector.sectorName}`);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       return { success: true, message: 'Armed land mine' };
@@ -1135,8 +1135,8 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
       };
       setHagnessDrawnChoicesCache(game, playerId, cache);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       // Chain to the pick-1 action
@@ -1369,8 +1369,8 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
 
       game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.combatantName}`);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.combatantName}` };
@@ -1550,8 +1550,8 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
 
       game.message(`${combatant.combatantName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       return {
@@ -1765,8 +1765,8 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       unit.useAction(1);
 
       // Record for AI batching
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       const unitDisplayName = (unit as CombatantModel).combatantName;

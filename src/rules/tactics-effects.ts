@@ -719,7 +719,20 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
     const secondarySquad = game.dictatorPlayer.secondarySquad;
     const primaryMercs = primarySquad.getLivingMercs();
 
-    const targetSquad = primaryMercs.length < 3 ? primarySquad : secondarySquad;
+    const targetSquad = !primarySquad.isFull ? primarySquad : !secondarySquad.isFull ? secondarySquad : null;
+
+    if (!targetSquad) {
+      // Both squads full — discard all drawn mercs
+      for (const merc of drawnMercs) {
+        merc.putInto(game.mercDiscard);
+      }
+      game.message('Generalissimo: All squads full, cannot hire');
+      return {
+        success: baseResult.success,
+        message: `${baseResult.message}. All squads full`,
+        data: { ...baseResult.data },
+      };
+    }
 
     bestMerc.putInto(targetSquad);
 

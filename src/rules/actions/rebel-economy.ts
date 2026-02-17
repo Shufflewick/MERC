@@ -228,10 +228,22 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       // Auto-join: new MERCs join the squad of the acting merc (the one who spent actions to hire)
       // This ensures new hires join the squad at the hiring sector
-      let targetSquad = player.getSquadContaining(actingMerc) || player.primarySquad;
+      const preferredSquad = player.getSquadContaining(actingMerc) || player.primarySquad;
+      const otherSquad = preferredSquad === player.primarySquad ? player.secondarySquad : player.primarySquad;
 
       for (const merc of drawnMercs) {
         if (selectedNames.includes(capitalize(merc.combatantName)) && currentSize < teamLimit) {
+          // Pick target squad, overflowing to other squad if preferred is full
+          const targetSquad = !preferredSquad.isFull ? preferredSquad
+            : !otherSquad.isFull ? otherSquad
+            : null;
+
+          if (!targetSquad) {
+            // Both squads full — discard this merc
+            merc.putInto(game.mercDiscard);
+            continue;
+          }
+
           // Merc inherits sectorId from squad via computed getter
           merc.putInto(targetSquad);
           if (targetSquad.sectorId) {
@@ -256,8 +268,8 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       if (hired.length > 0) {
@@ -375,8 +387,8 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.EXPLORE;
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       // Draw equipment to stash
@@ -869,8 +881,8 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         useTrainingAction(actingUnit as CombatantModel, ACTION_COSTS.TRAIN);
       }
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       // Get unit name for messages
@@ -1064,8 +1076,8 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.HOSPITAL;
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       const healedAmount = actingUnit.damage;
@@ -1227,8 +1239,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
 
-      if (ctx.player.isRebel() && ctx.player.isAI) {
-        game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
       }
 
       const actingUnitName = getUnitName(actingUnit);
@@ -1335,8 +1347,8 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
         }
         game.message(`${player.name} ends their turn`);
 
-        if (ctx.player.isRebel() && ctx.player.isAI) {
-          game.recordRebelActionForBatching(ctx.player as MERCPlayer);
+        if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+          game.recordRebelActionForBatching(ctx.player);
         }
       } else if (game.isDictatorPlayer(ctx.player)) {
         // Clear all remaining actions from dictator MERCs

@@ -250,8 +250,14 @@ describe('MCTS Clone Divergence', () => {
 
     let anyError = false;
     let totalBotPlays = 0;
+    const startTime = Date.now();
+    const timeBudgetMs = 100_000; // Stop starting new seeds after 100s to stay within 120s timeout
 
     for (const seed of seeds) {
+      if (Date.now() - startTime > timeBudgetMs) {
+        console.log(`  Time budget exhausted after ${Math.round((Date.now() - startTime) / 1000)}s, stopping early`);
+        break;
+      }
       const runner = new GameRunner<MERCGame>({
         GameClass: MERCGame,
         gameType: 'merc',

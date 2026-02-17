@@ -438,18 +438,26 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       const secondaryMercs = secondarySquad.getLivingMercs();
 
       let targetSquad: typeof primarySquad;
-      if (primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) {
-        // Primary squad is empty or already at target - use primary
+      if ((primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) && !primarySquad.isFull) {
         targetSquad = primarySquad;
         game.message(`Placing ${selectedMerc.combatantName} in primary squad at ${targetSector.sectorName}`);
-      } else if (secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) {
-        // Secondary squad is empty or already at target - use secondary
+      } else if ((secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) && !secondarySquad.isFull) {
         targetSquad = secondarySquad;
         game.message(`Placing ${selectedMerc.combatantName} in secondary squad at ${targetSector.sectorName}`);
-      } else {
-        // Both squads occupied elsewhere - default to primary (this is an edge case)
+      } else if (!primarySquad.isFull) {
         targetSquad = primarySquad;
         game.message(`Both squads occupied - adding to primary squad`);
+      } else if (!secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Primary full - adding to secondary squad`);
+      } else {
+        // Both squads full — discard all
+        for (const merc of mercs) {
+          merc.putInto(game.mercDiscard);
+        }
+        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
+        game.message('Castro: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
       }
 
       // Put MERC into chosen squad and set its location to the selected sector
@@ -683,15 +691,26 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       const secondaryMercs = secondarySquad.getLivingMercs();
 
       let targetSquad: typeof primarySquad;
-      if (primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) {
+      if ((primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) && !primarySquad.isFull) {
         targetSquad = primarySquad;
         game.message(`Placing ${selectedMerc.combatantName} in primary squad at ${targetSector.sectorName}`);
-      } else if (secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) {
+      } else if ((secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) && !secondarySquad.isFull) {
         targetSquad = secondarySquad;
         game.message(`Placing ${selectedMerc.combatantName} in secondary squad at ${targetSector.sectorName}`);
-      } else {
+      } else if (!primarySquad.isFull) {
         targetSquad = primarySquad;
         game.message(`Both squads occupied - adding to primary squad`);
+      } else if (!secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Primary full - adding to secondary squad`);
+      } else {
+        // Both squads full — discard all
+        for (const merc of mercs) {
+          merc.putInto(game.mercDiscard);
+        }
+        game.pendingGeneralissimoHire = null;
+        game.message('Generalissimo: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
       }
 
       // Put MERC into chosen squad and set its location to the selected sector

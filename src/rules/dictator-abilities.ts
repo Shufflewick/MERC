@@ -130,15 +130,30 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
     current.baseCombat > best.baseCombat ? current : best
   );
 
-  // Put the hired MERC into the dictator's primary squad
-  bestMerc.putInto(game.dictatorPlayer.primarySquad);
+  // Put the hired MERC into the dictator's primary or secondary squad (prefer primary)
+  const primarySquad = game.dictatorPlayer.primarySquad;
+  const secondarySquad = game.dictatorPlayer.secondarySquad;
+  const targetSquad = !primarySquad.isFull ? primarySquad
+    : !secondarySquad.isFull ? secondarySquad
+    : null;
+
+  if (!targetSquad) {
+    // Both squads full — discard all drawn mercs
+    for (const merc of drawnMercs) {
+      merc.putInto(game.mercDiscard);
+    }
+    game.message('Castro: All squads full, cannot hire');
+    return { success: false, message: 'All squads full' };
+  }
+
+  bestMerc.putInto(targetSquad);
 
   // MERC-2ay: Set squad location per AI rules 4.3.2
   // Dictator-controlled sector closest to weakest rebel sector
   // Note: This moves all mercs in the squad - sectorId is derived from squad
   const targetSector = selectNewMercLocation(game);
   if (targetSector) {
-    game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
+    targetSquad.sectorId = targetSector.sectorId;
   }
 
   // All hired MERCs get 1 free equipment - prioritize weapon
