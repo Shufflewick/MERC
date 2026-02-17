@@ -128,8 +128,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 61-01-PLAN.md -- Pinochet per-turn damage spread and sector-loss reactive hire (AI + human + snapshot mechanism)
-- [ ] 61-02-PLAN.md -- Gaddafi equipment loot on rebel MERC kill (combat hooks + post-combat flow)
+- [x] 61-01-PLAN.md -- Pinochet per-turn damage spread and sector-loss reactive hire (AI + human + snapshot mechanism)
+- [x] 61-02-PLAN.md -- Gaddafi equipment loot on rebel MERC kill (combat hooks + post-combat flow)
 
 **Success Criteria:**
 1. When dictator forces kill a MERC under Gaddafi, the dictator is offered the dead MERC's equipment for dictator MERCs in that sector
@@ -165,11 +165,11 @@ Plans:
 | 58 | Setup-Phase Abilities | ✓ Complete | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
 | 59 | Militia Placement Abilities | ✓ Complete | TURN-03, TURN-04, TURN-07 |
 | 60 | Complex Interactive Abilities | ✓ Complete | TURN-02, TURN-05 |
-| 61 | Reactive Abilities | Pending | REACT-02, REACT-03, TURN-06 |
+| 61 | Reactive Abilities | ✓ Complete | REACT-02, REACT-03, TURN-06 |
 | 62 | AI & Comprehensive Testing | Pending | AI-01, AI-02, AI-03, TEST-01, TEST-02, TEST-03, TEST-04 |
 
 **Coverage:** 23/23 v1 requirements mapped
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 61 planning complete*
+*Last updated: 2026-02-17 after Phase 61 execution complete*

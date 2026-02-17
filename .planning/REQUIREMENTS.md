@@ -17,7 +17,7 @@
 - [x] **TURN-03**: Mao — place militia equal to rebel-controlled sector count into any wilderness sectors
 - [x] **TURN-04**: Mussolini — add militia equal to rebel count to a controlled sector, then move militia from that sector to adjacent sectors
 - [x] **TURN-05**: Noriega — convert 1 militia from each rebel sector to dictator militia, move all to one chosen non-rebel sector; hire 1 random MERC if controlling fewer sectors than rebels
-- [ ] **TURN-06**: Pinochet — distribute damage equal to rebel-controlled sector count as evenly as possible across all rebel forces (MERCs and militia)
+- [x] **TURN-06**: Pinochet — distribute damage equal to rebel-controlled sector count as evenly as possible across all rebel forces (MERCs and militia)
 - [x] **TURN-07**: Pol Pot — add militia equal to rebel-controlled sector count to any one rebel sector (max 10); hire 1 random MERC if combat lost
 - [x] **TURN-08**: Stalin — hire 1 random MERC to primary squad; if base revealed, also hire 1 to secondary squad
 
@@ -30,8 +30,8 @@
 ### Persistent/Reactive Abilities
 
 - [x] **REACT-01**: Hussein — draw and play a second tactics card each turn
-- [ ] **REACT-02**: Gaddafi — when dictator forces kill a MERC, offer their equipment to dictator MERCs in the sector instead of discarding
-- [ ] **REACT-03**: Pinochet — queue a free MERC hire when losing control of a sector (placed at start of next turn)
+- [x] **REACT-02**: Gaddafi — when dictator forces kill a MERC, offer their equipment to dictator MERCs in the sector instead of discarding
+- [x] **REACT-03**: Pinochet — queue a free MERC hire when losing control of a sector (placed at start of next turn)
 
 ### AI Support
 
