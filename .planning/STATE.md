@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 61 of 62 (v2.1)
-Plan: Awaiting planning
-Status: Phase 60 complete, Phase 61 pending
-Last activity: 2026-02-17 -- Phase 60 executed and verified (2 plans, 2 waves)
+Plan: 1 of 2 (Phase 61)
+Status: In progress
+Last activity: 2026-02-17 -- Completed 61-01-PLAN.md (Pinochet abilities)
 
 Progress: [#######...] 71% (5/7 phases)
 
@@ -36,7 +36,7 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 124
+- Total plans completed: 125
 
 ## Accumulated Context
 
@@ -47,6 +47,7 @@ All decisions captured in PROJECT.md Key Decisions table.
 - sortByInitiative takes optional game parameter for Hitler initiative override (backward compatible)
 - Hitler initiative target pick is a separate flow step after hire step
 - Noriega AI sector strategy: prefer non-rebel sector with most adjacent rebel sectors
+- Pinochet damage spread: MERCs first then militia for remainder allocation; no Gaddafi loot trigger
 
 ### Deferred Issues
 
@@ -62,5 +63,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 60 complete, ready for Phase 61 planning
+Stopped at: Completed 61-01-PLAN.md, ready for 61-02
 Resume file: None
