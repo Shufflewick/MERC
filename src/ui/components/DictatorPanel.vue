@@ -116,6 +116,14 @@ const dictatorActions = computed(() => {
     actions.push({ name: 'reinforce', label: 'Reinforce', icon: '🛡️' });
   }
 
+  // Hussein's bonus tactics actions
+  if (props.availableActions.includes('husseinBonusTactics') && props.tacticsHand.length > 0) {
+    actions.push({ name: 'husseinBonusTactics', label: 'Hussein: Play Tactics', icon: '🎴' });
+  }
+  if (props.availableActions.includes('husseinBonusReinforce') && props.tacticsHand.length > 0) {
+    actions.push({ name: 'husseinBonusReinforce', label: 'Hussein: Reinforce', icon: '🛡️' });
+  }
+
   return actions;
 });
 
@@ -125,7 +133,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'husseinBonusTactics', 'husseinBonusReinforce'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -162,12 +170,12 @@ const isSelectingSector = computed(() => {
   if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire') {
     return sel.name === 'targetSector';
   }
-  // Base location selection during playTactics or chooseKimBase
-  if ((currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'baseLocation') {
+  // Base location selection during playTactics, husseinBonusTactics, or chooseKimBase
+  if ((currentAction === 'playTactics' || currentAction === 'husseinBonusTactics' || currentAction === 'chooseKimBase') && sel.name === 'baseLocation') {
     return true;
   }
   // Reinforce action sector selection
-  if (currentAction === 'reinforce' && sel.name === 'sector') {
+  if ((currentAction === 'reinforce' || currentAction === 'husseinBonusReinforce') && sel.name === 'sector') {
     return true;
   }
   return false;
@@ -179,7 +187,7 @@ const isSelectingEquipmentType = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Equipment selection happens in playTactics (base reveal), chooseKimBase (Day 1 setup), and generalissimoPick
-  if ((currentAction === 'playTactics' || currentAction === 'chooseKimBase') && sel.name === 'dictatorEquipment') return true;
+  if ((currentAction === 'playTactics' || currentAction === 'husseinBonusTactics' || currentAction === 'chooseKimBase') && sel.name === 'dictatorEquipment') return true;
   if (currentAction === 'generalissimoPick' && sel.name === 'equipmentType') return true;
   return false;
 });

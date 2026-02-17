@@ -26,7 +26,7 @@ function actionStep(config: MERCActionStepConfig) {
 }
 import { TacticsCard, Sector } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
-import { applyDictatorTurnAbilities } from './dictator-abilities.js';
+import { applyDictatorTurnAbilities, applyHusseinBonusTactics } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
 import type { Combatant } from './combat-types.js';
@@ -1016,6 +1016,85 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 if (game.isFinished()) return;
                 applyConscriptsEffect(game);
               }),
+
+              // Hussein: Draw bonus card and play second tactics (persistent per-turn ability)
+              execute(() => {
+                if (game.isFinished()) return;
+                const dictator = game.dictatorPlayer?.dictator;
+                if (dictator?.combatantId !== 'hussein') return;
+
+                if (game.dictatorPlayer?.isAI) {
+                  // AI: Auto-play second card
+                  applyHusseinBonusTactics(game);
+                } else {
+                  // Human: Draw 1 card from deck to hand for the bonus play
+                  const deck = game.dictatorPlayer.tacticsDeck;
+                  const hand = game.dictatorPlayer.tacticsHand;
+                  if (deck && hand) {
+                    const card = deck.first(TacticsCard);
+                    if (card) {
+                      card.putInto(hand);
+                      game.message('Hussein draws a bonus tactics card');
+                    }
+                  }
+                }
+              }),
+
+              // Hussein second tactics play (human only)
+              actionStep({
+                name: 'hussein-bonus-tactics',
+                actions: ['husseinBonusTactics', 'husseinBonusReinforce'],
+                prompt: "Hussein's Ability: Play a second tactics card",
+                skipIf: () => game.isFinished() ||
+                  game.dictatorPlayer?.dictator?.combatantId !== 'hussein' ||
+                  game.dictatorPlayer?.isAI === true,
+              }),
+
+              // Post-effects for Hussein's second tactics play
+              // These duplicate the post-first-tactics-play effects because
+              // the second card can trigger artillery, generalissimo, lockdown, or combat
+
+              // Artillery allocation after Hussein bonus tactics
+              loop({
+                name: 'hussein-bonus-artillery',
+                while: () => game.pendingArtilleryAllocation != null && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'hussein-artillery-allocate',
+                  actions: ['artilleryAllocateHits'],
+                  prompt: 'Allocate artillery damage to your units',
+                  skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
+                }),
+              }),
+
+              // Generalissimo hire after Hussein bonus tactics
+              loop({
+                name: 'hussein-bonus-generalissimo',
+                while: () => game.pendingGeneralissimoHire != null && !game.isFinished(),
+                maxIterations: 5,
+                do: actionStep({
+                  name: 'hussein-generalissimo-pick',
+                  actions: ['generalissimoPick'],
+                  prompt: 'Generalissimo: Choose a MERC to hire',
+                  skipIf: () => game.isFinished() || game.pendingGeneralissimoHire == null,
+                }),
+              }),
+
+              // Lockdown militia placement after Hussein bonus tactics
+              loop({
+                name: 'hussein-bonus-lockdown',
+                while: () => game.pendingLockdownMilitia != null && game.pendingLockdownMilitia.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'hussein-lockdown-place',
+                  actions: ['lockdownPlaceMilitia'],
+                  prompt: 'Lockdown: Place militia on base or adjacent sectors',
+                  skipIf: () => game.isFinished() || game.pendingLockdownMilitia == null || game.pendingLockdownMilitia.remaining <= 0,
+                }),
+              }),
+
+              // Combat resolution after Hussein bonus tactics
+              combatResolutionFlow(game, 'hussein-bonus-combat'),
 
               // Step 4: Refill hand to 3 cards
               execute(() => {
