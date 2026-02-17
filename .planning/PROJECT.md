@@ -8,38 +8,22 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 
 **Ship Confidence** — the game should behave correctly, consistently, and visibly. Every game mechanic works as designed, every UI action is properly wired, and every significant game event has a visible animation.
 
-## Current Milestone: v2.0 Simultaneous Rebel Turns
-
-**Goal:** Replace sequential rebel turns with simultaneous play — all rebels act freely during the rebel phase with combat as a synchronization barrier.
-
-**Design decisions (from design discussion):**
-- Loop pattern wrapping `simultaneousActionStep` + conditional barriers (no BoardSmith engine changes)
-- Single-threaded server guarantees deterministic action ordering — no race conditions
-- Combat and coordinated attacks exit the simultaneous step, run sequentially, then loop re-enters
-- `playerDone`/`skipPlayer` on the simultaneous step handle resume state after barriers
-- All action guards are per-player (no cross-player dependencies)
-
 ## Current State
 
-**Shipped:** v1.10 Grievances (2026-02-09)
+**Shipped:** v2.0 Simultaneous Rebel Turns (2026-02-16)
 
-- 41,145 lines of TypeScript/Vue (modular structure)
+- 44,001 lines of TypeScript/Vue (+5,012/-1,156 from v2.0)
+- Simultaneous rebel turns via loop + simultaneousActionStep (Day 1 and Day 2+)
+- Combat barrier architecture — combat/coordinated attacks pause simultaneous play, resolve sequentially
+- AI rebel batch gating — round-robin across 19 rebel actions
+- combatResolutionFlow shared sub-flow (4 call sites: rebel, tactics, dictator, Kim militia)
+- Combat barrier overlay with red-tinted visual transition
 - Zero `as any` casts in src/rules/
 - Unified class hierarchy: CombatantBase → CombatantModel (concrete class)
-- Canonical identity: combatantId/combatantName (no legacy aliases)
-- Property-based type guards (isCombatantModel)
-- Single combatants.json data file (54 entries)
-- CombatantCard.vue component for rendering any combatant
-- CombatPanel is 100% event-driven animation player (no theatre view, no state machine)
-- Combat events: pure data animate calls + combat-panel snapshots at all 8 decision cycles
-- GameTable combat section: ~15 lines (snapshot-driven visibility)
-- All 14 dictator tactics cards audited, corrected, and animated
-- Bidirectional landmine system with Squidhead counter-ability
-- Compiler-enforced bandolier equipment handling (EquipResult)
-- Sector panel actions fully wired with correct auto-fill
+- CombatPanel is 100% event-driven animation player
 - CLAUDE.md architecture guide for AI navigation
-- 657 tests passing
-- 11 milestones shipped, 50 phases, 100 plans
+- 693 tests passing
+- 12 milestones shipped, 55 phases, 107 plans
 
 ## Requirements
 
@@ -95,21 +79,22 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - ✓ Generalissimo — draw 6 mercs, pick 1, interactive flow with action + flow step — v1.10
 - ✓ Better Weapons — militia hit on 3+ going forward (persistent buff) — v1.10
 - ✓ Lockdown — 5×rebelCount militia placed on base/adjacent sectors, interactive placement — v1.10
+- ✓ Simultaneous rebel turns — loop + simultaneousActionStep for Day 1 and Day 2+ — v2.0
+- ✓ Combat barrier pattern — combat/coordinated attacks exit simultaneous step, resolve, re-enter — v2.0
+- ✓ Shared combat flow — combatResolutionFlow(game, prefix) at 4 call sites — v2.0
+- ✓ Dictator turn refactor — dictator uses shared combat sub-flow — v2.0
+- ✓ Per-player action evaluation — independent action lists per rebel — v2.0
+- ✓ Player done detection — exhausted OR explicit end turn; phase ends when all done — v2.0
+- ✓ AI rebel batch gating — round-robin across 19 actions — v2.0
+- ✓ Contextual error messages — server-side validation with actionable errors — v2.0
+- ✓ Day 1 simultaneous — same simultaneousActionStep model as Day 2+ — v2.0
+- ✓ Turn indicators — PlayersPanel shows all active rebels during simultaneous step — v2.0
+- ✓ Real-time board updates — all actions visible to all players as they happen — v2.0
+- ✓ Combat barrier overlay — red-tinted visual transition when simultaneous play pauses — v2.0
 
 ### Active
 
-- [ ] Simultaneous rebel turns — all rebels act freely during the rebel phase, actions resolve in server arrival order
-- [ ] Combat barrier pattern — combat pauses all simultaneous actions, resolves sequentially, then resumes
-- [ ] Coordinated attack barrier — declare pauses simultaneous step, commit/decline flow runs, then combat, then resume
-- [ ] Shared combat flow — extract combat into standalone sub-flow usable from both rebel and dictator phases
-- [ ] Dictator turn refactor — dictator turn uses shared combat flow for consistency
-- [ ] Per-player action evaluation — each rebel gets independent action list based on own state + board state
-- [ ] Player done detection — rebel is done when actions exhausted OR explicit end turn; rebel phase ends when all done
-- [ ] AI rebel support — bot rebels batch by action number (all first actions, then all second actions)
-- [ ] Contextual error messages — rebels see why their action failed during simultaneous play
-- [ ] Day 1 simultaneous — Day 1 rebel phase uses same simultaneous model as Day 2+
-- [ ] UI cosmetic fixes — turn indicator shows all active rebels, waiting message shows player names
-- [ ] Real-time board updates — all actions visible to all players (including dictator) as they happen
+(None — next milestone requirements TBD via `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -122,13 +107,14 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 - Brownfield project with working game implementation
 - TypeScript 5.7.0 with strict mode enabled
 - BoardSmith v3.0 fully integrated (animation timeline, no theatre view)
-- 41,145 lines of TypeScript/Vue code
-- 657 tests (combat, abilities, equipment, conditions, state persistence, error handling, combat events, landmines)
+- 44,001 lines of TypeScript/Vue code
+- 693 tests (combat, abilities, equipment, conditions, state persistence, error handling, combat events, landmines, barriers, AI batching)
 - Clean class hierarchy: CombatantBase → CombatantModel (concrete)
-- CombatPanel is event-driven animation player (combat-panel snapshots + pure data animate events)
+- Simultaneous rebel turns with combat barrier synchronization
+- AI rebel batch gating for deterministic bot play
+- CombatPanel is event-driven animation player
 - Architecture documented in CLAUDE.md
-- Zero legacy ID patterns (mercId/mercName/dictatorId/dictatorName eradicated)
-- 11 milestones shipped (v1.0-v1.10)
+- 12 milestones shipped (v1.0-v1.10, v2.0)
 
 **Codebase Map:**
 - `.planning/codebase/CONCERNS.md` - Full list of identified issues
@@ -186,11 +172,14 @@ A strategic combat board game built on the @boardsmith/engine framework. Players
 | Remove fabricated tactics bonuses | generalisimoActive/lockdownActive had no basis in CSV rules | ✓ Good |
 | Loop-based animation registration | Single activeTacticEvent ref shared across all 14 event types | ✓ Good |
 
-| Loop pattern for simultaneous+barrier | Composable with existing BoardSmith primitives, serializes correctly | — Pending |
-| Combat as synchronization barrier | Simplest model — one combat at a time, all rebels pause | — Pending |
-| No BoardSmith engine changes | Use existing simultaneousActionStep + loop, avoid engine modifications | — Pending |
-| Contextual error messages | Rebels need to understand why actions failed during simultaneous play | — Pending |
-| AI rebels batch by action number | Simple, deterministic — all first actions then all second actions | — Pending |
+| Loop pattern for simultaneous+barrier | Composable with existing BoardSmith primitives, serializes correctly | ✓ Good |
+| Combat as synchronization barrier | Simplest model — one combat at a time, all rebels pause | ✓ Good |
+| No BoardSmith engine changes | Use existing simultaneousActionStep + loop, avoid engine modifications | ✓ Good |
+| Contextual error messages | Rebels need to understand why actions failed during simultaneous play | ✓ Good |
+| AI rebels batch by action number | Simple, deterministic — all first actions then all second actions | ✓ Good |
+| RebelPlayer cast in skipPlayer/playerDone | BoardSmith Player base lacks team property, safe because players are RebelPlayer | ✓ Good |
+| Private properties for AI batch state | Not serialized by BoardSmith, ephemeral to simultaneous step | ✓ Good |
+| Conservative isDay1Complete | Engine auto-completes players with no available actions as fallback | ✓ Good |
 
 ---
-*Last updated: 2026-02-16 after v2.0 milestone start*
+*Last updated: 2026-02-16 after v2.0 milestone*

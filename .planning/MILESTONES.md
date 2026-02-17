@@ -1,4 +1,32 @@
-# Project Milestones: MERC Codebase Cleanup
+# Project Milestones: MERC
+
+## v2.0 Simultaneous Rebel Turns (Shipped: 2026-02-16)
+
+**Delivered:** Replaced sequential rebel turns with simultaneous play — all rebels act in parallel with combat as a synchronization barrier, AI batch gating, and visual feedback.
+
+**Phases completed:** 51-55 (6 plans total)
+
+**Key accomplishments:**
+
+- Extracted `combatResolutionFlow` — deduplicated 4 inline combat sites, reduced flow.ts by 934 lines
+- Replaced sequential rebel turns with `loop + simultaneousActionStep` for both Day 1 and Day 2+
+- Combat barrier architecture — combat/coordinated attacks pause simultaneous play, resolve sequentially, resume
+- AI rebel batch gating — round-robin action batching wired into 19 rebel actions
+- Combat barrier overlay — red-tinted visual transition when simultaneous play pauses
+- 11 new integration tests + live multiplayer gameplay verification
+
+**Stats:**
+
+- 34 files changed (+5,012/-1,156 lines)
+- 5 phases, 6 plans, 27 commits
+- 693 tests passing (36 new)
+- 1 day (2026-02-16)
+
+**Git range:** `refactor(51-01)` → `feat(55-01)`
+
+**What's next:** TBD — next milestone via `/gsd:new-milestone`
+
+---
 
 ## v1.10 Grievances (Shipped: 2026-02-09)
 

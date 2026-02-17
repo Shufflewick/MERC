@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.0 Simultaneous Rebel Turns
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 55 of 55 (Simultaneous Play UI)
-Plan: 01 of 01 -- COMPLETE
-Status: Phase complete
-Last activity: 2026-02-16 -- Completed 55-01-PLAN.md
+Phase: 55 of 55 (v2.0 complete)
+Plan: N/A
+Status: Milestone complete — ready for next milestone
+Last activity: 2026-02-16 -- v2.0 Simultaneous Rebel Turns shipped
 
-Progress: [██████████] 100% (v2.0: Phases 51-55 complete)
+Progress: [██████████] 100% (v2.0 complete)
 
 ## Milestones Completed
 
@@ -29,16 +29,9 @@ Progress: [██████████] 100% (v2.0: Phases 51-55 complete)
 - v1.8 Unified Stat Ability System (Phases 37-41) - 8 plans
 - v1.9 BoardSmith v3.0 Animation Timeline Migration (Phases 42-46) - 7 plans
 - v1.10 Grievances (Phases 47-50) - 10 plans
+- v2.0 Simultaneous Rebel Turns (Phases 51-55) - 6 plans
 
-Total: 50 phases, 101 plans, 11 milestones shipped
-
-## v2.0: Simultaneous Rebel Turns (Phases 51-55)
-
-- Phase 51: Flow Engine Refactor (1 plan)
-- Phase 52: Simultaneous Action Step (2 plans)
-- Phase 53: Combat Barriers (1 plan)
-- Phase 54: Dictator and AI Alignment (1 plan)
-- Phase 55: Simultaneous Play UI (1 plan)
+Total: 55 phases, 107 plans, 12 milestones shipped
 
 ## Performance Metrics
 
@@ -51,23 +44,12 @@ Total: 50 phases, 101 plans, 11 milestones shipped
 
 All decisions captured in PROJECT.md Key Decisions table.
 
-- 51-01: Kept combatResolutionFlow in flow.ts (uses same helpers, private to flow definition)
-- 51-01: Normalized loop name prefixes to consistent ${prefix}-* pattern (no tests reference loop names)
-- 51-01: Sub-flow pattern: function returning sequence() with parameterized prefix
-- 52-01: Cast player to RebelPlayer in skipPlayer/playerDone (BoardSmith Player base lacks team property)
-- 52-01: Mortar/coordinated attack in outer loop, not inside simultaneousActionStep (anti-pattern avoidance)
-- 52-02: Conservative isDay1Complete helper with engine auto-complete fallback for Teresa skip edge case
-- 52-02: Action conditions on Day 1 actions naturally gate per-player progression (no explicit flow sequencing needed)
-- 53-01: Manual pendingCombat/coordinatedAttack injection for barrier tests (natural combat depends on board layout)
-- 53-01: Identify rebel-actions step by available actions (FlowState has no stepName property)
-- 54-01: Private properties for batch state (not serialized by BoardSmith, ephemeral to simultaneous step)
-- 54-01: Guard recording with isRebel() && isAI (prevents dictator/human corruption of batch tracking)
-
 ### Deferred Issues
 
 - Vendor tarballs missing compiled `dist` folders - blocks build and integration tests
 - Stale comment in GameTable.vue:618 references removed state machine (cosmetic)
 - Stale comment in combat.ts:72 references "theatre view system" (cosmetic)
+- `detonateExplosives` action missing AI batch gate (win-game action, extremely rare)
 
 ### Blockers/Concerns
 
@@ -76,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 55-01-PLAN.md -- Phase 55 complete, v2.0 milestone complete
+Stopped at: v2.0 milestone archived
 Resume file: None
