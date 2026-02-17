@@ -35,6 +35,11 @@ Plans:
 
 **Requirements:** TURN-01, TURN-08
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 57-01-PLAN.md -- Implement Gaddafi and Stalin per-turn hire abilities (AI-path, human-path, flow, UI wiring)
+
 **Success Criteria:**
 1. Gaddafi hires 1 random MERC per turn during the dictator ability step
 2. Stalin hires 1 random MERC to primary squad each turn; when base is revealed, also hires 1 to secondary squad
@@ -130,7 +135,7 @@ Plans:
 | Phase | Name | Status | Requirements |
 |-------|------|--------|--------------|
 | 56 | Data Foundation | ✓ Complete | DATA-01, DATA-02 |
-| 57 | Simple Hire Abilities | Pending | TURN-01, TURN-08 |
+| 57 | Simple Hire Abilities | Planned | TURN-01, TURN-08 |
 | 58 | Setup-Phase Abilities | Pending | SETUP-01, SETUP-02, SETUP-03, REACT-01 |
 | 59 | Militia Placement Abilities | Pending | TURN-03, TURN-04, TURN-07 |
 | 60 | Complex Interactive Abilities | Pending | TURN-02, TURN-05 |
@@ -141,4 +146,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 56 completion*
+*Last updated: 2026-02-17 after Phase 57 planning*
