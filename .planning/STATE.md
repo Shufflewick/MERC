@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 60 of 62 (v2.1)
-Plan: Awaiting planning
-Status: Phase 59 complete, Phase 60 pending
-Last activity: 2026-02-17 -- Phase 59 executed and verified (3 plans, 3 waves)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-17 -- Completed 60-01-PLAN.md (Hitler per-turn ability)
 
 Progress: [######....] 57% (4/7 phases)
 
@@ -36,13 +36,16 @@ Total: 55 phases, 107 plans, 12 milestones shipped
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 120
+- Total plans completed: 121
 
 ## Accumulated Context
 
 ### Decisions
 
 All decisions captured in PROJECT.md Key Decisions table.
+
+- sortByInitiative takes optional game parameter for Hitler initiative override (backward compatible)
+- Hitler initiative target pick is a separate flow step after hire step
 
 ### Deferred Issues
 
@@ -58,5 +61,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 59 complete, ready for Phase 60 planning
+Stopped at: Completed 60-01-PLAN.md
 Resume file: None
