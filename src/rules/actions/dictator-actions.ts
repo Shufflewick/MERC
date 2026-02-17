@@ -832,6 +832,83 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
 }
 
 // =============================================================================
+// Mao's Per-Turn Militia Placement Action (Human Players)
+// =============================================================================
+
+/**
+ * Mao's ability: "Once per turn, count rebel-controlled sectors and place that many militia
+ * on any wilderness sectors."
+ * Human players choose which wilderness sector and how many per iteration.
+ */
+export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('maoBonusMilitia')
+    .prompt("Mao's Ability: Place militia in wilderness sectors")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Mao': () => game.dictatorPlayer?.dictator?.combatantId === 'mao',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'has pending militia': () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose wilderness sector for militia placement',
+      choices: () => {
+        return game.gameMap.getAllSectors()
+          .filter(s => s.isWilderness && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE)
+          .map(s => s.sectorName);
+      },
+    })
+    .chooseFrom<string>('amount', {
+      prompt: 'How many militia to place here?',
+      choices: () => {
+        const remaining = game.pendingMaoMilitia?.remaining ?? 0;
+        const max = Math.min(remaining, 10);
+        return Array.from({ length: max }, (_, i) => `${i + 1}`);
+      },
+    })
+    .execute((args, ctx) => {
+      const pending = game.pendingMaoMilitia;
+      if (!pending) return { success: false, message: 'No pending Mao militia' };
+
+      const sectorName = args.targetSector as string;
+      const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+      if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+
+      const requestedAmount = parseInt(args.amount as string, 10);
+      if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, message: 'Invalid amount' };
+
+      // Enforce actual sector cap: can only place up to (10 - current militia)
+      const sectorRoom = Sector.MAX_MILITIA_PER_SIDE - sector.dictatorMilitia;
+      const amount = Math.min(requestedAmount, sectorRoom, pending.remaining);
+      if (amount <= 0) return { success: false, message: `${sector.sectorName} is already at capacity (${Sector.MAX_MILITIA_PER_SIDE} militia)` };
+
+      // Place militia
+      const placed = sector.addDictatorMilitia(amount);
+      pending.remaining -= placed;
+      game.message(`Mao: ${placed} militia placed at ${sector.sectorName} (${pending.remaining} remaining)`);
+
+      // Check for combat
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
+          rebel.secondarySquad.sectorId === sector.sectorId;
+        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
+          queuePendingCombat(game, sector, rebel, false);
+          break; // Only trigger combat once per sector
+        }
+      }
+
+      // Clear pending if all placed
+      if (pending.remaining <= 0) {
+        game.pendingMaoMilitia = null;
+      }
+
+      return { success: true, message: `Placed ${placed} militia` };
+    });
+}
+
+// =============================================================================
 // Gaddafi's Per-Turn Hire Action (Human Players)
 // =============================================================================
 

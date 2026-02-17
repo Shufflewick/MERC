@@ -978,6 +978,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 if (game.isFinished()) return;
                 if (game.dictatorPlayer?.isAI) {
                   applyDictatorTurnAbilities(game);
+                } else if (game.dictatorPlayer?.dictator?.combatantId === 'mao') {
+                  // Human Mao: initialize pending militia for interactive placement
+                  let rebelSectorCount = 0;
+                  for (const rebel of game.rebelPlayers) {
+                    rebelSectorCount += game.getControlledSectors(rebel).length;
+                  }
+                  if (rebelSectorCount > 0) {
+                    const hasWilderness = game.gameMap.getAllSectors().some(s => s.isWilderness && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE);
+                    if (hasWilderness) {
+                      game.pendingMaoMilitia = { remaining: rebelSectorCount };
+                    }
+                  }
                 }
                 // Human players use the actionStep below
               }),
@@ -985,8 +997,21 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for AI)
               actionStep({
                 name: 'dictator-ability',
-                actions: ['castroBonusHire', 'kimBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
+              }),
+
+              // Mao militia distribution loop (human only, subsequent placements after first)
+              loop({
+                name: 'mao-militia-distribution',
+                while: () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'mao-place-militia',
+                  actions: ['maoBonusMilitia'],
+                  prompt: "Mao's Ability: Distribute militia to wilderness sectors",
+                  skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
+                }),
               }),
 
               // MERC-combat-flow: Process any pending combat triggered by dictator abilities

@@ -133,7 +133,7 @@ const isInActionFlow = computed(() => {
   if (!currentAction) return false;
 
   // Only track dictator-specific actions in this panel
-  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'husseinBonusTactics', 'husseinBonusReinforce'];
+  const dictatorSpecificActions = ['playTactics', 'reinforce', 'castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'chooseKimBase', 'generalissimoPick', 'lockdownPlaceMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'husseinBonusTactics', 'husseinBonusReinforce'];
   return dictatorSpecificActions.includes(currentAction);
 });
 
@@ -167,7 +167,7 @@ const isSelectingSector = computed(() => {
   const sel = props.actionController.currentPick.value;
   if (!sel) return false;
   // Handle different sector selection contexts
-  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire') {
+  if (currentAction === 'castroBonusHire' || currentAction === 'kimBonusMilitia' || currentAction === 'maoBonusMilitia' || currentAction === 'generalissimoPick' || currentAction === 'lockdownPlaceMilitia' || currentAction === 'gadafiBonusHire' || currentAction === 'stalinBonusHire') {
     return sel.name === 'targetSector';
   }
   // Base location selection during playTactics, husseinBonusTactics, or chooseKimBase
