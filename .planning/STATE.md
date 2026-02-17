@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Ship Confidence -- the game should behave correctly, consistently, and visibly.
-**Current focus:** v2.1 Expansion Dictators -- Phase 57 Simple Hire Abilities
+**Current focus:** v2.1 Expansion Dictators -- Phase 58 Setup-Phase Abilities
 
 ## Current Position
 
-Phase: 57 of 62 (v2.1)
-Plan: 2 of 2 complete (57-01 done, 57-02 done)
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 57-02-PLAN.md
+Phase: 58 of 62 (v2.1)
+Plan: Awaiting planning
+Status: Phase 57 complete, Phase 58 pending
+Last activity: 2026-02-17 -- Phase 57 executed and verified (2 plans, 2 waves)
 
 Progress: [##........] 29% (2/7 phases)
 
@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 57-02-PLAN.md (flow and UI wiring for Gaddafi/Stalin hire abilities)
+Stopped at: Phase 57 complete, ready for Phase 58 planning
 Resume file: None
