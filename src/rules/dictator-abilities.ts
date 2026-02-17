@@ -267,6 +267,107 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
   };
 }
 
+/**
+ * Apply Gaddafi's per-turn ability:
+ * "Once per turn, hire 1 random MERC."
+ */
+export function applyGadafiTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'gadafi') {
+    return { success: false, message: 'Not Gaddafi' };
+  }
+
+  const merc = game.drawMerc();
+  if (!merc) {
+    game.message('Gaddafi: No MERCs available to hire');
+    return { success: false, message: 'No MERCs available' };
+  }
+
+  const primarySquad = game.dictatorPlayer.primarySquad;
+  const secondarySquad = game.dictatorPlayer.secondarySquad;
+  const targetSquad = !primarySquad.isFull ? primarySquad
+    : !secondarySquad.isFull ? secondarySquad
+    : null;
+
+  if (!targetSquad) {
+    merc.putInto(game.mercDiscard);
+    game.message('Gaddafi: All squads full, cannot hire');
+    return { success: false, message: 'All squads full' };
+  }
+
+  merc.putInto(targetSquad);
+  const targetSector = selectNewMercLocation(game);
+  if (targetSector) {
+    targetSquad.sectorId = targetSector.sectorId;
+  }
+
+  let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+  if (merc.weaponSlot) {
+    equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+  }
+  equipNewHire(game, merc, equipType);
+
+  game.updateAllSargeBonuses();
+  game.message(`Gaddafi hired ${merc.combatantName}`);
+  return { success: true, message: `Hired ${merc.combatantName}` };
+}
+
+/**
+ * Apply Stalin's per-turn ability:
+ * "Once per turn, hire 1 random MERC to primary squad;
+ * if base revealed, also hire 1 to secondary squad."
+ */
+export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'stalin') {
+    return { success: false, message: 'Not Stalin' };
+  }
+
+  // First hire: always to primary squad
+  const merc1 = game.drawMerc();
+  if (merc1) {
+    const primarySquad = game.dictatorPlayer.primarySquad;
+    if (!primarySquad.isFull) {
+      merc1.putInto(primarySquad);
+      const targetSector = selectNewMercLocation(game);
+      if (targetSector) primarySquad.sectorId = targetSector.sectorId;
+      let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+      if (merc1.weaponSlot) equipType = merc1.armorSlot ? 'Accessory' : 'Armor';
+      equipNewHire(game, merc1, equipType);
+      game.updateAllSargeBonuses();
+      game.message(`Stalin hired ${merc1.combatantName} to primary squad`);
+    } else {
+      merc1.putInto(game.mercDiscard);
+      game.message('Stalin: Primary squad full, cannot hire');
+    }
+  } else {
+    game.message('Stalin: No MERCs available to hire');
+  }
+
+  // Second hire: only if base is revealed, to secondary squad
+  if (game.dictatorPlayer.baseRevealed) {
+    const merc2 = game.drawMerc();
+    if (merc2) {
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      if (!secondarySquad.isFull) {
+        merc2.putInto(secondarySquad);
+        const targetSector = selectNewMercLocation(game);
+        if (targetSector) secondarySquad.sectorId = targetSector.sectorId;
+        let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+        if (merc2.weaponSlot) equipType = merc2.armorSlot ? 'Accessory' : 'Armor';
+        equipNewHire(game, merc2, equipType);
+        game.updateAllSargeBonuses();
+        game.message(`Stalin hired ${merc2.combatantName} to secondary squad`);
+      } else {
+        merc2.putInto(game.mercDiscard);
+        game.message('Stalin: Secondary squad full, cannot hire');
+      }
+    }
+  }
+
+  return { success: true, message: 'Stalin hire complete' };
+}
+
 // =============================================================================
 // Main Ability Dispatcher
 // =============================================================================
@@ -304,6 +405,12 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'kim':
       applyKimTurnAbility(game);
+      break;
+    case 'gadafi':
+      applyGadafiTurnAbility(game);
+      break;
+    case 'stalin':
+      applyStalinTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling
