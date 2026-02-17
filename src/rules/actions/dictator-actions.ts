@@ -2037,3 +2037,265 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
       return { success: true, message: `Reinforced with ${placed} militia` };
     });
 }
+
+// =============================================================================
+// Noriega's Per-Turn Actions (Human Players)
+// =============================================================================
+
+/**
+ * Noriega Step 1: Convert 1 rebel militia from each rebel-controlled sector.
+ * Conversion is automatic (no selection needed), sets up pendingNoriegaConversion.
+ */
+export function createNoriegaConvertMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('noriegaConvertMilitia')
+    .prompt("Noriega's Ability: Convert rebel militia")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Noriega': () => game.dictatorPlayer?.dictator?.combatantId === 'noriega',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+    })
+    .execute(() => {
+      // Convert 1 rebel militia from each rebel-controlled sector
+      let totalConverted = 0;
+      for (const rebel of game.rebelPlayers) {
+        const controlledSectors = game.getControlledSectors(rebel);
+        for (const sector of controlledSectors) {
+          const removed = sector.removeRebelMilitia(String(rebel.seat), 1);
+          if (removed > 0) {
+            totalConverted += removed;
+            game.message(`Noriega converts 1 militia in ${sector.sectorName}`);
+          }
+        }
+      }
+
+      if (totalConverted === 0) {
+        game.message('Noriega: No rebel militia to convert');
+        game.pendingNoriegaConversion = null;
+      } else {
+        game.pendingNoriegaConversion = { convertedCount: totalConverted };
+        game.message(`Noriega converted ${totalConverted} militia total`);
+      }
+
+      return { success: true, message: `Converted ${totalConverted} militia` };
+    });
+}
+
+/**
+ * Noriega Step 2: Choose a non-rebel sector to place all converted militia.
+ */
+export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinition {
+  return Action.create('noriegaPlaceMilitia')
+    .prompt("Noriega: Choose sector for converted militia")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Noriega': () => game.dictatorPlayer?.dictator?.combatantId === 'noriega',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+      'has pending conversion': () => game.pendingNoriegaConversion != null && game.pendingNoriegaConversion.convertedCount > 0,
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose sector for converted militia',
+      choices: () => {
+        // Get all non-rebel-controlled sectors
+        const rebelControlledIds = new Set<string>();
+        for (const rebel of game.rebelPlayers) {
+          for (const sector of game.getControlledSectors(rebel)) {
+            rebelControlledIds.add(sector.sectorId);
+          }
+        }
+        return game.gameMap.getAllSectors()
+          .filter(s => !rebelControlledIds.has(s.sectorId))
+          .map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      const pending = game.pendingNoriegaConversion;
+      if (!pending) return { success: false, message: 'No pending conversion' };
+
+      const sectorName = args.targetSector as string;
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+      if (!targetSector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+
+      targetSector.addDictatorMilitia(pending.convertedCount);
+      game.message(`Noriega moved ${pending.convertedCount} converted militia to ${targetSector.sectorName}`);
+      game.pendingNoriegaConversion = null;
+
+      // Queue combat for any rebel with forces in the target sector
+      for (const rebel of game.rebelPlayers) {
+        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
+          rebel.secondarySquad.sectorId === targetSector.sectorId;
+        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+
+        if (hasSquad || hasMilitia) {
+          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
+          queuePendingCombat(game, targetSector, rebel, false);
+        }
+      }
+
+      return { success: true, message: `Placed ${pending.convertedCount} militia` };
+    });
+}
+
+/**
+ * Noriega Step 3: Conditional bonus hire when dictator controls fewer sectors than rebels.
+ * Follows the Gaddafi hire pattern exactly.
+ */
+export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
+  const DRAWN_MERC_KEY = '_noriega_drawn_merc';
+
+  return Action.create('noriegaBonusHire')
+    .prompt("Noriega: Hire a MERC (controlling fewer sectors)")
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'is Noriega': () => game.dictatorPlayer?.dictator?.combatantId === 'noriega',
+      'is human player': () => !game.dictatorPlayer?.isAI,
+      'game not finished': () => !game.isFinished(),
+      'conversion complete': () => game.pendingNoriegaConversion == null,
+      'controls fewer sectors': () => {
+        const dictSectors = game.getControlledSectors(game.dictatorPlayer).length;
+        let rebelSectors = 0;
+        for (const r of game.rebelPlayers) rebelSectors += game.getControlledSectors(r).length;
+        return dictSectors < rebelSectors;
+      },
+      'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
+    })
+    .chooseFrom<string>('selectedMerc', {
+      prompt: 'MERC drawn for hire',
+      choices: () => {
+        // Draw 1 MERC if not already drawn
+        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
+          const merc = game.drawMerc();
+          if (merc) {
+            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
+          }
+        }
+
+        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+        if (!mercId) {
+          return ['No MERCs available'];
+        }
+
+        const merc = game.getElementById(mercId);
+        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+          return ['No MERCs available'];
+        }
+
+        return [capitalize(merc.combatantName)];
+      },
+    })
+    .chooseFrom<string>('equipmentType', {
+      prompt: 'Choose starting equipment type',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .chooseFrom<string>('targetSector', {
+      prompt: 'Choose where to deploy the new MERC',
+      choices: () => {
+        const primarySquad = game.dictatorPlayer.primarySquad;
+        const secondarySquad = game.dictatorPlayer.secondarySquad;
+        const primaryHasSector = !!primarySquad.sectorId && primarySquad.getLivingMercs().length > 0;
+        const secondaryHasSector = !!secondarySquad.sectorId && secondarySquad.getLivingMercs().length > 0;
+
+        if (primaryHasSector && secondaryHasSector) {
+          const validSectorIds = new Set<string>();
+          if (primarySquad.sectorId) validSectorIds.add(primarySquad.sectorId);
+          if (secondarySquad.sectorId) validSectorIds.add(secondarySquad.sectorId);
+
+          return game.gameMap.getAllSectors()
+            .filter(s => validSectorIds.has(s.sectorId))
+            .map(s => s.sectorName);
+        }
+
+        const sectors = game.gameMap.getAllSectors()
+          .filter(s => s.dictatorMilitia > 0 || game.getDictatorMercsInSector(s).length > 0);
+
+        if (sectors.length === 0) {
+          const industries = game.gameMap.getAllSectors()
+            .filter(s => s.sectorType === 'Industry');
+          return industries.map(s => s.sectorName);
+        }
+
+        return sectors.map(s => s.sectorName);
+      },
+    })
+    .execute((args) => {
+      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
+      const selectedMercName = args.selectedMerc as string;
+
+      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No MERC available' };
+      }
+
+      const merc = game.getElementById(mercId);
+      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'MERC not found' };
+      }
+
+      const targetSectorChoice = args.targetSector as string;
+      const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
+      const allSectors = game.gameMap.getAllSectors();
+      let targetSector = allSectors.find(s => s.sectorName === sectorName);
+
+      if (!targetSector) {
+        targetSector = allSectors.find(s => targetSectorChoice.startsWith(s.sectorName));
+      }
+
+      if (!targetSector) {
+        game.message(`WARNING: Could not find sector "${sectorName}" from choice "${targetSectorChoice}"`);
+        targetSector = allSectors.find(s => s.dictatorMilitia > 0);
+        if (targetSector) {
+          game.message(`Falling back to ${targetSector.sectorName}`);
+        }
+      }
+
+      if (!targetSector) {
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        return { success: false, message: 'No valid sector found' };
+      }
+
+      const primarySquad = game.dictatorPlayer.primarySquad;
+      const secondarySquad = game.dictatorPlayer.secondarySquad;
+      const primaryMercs = primarySquad.getLivingMercs();
+      const secondaryMercs = secondarySquad.getLivingMercs();
+
+      let targetSquad: typeof primarySquad;
+      if ((primaryMercs.length === 0 || primarySquad.sectorId === targetSector.sectorId) && !primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Placing ${merc.combatantName} in primary squad at ${targetSector.sectorName}`);
+      } else if ((secondaryMercs.length === 0 || secondarySquad.sectorId === targetSector.sectorId) && !secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Placing ${merc.combatantName} in secondary squad at ${targetSector.sectorName}`);
+      } else if (!primarySquad.isFull) {
+        targetSquad = primarySquad;
+        game.message(`Both squads occupied - adding to primary squad`);
+      } else if (!secondarySquad.isFull) {
+        targetSquad = secondarySquad;
+        game.message(`Primary full - adding to secondary squad`);
+      } else {
+        merc.putInto(game.mercDiscard);
+        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+        game.message('Noriega: All squads full, cannot hire');
+        return { success: false, message: 'All squads full' };
+      }
+
+      merc.putInto(targetSquad);
+      targetSquad.sectorId = targetSector.sectorId;
+      game.message(`Noriega deployed ${merc.combatantName} to ${targetSector.sectorName}`);
+
+      emitMapCombatantEntries(game, [
+        buildMapCombatantEntry(merc, targetSector.sectorId),
+      ]);
+
+      game.updateAllSargeBonuses();
+
+      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      equipNewHire(game, merc, equipType);
+
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+
+      game.message(`Noriega hired ${merc.combatantName} (controlling fewer sectors than rebels)`);
+      return { success: true, message: `Hired ${merc.combatantName}` };
+    });
+}

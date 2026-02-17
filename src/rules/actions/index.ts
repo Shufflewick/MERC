@@ -110,6 +110,9 @@ import {
   createHusseinBonusReinforceAction,
   createPolpotBonusMilitiaAction,
   createPolpotBonusHireAction,
+  createNoriegaConvertMilitiaAction,
+  createNoriegaPlaceMilitiaAction,
+  createNoriegaBonusHireAction,
 } from './dictator-actions.js';
 
 import {
@@ -230,6 +233,9 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createHusseinBonusReinforceAction(game)); // Hussein per-turn bonus reinforce
   game.registerAction(createPolpotBonusMilitiaAction(game)); // Pol Pot per-turn rebel sector militia
   game.registerAction(createPolpotBonusHireAction(game)); // Pol Pot conditional hire on combat loss
+  game.registerAction(createNoriegaConvertMilitiaAction(game)); // Noriega per-turn militia conversion
+  game.registerAction(createNoriegaPlaceMilitiaAction(game)); // Noriega converted militia placement
+  game.registerAction(createNoriegaBonusHireAction(game)); // Noriega conditional hire
 
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions

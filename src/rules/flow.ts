@@ -998,7 +998,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for AI)
               actionStep({
                 name: 'dictator-ability',
-                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire'],
+                actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'noriegaConvertMilitia'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
               }),
 
@@ -1010,6 +1010,35 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hitler' ||
                   game.dictatorPlayer?.isAI === true,
+              }),
+
+              // Noriega: Choose sector for converted militia (human only)
+              actionStep({
+                name: 'noriega-place-militia',
+                actions: ['noriegaPlaceMilitia'],
+                prompt: "Noriega: Choose a sector for converted militia",
+                skipIf: () => game.isFinished() ||
+                  game.dictatorPlayer?.dictator?.combatantId !== 'noriega' ||
+                  game.dictatorPlayer?.isAI === true ||
+                  game.pendingNoriegaConversion == null ||
+                  game.pendingNoriegaConversion.convertedCount <= 0,
+              }),
+
+              // Noriega: Conditional bonus hire (human only, after conversion complete)
+              actionStep({
+                name: 'noriega-bonus-hire',
+                actions: ['noriegaBonusHire'],
+                prompt: "Noriega: Hire a bonus MERC (controlling fewer sectors than rebels)",
+                skipIf: () => {
+                  if (game.isFinished()) return true;
+                  if (game.dictatorPlayer?.dictator?.combatantId !== 'noriega') return true;
+                  if (game.dictatorPlayer?.isAI === true) return true;
+                  if (game.pendingNoriegaConversion != null) return true; // conversion not done yet
+                  const dictSectors = game.getControlledSectors(game.dictatorPlayer).length;
+                  let rebelSectors = 0;
+                  for (const r of game.rebelPlayers) rebelSectors += game.getControlledSectors(r).length;
+                  return dictSectors >= rebelSectors;
+                },
               }),
 
               // Mao militia distribution loop (human only, subsequent placements after first)
