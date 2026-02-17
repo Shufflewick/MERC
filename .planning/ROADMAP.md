@@ -35,10 +35,11 @@ Plans:
 
 **Requirements:** TURN-01, TURN-08
 
-**Plans:** 1 plan
+**Plans:** 2 plans
 
 Plans:
-- [ ] 57-01-PLAN.md -- Implement Gaddafi and Stalin per-turn hire abilities (AI-path, human-path, flow, UI wiring)
+- [ ] 57-01-PLAN.md -- AI-path functions, human-path actions, and registration for Gaddafi and Stalin
+- [ ] 57-02-PLAN.md -- Flow step and UI wiring for both hire actions
 
 **Success Criteria:**
 1. Gaddafi hires 1 random MERC per turn during the dictator ability step
@@ -146,4 +147,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 57 planning*
+*Last updated: 2026-02-17 after Phase 57 plan revision*
