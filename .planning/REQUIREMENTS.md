@@ -35,16 +35,16 @@
 
 ### AI Support
 
-- [ ] **AI-01**: AI decision-making for all 9 dictator per-turn abilities
-- [ ] **AI-02**: AI decision-making for setup-phase choices (squad placement for Mao/Mussolini starting MERCs)
-- [ ] **AI-03**: AI decision-making for reactive abilities (Gaddafi equipment looting, Pinochet hire placement)
+- [x] **AI-01**: AI decision-making for all 9 dictator per-turn abilities
+- [x] **AI-02**: AI decision-making for setup-phase choices (squad placement for Mao/Mussolini starting MERCs)
+- [x] **AI-03**: AI decision-making for reactive abilities (Gaddafi equipment looting, Pinochet hire placement)
 
 ### Testing
 
-- [ ] **TEST-01**: Unit tests for each dictator's per-turn ability
-- [ ] **TEST-02**: Unit tests for setup-phase abilities
-- [ ] **TEST-03**: Unit tests for persistent/reactive abilities
-- [ ] **TEST-04**: Integration tests for AI dictator ability decisions
+- [x] **TEST-01**: Unit tests for each dictator's per-turn ability
+- [x] **TEST-02**: Unit tests for setup-phase abilities
+- [x] **TEST-03**: Unit tests for persistent/reactive abilities
+- [x] **TEST-04**: Integration tests for AI dictator ability decisions
 
 ## v2 Requirements
 
