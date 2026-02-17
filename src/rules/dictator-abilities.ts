@@ -735,6 +735,75 @@ export function applyPolpotTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 /**
+ * Apply Hitler's per-turn ability:
+ * "Once per turn, hire 1 random MERC and pick a rebel for auto-initiative override."
+ */
+export function applyHitlerTurnAbility(game: MERCGame): DictatorAbilityResult {
+  const dictator = game.dictatorPlayer.dictator;
+  if (!dictator || dictator.combatantId !== 'hitler') {
+    return { success: false, message: 'Not Hitler' };
+  }
+
+  // Step 1: Hire 1 random MERC (same pattern as Gaddafi)
+  const merc = game.drawMerc();
+  if (!merc) {
+    game.message('Hitler: No MERCs available to hire');
+  } else {
+    const primarySquad = game.dictatorPlayer.primarySquad;
+    const secondarySquad = game.dictatorPlayer.secondarySquad;
+    const targetSquad = !primarySquad.isFull ? primarySquad
+      : !secondarySquad.isFull ? secondarySquad
+      : null;
+
+    if (!targetSquad) {
+      merc.putInto(game.mercDiscard);
+      game.message('Hitler: All squads full, cannot hire');
+    } else {
+      merc.putInto(targetSquad);
+      const targetSector = selectNewMercLocation(game);
+      if (targetSector) {
+        targetSquad.sectorId = targetSector.sectorId;
+      }
+
+      let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+      if (merc.weaponSlot) {
+        equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+      }
+      equipNewHire(game, merc, equipType);
+
+      game.updateAllSargeBonuses();
+
+      if (targetSquad.sectorId) {
+        emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
+      }
+
+      game.message(`Hitler hired ${merc.combatantName}`);
+    }
+  }
+
+  // Step 2: Pick initiative target - rebel with the most controlled sectors
+  const rebels = game.rebelPlayers;
+  if (rebels.length > 0) {
+    let bestRebel = rebels[0];
+    let bestCount = game.getControlledSectors(bestRebel).length;
+
+    for (let i = 1; i < rebels.length; i++) {
+      const count = game.getControlledSectors(rebels[i]).length;
+      if (count > bestCount) {
+        bestCount = count;
+        bestRebel = rebels[i];
+      }
+    }
+
+    game.hitlerInitiativeTargetSeat = bestRebel.seat;
+    game.hitlerInitiativeSwitchedThisTurn = true;
+    game.message(`Hitler targets ${bestRebel.name || 'Rebel ' + bestRebel.seat} for auto-initiative`);
+  }
+
+  return { success: true, message: 'Hitler ability complete' };
+}
+
+/**
  * Apply Gaddafi's per-turn ability:
  * "Once per turn, hire 1 random MERC."
  */
@@ -936,6 +1005,9 @@ export function applyDictatorTurnAbilities(game: MERCGame): void {
       break;
     case 'polpot':
       applyPolpotTurnAbility(game);
+      break;
+    case 'hitler':
+      applyHitlerTurnAbility(game);
       break;
     default:
       // Unknown dictator - no special handling

@@ -662,6 +662,13 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Pol Pot: track which sector the ability targeted for post-combat loss detection
   _polpotTargetSectorId: string | null = null;
 
+  // Hitler: persistent initiative target (which rebel player is targeted for auto-initiative override)
+  // Serialized to clients so all players can see the current target
+  hitlerInitiativeTargetSeat: number | null = null;
+
+  // Hitler: per-turn flag tracking whether initiative target was switched this turn
+  hitlerInitiativeSwitchedThisTurn: boolean = false;
+
   // Track the outcome of combat triggered by a dictator ability (for Pol Pot's conditional hire)
   lastAbilityCombatOutcome: {
     rebelVictory: boolean;
@@ -1909,6 +1916,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     if (this.dictatorPlayer.dictator?.inPlay) {
       this.dictatorPlayer.dictator.actionsRemaining = 2;
     }
+
+    // Reset Hitler's per-turn initiative switch flag
+    this.hitlerInitiativeSwitchedThisTurn = false;
   }
 
   /**

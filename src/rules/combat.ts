@@ -138,7 +138,7 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
   const allLiving = sortByInitiative([
     ...(ac.rebelCombatants as Combatant[]),
     ...(ac.dictatorCombatants as Combatant[]),
-  ]);
+  ], game);
   const allCasualties = [
     ...((ac.rebelCasualties ?? []) as Combatant[]),
     ...((ac.dictatorCasualties ?? []) as Combatant[]),
@@ -667,7 +667,7 @@ function executeGolemPreCombat(
  * Dictator wins ties
  * Uses registry for special initiative abilities (Kastern, Badger)
  */
-function sortByInitiative(combatants: Combatant[]): Combatant[] {
+function sortByInitiative(combatants: Combatant[], game?: MERCGame): Combatant[] {
   return [...combatants].sort((a, b) => {
     const aCombatantId = getCombatantId(a);
     const bCombatantId = getCombatantId(b);
@@ -683,6 +683,27 @@ function sortByInitiative(combatants: Combatant[]): Combatant[] {
     const bBeforeMilitia = bCombatantId ? alwaysBeforesMilitia(bCombatantId) : false;
     if (aBeforeMilitia && b.isMilitia) return -1;
     if (bBeforeMilitia && a.isMilitia) return 1;
+
+    // Hitler's initiative override: dictator forces go before targeted rebel forces
+    if (game?.hitlerInitiativeTargetSeat != null) {
+      const isTargetedRebel = (c: Combatant): boolean => {
+        if (c.isDictatorSide) return false;
+        // Militia: check ownerId matches targeted rebel seat
+        if (c.isMilitia) return c.ownerId === String(game.hitlerInitiativeTargetSeat);
+        // MERCs: check if source element belongs to targeted rebel's team
+        if (c.sourceElement) {
+          const targetedRebel = game.rebelPlayers.find(p => p.seat === game.hitlerInitiativeTargetSeat);
+          return targetedRebel?.team.some(m => m.id === c.sourceElement!.id) ?? false;
+        }
+        return false;
+      };
+
+      const aIsTargeted = isTargetedRebel(a);
+      const bIsTargeted = isTargetedRebel(b);
+
+      if (a.isDictatorSide && bIsTargeted) return -1;
+      if (b.isDictatorSide && aIsTargeted) return 1;
+    }
 
     if (b.initiative !== a.initiative) {
       return b.initiative - a.initiative;
@@ -1759,7 +1780,7 @@ function executeCombatRound(
     // MERC-b9p4: Execute Golem's pre-combat attack (before first round)
     executeGolemPreCombat(game, rebels, dictatorSide);
 
-    allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
+    allCombatants = sortByInitiative([...rebels, ...dictatorSide], game);
   } else if (roundInitiativeOrder) {
     // Resuming mid-round: restore saved initiative order instead of re-sorting
     // This prevents Khenn's random initiative from being re-rolled and changing combatant order
@@ -1770,7 +1791,7 @@ function executeCombatRound(
     );
   } else {
     // Fallback: no saved order (legacy combat state without roundInitiativeOrder)
-    allCombatants = sortByInitiative([...rebels, ...dictatorSide]);
+    allCombatants = sortByInitiative([...rebels, ...dictatorSide], game);
   }
 
   // Save initiative order so it can be persisted across mid-round pauses
@@ -3097,7 +3118,7 @@ export function executeCombat(
     }
 
     // Log initiative order for transparency
-    const allUnits = sortByInitiative([...rebels, ...dictator]);
+    const allUnits = sortByInitiative([...rebels, ...dictator], game);
     const initiativeOrder = allUnits
       .filter(u => !u.isAttackDog)
       .map(u => `${u.name} (${u.initiative})`)
