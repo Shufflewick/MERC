@@ -792,15 +792,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'coordinatedAttack',
                   'declareMultiPlayerAttack',
                   'explore',
+                  'collectEquipment',
                   'train',
                   'hireMerc',
                   'reEquip',
+                  'reEquipContinue',
                   'dropEquipment',
                   'hospital',
                   'feedbackDiscard',
                   'squidheadDisarm',
                   'squidheadArm',
                   'hagnessDrawType',
+                  'hagnessSelectFromDrawn',
                   'hagnessGiveEquipment',
                   'armsDealer',
                   'repairKit',
@@ -984,14 +987,17 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     actions: [
                       'move',
                       'explore',
+                      'collectEquipment',
                       'train',
                       'reEquip',
+                      'reEquipContinue',
                       'dropEquipment',
                       'hospital',
                       'feedbackDiscard', // MERC-24h: Feedback discard retrieval
                       'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
                       'squidheadArm', // MERC-4qd: Squidhead arm mines
                       'hagnessDrawType', // MERC-jrph: Hagness draw equipment (step 1)
+                      'hagnessSelectFromDrawn', // MERC-jrph: Hagness pick 1 of 3 (step 2, via followUp)
                       'hagnessGiveEquipment', // MERC-jrph: Hagness give equipment (step 2, via followUp)
                       'armsDealer',
                       'repairKit',

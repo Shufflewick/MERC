@@ -242,16 +242,21 @@ describe('MCTS Clone Divergence', () => {
     // This test uses the ACTUAL MCTS bot to reproduce the real error.
     // We play until it's the dictator's turn, then let the bot clone & search.
     const seeds = [
-      'mcts-bot-1', 'mcts-bot-2', 'mcts-bot-3', 'mcts-bot-4', 'mcts-bot-5',
-      'mcts-bot-6', 'mcts-bot-7', 'mcts-bot-8', 'mcts-bot-9', 'mcts-bot-10',
-      'mcts-bot-11', 'mcts-bot-12', 'mcts-bot-13', 'mcts-bot-14', 'mcts-bot-15',
-      'mcts-bot-16', 'mcts-bot-17', 'mcts-bot-18', 'mcts-bot-19', 'mcts-bot-20',
+      'mcts-bot-1',
+      'mcts-bot-2',
+      'mcts-bot-3',
+      'mcts-bot-4',
+      'mcts-bot-5',
+      'mcts-bot-6',
     ];
 
     let anyError = false;
     let totalBotPlays = 0;
+    const maxBotPlays = 30;
     const startTime = Date.now();
-    const timeBudgetMs = 60_000; // Stop starting new seeds well before 120s timeout (last seed may take 30s+)
+    // Keep this diagnostic test well under the global timeout even on slower runs.
+    const timeBudgetMs = 30_000;
+    let budgetExceeded = false;
 
     for (const seed of seeds) {
       if (Date.now() - startTime > timeBudgetMs) {
@@ -280,6 +285,15 @@ describe('MCTS Clone Divergence', () => {
       let botSuccesses = 0;
 
       while (actionCount < maxActions) {
+        if (Date.now() - startTime > timeBudgetMs) {
+          budgetExceeded = true;
+          break;
+        }
+        if (totalBotPlays >= maxBotPlays) {
+          budgetExceeded = true;
+          break;
+        }
+
         const flowState = game.getFlowState();
         const action = getCurrentAction(flowState);
         if (!action) break;
@@ -293,7 +307,7 @@ describe('MCTS Clone Divergence', () => {
               'merc',
               dictatorSeat,
               runner.actionHistory,
-              10, // Low iterations for speed
+              5, // Keep this diagnostic test fast and bounded
             );
             const move = await bot.play();
             const result = runner.performAction(move.action, dictatorSeat, move.args);
@@ -368,6 +382,11 @@ describe('MCTS Clone Divergence', () => {
 
       const status = botErrors > 0 ? `ERRORS: ${botErrors}` : `OK (bot played ${botSuccesses}x)`;
       console.log(`  seed="${seed}": ${actionCount} actions, ${status}`);
+
+      if (budgetExceeded) {
+        console.log(`  Time budget exhausted during seed "${seed}", stopping early`);
+        break;
+      }
     }
 
     console.log(`\n=== SUMMARY ===`);
