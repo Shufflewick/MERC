@@ -31,7 +31,6 @@ const props = defineProps<{
   secondarySquad?: SquadData;
   baseSquad?: SquadData;
   actionController: UseActionControllerReturn;
-  actionArgs: Record<string, unknown>;
   isDictator: boolean;
 }>();
 
@@ -50,7 +49,7 @@ const draggedCombatantName = ref<string | null>(null);
 
 // Which combatant is selected (from action args)
 const selectedCombatantName = computed(() =>
-  props.actionArgs['combatantName'] as string | undefined
+  (props.actionController.currentArgs.value || {})['combatantName'] as string | undefined
 );
 
 // Which selection step we're on

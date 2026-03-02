@@ -56,7 +56,6 @@ const props = defineProps<{
   playerSeat: number;
   isMyTurn: boolean;
   availableActions: string[];
-  actionArgs: Record<string, unknown>;
   actionController: UseActionControllerReturn;
   setBoardPrompt: (prompt: string | null) => void;
   state?: any; // Flow state from GameShell
@@ -73,6 +72,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close-header-combatant-modal'): void;
 }>();
+
+const currentActionArgs = computed<Record<string, unknown>>(
+  () => props.actionController.currentArgs.value || {}
+);
 
 // Initialize composables with gameView getter
 const {
@@ -217,8 +220,6 @@ const {
   {
     availableActions: props.availableActions,
     actionController: props.actionController,
-    actionArgs: props.actionArgs,
-    getActionArgs: () => props.actionArgs, // Reactive getter for Vue dependency tracking
     state: props.state,
     playerSeat: props.playerSeat,
     gameView: props.gameView,
@@ -914,7 +915,7 @@ watch(
 );
 
 // When equipmentType is selected, load the recipient choices from metadata
-watch(() => props.actionArgs['equipmentType'], (val) => {
+watch(() => currentActionArgs.value['equipmentType'], (val) => {
   if (val !== undefined && props.availableActions.includes('hagnessDraw')) {
     // For dependsOn selections, choices are in metadata.choicesByDependentValue[equipmentType]
     const metadata = props.state?.state?.actionMetadata?.hagnessDraw;
@@ -961,9 +962,8 @@ const hirableMercs = computed(() => {
 
   if (choices.length === 0) return [];
 
-  // Get already-selected merc names from shared actionArgs to filter them out
-  // Filter to strings only since actionArgs may contain non-string values
-  const selectedMercs = Object.values(props.actionArgs || {}).filter(
+  // Get already-selected merc names from current action args to filter them out.
+  const selectedMercs = Object.values(currentActionArgs.value).filter(
     (v): v is string => typeof v === 'string'
   );
 
@@ -1645,7 +1645,6 @@ const clickableSectors = computed(() => {
           :secondary-squad="currentPlayerIsDictator ? dictatorSecondarySquad : secondarySquad"
           :base-squad="currentPlayerIsDictator ? dictatorBaseSquad : undefined"
           :action-controller="actionController"
-          :action-args="actionArgs"
           :is-dictator="currentPlayerIsDictator"
         />
 

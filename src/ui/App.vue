@@ -178,13 +178,12 @@ function closeHeaderCombatantModal() {
     display-name="MERC"
     :default-a-i-players="[1]"
   >
-    <template #game-board="{ state, gameView, playerSeat, isMyTurn, availableActions, actionArgs, actionController, setBoardPrompt }">
+    <template #game-board="{ state, gameView, playerSeat, isMyTurn, availableActions, actionController, setBoardPrompt }">
       <GameTable
         :game-view="gameView"
         :player-seat="playerSeat"
         :is-my-turn="isMyTurn"
         :available-actions="availableActions"
-        :action-args="actionArgs"
         :action-controller="actionController"
         :set-board-prompt="setBoardPrompt"
         :state="state"

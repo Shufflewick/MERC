@@ -19,8 +19,6 @@ export interface ActionStateProps {
     execute: (actionName: string, args?: Record<string, unknown>) => Promise<any>;
     [key: string]: any; // Allow additional properties from UseActionControllerReturn
   };
-  actionArgs: Record<string, unknown>;
-  getActionArgs?: () => Record<string, unknown>; // Reactive getter for actionArgs
   state?: { state?: Record<string, any> };
   playerSeat: number;
   gameView?: any;
@@ -158,9 +156,9 @@ export function useActionState(
   // CORE ACTION STATE
   // ============================================================================
 
-  // Get action choices from actionArgs
+  // Get action choices from actionController current args
   const actionChoices = computed(() => {
-    return props.actionArgs || {};
+    return props.actionController.currentArgs.value || {};
   });
 
   // Get action metadata for the current action (hiring, hagness, or explore)
@@ -205,9 +203,10 @@ export function useActionState(
     const metadata = currentActionMetadata.value;
     if (!metadata?.selections?.length) return null;
 
-    // Find first selection that doesn't have a value in actionArgs
+    const currentArgs = props.actionController.currentArgs.value || {};
+    // Find first selection that doesn't have a value in current action args
     for (const sel of metadata.selections) {
-      if (props.actionArgs[sel.name] === undefined) {
+      if (currentArgs[sel.name] === undefined) {
         return sel;
       }
     }
@@ -219,8 +218,9 @@ export function useActionState(
     const metadata = currentActionMetadata.value;
     if (!metadata?.selections?.length) return false;
 
+    const currentArgs = props.actionController.currentArgs.value || {};
     for (const sel of metadata.selections) {
-      if (props.actionArgs[sel.name] === undefined) {
+      if (currentArgs[sel.name] === undefined) {
         return false;
       }
     }
@@ -504,13 +504,9 @@ export function useActionState(
     // Only active during hiring flow (equipment or sector selection)
     if (!isSelectingEquipmentType.value && !isSelectingSector.value) return null;
 
-    // Get MERC name from actionController.currentArgs (active action) or actionArgs (fallback)
-    // During multi-step actions, currentArgs contains the filled values
-    // Use getActionArgs getter for reactivity (props.actionArgs is a plain object that doesn't trigger re-computation)
+    // During multi-step actions, currentArgs contains the filled values.
     const currentArgs = props.actionController.currentArgs?.value || {};
-    const actionArgs = props.getActionArgs ? props.getActionArgs() : props.actionArgs;
-    let combatantName = (currentArgs['merc'] as string | undefined) ||
-                        (actionArgs['merc'] as string | undefined);
+    let combatantName = currentArgs['merc'] as string | undefined;
 
     // Fallback for dictator hiring: get from cached combatantId and look up in combatantData
     if (!combatantName) {
