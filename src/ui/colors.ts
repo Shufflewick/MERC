@@ -10,16 +10,6 @@ export const PLAYER_COLORS: Record<string, string> = {
   black: '#95a5a6', // grey - dictator color
 };
 
-// Lighter versions for backgrounds/highlights
-export const PLAYER_COLORS_LIGHT: Record<string, string> = {
-  red: '#f5a3ab',
-  blue: '#a8c5d9',
-  green: '#8fd4ca',
-  yellow: '#f5e4b3',
-  purple: '#d4b8f0',
-  orange: '#fcc580',
-};
-
 // Get color for a player by their playerColor attribute or hex code
 export function getPlayerColor(playerColor: string | undefined): string {
   if (!playerColor) return '#666666'; // default gray for uncontrolled
@@ -29,13 +19,6 @@ export function getPlayerColor(playerColor: string | undefined): string {
     console.warn(`[getPlayerColor DEBUG] No match for "${playerColor}" in PLAYER_COLORS, returning gray`);
   }
   return resolved || '#666666';
-}
-
-// Get light color variant for a player
-export function getPlayerColorLight(playerColor: string | undefined): string {
-  if (!playerColor) return '#888888';
-  if (playerColor.startsWith('#')) return playerColor; // already a hex color
-  return PLAYER_COLORS_LIGHT[playerColor] || '#888888';
 }
 
 // UI theme colors (matching mockup)

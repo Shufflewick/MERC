@@ -1270,10 +1270,6 @@ export class Sector extends GridCell {
     return this.isCity;
   }
 
-  get totalLoot(): number {
-    return this.weaponLoot + this.armorLoot + this.accessoryLoot;
-  }
-
   getTotalRebelMilitia(): number {
     let total = 0;
     for (const count of Object.values(this.rebelMilitia)) {
@@ -1358,28 +1354,6 @@ export class Sector extends GridCell {
       return items[index];  // Caller moves it with putInto() or equip()
     }
     return undefined;
-  }
-
-  /**
-   * Remove specific equipment from stash by reference.
-   * Note: The equipment is already in the element tree, caller moves it elsewhere.
-   * @returns true if found in stash, false if not found
-   */
-  removeFromStash(equipment: Equipment): boolean {
-    const zone = this.first(Space, { name: 'stash' });
-    if (!zone) return false;
-    const found = zone.first(Equipment, e => e.id === equipment.id);
-    return !!found;
-    // Note: equipment.putInto(newParent) by caller actually moves it out of stash
-  }
-
-  /**
-   * Find equipment in stash by type
-   */
-  findInStash(type: EquipmentType): Equipment | undefined {
-    const zone = this.first(Space, { name: 'stash' });
-    if (!zone) return undefined;
-    return zone.first(Equipment, e => e.equipmentType === type);
   }
 
   /**

@@ -9,16 +9,12 @@
 
 import type { MERCGame } from './game.js';
 import { Sector, Equipment, CombatantModel } from './elements.js';
-import { isCombatantModel } from './actions/helpers.js';
 import {
   getAIMercAction,
-  getSquadAction,
   sortMercsByInitiative,
   getBestMoveDirection,
-  canDictatorMove,
   isDictatorAtBase,
   getDictatorBaseActions,
-  autoEquipDictatorUnits,
   shouldLeaveInStash,
   sortEquipmentByAIPriority,
   getAIHealingPriority,
@@ -28,13 +24,9 @@ import {
   useRepairKit,
   canSquadMoveTogether,
   type AIActionDecision,
-  type AIActionType,
 } from './ai-helpers.js';
 
-/**
- * Result of AI action selection
- */
-export interface AIActionSelection {
+interface AIActionSelection {
   actionName: string;
   unit: CombatantModel | null;
   destination?: Sector;
@@ -320,140 +312,4 @@ function convertDecisionToAction(
   }
 
   return null;
-}
-
-/**
- * Auto-select unit for AI action.
- * Returns the unit that should perform the action.
- */
-export function getAIUnitSelection(
-  game: MERCGame,
-  actionName: string
-): CombatantModel | null {
-  const nextAction = getNextAIAction(game);
-  if (!nextAction || nextAction.actionName !== actionName) {
-    return null;
-  }
-  return nextAction.unit;
-}
-
-/**
- * Auto-select destination for AI move action.
- */
-export function getAIMoveDestination(
-  game: MERCGame,
-  unit: CombatantModel
-): Sector | null {
-  if (!unit.sectorId) return null;
-
-  const sector = game.getSector(unit.sectorId);
-  if (!sector) return null;
-
-  // For MERCs, use the decision system
-  if (unit.isMerc) {
-    const decision = getAIMercAction(game, unit);
-    if (decision.action === 'move' && decision.target) {
-      return decision.target;
-    }
-  }
-
-  // Fallback to best move direction
-  return getBestMoveDirection(game, sector);
-}
-
-/**
- * Auto-select equipment for AI re-equip action.
- */
-export function getAIEquipmentSelection(
-  game: MERCGame,
-  unit: CombatantModel
-): Equipment | null {
-  if (!unit.sectorId) return null;
-
-  const sector = game.getSector(unit.sectorId);
-  if (!sector) return null;
-
-  const stash = sector.getStashContents();
-  const usableEquipment = stash.filter(e => !shouldLeaveInStash(e));
-  const sorted = sortEquipmentByAIPriority(usableEquipment);
-
-  for (const equip of sorted) {
-    if (unit.canEquip(equip)) {
-      const current = unit.getEquipmentOfType(equip.equipmentType);
-      if (!current || (equip.serial || 0) > (current.serial || 0)) {
-        return equip;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Execute a full AI turn for the dictator.
- * This is the main entry point called from the game flow.
- * MERC-f5u: Re-evaluates from top after each action.
- */
-export function executeAIDictatorTurn(game: MERCGame): void {
-  if (!game.dictatorPlayer?.isAI) {
-    return;
-  }
-
-  game.message('AI Dictator evaluating actions...');
-
-  // Reset actions for all units at start of turn
-  for (const merc of game.dictatorPlayer.hiredMercs) {
-    if (!merc.isDead) {
-      merc.actionsRemaining = 2;
-    }
-  }
-  if (game.dictatorPlayer.dictator?.inPlay) {
-    game.dictatorPlayer.dictator.actionsRemaining = 2;
-  }
-
-  // Execute actions until all units are done
-  let safetyCounter = 0;
-  const maxIterations = 50; // Prevent infinite loops
-
-  while (safetyCounter < maxIterations) {
-    safetyCounter++;
-
-    const nextAction = getNextAIAction(game);
-    if (!nextAction) {
-      break;
-    }
-
-    if (nextAction.actionName === 'dictatorEndMercActions') {
-      game.message(`AI turn complete: ${nextAction.reason}`);
-      break;
-    }
-
-    // Log the action being taken
-    if (!nextAction.unit) {
-      break;
-    }
-    const unitName = nextAction.unit.isMerc
-      ? nextAction.unit.combatantName
-      : nextAction.unit.isDictator
-        ? 'Dictator'
-        : 'Unknown';
-
-    game.message(`AI ${unitName}: ${nextAction.reason}`);
-
-    // The actual action execution is handled by the action system
-    // This function determines WHAT to do, the flow.ts handles execution
-    break; // Exit after determining next action - flow will call us again
-  }
-
-  if (safetyCounter >= maxIterations) {
-    game.message('AI turn ended (safety limit reached)');
-  }
-}
-
-/**
- * Check if AI should auto-execute actions.
- * Returns true if in AI mode and should auto-play.
- */
-export function shouldAutoExecuteAI(game: MERCGame): boolean {
-  return game.dictatorPlayer?.isAI ?? false;
 }

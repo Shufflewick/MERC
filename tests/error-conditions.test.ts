@@ -859,13 +859,6 @@ describe('Error Conditions', () => {
         expect(takenLarge).toBeUndefined();
       });
 
-      it('should handle findInStash with no matching equipment', () => {
-        const sector = game.gameMap.getAllSectors()[0];
-        // Empty stash
-        const found = sector.findInStash('Weapon');
-        expect(found).toBeUndefined();
-      });
-
       it('should handle damaged equipment not added to stash', () => {
         const sector = game.gameMap.getAllSectors()[0];
         const equip = game.weaponsDeck.first(Equipment);
