@@ -1168,7 +1168,7 @@ function createAttackDogCombatant(ownerId: string, isDictatorSide: boolean, inde
     isAttackDog: true,
     sourceElement: null,
     ownerId,
-    image: '/equipment/attack dog.png',
+    image: 'equipment/attack dog.png',
     armorPiercing: false,
     hasAttackDog: false,
     isImmuneToAttackDogs: false,

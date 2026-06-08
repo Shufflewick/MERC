@@ -4,6 +4,7 @@ import { UI_COLORS } from '../colors';
 import { useAnimationEvents } from 'boardsmith/ui';
 import type { AnimationEvent } from 'boardsmith';
 import { useCombatSequence } from '../composables/useCombatSequence';
+import { assetUrl } from '../composables/useAssetUrl';
 import CombatPanelCombatant from './CombatPanelCombatant.vue';
 import DiceRollDisplay from './DiceRollDisplay.vue';
 import HitAllocationPanel, { type PendingHitAllocation } from './HitAllocationPanel.vue';
@@ -870,7 +871,7 @@ onUnmounted(() => {
       <div class="attack-dog-header">
         <img
           v-if="currentEvent.dogImage"
-          :src="currentEvent.dogImage"
+          :src="assetUrl(currentEvent.dogImage)"
           alt="Attack Dog"
           class="attack-dog-icon"
         />

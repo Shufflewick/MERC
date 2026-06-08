@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { UI_COLORS } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 export interface SectorChoice {
   sectorName: string;
@@ -45,7 +46,7 @@ const imageHeight = computed(() => props.size === 'compact' ? '80px' : '100px');
     :class="size"
     @click="$emit('click')"
   >
-    <div class="sector-card-image" :style="{ backgroundImage: `url(${sector.image})` }">
+    <div class="sector-card-image" :style="{ backgroundImage: `url(${assetUrl(sector.image || '')})` }">
       <div class="sector-card-overlay"></div>
       <div class="sector-card-name">{{ sector.sectorName }}</div>
     </div>

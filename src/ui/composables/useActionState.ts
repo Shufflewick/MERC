@@ -393,9 +393,9 @@ export function useActionState(
   // Get fallback image for sector type
   function getSectorImageFallback(sectorType: string): string {
     const type = sectorType.toLowerCase();
-    if (type === 'wilderness') return '/sectors/wilderness.jpg';
-    if (type === 'city') return '/sectors/town---a.jpg';
-    return '/sectors/industry---coal.jpg';
+    if (type === 'wilderness') return 'sectors/wilderness.jpg';
+    if (type === 'city') return 'sectors/town---a.jpg';
+    return 'sectors/industry---coal.jpg';
   }
 
   // Get retreat sector choices when selecting retreat destination

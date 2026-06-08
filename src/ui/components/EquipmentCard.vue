@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { UI_COLORS } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 interface EquipmentData {
   // Can be at root level or nested in 'attributes'
@@ -52,10 +53,10 @@ const serial = computed(() => getProp('serial', 0));
 const equipmentId = computed(() => getProp('equipmentId', ''));
 const image = computed(() => {
   const explicitImage = getProp('image', '');
-  if (explicitImage) return explicitImage;
+  if (explicitImage) return assetUrl(explicitImage);
   // Fallback: construct path from equipmentId
   if (equipmentId.value) {
-    return `/equipment/${equipmentId.value}.png`;
+    return assetUrl(`equipment/${equipmentId.value}.png`);
   }
   return '';
 });

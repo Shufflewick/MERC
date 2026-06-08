@@ -8,7 +8,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 2,
-    "image": "/sectors/industry---bauxite.jpg"
+    "image": "sectors/industry---bauxite.jpg"
   },
   {
     "id": "industry---coal",
@@ -19,7 +19,7 @@
     "weapons": 1,
     "armor": 1,
     "accessories": 3,
-    "image": "/sectors/industry---coal.jpg"
+    "image": "sectors/industry---coal.jpg"
   },
   {
     "id": "industry---cocaine",
@@ -30,7 +30,7 @@
     "weapons": 4,
     "armor": 1,
     "accessories": 1,
-    "image": "/sectors/industry---cocaine.jpg"
+    "image": "sectors/industry---cocaine.jpg"
   },
   {
     "id": "industry---coffee",
@@ -41,7 +41,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 1,
-    "image": "/sectors/industry---coffee.jpg"
+    "image": "sectors/industry---coffee.jpg"
   },
   {
     "id": "industry---copper",
@@ -52,7 +52,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "/sectors/industry---copper.jpg"
+    "image": "sectors/industry---copper.jpg"
   },
   {
     "id": "industry---diamond",
@@ -63,7 +63,7 @@
     "weapons": 3,
     "armor": 1,
     "accessories": 2,
-    "image": "/sectors/industry---diamond.jpg"
+    "image": "sectors/industry---diamond.jpg"
   },
   {
     "id": "industry---fishing",
@@ -74,7 +74,7 @@
     "weapons": 1,
     "armor": 1,
     "accessories": 2,
-    "image": "/sectors/industry---fishing.jpg"
+    "image": "sectors/industry---fishing.jpg"
   },
   {
     "id": "industry---gold",
@@ -85,7 +85,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "/sectors/industry---gold.jpg"
+    "image": "sectors/industry---gold.jpg"
   },
   {
     "id": "town---a",
@@ -96,7 +96,7 @@
     "weapons": 1,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/town---a.jpg"
+    "image": "sectors/town---a.jpg"
   },
   {
     "id": "wilderness9",
@@ -107,7 +107,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness9.jpg"
+    "image": "sectors/wilderness9.jpg"
   },
   {
     "id": "wilderness10",
@@ -118,7 +118,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness10.jpg"
+    "image": "sectors/wilderness10.jpg"
   },
   {
     "id": "wilderness11",
@@ -129,7 +129,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness11.jpg"
+    "image": "sectors/wilderness11.jpg"
   },
   {
     "id": "wilderness12",
@@ -140,7 +140,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness12.jpg"
+    "image": "sectors/wilderness12.jpg"
   },
   {
     "id": "wilderness13",
@@ -151,7 +151,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness13.jpg"
+    "image": "sectors/wilderness13.jpg"
   },
   {
     "id": "wilderness14",
@@ -162,7 +162,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness14.jpg"
+    "image": "sectors/wilderness14.jpg"
   },
   {
     "id": "wilderness20",
@@ -173,7 +173,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness20.jpg"
+    "image": "sectors/wilderness20.jpg"
   },
   {
     "id": "industry---iron",
@@ -184,7 +184,7 @@
     "weapons": 1,
     "armor": 1,
     "accessories": 2,
-    "image": "/sectors/industry---iron.jpg"
+    "image": "sectors/industry---iron.jpg"
   },
   {
     "id": "industry---oil",
@@ -195,7 +195,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "/sectors/industry---oil.jpg"
+    "image": "sectors/industry---oil.jpg"
   },
   {
     "id": "industry---opium",
@@ -206,7 +206,7 @@
     "weapons": 3,
     "armor": 1,
     "accessories": 1,
-    "image": "/sectors/industry---opium.jpg"
+    "image": "sectors/industry---opium.jpg"
   },
   {
     "id": "industry---resort",
@@ -217,7 +217,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 3,
-    "image": "/sectors/industry---resort.jpg"
+    "image": "sectors/industry---resort.jpg"
   },
   {
     "id": "industry---silver",
@@ -228,7 +228,7 @@
     "weapons": 2,
     "armor": 1,
     "accessories": 2,
-    "image": "/sectors/industry---silver.jpg"
+    "image": "sectors/industry---silver.jpg"
   },
   {
     "id": "town---b",
@@ -239,7 +239,7 @@
     "weapons": 1,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/town---b.jpg"
+    "image": "sectors/town---b.jpg"
   },
   {
     "id": "town---c",
@@ -250,7 +250,7 @@
     "weapons": 1,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/town---c.jpg"
+    "image": "sectors/town---c.jpg"
   },
   {
     "id": "wilderness",
@@ -261,7 +261,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness.jpg"
+    "image": "sectors/wilderness.jpg"
   },
   {
     "id": "wilderness2",
@@ -272,7 +272,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness2.jpg"
+    "image": "sectors/wilderness2.jpg"
   },
   {
     "id": "wilderness3",
@@ -283,7 +283,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness3.jpg"
+    "image": "sectors/wilderness3.jpg"
   },
   {
     "id": "wilderness4",
@@ -294,7 +294,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness4.jpg"
+    "image": "sectors/wilderness4.jpg"
   },
   {
     "id": "wilderness5",
@@ -305,7 +305,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness5.jpg"
+    "image": "sectors/wilderness5.jpg"
   },
   {
     "id": "wilderness7",
@@ -316,7 +316,7 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness7.jpg"
+    "image": "sectors/wilderness7.jpg"
   },
   {
     "id": "wilderness8",
@@ -327,6 +327,6 @@
     "weapons": 0,
     "armor": 0,
     "accessories": 1,
-    "image": "/sectors/wilderness8.jpg"
+    "image": "sectors/wilderness8.jpg"
   }
 ]

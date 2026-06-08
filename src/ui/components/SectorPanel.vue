@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { UI_COLORS, getPlayerColor } from '../colors';
 import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
+import { assetUrl } from '../composables/useAssetUrl';
 import CombatantCard from './CombatantCard.vue';
 import EquipmentTable from './EquipmentTable.vue';
 import MilitiaIndicator from './MilitiaIndicator.vue';
@@ -285,20 +286,20 @@ function getMercName(merc: any): string {
 // Get equipment image path
 function getEquipmentImagePath(equip: any): string {
   const image = getAttr(equip, 'image', '');
-  if (image) return image;
+  if (image) return assetUrl(image);
 
   const equipId = getAttr(equip, 'equipmentId', '');
-  if (equipId) return `/equipment/${equipId}.png`;
+  if (equipId) return assetUrl(`equipment/${equipId}.png`);
 
   // Fallback: derive from name - equipment files use lowercase with spaces
   const name = getEquipmentName(equip);
   if (name && name !== 'Unknown' && name !== 'Done') {
     // Try exact lowercase match first (e.g., "Ghillie Suit" -> "ghillie suit.png")
     const filename = name.toLowerCase();
-    return `/equipment/${filename}.png`;
+    return assetUrl(`equipment/${filename}.png`);
   }
 
-  return '/equipment/unknown.png';
+  return assetUrl('equipment/unknown.png');
 }
 
 // Get equipment name
@@ -1581,7 +1582,7 @@ const hasContentToShow = computed(() => {
                           :src="getEquipmentImagePath(item)"
                           :alt="getEquipmentName(item)"
                           class="equip-image"
-                          @error="($event.target as HTMLImageElement).src = '/equipment/unknown.png'"
+                          @error="($event.target as HTMLImageElement).src = assetUrl('equipment/unknown.png')"
                         />
                       </div>
                     </td>

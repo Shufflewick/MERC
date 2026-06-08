@@ -5,6 +5,7 @@ import type { UseActionControllerReturn } from 'boardsmith/ui';
 import GameTable from './components/GameTable.vue';
 import CombatantIconSmall from './components/CombatantIconSmall.vue';
 import { UI_COLORS } from './colors';
+import { assetUrl } from './composables/useAssetUrl';
 import { lastActionWasDragDrop, quickReassignInProgress } from './drag-drop-state';
 
 // Combatant modal data - passed to GameTable which renders the modal inside GameShell
@@ -204,7 +205,7 @@ function closeHeaderCombatantModal() {
               <div class="flying-card-icon-wrapper">
                 <img
                   v-if="card.cardData.image"
-                  :src="(card.cardData.image as string)"
+                  :src="assetUrl(card.cardData.image as string)"
                   :alt="(card.cardData.name as string)"
                   class="flying-card-icon"
                   :style="{ borderColor: (card.cardData.iconBorderColor as string) }"

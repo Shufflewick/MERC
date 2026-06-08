@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
 import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
+import { assetUrl } from '../composables/useAssetUrl';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantCard from './CombatantCard.vue';
 import CombatantIcon from './CombatantIcon.vue';
@@ -93,7 +94,7 @@ function closeTacticsModal() {
 
 // Get dictator portrait path
 const dictatorImagePath = computed(() => {
-  if (props.dictator.image) return props.dictator.image;
+  if (props.dictator.image) return assetUrl(props.dictator.image);
   // Only warn if this is a real dictator (not the placeholder 'unknown')
   if (props.dictator.combatantId && props.dictator.combatantId !== 'unknown') {
     console.warn('[DictatorPanel] No image for dictator:', props.dictator.combatantId);
@@ -306,9 +307,9 @@ const selectableMercs = computed<any[]>(() => {
 // Get fallback image for sector type
 function getSectorImageFallback(sectorType: string): string {
   const type = (sectorType || 'industry').toLowerCase();
-  if (type === 'wilderness') return '/sectors/wilderness.jpg';
-  if (type === 'city') return '/sectors/town---a.jpg';
-  return '/sectors/industry---coal.jpg';
+  if (type === 'wilderness') return 'sectors/wilderness.jpg';
+  if (type === 'city') return 'sectors/town---a.jpg';
+  return 'sectors/industry---coal.jpg';
 }
 
 // Get selectable sectors for placement - includes full sector data

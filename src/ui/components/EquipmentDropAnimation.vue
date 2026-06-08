@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { easeOutCubic } from 'boardsmith/utils';
+import { assetUrl } from '../composables/useAssetUrl';
 
 const props = defineProps<{
   equipmentName: string;
@@ -232,7 +233,7 @@ onUnmounted(() => {
       <div class="animated-equipment" :style="imageStyle">
         <img
           v-if="image"
-          :src="image"
+          :src="assetUrl(image)"
           :alt="equipmentName"
           @error="handleImageError"
         />

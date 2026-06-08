@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { getPlayerColor } from '../colors';
 import { GameOverlay } from 'boardsmith/ui';
+import { assetUrl } from '../composables/useAssetUrl';
 import MilitiaIndicator from './MilitiaIndicator.vue';
 import CombatantCard from './CombatantCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
@@ -125,12 +126,12 @@ const displayName = computed(() => {
 });
 
 const imagePath = computed(() => {
-  if (props.sector.image) return props.sector.image;
+  if (props.sector.image) return assetUrl(props.sector.image);
   // Fallback based on type
   const type = props.sector.sectorType.toLowerCase();
-  if (type === 'wilderness') return '/sectors/wilderness.jpg';
-  if (type === 'city') return '/sectors/town---a.jpg';
-  return '/sectors/industry---coal.jpg';
+  if (type === 'wilderness') return assetUrl('sectors/wilderness.jpg');
+  if (type === 'city') return assetUrl('sectors/town---a.jpg');
+  return assetUrl('sectors/industry---coal.jpg');
 });
 
 // Filter out hidden combatants (e.g., those animating into the sector)
@@ -169,7 +170,7 @@ function handleClick() {
 }
 
 function getMercImagePath(merc: MercInSector) {
-  if (merc.image) return merc.image;
+  if (merc.image) return assetUrl(merc.image);
   // No fallback - log warning for debugging
   console.warn('[SectorTile] getMercImagePath: No image for merc:', merc);
   return ''; // Return empty - broken image will be visible

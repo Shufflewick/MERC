@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { UI_COLORS } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 interface EquipmentItem {
   equipmentName?: string;
@@ -37,20 +38,20 @@ function getAttr<T>(node: any, key: string, defaultVal: T): T {
 // Get equipment image path
 function getEquipmentImagePath(equip: EquipmentItem): string {
   const image = getAttr(equip, 'image', '');
-  if (image) return image;
+  if (image) return assetUrl(image);
 
   const equipId = getAttr(equip, 'equipmentId', '');
-  if (equipId) return `/equipment/${equipId}.png`;
+  if (equipId) return assetUrl(`equipment/${equipId}.png`);
 
   // Fallback: derive from name - equipment files use lowercase with spaces
   const name = getEquipmentName(equip);
   if (name && name !== 'Unknown' && name !== 'Done') {
     // Try exact lowercase match first (e.g., "Ghillie Suit" -> "ghillie suit.png")
     const filename = name.toLowerCase();
-    return `/equipment/${filename}.png`;
+    return assetUrl(`equipment/${filename}.png`);
   }
 
-  return '/equipment/unknown.png';
+  return assetUrl('equipment/unknown.png');
 }
 
 // Get equipment name
@@ -146,7 +147,7 @@ function handleClick(item: EquipmentItem) {
                   :src="getEquipmentImagePath(item)"
                   :alt="getEquipmentName(item)"
                   class="equip-image"
-                  @error="($event.target as HTMLImageElement).src = '/equipment/unknown.png'"
+                  @error="($event.target as HTMLImageElement).src = assetUrl('equipment/unknown.png')"
                 />
               </div>
             </td>

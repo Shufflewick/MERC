@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue';
 import CombatantCard from './CombatantCard.vue';
 import { getPlayerColor } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 export interface EquipFlyItem {
   name: string;
@@ -122,7 +123,7 @@ watch(() => props.flyItems, (items) => {
             { animating: item.animating },
           ]"
         >
-          <img v-if="item.image" :src="item.image" :alt="item.name" class="fly-image" />
+          <img v-if="item.image" :src="assetUrl(item.image)" :alt="item.name" class="fly-image" />
           <span v-else class="fly-badge">{{ item.type.charAt(0) }}</span>
         </div>
       </div>

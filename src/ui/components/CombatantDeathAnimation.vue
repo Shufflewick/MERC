@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { easeInCubic } from 'boardsmith/utils';
 import { getPlayerColor } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 const props = defineProps<{
   combatantId: string;
@@ -167,7 +168,7 @@ onUnmounted(() => {
     >
       <div class="animated-portrait" :style="portraitStyle">
         <img
-          :src="image"
+          :src="assetUrl(image || '')"
           :alt="combatantName"
           @error="handleImageError"
         />

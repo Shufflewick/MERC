@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { getPlayerColor, UI_COLORS } from '../colors';
 import { GameOverlay } from 'boardsmith/ui';
+import { assetUrl } from '../composables/useAssetUrl';
 import EquipmentCard from './EquipmentCard.vue';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import ModalContent from './ModalContent.vue';
@@ -388,7 +389,7 @@ const abilityText = computed(() => getProp('ability', '') || getProp('bio', ''))
 const borderColor = computed(() => getPlayerColor(props.playerColor));
 const imagePath = computed(() => {
   const img = getProp('image', '');
-  if (img) return img;
+  if (img) return assetUrl(img);
   // No fallback - log warning for debugging
   console.warn('[CombatantCard] No image for merc:', combatantId.value);
   return ''; // Return empty - broken image will be visible

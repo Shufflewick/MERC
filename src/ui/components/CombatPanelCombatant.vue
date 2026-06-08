@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CombatantIcon from './CombatantIcon.vue';
 import type { ArmorSoakInfo } from '../composables/useCombatSequence';
+import { assetUrl } from '../composables/useAssetUrl';
 
 const props = defineProps<{
   // Combatant data
@@ -168,7 +169,7 @@ function getArmorSoakPosition(soakIndex: number): { top: string; left: string } 
       >
         <img
           v-if="armorSoaks.armorImage"
-          :src="armorSoaks.armorImage"
+          :src="assetUrl(armorSoaks.armorImage)"
           class="armor-soak-image"
         />
         <span class="deflect-symbol">◎</span>

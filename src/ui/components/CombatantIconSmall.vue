@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { getPlayerColor } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 const props = withDefaults(defineProps<{
   combatantId?: string;
@@ -20,7 +21,7 @@ const emit = defineEmits<{
 
 const imagePath = computed(() => {
   if (props.image) {
-    return props.image;
+    return assetUrl(props.image);
   }
   // Only warn if there's a combatantId (suggesting this is a real combatant that should have an image)
   if (props.combatantId && props.combatantId !== 'unknown') {

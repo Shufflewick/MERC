@@ -2,6 +2,7 @@
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import { getPlayerColor } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 interface MercData {
   combatantId?: string;
@@ -49,12 +50,12 @@ import { computed } from 'vue';
 const accentColor = getPlayerColor(props.declaringPlayerColor);
 
 const sectorImagePath = computed(() => {
-  if (props.targetSector?.image) return props.targetSector.image;
-  if (!props.targetSector) return '/sectors/industry---coal.jpg';
+  if (props.targetSector?.image) return assetUrl(props.targetSector.image);
+  if (!props.targetSector) return assetUrl('sectors/industry---coal.jpg');
   const type = props.targetSector.sectorType.toLowerCase();
-  if (type === 'wilderness') return '/sectors/wilderness.jpg';
-  if (type === 'city') return '/sectors/town---a.jpg';
-  return '/sectors/industry---coal.jpg';
+  if (type === 'wilderness') return assetUrl('sectors/wilderness.jpg');
+  if (type === 'city') return assetUrl('sectors/town---a.jpg');
+  return assetUrl('sectors/industry---coal.jpg');
 });
 
 async function joinWithSquad(squadType: 'primary' | 'secondary') {

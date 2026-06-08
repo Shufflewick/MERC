@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { getPlayerColor } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 
 const props = defineProps<{
   combatantId?: string;
@@ -21,7 +22,7 @@ const sizeClass = computed(() => props.size || 'medium');
 
 const imagePath = computed(() => {
   if (props.image) {
-    return props.image;
+    return assetUrl(props.image);
   }
   // No fallback - log warning for debugging
   console.warn('[CombatantIcon] No image provided for:', props.combatantName);
