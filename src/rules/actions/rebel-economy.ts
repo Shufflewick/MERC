@@ -599,9 +599,15 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
           message: `Equipped ${equipment.equipmentName}`,
           followUp: {
             action: 'collectEquipment',
+            // Pass PLAIN numeric element IDs (not ctx.args, which the engine has
+            // resolved into full CombatantModel/Sector objects by execute time).
+            // On the platform/iframe path these followUp args are sent to the host
+            // via postMessage, whose structured clone CANNOT serialize game-element
+            // objects (DataCloneError) — which silently broke the chained pick and
+            // collapsed the collect flow. Mirrors how explore seeds these args.
             args: {
-              combatantId: ctx.args?.combatantId,
-              sectorId: ctx.args?.sectorId,
+              combatantId: unit.id,
+              sectorId: sector.id,
             },
             display: {
               combatantId: capitalize(unitName),
