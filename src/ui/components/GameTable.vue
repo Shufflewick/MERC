@@ -471,7 +471,26 @@ const tacticsHand = computed(() => {
   if (!tacticsHandNode) {
     tacticsHandNode = findByClassName('_TacticsHand');
   }
-  if (!tacticsHandNode) return [];
+  console.log('[TACTICS-DEBUG] isDictator:', currentPlayerIsDictator.value,
+    'tacticsHandNode found:', !!tacticsHandNode,
+    'playTactics available:', props.availableActions.includes('playTactics'),
+    'availableActions:', JSON.stringify(props.availableActions));
+  if (!tacticsHandNode) {
+    // Dump top-level class names so we can see how the hand serializes (or doesn't)
+    const dump = (node: any, depth: number): string[] => {
+      if (!node || depth > 3) return [];
+      const out: string[] = [];
+      for (const c of (node.children || [])) {
+        const cn = normalizeClassName(c.className);
+        if (/tactic/i.test(cn)) out.push(`${cn} (children: ${(c.children||[]).length})`);
+        out.push(...dump(c, depth + 1));
+      }
+      return out;
+    };
+    console.log('[TACTICS-DEBUG] no TacticsHand node. tactics-ish nodes in view:',
+      JSON.stringify(dump(props.gameView, 0)));
+    return [];
+  }
 
   // Get all tactics cards from hand
   const cards = (tacticsHandNode.children || [])
@@ -822,9 +841,8 @@ async function handleReroll() {
 
 // Handle confirming hit allocation - executes the action with allocations from CombatPanel
 async function handleConfirmAllocation(allocations: string[]) {
-  console.log('[DEBUG confirmAllocation] allocations:', allocations, 'availableActions:', props.availableActions, 'isMyTurn:', props.isMyTurn);
-  if (!allocations || allocations.length === 0) { console.log('[DEBUG confirmAllocation] BAIL: empty allocations'); return; }
-  if (!props.availableActions.includes('combatAllocateHits')) { console.log('[DEBUG confirmAllocation] BAIL: combatAllocateHits not in availableActions'); return; }
+  if (!allocations || allocations.length === 0) return;
+  if (!props.availableActions.includes('combatAllocateHits')) return;
 
   await props.actionController.execute('combatAllocateHits', { allocations });
 }

@@ -338,7 +338,6 @@ export function setupTacticsDeck(
         console.warn(`[setupTacticsDeck] Unknown tactics ID: ${tacticsId}`);
       }
     }
-    game.message(`[DEBUG] Tactics deck stacked with: ${effectiveDebugOrder.join(', ')}`);
   } else {
     // Normal mode: select random tactics for active deck
     selectedTactics = selectRandom(allTacticsCards, activeTacticsCount, game.random);

@@ -185,7 +185,6 @@ function buildAllocations(): string[] {
 
 function handleConfirm() {
   const allocs = buildAllocations();
-  console.log('[DEBUG HitAllocationPanel handleConfirm] allocations:', allocs, 'allocatedHits size:', allocatedHits.value.size, 'hasDiceData:', hasDiceData.value, 'fallbackAllocations:', fallbackAllocations.value);
   emit('confirm-allocation', allocs);
 }
 
