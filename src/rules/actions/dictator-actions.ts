@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
-import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
+import { Sector, Equipment, TacticsCard, TacticsHand, TacticsDeck, CombatantModel } from '../elements.js';
 import { queuePendingCombat, hasEnemies } from '../combat.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
 import {
@@ -80,6 +80,31 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       'has tactics cards available': () => {
         if (game.dictatorPlayer?.isAI) {
           return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
+        }
+        // [TACTICS-DEBUG] throttled comparison of stored ref vs live tree
+        const g = game as any;
+        if (!g.__tacticsDbgAt || Date.now() - g.__tacticsDbgAt > 1500) {
+          g.__tacticsDbgAt = Date.now();
+          try {
+            const storedHand = game.dictatorPlayer?.tacticsHand as any;
+            const storedDeck = game.dictatorPlayer?.tacticsDeck as any;
+            const liveHand = g.first(TacticsHand);
+            const liveDeck = g.first(TacticsDeck);
+            console.log('[TACTICS-DEBUG cond] storedHand id:', storedHand?._t?.id,
+              'branch:', storedHand?.branch?.(),
+              'storedHand count:', storedHand?.count(TacticsCard),
+              '| liveHand id:', liveHand?._t?.id,
+              'branch:', liveHand?.branch?.(),
+              'liveHand count:', liveHand?.count(TacticsCard),
+              '| sameHand:', storedHand === liveHand,
+              '|| storedDeck id:', storedDeck?._t?.id,
+              'storedDeck count:', storedDeck?.count(TacticsCard),
+              '| liveDeck id:', liveDeck?._t?.id,
+              'liveDeck count:', liveDeck?.count(TacticsCard),
+              '| sameDeck:', storedDeck === liveDeck);
+          } catch (e) {
+            console.log('[TACTICS-DEBUG cond] error:', (e as Error).message);
+          }
         }
         return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
       },

@@ -493,6 +493,21 @@ const tacticsHand = computed(() => {
   }
 
   // Get all tactics cards from hand
+  const allHands = findAllByClassName('TacticsHand');
+  const allDecks = findAllByClassName('TacticsDeck');
+  // Walk whole view counting TacticsCard nodes and their parent class
+  const cardLocations: string[] = [];
+  const walk = (node: any, parentClass: string) => {
+    if (!node) return;
+    const cn = normalizeClassName(node.className);
+    if (cn === 'TacticsCard') cardLocations.push(`under ${parentClass} (hidden:${!!node.attributes?.__hidden})`);
+    for (const c of (node.children || [])) walk(c, cn);
+  };
+  walk(props.gameView, 'ROOT');
+  console.log('[TACTICS-DEBUG] hand nodes found:', allHands.length,
+    'each childCount:', JSON.stringify(allHands.map((h: any) => ({ childCount: h.childCount, len: (h.children||[]).length, hidden: !!h.attributes?.__hidden }))),
+    'deck nodes:', allDecks.length,
+    'TacticsCard locations in view:', JSON.stringify(cardLocations));
   const cards = (tacticsHandNode.children || [])
     .filter((c: any) => normalizeClassName(c.className) === 'TacticsCard')
     .map((c: any) => {
