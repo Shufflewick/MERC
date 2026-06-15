@@ -1,10 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import {
-  createSnapshot,
-  deserializeAction,
-  serializeAction,
-  type GameCommand,
-} from 'boardsmith';
 import { GameRunner } from 'boardsmith/runtime';
 import { createBot } from 'boardsmith/ai';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
@@ -119,16 +113,22 @@ describe('MCTS Clone Divergence', () => {
       seed: snapshot.seed,
     };
 
+    // State-authoritative restore — mirrors GameRunner.fromSnapshot /
+    // MctsBot.restoreGame(). The snapshot carries the complete authoritative
+    // state (element tree, flow position, sequence counter, seeded RNG), so we
+    // adopt those directly instead of replaying command/action history. Replay
+    // was unsound: selection-step / pending-completed actions mutate the tree
+    // but are recorded in NEITHER commandHistory NOR actionHistory.
     const clone = new MERCGame(gameOptions as any);
-    clone.replayCommands(snapshot.commandHistory);
-    clone.startFlow();
-
-    for (const action of snapshot.actionHistory) {
-      const { actionName, player, args } = deserializeAction(action, clone);
-      const flowState = clone.continueFlow(actionName, args, player.seat);
-      if (flowState.complete || !flowState.awaitingInput) {
-        break;
-      }
+    clone.loadSerializedState(snapshot.state);
+    if (snapshot.sequence !== undefined) {
+      clone._ctx.sequence = snapshot.sequence;
+    }
+    if (snapshot.randomState !== undefined) {
+      clone.setRandomState(snapshot.randomState);
+    }
+    if (snapshot.flowState) {
+      clone.restoreFlowState(snapshot.flowState);
     }
 
     return { clone, flowState: clone.getFlowState()! };
