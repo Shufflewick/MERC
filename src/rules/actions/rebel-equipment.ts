@@ -571,7 +571,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       },
       'ai batch gate': (ctx) => !(ctx.game as MERCGame).shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .fromElements('actingMerc', {
+    .chooseElement('actingMerc', {
       prompt: 'Select combatant to drop equipment from',
       display: (combatant: CombatantModel) => capitalize(combatant.combatantName),
       elements: (ctx) => {
@@ -579,7 +579,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         return combatants.filter(m => getMercEquipment(m).length > 0);
       },
     })
-    .fromElements('equipment', {
+    .chooseElement('equipment', {
       dependsOn: 'actingMerc',
       prompt: 'Select equipment to drop',
       display: (equip: Equipment) => `${equip.equipmentName} (${equip.equipmentType})`,
