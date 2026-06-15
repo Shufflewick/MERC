@@ -116,9 +116,12 @@ describe('MCTS Clone Divergence', () => {
     // State-authoritative restore — mirrors GameRunner.fromSnapshot /
     // MctsBot.restoreGame(). The snapshot carries the complete authoritative
     // state (element tree, flow position, sequence counter, seeded RNG), so we
-    // adopt those directly instead of replaying command/action history. Replay
-    // was unsound: selection-step / pending-completed actions mutate the tree
-    // but are recorded in NEITHER commandHistory NOR actionHistory.
+    // adopt those directly instead of replaying command/action history. This is
+    // the sound approach regardless of history fidelity: even though completed
+    // multi-step (pending / repeating-selection) actions are now recorded in
+    // actionHistory (audit2 F43) — they were previously silently skipped —
+    // state-authoritative restore never depends on replaying that history, so it
+    // stays correct whether the history is gappy or complete.
     const clone = new MERCGame(gameOptions as any);
     clone.loadSerializedState(snapshot.state);
     if (snapshot.sequence !== undefined) {
