@@ -122,7 +122,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
     // Destination first so squad filter can auto-narrow based on clicked sector
-    .chooseElement<Sector>('destination', {
+    .chooseElement('destination', {
       prompt: 'Select destination sector',
       elementClass: Sector,
       filter: dependentFilter<Sector, Squad>({
@@ -142,7 +142,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       }) as (element: GameElement, context: ActionContext) => boolean,
       boardRef: (element) => ({ id: asSector(element).id }),
     })
-    .chooseElement<Squad>('squad', {
+    .chooseElement('squad', {
       prompt: 'Select squad to move',
       elementClass: Squad,
       display: (squad) => squad.isPrimary ? 'Primary Squad' : 'Secondary Squad',
@@ -166,7 +166,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         },
       }) as (element: GameElement, context: ActionContext) => boolean,
     })
-    .chooseFrom<number>('militiaCount', {
+    .chooseFrom('militiaCount', {
       prompt: 'How many militia should Sonia bring?',
       dependsOn: 'squad',
       choices: (ctx: ActionContext) => {
@@ -336,7 +336,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         return commonTargets.length > 0;
       },
     })
-    .chooseElement<Sector>('target', {
+    .chooseElement('target', {
       prompt: 'Select target sector for coordinated attack',
       elementClass: Sector,
       filter: (element, ctx) => {
@@ -459,7 +459,7 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
         return false;
       },
     })
-    .chooseElement<Squad>('squad', {
+    .chooseElement('squad', {
       prompt: 'Select squad for coordinated attack',
       elementClass: Squad,
       filter: (element, ctx) => {
@@ -472,7 +472,7 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
         return squad.getLivingMercs().every(m => m.actionsRemaining >= ACTION_COSTS.MOVE);
       },
     })
-    .chooseElement<Sector>('target', {
+    .chooseElement('target', {
       prompt: 'Select target sector for coordinated attack',
       elementClass: Sector,
       filter: (element, ctx) => {
@@ -523,7 +523,7 @@ export function createCommitSquadToCoordinatedAttackAction(game: MERCGame): Acti
         return game.getEligibleSquadsForCoordinatedAttack(ctx.player as any).length > 0;
       },
     })
-    .chooseFrom<'primary' | 'secondary'>('squadType', {
+    .chooseFrom('squadType', {
       prompt: 'Select squad to commit',
       choices: (ctx) => game.getEligibleSquadsForCoordinatedAttack(ctx.player as any),
       display: (squadType) => {
@@ -781,14 +781,14 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
       'has assignable combatants': (ctx) => getAssignableCombatants(ctx.player, game).length > 0,
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseFrom<string>('combatantName', {
+    .chooseFrom('combatantName', {
       prompt: 'Select combatant to reassign',
       choices: (ctx) => {
         const combatants = getAssignableCombatants(ctx.player, game);
         return combatants.map(c => getCombatantName(c));
       },
     })
-    .chooseFrom<string>('targetSquad', {
+    .chooseFrom('targetSquad', {
       prompt: 'Select target squad',
       dependsOn: 'combatantName',
       choices: (ctx) => {

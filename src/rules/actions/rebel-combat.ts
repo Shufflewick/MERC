@@ -101,7 +101,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
         return canRetreat(game, combatSector, ctx.player as RebelPlayer | DictatorPlayer);
       },
     })
-    .chooseElement<Sector>('retreatSector', {
+    .chooseElement('retreatSector', {
       prompt: 'Choose sector to retreat to',
       elementClass: Sector,
       filter: (element, ctx) => {
@@ -187,7 +187,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         return false;
       },
     })
-    .chooseFrom<string>('targets', {
+    .chooseFrom('targets', {
       prompt: 'Select target',
       choices: () => {
         const pending = game.activeCombat?.pendingTargetSelection;
@@ -322,7 +322,7 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
         return false;
       },
     })
-    .chooseFrom<string>('target', {
+    .chooseFrom('target', {
       prompt: 'Assign Attack Dog to',
       choices: () => {
         const pending = game.activeCombat?.pendingAttackDogSelection;
@@ -521,7 +521,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return isRebelPlayer(ctx.player);
       },
     })
-    .chooseFrom<string>('allocations', {
+    .chooseFrom('allocations', {
       prompt: 'Allocate hits to targets',
       multiSelect: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
@@ -739,7 +739,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       'has pending Wolverine sixes': () => game.activeCombat?.pendingWolverineSixes != null,
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
     })
-    .chooseFrom<string>('bonusTargets', {
+    .chooseFrom('bonusTargets', {
       prompt: "Select Wolverine's bonus targets",
       multiSelect: () => {
         const pending = game.activeCombat?.pendingWolverineSixes;
@@ -844,7 +844,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
         return false;
       },
     })
-    .chooseFrom<string>('healer', {
+    .chooseFrom('healer', {
       prompt: 'Select MERC to use healing item',
       choices: () => {
         if (!game.activeCombat) return [];
@@ -861,7 +861,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
           );
       },
     })
-    .chooseFrom<string>('target', {
+    .chooseFrom('target', {
       prompt: 'Select MERC to heal',
       choices: () => {
         if (!game.activeCombat) return [];
@@ -1011,7 +1011,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         return isCombatDecisionPlayer(game, ctx.player, pending.attackerId);
       },
     })
-    .chooseFrom<string>('healer', {
+    .chooseFrom('healer', {
       prompt: 'Select MERC to use healing item',
       choices: () => {
         const pending = game.activeCombat?.pendingBeforeAttackHealing;
@@ -1019,7 +1019,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         return pending.availableHealers.map(h => `${h.healerName} (${h.itemName})`);
       },
     })
-    .chooseFrom<string>('target', {
+    .chooseFrom('target', {
       prompt: 'Select MERC to heal',
       choices: () => {
         const pending = game.activeCombat?.pendingBeforeAttackHealing;
@@ -1274,7 +1274,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         return false;
       },
     })
-    .chooseFrom<string>('target', {
+    .chooseFrom('target', {
       prompt: 'Select ally to heal',
       choices: (ctx) => {
         if (!game.activeCombat) return [];
@@ -1431,7 +1431,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         return pending.validTargets.some(t => t.ownerId === playerId);
       },
     })
-    .chooseFrom<string>('allocations', {
+    .chooseFrom('allocations', {
       prompt: 'Choose which of your units take the artillery hits',
       multiSelect: () => {
         const pending = game.pendingArtilleryAllocation;
@@ -1576,7 +1576,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
     .condition({
       'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
     })
-    .chooseElement<CombatantModel>('saverMerc', {
+    .chooseElement('saverMerc', {
       prompt: 'Choose merc to use Epinephrine Shot',
       elementClass: CombatantModel,
       filter: (element) => {
@@ -1745,7 +1745,7 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
         return `${ctx.player.seat}` === pending.attackingPlayerId;
       },
     })
-    .chooseFrom<string>('allocations', {
+    .chooseFrom('allocations', {
       prompt: 'Allocate mortar hits to targets',
       multiSelect: () => {
         const pending = game.pendingMortarAttack;

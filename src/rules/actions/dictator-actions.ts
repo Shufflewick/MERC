@@ -109,7 +109,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
         return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
       },
     })
-    .chooseElement<TacticsCard>('card', {
+    .chooseElement('card', {
       prompt: 'Select a tactics card to play',
       elementClass: TacticsCard,
       display: (card: TacticsCard) => card.tacticsName,
@@ -126,7 +126,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       },
     })
     // Human players choose base location when playing a base-reveal card
-    .chooseFrom<string>('baseLocation', {
+    .chooseFrom('baseLocation', {
       prompt: 'Choose the location for your base',
       dependsOn: 'card',
       choices: (ctx: ActionContext) => {
@@ -153,7 +153,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       },
     })
     // Human dictator chooses starting equipment when base is revealed
-    .chooseFrom<string>('dictatorEquipment', {
+    .chooseFrom('dictatorEquipment', {
       prompt: 'Choose starting equipment for the Dictator',
       dependsOn: 'baseLocation',
       choices: (ctx: ActionContext) => {
@@ -233,7 +233,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
       },
     })
-    .chooseElement<TacticsCard>('card', {
+    .chooseElement('card', {
       prompt: 'Discard a tactics card to reinforce',
       elementClass: TacticsCard,
       display: (card: TacticsCard) => card.tacticsName,
@@ -249,7 +249,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
         return handCards.some(c => c.id === card.id);
       },
     })
-    .chooseElement<Sector>('sector', {
+    .chooseElement('sector', {
       prompt: 'Place reinforcement militia where?',
       elementClass: Sector,
       filter: (element) => {
@@ -339,7 +339,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       'is Castro': () => game.dictatorPlayer?.dictator?.combatantId === 'castro',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'Choose a MERC to hire',
       choices: () => {
         // Draw 3 MERCs if not already drawn
@@ -367,11 +367,11 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         return mercs.map(m => capitalize(m.combatantName));
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -535,7 +535,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       'is Kim': () => game.dictatorPlayer?.dictator?.combatantId === 'kim',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose sector to place militia (based on rebel-controlled sectors)',
       choices: () => {
         // Get sectors where dictator can place militia
@@ -610,7 +610,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       'has pending hire': () => game.pendingGeneralissimoHire != null,
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'Choose a MERC to hire (6 drawn)',
       choices: () => {
         const ids = game.pendingGeneralissimoHire?.drawnMercIds ?? [];
@@ -623,11 +623,11 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
         return mercs.map(m => capitalize(m.combatantName));
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -795,7 +795,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
       'has pending militia': () => game.pendingLockdownMilitia != null && game.pendingLockdownMilitia.remaining > 0,
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose sector for militia placement',
       choices: () => {
         const pending = game.pendingLockdownMilitia;
@@ -806,7 +806,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
           .map(s => s.sectorName);
       },
     })
-    .chooseFrom<string>('amount', {
+    .chooseFrom('amount', {
       prompt: 'How many militia to place here?',
       choices: () => {
         const remaining = game.pendingLockdownMilitia?.remaining ?? 0;
@@ -875,7 +875,7 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
       'is human player': () => !game.dictatorPlayer?.isAI,
       'has pending militia': () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose wilderness sector for militia placement',
       choices: () => {
         return game.gameMap.getAllSectors()
@@ -883,7 +883,7 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
           .map(s => s.sectorName);
       },
     })
-    .chooseFrom<string>('amount', {
+    .chooseFrom('amount', {
       prompt: 'How many militia to place here?',
       choices: () => {
         const remaining = game.pendingMaoMilitia?.remaining ?? 0;
@@ -951,7 +951,7 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
       'is human player': () => !game.dictatorPlayer?.isAI,
       'has not placed yet': () => game.pendingMussoliniSpread == null,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose controlled sector to add militia',
       choices: () => {
         const allSectors = game.gameMap.getAllSectors();
@@ -1019,7 +1019,7 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
       'is human player': () => !game.dictatorPlayer?.isAI,
       'has pending spread': () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose adjacent sector to spread militia (or Done)',
       choices: () => {
         const pending = game.pendingMussoliniSpread;
@@ -1035,7 +1035,7 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
         return ['Done spreading', ...adjacent];
       },
     })
-    .chooseFrom<string>('amount', {
+    .chooseFrom('amount', {
       prompt: 'How many militia to move?',
       choices: () => {
         const remaining = game.pendingMussoliniSpread?.remaining ?? 0;
@@ -1122,7 +1122,7 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
       'is Pol Pot': () => game.dictatorPlayer?.dictator?.combatantId === 'polpot',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose rebel-controlled sector to place militia',
       choices: () => {
         // Get all rebel-controlled sectors with room for militia
@@ -1208,7 +1208,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
       'is human player': () => !game.dictatorPlayer?.isAI,
       'rebel won combat': () => game.lastAbilityCombatOutcome?.rebelVictory === true,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for hire (combat loss consolation)',
       choices: () => {
         // Draw 1 MERC if not already drawn
@@ -1232,7 +1232,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
         return [capitalize(merc.combatantName)];
       },
     })
-    .chooseFrom<string>('targetSquad', {
+    .chooseFrom('targetSquad', {
       prompt: 'Choose squad for the hired MERC',
       choices: () => {
         const squads: string[] = [];
@@ -1248,7 +1248,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
         return squads;
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
@@ -1333,7 +1333,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
       'game not finished': () => !game.isFinished(),
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for hire',
       choices: () => {
         // Draw 1 MERC if not already drawn
@@ -1357,11 +1357,11 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
         return [capitalize(merc.combatantName)];
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -1494,7 +1494,7 @@ export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDe
       'is human player': () => !game.dictatorPlayer?.isAI,
       'game not finished': () => !game.isFinished(),
     })
-    .chooseFrom<string>('targetRebel', {
+    .chooseFrom('targetRebel', {
       prompt: 'Choose which rebel to target for auto-initiative',
       choices: () => {
         const rebels = game.rebelPlayers;
@@ -1547,7 +1547,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
       'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for hire',
       choices: () => {
         // Draw 1 MERC if not already drawn
@@ -1571,11 +1571,11 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
         return [capitalize(merc.combatantName)];
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -1712,7 +1712,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       'is Stalin': () => game.dictatorPlayer?.dictator?.combatantId === 'stalin',
       'is human player': () => !game.dictatorPlayer?.isAI,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for primary squad',
       choices: () => {
         // Draw 1 MERC if not already drawn
@@ -1736,11 +1736,11 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
         return [capitalize(merc.combatantName)];
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -1897,7 +1897,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
       'is human player': () => !game.dictatorPlayer?.isAI,
       'has tactics cards in hand': () => (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0,
     })
-    .chooseElement<TacticsCard>('card', {
+    .chooseElement('card', {
       prompt: 'Select a tactics card to play',
       elementClass: TacticsCard,
       display: (card: TacticsCard) => card.tacticsName,
@@ -1907,7 +1907,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
         return handCards.some(c => c.id === card.id);
       },
     })
-    .chooseFrom<string>('baseLocation', {
+    .chooseFrom('baseLocation', {
       prompt: 'Choose the location for your base',
       dependsOn: 'card',
       choices: (ctx: ActionContext) => {
@@ -1928,7 +1928,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
         return industries.map(s => s.sectorName);
       },
     })
-    .chooseFrom<string>('dictatorEquipment', {
+    .chooseFrom('dictatorEquipment', {
       prompt: 'Choose starting equipment for the Dictator',
       dependsOn: 'baseLocation',
       choices: (ctx: ActionContext) => {
@@ -2002,7 +2002,7 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
       'is human player': () => !game.dictatorPlayer?.isAI,
       'has tactics cards in hand': () => (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0,
     })
-    .chooseElement<TacticsCard>('card', {
+    .chooseElement('card', {
       prompt: 'Discard a tactics card to reinforce',
       elementClass: TacticsCard,
       display: (card: TacticsCard) => card.tacticsName,
@@ -2012,7 +2012,7 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
         return handCards.some(c => c.id === card.id);
       },
     })
-    .chooseElement<Sector>('sector', {
+    .chooseElement('sector', {
       prompt: 'Place reinforcement militia where?',
       elementClass: Sector,
       filter: (element) => {
@@ -2120,7 +2120,7 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
       'game not finished': () => !game.isFinished(),
       'has pending conversion': () => game.pendingNoriegaConversion != null && game.pendingNoriegaConversion.convertedCount > 0,
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose sector for converted militia',
       choices: () => {
         // Get all non-rebel-controlled sectors
@@ -2186,7 +2186,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
       },
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for hire',
       choices: () => {
         // Draw 1 MERC if not already drawn
@@ -2210,11 +2210,11 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
         return [capitalize(merc.combatantName)];
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -2348,7 +2348,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       'has pending hires': () => game._pinochetPendingHires > 0,
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
-    .chooseFrom<string>('selectedMerc', {
+    .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for hire (sector loss)',
       choices: () => {
         // Draw 1 MERC if not already drawn
@@ -2372,11 +2372,11 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
         return [capitalize(merc.combatantName)];
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    .chooseFrom<string>('targetSector', {
+    .chooseFrom('targetSector', {
       prompt: 'Choose where to deploy the new MERC',
       choices: () => {
         const primarySquad = game.dictatorPlayer.primarySquad;
@@ -2524,7 +2524,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
         game._gaddafiLootableEquipment != null &&
         game._gaddafiLootableEquipment.length > 0,
     })
-    .chooseFrom<string>('equipment', {
+    .chooseFrom('equipment', {
       prompt: 'Choose equipment to loot',
       choices: () => {
         if (!game._gaddafiLootableEquipment) return [];
@@ -2557,7 +2557,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
       },
       onSelect: (value) => { selectedItemIndex = parseInt(value.split(':')[0], 10); },
     })
-    .chooseElement<CombatantModel>('recipient', {
+    .chooseElement('recipient', {
       prompt: 'Choose a MERC to receive the equipment',
       elementClass: CombatantModel,
       dependsOn: 'equipment',

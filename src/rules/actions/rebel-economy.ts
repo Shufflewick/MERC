@@ -76,7 +76,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       },
       'MERC deck has cards': () => game.mercDeck.count(CombatantModel) > 0,
     })
-    .chooseElement<CombatantModel>('actingMerc', {
+    .chooseElement('actingMerc', {
       prompt: 'Which MERC spends the actions?',
       elementClass: CombatantModel,
       display: (merc) => capitalize(merc.combatantName),
@@ -90,7 +90,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       },
     })
     // MERC-yi7: Optional fire a MERC during hire action
-    .chooseFrom<string>('fireFirst', {
+    .chooseFrom('fireFirst', {
       prompt: 'Fire a MERC first? (frees team slot)',
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
@@ -106,7 +106,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       display: (value: string) => value === 'none' ? 'No, continue hiring' : `Fire ${value}`,
     })
     // Draw 3 MERCs and let player select which to hire
-    .chooseFrom<string>('selectedMercs', {
+    .chooseFrom('selectedMercs', {
       prompt: 'Select MERCs to hire',
       multiSelect: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
@@ -137,7 +137,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       },
     })
     // Per rules: new hire draws 1 equipment from any deck (player chooses type)
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose equipment type for new hire',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
@@ -146,7 +146,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       const actingMerc = asCombatantModel(args.actingMerc);
       const playerId = `${player.seat}`;
       const drawnMercs = getHireDrawnMercs(game, playerId) || [];
-      const selectedNames = (args.selectedMercs as string[]) || [];
+      const selectedNames = (args.selectedMercs as unknown as string[]) || [];
       const fireChoice = args.fireFirst as string;
       const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
 
@@ -358,7 +358,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       },
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseElement<CombatantModel>('actingUnit', {
+    .chooseElement('actingUnit', {
       prompt: 'Which unit explores?',
       elementClass: CombatantModel,
       display: (unit) => capitalize(getUnitName(unit)),
@@ -519,7 +519,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     .condition({
       'triggered via followUp from explore': (ctx) => ctx.args?.sectorId != null,
     })
-    .chooseElement<Equipment>('equipment', {
+    .chooseElement('equipment', {
       prompt: 'Select equipment to take (or skip)',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
       optional: true,
@@ -669,7 +669,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
         return !!(sector && sector.stash.length > 0);
       },
     })
-    .chooseFrom<string>('equipment', {
+    .chooseFrom('equipment', {
       prompt: 'Select equipment to take',
       choices: (ctx: ActionContext) => {
         if (!game.lastExplorer) return ['Done'];
@@ -840,7 +840,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       },
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseFrom<string>('unit', {
+    .chooseFrom('unit', {
       prompt: 'Select unit to train militia',
       choices: (ctx: ActionContext) => {
         const units = getPlayerUnitsForTrain(ctx.player, game);
@@ -1041,7 +1041,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         return units.some(u => u.damage > 0 && u.actionsRemaining >= ACTION_COSTS.HOSPITAL);
       },
     })
-    .chooseFrom<string>('actingUnit', {
+    .chooseFrom('actingUnit', {
       prompt: 'Select unit to heal',
       choices: (ctx: ActionContext) => {
         const sector = findCitySectorForPlayer(ctx.player, game);
@@ -1136,7 +1136,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         return units.some(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
       },
     })
-    .chooseFrom<string>('actingUnit', {
+    .chooseFrom('actingUnit', {
       prompt: 'Which unit visits the dealer?',
       choices: (ctx: ActionContext) => {
         const sector = findCitySectorForPlayer(ctx.player, game);
@@ -1151,12 +1151,12 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         return capitalize(name);
       },
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'What type of equipment?',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     // MERC-dh5: Free re-equip - choose unit to equip the purchased item
-    .chooseFrom<string>('equipUnit', {
+    .chooseFrom('equipUnit', {
       prompt: 'Free Re-Equip: Which unit should equip this item? (or skip)',
       choices: (ctx: ActionContext) => {
         const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -1339,7 +1339,7 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseFrom<string>('confirm', {
+    .chooseFrom('confirm', {
       prompt: 'End your turn?',
       choices: ['Yes, end turn'],
     })
@@ -1423,7 +1423,7 @@ export function createViewStashAction(game: MERCGame): ActionDefinition {
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has accessible stash': (ctx) => getSectorsWithStash(ctx).length > 0,
     })
-    .chooseFrom<string>('sector', {
+    .chooseFrom('sector', {
       prompt: 'Which sector stash to view?',
       choices: (ctx) => getSectorsWithStash(ctx),
       display: (sectorId) => {

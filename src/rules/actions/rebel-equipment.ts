@@ -163,7 +163,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       'has unit that can re-equip': (ctx) => canAnyUnitReEquip(ctx.player, game),
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseFrom<string>('actingUnit', {
+    .chooseFrom('actingUnit', {
       prompt: 'Which unit equips?',
       choices: (ctx) => {
         const units = getPlayerUnitsWithActions(ctx.player, game);
@@ -197,7 +197,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
         onSelectUnitId = null;
       },
     })
-    .chooseElement<Equipment>('equipment', {
+    .chooseElement('equipment', {
       dependsOn: 'actingUnit', // Equipment selection depends on unit selection
       prompt: 'Select equipment to equip (or skip to finish)',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
@@ -371,7 +371,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
         return unit != null && sector != null;
       },
     })
-    .chooseElement<Equipment>('equipment', {
+    .chooseElement('equipment', {
       prompt: 'Select equipment to equip (or skip to finish)',
       display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
       optional: true,
@@ -571,18 +571,18 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       },
       'ai batch gate': (ctx) => !(ctx.game as MERCGame).shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .fromElements<CombatantModel>('actingMerc', {
+    .fromElements('actingMerc', {
       prompt: 'Select combatant to drop equipment from',
-      display: (combatant) => capitalize(combatant.combatantName),
+      display: (combatant: CombatantModel) => capitalize(combatant.combatantName),
       elements: (ctx) => {
         const combatants = getPlayerCombatantsFromCtx(ctx);
         return combatants.filter(m => getMercEquipment(m).length > 0);
       },
     })
-    .fromElements<Equipment>('equipment', {
+    .fromElements('equipment', {
       dependsOn: 'actingMerc',
       prompt: 'Select equipment to drop',
-      display: (equip) => `${equip.equipmentName} (${equip.equipmentType})`,
+      display: (equip: Equipment) => `${equip.equipmentName} (${equip.equipmentType})`,
       // Use ctx.game throughout to avoid stale closures
       elements: (ctx) => {
         const g = ctx.game as MERCGame;
@@ -733,7 +733,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       },
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseElement<Equipment>('equipment', {
+    .chooseElement('equipment', {
       prompt: 'Select equipment from discard pile',
       elementClass: Equipment,
       display: (eq) => `${eq.equipmentName} (${eq.equipmentType})`,
@@ -1104,7 +1104,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
       },
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseFrom<string>('equipmentType', {
+    .chooseFrom('equipmentType', {
       prompt: 'Choose equipment type to draw',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
@@ -1174,7 +1174,7 @@ export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefini
         return getHagnessDrawnChoicesCache(game, playerId) != null;
       },
     })
-    .chooseFrom<string>('selectedEquipment', {
+    .chooseFrom('selectedEquipment', {
       prompt: 'Choose 1 of 3 drawn equipment',
       choices: (ctx) => {
         const player = ctx.player as MERCPlayer;
@@ -1259,7 +1259,7 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
       },
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseFrom<string>('recipient', {
+    .chooseFrom('recipient', {
       prompt: 'Give to which squad member?',
       optional: true, // Allow cancel to drop in sector
       choices: (ctx) => {
@@ -1463,7 +1463,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       'has equipment in discard piles': () => getDiscardPileEquipment(game).length > 0,
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
     })
-    .chooseElement<CombatantModel>('combatant', {
+    .chooseElement('combatant', {
       prompt: 'Select combatant to use Repair Kit',
       elementClass: CombatantModel,
       display: (combatant) => capitalize(combatant.combatantName),
@@ -1474,7 +1474,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
         return combatantsWithKit.some(m => m.id === element.id);
       },
     })
-    .chooseFrom<string>('equipment', {
+    .chooseFrom('equipment', {
       prompt: 'Select equipment to retrieve from discard',
       choices: () => {
         const discardEquip = getDiscardPileEquipment(game);
@@ -1707,7 +1707,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         return false;
       },
     })
-    .chooseFrom<string>('unitId', {
+    .chooseFrom('unitId', {
       prompt: 'Select unit to fire mortar',
       choices: (ctx) => {
         const units = getMercsWithMortars(game, ctx.player);
@@ -1722,7 +1722,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         });
       },
     })
-    .chooseFrom<string>('targetSectorName', {
+    .chooseFrom('targetSectorName', {
       dependsOn: 'unitId', // Target selection depends on which unit is firing
       prompt: 'Select sector to bombard',
       choices: (ctx) => {
@@ -2174,7 +2174,7 @@ export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition
         return false;
       },
     })
-    .chooseElement<CombatantModel>('merc', {
+    .chooseElement('merc', {
       prompt: 'Select MERC to detonate explosives',
       elementClass: CombatantModel,
       display: (merc) => capitalize(merc.combatantName),
