@@ -301,8 +301,12 @@ export function setupTacticsDeck(
   tacticsDeck.setOrder('stacking');
   tacticsDeck.contentsHidden();
 
-  // Create tactics hand
-  const tacticsHand = game.create(TacticsHand, 'tactics-hand');
+  // Create tactics hand. Owned by the dictator so per-player snapshots reveal
+  // the hand's card identities to the dictator only; rebels see count-only
+  // placeholders. BoardSmith Hand defaults to owner-only visibility (audit F32),
+  // and that mode requires an owner to be set or even the owner can't see it.
+  const tacticsHand = game.create(TacticsHand, 'tactics-hand', { player: game.dictatorPlayer });
+  tacticsHand.contentsVisibleToOwner();
 
   // Create tactics discard pile
   const tacticsDiscard = game.create(DiscardPile, 'tactics-discard');
