@@ -6,10 +6,11 @@
     "dev": "boardsmith dev",
     "build": "boardsmith build",
     "test": "vitest --run",
+    "lint": "boardsmith lint",
     "validate": "boardsmith validate"
   },
   "dependencies": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-audit-F19_F25.tgz",
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-audit-F26_F29.tgz",
     "three": "^0.182.0",
     "vue": "^3.4.0"
   },
@@ -20,6 +21,6 @@
     "vitest": "^2.0.0"
   },
   "overrides": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-audit-F19_F25.tgz"
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-audit-F26_F29.tgz"
   }
 }

@@ -117,10 +117,14 @@ function getMercImagePath(merc: MercData): string {
   return '';
 }
 
+// Deterministic fallback key counter for combatants missing a stable id.
+// Avoids Math.random() so render output stays deterministic (replays, sandbox scan).
+let fallbackKeyCounter = 0;
+
 // Get combatant key for v-for
 function getCombatantKey(merc: MercData): string {
   const id = getAttr(merc, 'combatantId', '') || getAttr(merc, 'ref', '');
-  return id ? String(id) : Math.random().toString();
+  return id ? String(id) : `combatant-fallback-${++fallbackKeyCounter}`;
 }
 
 // Get squad label for display

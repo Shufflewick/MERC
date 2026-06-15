@@ -348,7 +348,7 @@ function handleCombatantAnimationComplete(animationId: string) {
 
 function buildDeathData(merc: Omit<DeathAnimationData, 'id'>): DeathAnimationData {
   return {
-    id: `death-${Date.now()}-${++deathIdCounter}`,
+    id: `death-${++deathIdCounter}`,
     combatantId: merc.combatantId,
     combatantName: merc.combatantName || merc.combatantId,
     image: merc.image,
