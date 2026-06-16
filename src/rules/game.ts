@@ -417,25 +417,19 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   oilReservesActive?: boolean; // Oil Reserves card: controller gets free action
 
   // Game state
-  // Dictator player reference - cached for performance
-  private _dictatorPlayer?: MERCPlayer;
-
   get dictatorPlayer(): MERCPlayer {
-    if (!this._dictatorPlayer) {
-      // Find the player with dictator role
-      const player = this.first(MERCPlayer, p => p.isDictator());
-      if (player) {
-        this._dictatorPlayer = player;
-      }
-    }
-    if (!this._dictatorPlayer) {
+    // Always resolve from the live element tree — never cache across calls. A
+    // cached reference goes stale when a snapshot restore rebuilds the tree
+    // (GameRunner.fromSnapshot → loadSerializedState): the cached player becomes
+    // an orphan whose `.dictator` is the orphaned (pre-rebuild) combatant. Acting
+    // through it — e.g. dictator.putInto(baseSquad) on base-reveal — then moves
+    // that orphan into the base squad while the rebuilt combatant stays at the
+    // root, so the dictator combatant exists in TWO places (tree corruption).
+    const player = this.first(MERCPlayer, p => p.isDictator());
+    if (!player) {
       throw new Error('Dictator player not found');
     }
-    return this._dictatorPlayer;
-  }
-
-  set dictatorPlayer(player: MERCPlayer) {
-    this._dictatorPlayer = player;
+    return player;
   }
 
   // Get all rebel players
@@ -566,7 +560,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     roundInitiativeOrder?: string[];
     // MERC-retreat: Simultaneous retreat/continue decision tracking
     awaitingRetreatDecisions?: boolean;
-    retreatDecisions?: Map<string, { action: 'continue' | 'retreat'; retreatSectorId?: string }>;
+    // Plain Record (not a Map): activeCombat is captured by the
+    // snapshot-authoritative restore, and a Map JSON-serializes to {} — losing
+    // its entries AND its methods (.set/.has/.clear). A Record round-trips intact.
+    retreatDecisions?: Record<string, { action: 'continue' | 'retreat'; retreatSectorId?: string }>;
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow
@@ -939,7 +936,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    */
   private configureAsDictator(player: MERCPlayer): void {
     player.role = 'dictator';
-    this._dictatorPlayer = player;
+    // No cached reference: dictatorPlayer resolves from the live tree each call
+    // (role is set above, so the getter finds this player immediately).
 
     // Assign color: prefer MERC config, fall back to engine's lobby-assigned color
     const seat = player.seat;

@@ -36,9 +36,9 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
 
       if (game.activeCombat.awaitingRetreatDecisions) {
         if (!game.activeCombat.retreatDecisions) {
-          game.activeCombat.retreatDecisions = new Map();
+          game.activeCombat.retreatDecisions = {};
         }
-        game.activeCombat.retreatDecisions.set(`${ctx.player.seat}`, { action: 'continue' });
+        game.activeCombat.retreatDecisions[`${ctx.player.seat}`] = { action: 'continue' };
         return {
           success: true,
           message: 'Continue decision recorded',
@@ -128,12 +128,12 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
 
       if (game.activeCombat?.awaitingRetreatDecisions) {
         if (!game.activeCombat.retreatDecisions) {
-          game.activeCombat.retreatDecisions = new Map();
+          game.activeCombat.retreatDecisions = {};
         }
-        game.activeCombat.retreatDecisions.set(`${ctx.player.seat}`, {
+        game.activeCombat.retreatDecisions[`${ctx.player.seat}`] = {
           action: 'retreat',
           retreatSectorId: retreatSector.sectorId,
-        });
+        };
         return {
           success: true,
           message: `Retreat decision recorded (${retreatSector.sectorName})`,

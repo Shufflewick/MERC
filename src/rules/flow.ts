@@ -306,18 +306,15 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       do: sequence(
         execute(() => {
           if (!game.activeCombat) return;
-          if (!game.activeCombat.retreatDecisions) {
-            game.activeCombat.retreatDecisions = new Map();
-          } else {
-            game.activeCombat.retreatDecisions.clear();
-          }
+          // Reset to an empty Record at the start of each decision round.
+          game.activeCombat.retreatDecisions = {};
         }),
         simultaneousActionStep({
           name: 'continue-or-retreat',
           players: () => getCombatDecisionParticipants(game),
           actions: ['combatContinue', 'combatRetreat'],
           playerDone: (_ctx, player) => {
-            return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) ?? false;
+            return game.activeCombat?.retreatDecisions?.[`${player.seat}`] !== undefined;
           },
           allDone: () => game.isFinished() || game.activeCombat === null ||
                         game.activeCombat.combatComplete ||
@@ -329,17 +326,17 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                         game.activeCombat.pendingWolverineSixes != null ||
                         game.activeCombat.pendingEpinephrine != null ||
                         getCombatDecisionParticipants(game).every(p =>
-                          game.activeCombat?.retreatDecisions?.has(`${p.seat}`) ?? false),
+                          game.activeCombat?.retreatDecisions?.[`${p.seat}`] !== undefined),
         }),
         execute(() => {
           if (!game.activeCombat || game.activeCombat.combatComplete) return;
 
           const decisions = game.activeCombat.retreatDecisions;
           const continueChosen = decisions
-            ? Array.from(decisions.values()).some(d => d.action === 'continue')
+            ? Object.values(decisions).some(d => d.action === 'continue')
             : false;
           const retreatEntries = decisions
-            ? Array.from(decisions.entries())
+            ? Object.entries(decisions)
               .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
             : [];
 
@@ -377,7 +374,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
             // executeCombat sets it correctly — forcing it to false caused the flow
             // to skip the simultaneous retreat-decision step, leaving the non-context
             // player stuck with no buttons in two-human-player games.
-            game.activeCombat.retreatDecisions?.clear();
+            game.activeCombat.retreatDecisions = {};
           }
         }),
       ),
