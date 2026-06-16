@@ -832,10 +832,13 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       },
     })
     .execute((args) => {
-      // AI path - use auto placement
+      // AI path - use auto placement (places all extra militia in one call)
       if (game.dictatorPlayer?.isAI) {
         autoPlaceExtraMilitia(game);
-        clearGlobalCachedValue(game, REMAINING_MILITIA_KEY);
+        // Set to 0 (not clear) so the loop's while condition stops after one
+        // iteration. Clearing would make it undefined, which the loop treats as
+        // "not started yet" — causing it to re-run until the maxIterations cap.
+        setGlobalCachedValue(game, REMAINING_MILITIA_KEY, 0);
         return { success: true, message: 'Extra militia placed' };
       }
 
