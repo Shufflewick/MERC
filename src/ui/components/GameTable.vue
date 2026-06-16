@@ -471,43 +471,11 @@ const tacticsHand = computed(() => {
   if (!tacticsHandNode) {
     tacticsHandNode = findByClassName('_TacticsHand');
   }
-  console.log('[TACTICS-DEBUG] isDictator:', currentPlayerIsDictator.value,
-    'tacticsHandNode found:', !!tacticsHandNode,
-    'playTactics available:', props.availableActions.includes('playTactics'),
-    'availableActions:', JSON.stringify(props.availableActions));
   if (!tacticsHandNode) {
-    // Dump top-level class names so we can see how the hand serializes (or doesn't)
-    const dump = (node: any, depth: number): string[] => {
-      if (!node || depth > 3) return [];
-      const out: string[] = [];
-      for (const c of (node.children || [])) {
-        const cn = normalizeClassName(c.className);
-        if (/tactic/i.test(cn)) out.push(`${cn} (children: ${(c.children||[]).length})`);
-        out.push(...dump(c, depth + 1));
-      }
-      return out;
-    };
-    console.log('[TACTICS-DEBUG] no TacticsHand node. tactics-ish nodes in view:',
-      JSON.stringify(dump(props.gameView, 0)));
     return [];
   }
 
   // Get all tactics cards from hand
-  const allHands = findAllByClassName('TacticsHand');
-  const allDecks = findAllByClassName('TacticsDeck');
-  // Walk whole view counting TacticsCard nodes and their parent class
-  const cardLocations: string[] = [];
-  const walk = (node: any, parentClass: string) => {
-    if (!node) return;
-    const cn = normalizeClassName(node.className);
-    if (cn === 'TacticsCard') cardLocations.push(`under ${parentClass} (hidden:${!!node.attributes?.__hidden})`);
-    for (const c of (node.children || [])) walk(c, cn);
-  };
-  walk(props.gameView, 'ROOT');
-  console.log('[TACTICS-DEBUG] hand nodes found:', allHands.length,
-    'each childCount:', JSON.stringify(allHands.map((h: any) => ({ childCount: h.childCount, len: (h.children||[]).length, hidden: !!h.attributes?.__hidden }))),
-    'deck nodes:', allDecks.length,
-    'TacticsCard locations in view:', JSON.stringify(cardLocations));
   const cards = (tacticsHandNode.children || [])
     .filter((c: any) => normalizeClassName(c.className) === 'TacticsCard')
     .map((c: any) => {

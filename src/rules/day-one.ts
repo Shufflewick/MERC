@@ -362,26 +362,6 @@ export function drawTacticsHand(game: MERCGame): TacticsCard[] {
     return drawnCards;
   }
 
-  // [TACTICS-DEBUG] Compare player's stored refs against the live element tree
-  try {
-    const liveHands = (game as any).all(TacticsHand);
-    const storedHandBranch = (tacticsHand as any).branch?.();
-    const storedDeckBranch = (tacticsDeck as any).branch?.();
-    const liveHand = liveHands?.[0];
-    console.log('[TACTICS-DEBUG server] storedHand id:', (tacticsHand as any)._t?.id,
-      'branch:', storedHandBranch,
-      'storedHand count:', tacticsHand.count(TacticsCard),
-      '| liveHand id:', (liveHand as any)?._t?.id,
-      'liveHand count:', liveHand ? (liveHand as any).count(TacticsCard) : 'n/a',
-      '| sameObject:', tacticsHand === liveHand,
-      '| storedDeck id:', (tacticsDeck as any)._t?.id,
-      'branch:', storedDeckBranch,
-      'storedDeck count:', tacticsDeck.count(TacticsCard),
-      '| numLiveHands:', liveHands?.length);
-  } catch (e) {
-    console.log('[TACTICS-DEBUG server] error:', (e as Error).message);
-  }
-
   while (tacticsHand.count(TacticsCard) < targetHandSize) {
     const card = tacticsDeck.first(TacticsCard);
     if (!card) break;
