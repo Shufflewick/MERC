@@ -123,7 +123,7 @@ const actionAnimations = useActionAnimations({
 function setupAnimations(actionController: UseActionControllerReturn, gameView: any) {
   if (animationsRegistered.value) return;
   gameViewRef.value = gameView;
-  actionController.registerBeforeAutoExecute(async (actionName, args) => {
+  actionController.setBeforeAutoExecute(async (actionName, args) => {
     // Skip animation if this action was triggered via drag-and-drop
     if (lastActionWasDragDrop.value) {
       lastActionWasDragDrop.value = false;
