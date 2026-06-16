@@ -20,8 +20,7 @@ type MERCActionStepConfig = ActionStepConfig & {
 
 // Wrapper that accepts prompt property and strips it before passing to boardsmith
 function actionStep(config: MERCActionStepConfig) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { prompt, ...rest } = config;
+  const { prompt: _prompt, ...rest } = config;
   return boardsmithActionStep(rest);
 }
 import { TacticsCard, Sector } from './elements.js';
