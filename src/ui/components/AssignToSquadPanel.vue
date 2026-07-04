@@ -467,13 +467,13 @@ async function handleDrop(targetSquad: SquadData) {
 <style scoped>
 /* BoardSmith drag-drop CSS variable overrides */
 .assign-to-squad {
-  --bs-dragging-opacity: 0.5;
-  --bs-drop-target-bg: rgba(212, 168, 75, 0.15);
-  --bs-drop-target-border-color: rgba(212, 168, 75, 0.6);
-  --bs-drop-hover-bg: rgba(212, 168, 75, 0.3);
-  --bs-drop-hover-border-color: #d4a84b;
-  --bs-drop-hover-shadow: 0 0 12px rgba(212, 168, 75, 0.5);
-  --bs-drop-hover-scale: 1.02;
+  --bsg-dragging-opacity: 0.5;
+  --bsg-droptarget: rgba(212, 168, 75, 0.15);
+  --bsg-droptarget-border: rgba(212, 168, 75, 0.6);
+  --bsg-droptarget-hover: rgba(212, 168, 75, 0.3);
+  --bsg-droptarget-hover-border: #d4a84b;
+  --bsg-droptarget-hover-shadow: 0 0 12px rgba(212, 168, 75, 0.5);
+  --bsg-droptarget-hover-scale: 1.02;
 
   background: rgba(30, 35, 30, 0.95);
   border: 2px solid #5a6a5a;

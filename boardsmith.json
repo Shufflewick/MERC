@@ -18,8 +18,7 @@
       "score"
     ]
   },
-  "gameId": "j97byjeben0yzbd3ht2ma0hmtx83s6be",
-
+  "gameId": "jh77y52z9wvveywp3bqsgzhvhn89sxct",
   "gameOptions": [
     {
       "id": "dictatorCharacter",
@@ -27,22 +26,57 @@
       "type": "select",
       "default": "random",
       "choices": [
-        { "value": "random", "label": "Random" },
-        { "value": "castro", "label": "Castro - Hire MERCs each turn" },
-        { "value": "kim", "label": "Kim - Extra militia reinforcements" },
-        { "value": "gadafi", "label": "Gaddafi - Hire MERCs + loot equipment" },
-        { "value": "hitler", "label": "Hitler - Hire MERCs + auto-initiative" },
-        { "value": "hussein", "label": "Hussein - Extra tactics cards" },
-        { "value": "mao", "label": "Mao - Starting MERCs + wilderness militia" },
-        { "value": "mussolini", "label": "Mussolini - Starting MERCs + militia spread" },
-        { "value": "noriega", "label": "Noriega - Convert rebel militia + conditional hire" },
-        { "value": "pinochet", "label": "Pinochet - Hire on sector loss + damage spread" },
-        { "value": "polpot", "label": "Pol Pot - Militia to rebel sectors + combat hire" },
-        { "value": "stalin", "label": "Stalin - Hire MERCs to both squads" }
+        {
+          "value": "random",
+          "label": "Random"
+        },
+        {
+          "value": "castro",
+          "label": "Castro - Hire MERCs each turn"
+        },
+        {
+          "value": "kim",
+          "label": "Kim - Extra militia reinforcements"
+        },
+        {
+          "value": "gadafi",
+          "label": "Gaddafi - Hire MERCs + loot equipment"
+        },
+        {
+          "value": "hitler",
+          "label": "Hitler - Hire MERCs + auto-initiative"
+        },
+        {
+          "value": "hussein",
+          "label": "Hussein - Extra tactics cards"
+        },
+        {
+          "value": "mao",
+          "label": "Mao - Starting MERCs + wilderness militia"
+        },
+        {
+          "value": "mussolini",
+          "label": "Mussolini - Starting MERCs + militia spread"
+        },
+        {
+          "value": "noriega",
+          "label": "Noriega - Convert rebel militia + conditional hire"
+        },
+        {
+          "value": "pinochet",
+          "label": "Pinochet - Hire on sector loss + damage spread"
+        },
+        {
+          "value": "polpot",
+          "label": "Pol Pot - Militia to rebel sectors + combat hire"
+        },
+        {
+          "value": "stalin",
+          "label": "Stalin - Hire MERCs to both squads"
+        }
       ]
     }
   ],
-
   "playerOptions": [
     {
       "id": "role",
@@ -50,7 +84,10 @@
       "type": "exclusive",
       "default": "last",
       "choices": [
-        { "value": "dictator", "label": "Dictator" }
+        {
+          "value": "dictator",
+          "label": "Dictator"
+        }
       ]
     },
     {
@@ -59,21 +96,61 @@
       "type": "select",
       "default": "medium",
       "choices": [
-        { "value": "easy", "label": "Easy" },
-        { "value": "medium", "label": "Medium" },
-        { "value": "hard", "label": "Hard" }
+        {
+          "value": "easy",
+          "label": "Easy"
+        },
+        {
+          "value": "medium",
+          "label": "Medium"
+        },
+        {
+          "value": "hard",
+          "label": "Hard"
+        }
       ]
     }
   ],
-
   "colorPalette": [
-    { "id": "red", "label": "Red", "hex": "#E74C3C" },
-    { "id": "blue", "label": "Blue", "hex": "#3498DB" },
-    { "id": "green", "label": "Green", "hex": "#27AE60" },
-    { "id": "orange", "label": "Orange", "hex": "#E67E22" },
-    { "id": "purple", "label": "Purple", "hex": "#9B59B6" },
-    { "id": "yellow", "label": "Yellow", "hex": "#F1C40F" },
-    { "id": "black", "label": "Black", "hex": "#95A5A6" },
-    { "id": "white", "label": "White", "hex": "#ECF0F1" }
+    {
+      "id": "red",
+      "label": "Red",
+      "hex": "#E74C3C"
+    },
+    {
+      "id": "blue",
+      "label": "Blue",
+      "hex": "#3498DB"
+    },
+    {
+      "id": "green",
+      "label": "Green",
+      "hex": "#27AE60"
+    },
+    {
+      "id": "orange",
+      "label": "Orange",
+      "hex": "#E67E22"
+    },
+    {
+      "id": "purple",
+      "label": "Purple",
+      "hex": "#9B59B6"
+    },
+    {
+      "id": "yellow",
+      "label": "Yellow",
+      "hex": "#F1C40F"
+    },
+    {
+      "id": "black",
+      "label": "Black",
+      "hex": "#95A5A6"
+    },
+    {
+      "id": "white",
+      "label": "White",
+      "hex": "#ECF0F1"
+    }
   ]
 }
