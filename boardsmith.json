@@ -1,12 +1,7 @@
 {
-  "$schema": "https://boardsmith.io/schemas/game.json",
   "name": "MERC",
   "displayName": "MERC",
   "description": "A fun game for 2-7 players",
-  "playerCount": {
-    "min": 2,
-    "max": 7
-  },
   "estimatedDuration": "15-30 minutes",
   "complexity": 2,
   "categories": [
