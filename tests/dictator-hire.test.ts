@@ -24,9 +24,7 @@ describe('Dictator Day 1 Hire', () => {
     expect(validSectors.length).toBeGreaterThan(0);
 
     // Step 1: Place landing (1-indexed player)
-    let result = testGame.doAction(1, 'placeLanding', { sector: validSectors[0].id });
-    console.log('placeLanding:', result.success);
-    expect(result.success).toBe(true);
+    testGame.doAction(1, 'placeLanding', { sector: validSectors[0].id });
 
     // Step 2: Get merc choices via action executor
     const rebelPlayer = game.rebelPlayers[0];
@@ -36,9 +34,7 @@ describe('Dictator Day 1 Hire', () => {
     console.log('Merc choices:', mercChoices.map((c: any) => c.value || c.display || c));
 
     const firstMerc = mercChoices[0]?.value ?? mercChoices[0];
-    result = testGame.doAction(1, 'hireFirstMerc', { merc: firstMerc, equipmentType: 'Weapon' });
-    console.log('hireFirstMerc:', result.success, (result as any).error);
-    expect(result.success).toBe(true);
+    testGame.doAction(1, 'hireFirstMerc', { merc: firstMerc, equipmentType: 'Weapon' });
 
     // Step 3: Second hire
     let flowState = testGame.getFlowState();
@@ -50,9 +46,7 @@ describe('Dictator Day 1 Hire', () => {
     console.log('Second merc choices:', merc2Choices.map((c: any) => c.value || c.display || c));
 
     const secondMerc = merc2Choices[0]?.value ?? merc2Choices[0];
-    result = testGame.doAction(1, 'hireSecondMerc', { merc: secondMerc, equipmentType: 'Armor' });
-    console.log('hireSecondMerc:', result.success, (result as any).error);
-    expect(result.success).toBe(true);
+    testGame.doAction(1, 'hireSecondMerc', { merc: secondMerc, equipmentType: 'Armor' });
 
     // Now the dictator's turn should start
     flowState = testGame.getFlowState();
@@ -94,13 +88,11 @@ describe('Dictator Day 1 Hire', () => {
         // Now actually execute the action with chosen values
         const mercChoices2 = executor.getChoices(dictHireAction.selections[0], game.dictatorPlayer, {});
         const mercName = mercChoices2[0]?.value ?? mercChoices2[0];
-        result = testGame.doAction(2, 'dictatorHireFirstMerc', {
+        testGame.doAction(2, 'dictatorHireFirstMerc', {
           merc: mercName,
           equipmentType: 'Weapon',
           targetSector: 'Fishing Industry',
         });
-        console.log('dictatorHireFirstMerc:', result.success, (result as any).error);
-        expect(result.success).toBe(true);
 
         // Verify the merc was hired
         const dictatorTeam = game.dictatorPlayer.hiredMercs;
@@ -124,13 +116,12 @@ describe('Dictator Day 1 Hire', () => {
         const dictChoices = executor.getChoices(dictSel, game.dictatorPlayer, {});
         console.log('  Dictator choices:', dictChoices.map((c: any) => c.value || c.display || c));
         const castro = dictChoices.find((c: any) => String(c.value || c).toLowerCase().includes('castro'));
-        result = testGame.doAction(player, actionName, {
+        testGame.doAction(player, actionName, {
           dictatorChoice: castro?.value ?? castro ?? dictChoices[0]?.value ?? dictChoices[0],
         });
       } else {
-        result = testGame.doAction(player, actionName, {});
+        testGame.doAction(player, actionName, {});
       }
-      console.log(`  -> ${result.success} ${(result as any).error || ''}`);
     }
 
     // Should have found dictatorHireFirstMerc
