@@ -2,12 +2,18 @@
   "name": "MERC",
   "displayName": "MERC",
   "description": "A fun game for 2-7 players",
-  "estimatedDuration": "15-30 minutes",
-  "complexity": 2,
-  "categories": [
+  "audience": "strategy",
+  "tags": [
+    "war",
+    "hidden-roles",
     "card-game"
   ],
-  "thumbnail": "./public/thumbnail.png",
+  "playtime": {
+    "min": 15,
+    "max": 30
+  },
+  "cooperative": false,
+  "complexity": 2,
   "scoreboard": {
     "stats": [
       "score"

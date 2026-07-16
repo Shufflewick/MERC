@@ -129,9 +129,9 @@ const imagePath = computed(() => {
   if (props.sector.image) return assetUrl(props.sector.image);
   // Fallback based on type
   const type = props.sector.sectorType.toLowerCase();
-  if (type === 'wilderness') return assetUrl('sectors/wilderness.jpg');
-  if (type === 'city') return assetUrl('sectors/town---a.jpg');
-  return assetUrl('sectors/industry---coal.jpg');
+  if (type === 'wilderness') return assetUrl('sectors/wilderness.webp');
+  if (type === 'city') return assetUrl('sectors/town---a.webp');
+  return assetUrl('sectors/industry---coal.webp');
 });
 
 // Filter out hidden combatants (e.g., those animating into the sector)

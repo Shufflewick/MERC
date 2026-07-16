@@ -51,11 +51,11 @@ const accentColor = getPlayerColor(props.declaringPlayerColor);
 
 const sectorImagePath = computed(() => {
   if (props.targetSector?.image) return assetUrl(props.targetSector.image);
-  if (!props.targetSector) return assetUrl('sectors/industry---coal.jpg');
+  if (!props.targetSector) return assetUrl('sectors/industry---coal.webp');
   const type = props.targetSector.sectorType.toLowerCase();
-  if (type === 'wilderness') return assetUrl('sectors/wilderness.jpg');
-  if (type === 'city') return assetUrl('sectors/town---a.jpg');
-  return assetUrl('sectors/industry---coal.jpg');
+  if (type === 'wilderness') return assetUrl('sectors/wilderness.webp');
+  if (type === 'city') return assetUrl('sectors/town---a.webp');
+  return assetUrl('sectors/industry---coal.webp');
 });
 
 async function joinWithSquad(squadType: 'primary' | 'secondary') {

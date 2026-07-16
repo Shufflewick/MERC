@@ -307,9 +307,9 @@ const selectableMercs = computed<any[]>(() => {
 // Get fallback image for sector type
 function getSectorImageFallback(sectorType: string): string {
   const type = (sectorType || 'industry').toLowerCase();
-  if (type === 'wilderness') return 'sectors/wilderness.jpg';
-  if (type === 'city') return 'sectors/town---a.jpg';
-  return 'sectors/industry---coal.jpg';
+  if (type === 'wilderness') return 'sectors/wilderness.webp';
+  if (type === 'city') return 'sectors/town---a.webp';
+  return 'sectors/industry---coal.webp';
 }
 
 // Get selectable sectors for placement - includes full sector data

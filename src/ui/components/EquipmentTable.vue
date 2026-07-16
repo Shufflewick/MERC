@@ -41,17 +41,17 @@ function getEquipmentImagePath(equip: EquipmentItem): string {
   if (image) return assetUrl(image);
 
   const equipId = getAttr(equip, 'equipmentId', '');
-  if (equipId) return assetUrl(`equipment/${equipId}.png`);
+  if (equipId) return assetUrl(`equipment/${equipId}.webp`);
 
   // Fallback: derive from name - equipment files use lowercase with spaces
   const name = getEquipmentName(equip);
   if (name && name !== 'Unknown' && name !== 'Done') {
-    // Try exact lowercase match first (e.g., "Ghillie Suit" -> "ghillie suit.png")
+    // Try exact lowercase match first (e.g., "Ghillie Suit" -> "ghillie suit.webp")
     const filename = name.toLowerCase();
-    return assetUrl(`equipment/${filename}.png`);
+    return assetUrl(`equipment/${filename}.webp`);
   }
 
-  return assetUrl('equipment/unknown.png');
+  return assetUrl('equipment/unknown.webp');
 }
 
 // Get equipment name
@@ -147,7 +147,7 @@ function handleClick(item: EquipmentItem) {
                   :src="getEquipmentImagePath(item)"
                   :alt="getEquipmentName(item)"
                   class="equip-image"
-                  @error="($event.target as HTMLImageElement).src = assetUrl('equipment/unknown.png')"
+                  @error="($event.target as HTMLImageElement).src = assetUrl('equipment/unknown.webp')"
                 />
               </div>
             </td>

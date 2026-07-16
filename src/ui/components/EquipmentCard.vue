@@ -56,7 +56,7 @@ const image = computed(() => {
   if (explicitImage) return assetUrl(explicitImage);
   // Fallback: construct path from equipmentId
   if (equipmentId.value) {
-    return assetUrl(`equipment/${equipmentId.value}.png`);
+    return assetUrl(`equipment/${equipmentId.value}.webp`);
   }
   return '';
 });
