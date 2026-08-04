@@ -10,7 +10,7 @@
     "validate": "boardsmith validate"
   },
   "dependencies": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260716204016.tgz",
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260804003840.tgz",
     "three": "^0.182.0",
     "vue": "^3.4.0"
   },
@@ -18,9 +18,10 @@
     "@vitejs/plugin-vue": "^5.0.0",
     "puppeteer": "^24.34.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.0.0"
+    "vitest": "^2.0.0",
+    "@types/three": "^0.182.0"
   },
   "overrides": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260716204016.tgz"
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260804003840.tgz"
   }
 }
