@@ -1,4 +1,5 @@
 import { computed, ref, reactive, type ComputedRef, type Ref } from 'vue';
+import type { UseActionControllerReturn } from 'boardsmith/ui';
 import { useGameViewHelpers } from './useGameViewHelpers';
 import type { Sector } from './useSectorState';
 import type { SquadState } from './useSquadState';
@@ -9,16 +10,11 @@ import { quickReassignInProgress } from '../drag-drop-state';
  */
 export interface ActionStateProps {
   availableActions: string[];
-  actionController: {
-    currentAction: Ref<string | null>;
-    currentPick: Ref<any> | ComputedRef<any>;
-    currentArgs: Ref<Record<string, unknown> | undefined> | Ref<Record<string, unknown>>;
-    getChoices: (selection: any) => any[];
-    fill: (selectionName: string, value: any) => Promise<any>;
-    start: (actionName: string, options?: Record<string, unknown>) => Promise<void>;
-    execute: (actionName: string, args?: Record<string, unknown>) => Promise<any>;
-    [key: string]: any; // Allow additional properties from UseActionControllerReturn
-  };
+  // The real controller type, not a hand-rolled structural copy of it. The copy
+  // that used to live here had drifted from UseActionControllerReturn (its
+  // currentArgs and start/execute signatures no longer matched), so passing a
+  // genuine controller in failed to type-check at every call site.
+  actionController: UseActionControllerReturn;
   state?: { state?: Record<string, any> };
   playerSeat: number;
   gameView?: any;

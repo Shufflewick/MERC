@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Die3D } from 'boardsmith/ui';
+// Die3D lives on its own subpath: importing it is what opts this game into
+// shipping three.js, and what registers the die zoom-preview renderer.
+import { Die3D } from 'boardsmith/ui/dice';
 
 const props = defineProps<{
   diceRolls: number[];

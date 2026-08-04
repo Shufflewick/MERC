@@ -299,7 +299,15 @@ export function setupTacticsDeck(
   // Create tactics deck for dictator player
   const tacticsDeck = game.create(TacticsDeck, 'tactics-deck');
   tacticsDeck.setOrder('stacking');
-  tacticsDeck.contentsHidden();
+  // Faces concealed, size public — useVictoryCalculations reads the remaining
+  // count, and "how many tactics are left" is table information in this game.
+  //
+  // This said contentsHidden() back when 'hidden' and 'count-only' were the same
+  // thing in the engine. Once 'hidden' was given true-concealment semantics (no
+  // childCount at all, so a player cannot even tell empty from full), that call
+  // started genuinely hiding the count and the victory panel lost its number.
+  // contentsCountOnly() is what this deck always meant.
+  tacticsDeck.contentsCountOnly();
 
   // Create tactics hand. Owned by the dictator so per-player snapshots reveal
   // the hand's card identities to the dictator only; rebels see count-only

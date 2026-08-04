@@ -1435,8 +1435,13 @@ const clickableSectors = computed(() => {
     // Map element IDs to sector IDs
     const validSectorIds: string[] = [];
     for (const element of validElements) {
-      // Element has ref with id (the sector's string sectorId)
-      const elementSectorId = element.ref?.id;
+      // getValidElements() returns the CONTROLLER's ValidElement, which carries
+      // role-tagged `refs`, not a single `ref` — that shape belongs to the board's
+      // BoardTarget (the two were both called ValidElement until BoardSmith renamed
+      // the board one). `element.ref` was silently undefined here, so every retreat
+      // sector fell out of this list.
+      const elementSectorId = (element.refs ?? []).find(r => r.role === 'highlight')?.ref?.id
+        ?? element.refs?.[0]?.ref?.id;
       if (elementSectorId) {
         // Find the sector by its sectorId
         const sector = sectors.value.find(s => s.sectorId === String(elementSectorId));
