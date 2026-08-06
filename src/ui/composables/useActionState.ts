@@ -507,8 +507,7 @@ export function useActionState(
     // Fallback for dictator hiring: get from cached combatantId and look up in combatantData
     if (!combatantName) {
       const settings = props.gameView?.settings ||
-                       props.state?.state?.settings ||
-                       props.gameView?.attributes?.settings;
+                       props.state?.state?.settings;
       // Use combatantId (string) to look up in combatantData directly
       // (numeric element ID can't find MERC because it's in mercDiscard which isn't serialized)
       const drawnMercCombatantId = settings?.dictatorFirstMercCombatantId;
@@ -531,9 +530,8 @@ export function useActionState(
     if (!merc) {
       // Use getGameView getter for reactivity (props.gameView is a snapshot that doesn't update)
       const gameView = props.getGameView ? props.getGameView() : props.gameView;
-      const combatantData = gameView?.attributes?.settings?.combatantData ||
-                            props.state?.state?.settings?.combatantData ||
-                            gameView?.settings?.combatantData || [];
+      const combatantData = gameView?.settings?.combatantData ||
+                            props.state?.state?.settings?.combatantData || [];
       const mercInfo = combatantData.find((d: any) =>
         d.cardType === 'merc' && d.name.toLowerCase() === combatantName.toLowerCase()
       );
@@ -604,7 +602,7 @@ export function useActionState(
 
     const playerKey = `${props.playerSeat}`;
     const gameView = props.getGameView ? props.getGameView() : props.gameView;
-    const settings = gameView?.settings || gameView?.attributes?.settings || props.state?.state?.settings;
+    const settings = gameView?.settings || props.state?.state?.settings;
 
     const cache = settings?.[`hagnessDrawnChoices:${playerKey}`];
     if (cache?.equipmentData) {
@@ -625,7 +623,7 @@ export function useActionState(
     const gameView = props.getGameView ? props.getGameView() : props.gameView;
 
     // Try to find hagnessDrawnEquipmentData in settings (stored by hagnessDrawType action)
-    const settings = gameView?.settings || gameView?.attributes?.settings || props.state?.state?.settings;
+    const settings = gameView?.settings || props.state?.state?.settings;
 
     // New simplified key: just the player seat (no equipment type needed since only one can be pending)
     const data = settings?.hagnessDrawnEquipmentData?.[playerKey];

@@ -120,9 +120,8 @@ const {
 
 // Combatant data from game settings (for image/stat lookups)
 const combatantData = computed(() => {
-  return props.gameView?.attributes?.settings?.combatantData ||
-         props.state?.state?.settings?.combatantData ||
-         props.gameView?.settings?.combatantData || [];
+  return props.gameView?.settings?.combatantData ||
+         props.state?.state?.settings?.combatantData || [];
 });
 
 // Sector state (needs allMercs via lazy getter - allMercs initialized below)
@@ -970,9 +969,8 @@ const hirableMercs = computed(() => {
 
   // For dictator selection, convert to CombatantModel-compatible format
   if (isSelectingDictator.value) {
-    const combatantData = props.gameView?.attributes?.settings?.combatantData ||
-                           props.state?.state?.settings?.combatantData ||
-                           props.gameView?.settings?.combatantData || [];
+    const combatantData = props.gameView?.settings?.combatantData ||
+                           props.state?.state?.settings?.combatantData || [];
     const dictatorDataList = combatantData.filter((d: any) => d.cardType === 'dictator');
 
     return choices
@@ -1025,9 +1023,8 @@ const hirableMercs = computed(() => {
 
       // If not found, lookup from combatantData (mercs in deck during hiring)
       if (!merc) {
-        const combatantData = props.gameView?.attributes?.settings?.combatantData ||
-                              props.state?.state?.settings?.combatantData ||
-                              props.gameView?.settings?.combatantData || [];
+        const combatantData = props.gameView?.settings?.combatantData ||
+                              props.state?.state?.settings?.combatantData || [];
         const mercInfo = combatantData.find((d: any) =>
           d.cardType === 'merc' && d.name.toLowerCase() === choiceDisplay.toLowerCase()
         );
