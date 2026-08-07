@@ -544,9 +544,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Step 2: Draw MERC for dictator hiring (human only — AI draws in execute handler)
-              execute(() => {
-                drawDictatorFirstMerc(game);
-              }),
+              execute(
+                () => {
+                  drawDictatorFirstMerc(game);
+                },
+                // UNDO-02: the human dictator is told which MERC they drew. Undo
+                // can put the MERC back, but not un-tell them — and they could
+                // undo behind this into an earlier choice (which dictator to
+                // play) already knowing the answer.
+                { irreversible: true },
+              ),
 
               // Step 2b: Hire dictator's first MERC
               actionStep({
@@ -1231,6 +1238,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Hussein: Draw bonus card and play second tactics (persistent per-turn ability)
+              // UNDO-02: the human branch draws from the tactics deck into the
+              // hidden hand, and the AI branch plays a card whose effect can
+              // itself reveal (executeTacticsEffect). Either way information has
+              // left the deck, so undo must not reach behind this step.
               execute(() => {
                 if (game.isFinished()) return;
                 const dictator = game.dictatorPlayer?.dictator;
@@ -1251,7 +1262,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     }
                   }
                 }
-              }),
+              }, { irreversible: true }),
 
               // Hussein second tactics play (human only)
               actionStep({
@@ -1310,10 +1321,17 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               combatResolutionFlow(game, 'hussein-bonus-combat'),
 
               // Step 4: Refill hand to 3 cards
-              execute(() => {
-                if (game.isFinished()) return;
-                drawTacticsHand(game);
-              }),
+              execute(
+                () => {
+                  if (game.isFinished()) return;
+                  drawTacticsHand(game);
+                },
+                // UNDO-02: draws into `tacticsHand`, this game's one hidden zone
+                // (`contentsVisibleToOwner`, setup.ts). The cards are in the
+                // dictator's eyes the moment this completes, so undo must not
+                // reach behind it.
+                { irreversible: true },
+              ),
             ),
           }),
         ),
