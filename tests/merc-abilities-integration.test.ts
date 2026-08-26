@@ -330,16 +330,19 @@ describe('MERC Ability Integration Tests', () => {
       // Haarg: base training=1, initiative=1, combat=3
       // Sonia: base training=4, initiative=4, combat=2
 
-      // Update Haarg's bonuses
-      const squadMates = rebel.primarySquad.getMercs();
-      haarg.updateHaargBonus(squadMates);
+      // Update Haarg's bonuses through the single live implementation
+      game.updateSquadBonuses(rebel.primarySquad);
+
+      const bonusFor = (stat: string) => haarg.activeStatModifiers
+        .filter(m => m.stat === stat && m.label === "Haarg's Ability")
+        .reduce((sum, m) => sum + m.bonus, 0);
 
       // Haarg should get +1 training (Sonia has 4 > 1)
-      expect(haarg.haargTrainingBonus).toBe(1);
+      expect(bonusFor('training')).toBe(1);
       // Haarg should get +1 initiative (Sonia has 4 > 1)
-      expect(haarg.haargInitiativeBonus).toBe(1);
+      expect(bonusFor('initiative')).toBe(1);
       // Haarg should NOT get +1 combat (Sonia has 2 < 3)
-      expect(haarg.haargCombatBonus).toBe(0);
+      expect(bonusFor('combat')).toBe(0);
     });
   });
 

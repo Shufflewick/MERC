@@ -310,6 +310,8 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   // --- MERCs with Conditional Self Bonuses ---
 
+  // "highestInitInSquad" compares BASE initiative against living squadmates.
+  // Designer ruling (issue #43): alone in the squad counts as highest; a tie does not.
   sarge: {
     id: 'sarge',
     combatModifiers: {
@@ -342,8 +344,10 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   haarg: {
     id: 'haarg',
-    // Special: +1 to any skill someone in squad has higher
-    // Implemented in elements.ts CombatantModel.updateHaargBonus()
+    // Special: +1 to any skill a living squadmate has a higher BASE value in,
+    // capped at +1 per skill. Compared against his own squad only (issue #11),
+    // which includes the Dictator when he is in play with that squad.
+    // Implemented in elements.ts CombatantModel.applyHaargPerStatModifiers().
     passive: {},
     statModifiers: [
       { stat: 'combat', bonus: 1, condition: 'squadMateHigherBase' },

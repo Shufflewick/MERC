@@ -30,14 +30,20 @@ This document addresses specific MERC abilities, equipment edge cases, and frequ
 
 ### Haarg
 
-**Ability:** Gets +1 to any skill/attribute where someone else has a higher value.
+**Ability:** "+1 to any skill that anyone in his squad has higher than him."
 
 **Clarification:**
-- Compare to all other units in combat
-- If anyone has higher Initiative → Haarg gets +1 Initiative
-- If anyone has higher Combat → Haarg gets +1 Combat
-- Can get bonuses to multiple stats simultaneously
-- Recalculates each combat round
+- Compare only to the other living members of Haarg's own squad, never to
+  enemies or militia. The Dictator counts as a squad member when he is in play
+  and riding with that squad.
+- Compare against **base** skills, not skills already boosted by equipment or
+  abilities
+- If a squadmate has higher base Initiative → Haarg gets +1 Initiative
+- If a squadmate has higher base Combat → Haarg gets +1 Combat
+- If a squadmate has higher base Training → Haarg gets +1 Training
+- Can get bonuses to multiple skills simultaneously, but never more than +1 to
+  any one skill
+- Recalculates whenever squad composition changes (hiring, movement, death)
 
 ### Preaction
 
@@ -46,6 +52,26 @@ This document addresses specific MERC abilities, equipment edge cases, and frequ
 **Clarification:**
 - Can only heal **himself**, not other MERCs
 - See MERC card for specific mechanics
+
+### Sarge
+
+**Ability:** "+1 to all skills when his initiative is highest in the squad."
+
+**Clarification:**
+- Compare **base** initiative against the living members of his own squad
+- Alone in a squad, he is trivially the highest and does get the bonus
+- A tie does not count as highest: if a squadmate matches his base initiative,
+  Sarge gets nothing
+
+### Tack
+
+**Ability:** "+2 initiative to her squad when she has the highest initiative."
+
+**Clarification:**
+- Compare **base** initiative against the living members of her own squad
+- The +2 goes to the whole squad including Tack herself
+- Alone in a squad, she is trivially the highest and does buff herself
+- A tie does not count as highest, same as Sarge
 
 ### Rizen
 

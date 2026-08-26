@@ -139,22 +139,6 @@ export abstract class CombatantBase extends BaseCard {
     return undefined;
   }
 
-  // Haarg's ability bonuses (stored explicitly since parent isn't available during serialization)
-  haargTrainingBonus: number = 0;
-  haargInitiativeBonus: number = 0;
-  haargCombatBonus: number = 0;
-
-  // Sarge's ability bonuses (+1 to all when highest initiative in squad)
-  sargeTrainingBonus: number = 0;
-  sargeInitiativeBonus: number = 0;
-  sargeCombatBonus: number = 0;
-
-  // Tack's squad initiative bonus (applied to all squad members when Tack has highest initiative)
-  tackSquadInitiativeBonus: number = 0;
-
-  // Valkyrie's squad initiative bonus (applied to squad mates, not Valkyrie herself)
-  valkyrieSquadInitiativeBonus: number = 0;
-
   // Equipment-conditional combat bonuses (displayed in UI tooltips)
   boubaHandgunCombatBonus: number = 0;
   mayhemUziCombatBonus: number = 0;
@@ -314,12 +298,12 @@ export abstract class CombatantBase extends BaseCard {
     // Filter living squad mates (excluding self)
     const livingMates = squadMates.filter(m => m.combatantId !== this.combatantId && !m.isDead);
 
-    // Check if this MERC has highest initiative in squad (for Sarge, Tack)
-    // Uses BASE initiative only (before equipment/bonuses)
-    let isHighestInitInSquad = false;
-    if (livingMates.length > 0) {
-      isHighestInitInSquad = livingMates.every(mate => mate.baseInitiative < this.baseInitiative);
-    }
+    // Check if this MERC has highest initiative in squad (for Sarge, Tack).
+    // Uses BASE initiative only (before equipment/bonuses).
+    // Designer ruling (issue #43): a MERC alone in his squad is trivially the
+    // highest, so a solo Sarge/Tack does get the bonus. A tie is NOT highest --
+    // a squadmate matching his base initiative denies it.
+    const isHighestInitInSquad = livingMates.every(mate => mate.baseInitiative < this.baseInitiative);
 
     return {
       equipment: {
@@ -541,90 +525,6 @@ export abstract class CombatantBase extends BaseCard {
     // Unified ability bonus from activeStatModifiers
     c += this.getAbilityBonus('combat');
     this.effectiveCombat = Math.max(0, c);
-  }
-
-  /**
-   * Update Haarg's ability bonuses based on squad mates.
-   */
-  updateHaargBonus(squadMates: CombatantBase[]): void {
-    if (this.combatantId !== 'haarg') return;
-
-    this.haargTrainingBonus = 0;
-    this.haargInitiativeBonus = 0;
-    this.haargCombatBonus = 0;
-
-    for (const mate of squadMates) {
-      if (mate.combatantId === 'haarg' || mate.isDead) continue;
-      if (mate.baseTraining > this.baseTraining) this.haargTrainingBonus = 1;
-      if (mate.baseInitiative > this.baseInitiative) this.haargInitiativeBonus = 1;
-      if (mate.baseCombat > this.baseCombat) this.haargCombatBonus = 1;
-    }
-
-    this.updateComputedStats();
-  }
-
-  /**
-   * Update Sarge's ability bonuses based on squad mates.
-   */
-  updateSargeBonus(squadMates: CombatantBase[]): void {
-    if (this.combatantId !== 'sarge') return;
-
-    this.sargeTrainingBonus = 0;
-    this.sargeInitiativeBonus = 0;
-    this.sargeCombatBonus = 0;
-
-    let hasHighest = true;
-    for (const mate of squadMates) {
-      if (mate.combatantId === 'sarge' || mate.isDead) continue;
-      if (mate.baseInitiative >= this.baseInitiative) {
-        hasHighest = false;
-        break;
-      }
-    }
-
-    if (hasHighest && squadMates.filter(m => !m.isDead && m.combatantId !== 'sarge').length > 0) {
-      this.sargeTrainingBonus = 1;
-      this.sargeInitiativeBonus = 1;
-      this.sargeCombatBonus = 1;
-    }
-
-    this.updateComputedStats();
-  }
-
-  /**
-   * Update Tack's squad initiative bonus for this unit.
-   */
-  updateTackSquadBonus(squadMates: CombatantBase[]): void {
-    this.tackSquadInitiativeBonus = 0;
-
-    const tack = squadMates.find(m => m.combatantId === 'tack' && !m.isDead);
-    if (!tack) return;
-
-    let tackHasHighest = true;
-    for (const mate of squadMates) {
-      if (mate.combatantId === 'tack' || mate.isDead) continue;
-      if (mate.baseInitiative >= tack.baseInitiative) {
-        tackHasHighest = false;
-        break;
-      }
-    }
-
-    if (tackHasHighest) this.tackSquadInitiativeBonus = 2;
-    this.updateComputedStats();
-  }
-
-  /**
-   * Update Valkyrie's squad initiative bonus for this unit.
-   */
-  updateValkyrieSquadBonus(squadMates: CombatantBase[]): void {
-    this.valkyrieSquadInitiativeBonus = 0;
-    if (this.combatantId === 'valkyrie') return;
-
-    const valkyrie = squadMates.find(m => m.combatantId === 'valkyrie' && !m.isDead);
-    if (!valkyrie) return;
-
-    this.valkyrieSquadInitiativeBonus = 1;
-    this.updateComputedStats();
   }
 
   /**
@@ -1422,6 +1322,16 @@ export class Squad extends Space {
 
   getMercs(): CombatantModel[] {
     return this.all(CombatantModel).filter(c => c.isMerc);
+  }
+
+  /**
+   * Everyone who counts as a member of this squad for squad-wide abilities:
+   * the MERCs plus the Dictator once he is on the battlefield. Abilities that
+   * read "in his squad" (Haarg, Sarge, Tack) compare against this list, because
+   * an in-play Dictator riding with a squad is one of its actors.
+   */
+  getSquadCombatants(): CombatantModel[] {
+    return this.all(CombatantModel).filter(c => c.isMerc || (c.isDictator && c.inPlay));
   }
 
   get mercCount(): number {

@@ -1384,12 +1384,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    */
   updateSquadBonuses(squad: Squad): void {
     if (!squad) return;
-    const mercs = squad.getMercs();
+    // An in-play Dictator counts as a member of the squad he rides with, both as
+    // a comparison target for Haarg/Sarge/Tack and as a recipient of squad bonuses.
+    const members = squad.getSquadCombatants();
 
     // Single unified update for all ability bonuses
-    // Each MERC's updateAbilityBonuses builds context and computes activeStatModifiers
-    for (const merc of mercs) {
-      merc.updateAbilityBonuses(mercs);
+    // Each member's updateAbilityBonuses builds context and computes activeStatModifiers
+    for (const member of members) {
+      member.updateAbilityBonuses(members);
     }
   }
 
