@@ -1547,6 +1547,51 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPie
 }
 
 /**
+ * Decide how many of the rolled hits land on each declared target.
+ *
+ * Per the rulebook each hit deals 1 damage and armour soaks hits before health,
+ * so a target can consume at most (armour + health) hits. When the attacking
+ * player allocated hits by hand, `declaredTargets` carries one entry per
+ * allocated hit and those counts are honoured exactly. Otherwise hits spill down
+ * the declared target list, each target taking only what it can absorb.
+ */
+export function allocateHits(
+  declaredTargets: Combatant[],
+  hits: number,
+  armorPiercing: boolean,
+  playerAllocated: boolean
+): Array<{ target: Combatant; hits: number }> {
+  const plan: Array<{ target: Combatant; hits: number }> = [];
+  let remaining = hits;
+
+  for (const target of declaredTargets) {
+    if (remaining <= 0) break;
+
+    if (playerAllocated) {
+      // One entry per allocated hit: fold repeats into a single per-target count.
+      const existing = plan.find(p => p.target.id === target.id);
+      if (existing) {
+        existing.hits += 1;
+      } else {
+        plan.push({ target, hits: 1 });
+      }
+      remaining -= 1;
+      continue;
+    }
+
+    if (plan.some(p => p.target.id === target.id)) continue;
+
+    const capacity = (armorPiercing ? 0 : target.armor) + target.health;
+    if (capacity <= 0) continue;
+    const allocated = Math.min(remaining, capacity);
+    plan.push({ target, hits: allocated });
+    remaining -= allocated;
+  }
+
+  return plan;
+}
+
+/**
  * MERC-l09: Track Attack Dog assignments during combat
  * Maps target combatant ID -> dog combatant
  */
@@ -2458,6 +2503,7 @@ function executeCombatRound(
     // MERC-dice: Check if player allocated hits manually
     const playerHitAllocation = game.activeCombat?.selectedTargets?.get(`allocation:${attacker.id}`);
     let expandedTargets: Combatant[];
+    const playerAllocated = !!(playerHitAllocation && playerHitAllocation.length > 0);
 
     if (playerHitAllocation && playerHitAllocation.length > 0) {
       // Use player's allocation - convert targetIds to Combatant objects
@@ -2484,15 +2530,13 @@ function executeCombatRound(
       }
     }
 
-    // Distribute hits among targets
-    let remainingHits = hits;
-    for (const target of expandedTargets) {
-      if (remainingHits <= 0) break;
-
+    // Distribute hits among targets: each hit is spent once, on one target.
+    const hitPlan = allocateHits(expandedTargets, hits, attacker.armorPiercing, playerAllocated);
+    for (const { target, hits: hitsOnTarget } of hitPlan) {
       // Pre-compute expected health damage for animation event data (matches applyDamage logic)
       const healthBefore = target.health;
-      const armorAbsorb = (!attacker.armorPiercing && target.armor > 0) ? Math.min(target.armor, remainingHits) : 0;
-      const expectedHealthDamage = Math.min(remainingHits - armorAbsorb, target.health);
+      const armorAbsorb = (!attacker.armorPiercing && target.armor > 0) ? Math.min(target.armor, hitsOnTarget) : 0;
+      const expectedHealthDamage = Math.min(hitsOnTarget - armorAbsorb, target.health);
       const armorAfter = Math.max(0, target.armor - armorAbsorb);
 
       if (expectedHealthDamage > 0) {
@@ -2513,7 +2557,7 @@ function executeCombatRound(
             ? target.sourceElement?.isMerc ? target.sourceElement.armorSlot?.image : undefined
             : undefined,
         });
-        applyDamage(target, remainingHits, game, attacker.armorPiercing);
+        applyDamage(target, hitsOnTarget, game, attacker.armorPiercing);
         damageDealt.set(target.id, expectedHealthDamage);
         // Sync damage to source merc immediately (so UI shows correct state during combat)
         if (target.sourceElement?.isMerc) {
@@ -2538,7 +2582,7 @@ function executeCombatRound(
           armorImage,
         });
 
-        const damage = applyDamage(target, remainingHits, game, attacker.armorPiercing);
+        const damage = applyDamage(target, hitsOnTarget, game, attacker.armorPiercing);
         damageDealt.set(target.id, damage);
         if (target.sourceElement?.isMerc) {
           const merc = target.sourceElement;
@@ -2729,12 +2773,6 @@ function executeCombatRound(
         game.message(`${attacker.name} hits ${target.name} for ${expectedHealthDamage} damage`);
       }
 
-      // Militia and dogs die in one hit, MERCs can take multiple
-      if (target.isMilitia || target.isAttackDog) {
-        remainingHits--;
-      } else {
-        remainingHits -= expectedHealthDamage;
-      }
     }
 
     // Discard equipment with discardAfterAttack (grenades, mortars, SMAW)
@@ -2815,12 +2853,10 @@ function executeCombatRound(
 
     if (hits > 0) {
       const damageDealt = new Map<string, number>();
-      let remainingHits = hits;
+      const hitPlan = allocateHits(targets, hits, vandal.armorPiercing, false);
 
-      for (const target of targets) {
-        if (remainingHits <= 0) break;
-
-        const damage = applyDamage(target, remainingHits, game, vandal.armorPiercing);
+      for (const { target, hits: hitsOnTarget } of hitPlan) {
+        const damage = applyDamage(target, hitsOnTarget, game, vandal.armorPiercing);
         damageDealt.set(target.id, damage);
 
         if (target.health <= 0) {
@@ -2828,12 +2864,6 @@ function executeCombatRound(
           game.message(`${vandal.name} kills ${target.name}!`);
         } else {
           game.message(`${vandal.name} hits ${target.name} for ${damage} damage`);
-        }
-
-        if (target.isMilitia || target.isAttackDog) {
-          remainingHits--;
-        } else {
-          remainingHits -= damage;
         }
       }
 
