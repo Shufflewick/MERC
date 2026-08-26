@@ -2,8 +2,25 @@
   // `three` reaches this project through the vendored engine: importing
   // `boardsmith/ui/dice` (DiceRollDisplay.vue) pulls in Die3D.vue, which does
   // `import * as THREE from 'three'`. BoardSmith does not declare three
-  // itself, so MERC must, and fallow cannot follow the import across the
+  // itself, so MERC must, and fallow cannot follow that import across the
   // vendored package boundary. Without this entry every commit that touches
   // package.json is blocked on a dependency that is genuinely in use.
-  "ignoreDependencies": ["three"]
+  "ignoreDependencies": ["three"],
+
+  // MERC carries a lot of pre-existing dead exports, complexity and
+  // duplication -- 307 of 669 exports are unreferenced, one function scores
+  // 192 cyclomatic, and 12% of the source is cloned. None of it was ever
+  // gated, so `fallow audit` fails on any commit that happens to touch one of
+  // those files, which makes the gate say nothing about the commit in front of
+  // it. These baselines record the debt as it stood at the r16 bot rename, so
+  // the gate fails on debt this project ADDS and stays quiet about debt it
+  // merely walked past. Shrinking the debt means regenerating them smaller:
+  //   fallow dead-code --save-baseline .fallow-baselines/dead-code.json
+  //   fallow health    --save-baseline .fallow-baselines/health.json
+  //   fallow dupes     --save-baseline .fallow-baselines/dupes.json
+  "audit": {
+    "deadCodeBaseline": ".fallow-baselines/dead-code.json",
+    "healthBaseline": ".fallow-baselines/health.json",
+    "dupesBaseline": ".fallow-baselines/dupes.json"
+  }
 }

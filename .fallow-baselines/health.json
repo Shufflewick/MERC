@@ -1,0 +1,616 @@
+{
+  "finding_counts": {
+    "src/rules/actions/day-one-actions.ts": {
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "src/rules/actions/dictator-actions.ts": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "complexity_high": {
+        "count": 6
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 7
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "src/rules/actions/helpers.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/rules/actions/rebel-combat.ts": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "complexity_high": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 8
+      }
+    },
+    "src/rules/actions/rebel-economy.ts": {
+      "complexity_critical": {
+        "count": 4
+      },
+      "complexity_moderate": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "src/rules/actions/rebel-equipment.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "complexity_high": {
+        "count": 4
+      },
+      "complexity_moderate": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 13
+      }
+    },
+    "src/rules/actions/rebel-movement.ts": {
+      "complexity_critical": {
+        "count": 5
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/rules/bot-action-helpers.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/rules/bot-helpers.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/rules/combat.ts": {
+      "complexity_critical": {
+        "count": 4
+      },
+      "complexity_high": {
+        "count": 3
+      },
+      "complexity_moderate": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "src/rules/day-one.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/rules/dictator-abilities.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 6
+      },
+      "complexity_moderate": {
+        "count": 4
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/rules/elements.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/rules/flow.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 9
+      }
+    },
+    "src/rules/game.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/rules/landmine.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/rules/merc-abilities.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/rules/merc-death.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/rules/setup.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "src/rules/tactics-effects.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 2
+      },
+      "complexity_moderate": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/App.vue": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 5
+      }
+    },
+    "src/ui/MercBoard.vue": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/ui/colors.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/components/AssignToSquadPanel.vue": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "src/ui/components/CombatPanel.vue": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 8
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/ui/components/CombatantCard.vue": {
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/ui/components/CombatantDeathAnimation.vue": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/components/CombatantEntryAnimation.vue": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/ui/components/CoordinatedAttackPanel.vue": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/ui/components/DictatorPanel.vue": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 7
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "src/ui/components/EquipmentCard.vue": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/components/EquipmentDropAnimation.vue": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/components/EquipmentTable.vue": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/ui/components/GameTable.vue": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 8
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 12
+      }
+    },
+    "src/ui/components/HiringPhase.vue": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/ui/components/HitAllocationPanel.vue": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/ui/components/MapGrid.vue": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/ui/components/MortarAttackPanel.vue": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/ui/components/SectorCardChoice.vue": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/components/SectorPanel.vue": {
+      "complexity_critical": {
+        "count": 6
+      },
+      "crap_critical": {
+        "count": 15
+      },
+      "crap_high": {
+        "count": 6
+      },
+      "crap_moderate": {
+        "count": 12
+      }
+    },
+    "src/ui/components/SquadPanel.vue": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/composables/useActionState.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 8
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "src/ui/composables/useCombatSequence.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/ui/composables/useGameViewHelpers.ts": {
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/ui/composables/usePlayerState.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/ui/composables/useSectorState.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/ui/composables/useSquadState.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/ui/composables/useVictoryCalculations.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/action-conditions.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/bot-rebel-batching.test.ts": {
+      "complexity_moderate": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "tests/combat-barriers.test.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "complexity_moderate": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "tests/dictator-hire.test.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "tests/equipment-slots.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "tests/helpers/auto-play.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "tests/mcts-clone.test.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    }
+  },
+  "production_coverage_findings": [],
+  "target_keys": [
+    "src/rules/flow.ts:high impact",
+    "src/rules/combat.ts:circular dependency",
+    "src/rules/bot-action-helpers.ts:dead code",
+    "src/ui/composables/useGameViewHelpers.ts:dead code",
+    "src/rules/actions/index.ts:dead code",
+    "src/rules/bot-helpers.ts:circular dependency",
+    "src/rules/game.ts:circular dependency",
+    "src/rules/actions/rebel-combat.ts:complexity",
+    "src/ui/colors.ts:dead code",
+    "src/rules/actions/rebel-movement.ts:complexity",
+    "src/rules/actions/dictator-actions.ts:complexity",
+    "src/rules/actions/helpers.ts:circular dependency",
+    "src/rules/day-one.ts:circular dependency",
+    "src/rules/actions/rebel-equipment.ts:complexity",
+    "src/rules/dictator-abilities.ts:circular dependency",
+    "src/rules/actions/rebel-economy.ts:complexity",
+    "src/rules/actions/day-one-actions.ts:circular dependency",
+    "src/ui/components/GameTable.vue:complexity",
+    "src/rules/landmine.ts:complexity",
+    "src/rules/tactics-effects.ts:circular dependency",
+    "src/ui/composables/useActionState.ts:untested risk",
+    "tests/helpers/auto-play.ts:high impact",
+    "src/ui/composables/useSquadState.ts:complexity",
+    "tests/mcts-clone.test.ts:complexity",
+    "tests/combat-barriers.test.ts:complexity"
+  ]
+}
