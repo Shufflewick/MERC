@@ -185,6 +185,7 @@ export {
 // Game definition for BoardSmith
 import { MERCGame } from './game.js';
 import { createColorOption } from 'boardsmith/session';
+import { mercAI } from './ai.js';
 
 export const gameDefinition = {
   gameClass: MERCGame,
@@ -192,6 +193,9 @@ export const gameDefinition = {
   displayName: 'MERC',
   minPlayers: 2,  // 1 Dictator + 1 Rebel
   maxPlayers: 7,  // 1 Dictator + 6 Rebels
+
+  // MCTS hooks — without these the bot has no evaluation gradient on this board
+  ai: mercAI,
 
   // Game-level options (host configures)
   gameOptions: {

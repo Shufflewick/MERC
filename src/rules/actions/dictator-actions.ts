@@ -18,7 +18,6 @@ import {
   mercNeedsHealing,
   getAIHealingPriority,
 } from '../ai-helpers.js';
-import { getNextAIAction } from '../ai-executor.js';
 import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
