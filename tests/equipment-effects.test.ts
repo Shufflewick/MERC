@@ -23,8 +23,6 @@ import {
   getRangedRange,
   getMineDamage,
   getAttackDogHealth,
-  isExplosivesComponent,
-  getMatchingComponent,
   getExtraAccessorySlots,
   isArmor,
 } from '../src/rules/equipment-effects.js';
@@ -307,27 +305,6 @@ describe('Equipment Effects Registry', () => {
       expect(mortarEffect?.rangedRange).toBe(1);
       expect(mortarEffect?.consumable).toBe(true);
       expect(mortarEffect?.discardAfterAttack).toBe(true);
-    });
-  });
-
-  describe('Win Condition Components (Expansion B)', () => {
-    it('should identify explosives component items', () => {
-      expect(isExplosivesComponent('detonator')).toBe(true);
-      expect(isExplosivesComponent('explosives')).toBe(true);
-    });
-
-    it('should not identify regular items as explosives components', () => {
-      expect(isExplosivesComponent('grenade')).toBe(false);
-      expect(isExplosivesComponent('land-mine')).toBe(false);
-    });
-
-    it('should return matching component', () => {
-      expect(getMatchingComponent('detonator')).toBe('explosives');
-      expect(getMatchingComponent('explosives')).toBe('detonator');
-    });
-
-    it('should return undefined for non-component items', () => {
-      expect(getMatchingComponent('grenade')).toBeUndefined();
     });
   });
 

@@ -95,12 +95,6 @@ export interface EquipmentEffect {
   /** Vehicle with movement bonus */
   vehicle?: VehicleEffect;
 
-  // --- Win Conditions (Expansion B) ---
-  /** Part of explosives/detonator win condition */
-  isExplosivesComponent?: boolean;
-  /** The matching component needed to win */
-  matchingComponent?: string;
-
   // --- Mortar (ranged attack) ---
   /** Can attack adjacent sector */
   rangedAttack?: boolean;
@@ -325,18 +319,6 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
     },
   },
 
-  // --- Win Condition Items (Expansion B) ---
-  'detonator': {
-    id: 'detonator',
-    isExplosivesComponent: true,
-    matchingComponent: 'explosives',
-  },
-  'explosives': {
-    id: 'explosives',
-    isExplosivesComponent: true,
-    matchingComponent: 'detonator',
-  },
-
   // --- Armor Items ---
   // Armor provides stat bonuses (armorBonus, combat penalty, initiative penalty)
   // These are defined here for registry completeness
@@ -558,22 +540,6 @@ export function getMineDamage(equipmentId: string): number {
 export function getAttackDogHealth(equipmentId: string): number {
   const effect = EQUIPMENT_EFFECTS[equipmentId];
   return effect?.attackDogHealth ?? 0;
-}
-
-/**
- * Check if equipment is part of the explosives/detonator win condition
- */
-export function isExplosivesComponent(equipmentId: string): boolean {
-  const effect = EQUIPMENT_EFFECTS[equipmentId];
-  return effect?.isExplosivesComponent ?? false;
-}
-
-/**
- * Get the matching component for win condition
- */
-export function getMatchingComponent(equipmentId: string): string | undefined {
-  const effect = EQUIPMENT_EFFECTS[equipmentId];
-  return effect?.matchingComponent;
 }
 
 /**

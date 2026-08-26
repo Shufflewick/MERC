@@ -927,12 +927,6 @@ describe('Error Conditions', () => {
         expect(points.rebelPoints + points.dictatorPoints).toBeGreaterThan(0);
       });
 
-      it('should handle explosives victory flag', () => {
-        expect(game.explosivesVictory).toBe(false);
-        game.explosivesVictory = true;
-        expect(game.isFinished()).toBe(true);
-        expect(game.getWinners()).toContain(game.rebelPlayers[0]);
-      });
     });
   });
 });

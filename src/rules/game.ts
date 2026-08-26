@@ -64,7 +64,7 @@ export interface MERCOptions extends GameOptions {
   seed?: string;
   rebelCount?: number;  // 1-6 rebels
   dictatorChoice?: string;  // Which dictator character to use
-  expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
+  expansionModes?: string[]; // 'A' for vehicles
   dictatorIsBot?: boolean;  // MERC-exaf: Explicitly set if dictator is Bot-controlled
   // MERC-pbx4: Role selection - which player seat is the dictator
   // Default: last player (seat = playerCount - 1)
@@ -607,9 +607,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     playerId: string;
     attackingPlayerIsRebel?: boolean;
   }> = [];
-
-  // Explosives victory - set when rebels detonate explosives in palace
-  explosivesVictory: boolean = false;
 
   /**
    * The engine's final verdict, published on game end so the UI can render it
@@ -1642,15 +1639,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // 1. Dictator is defeated (dictator killed OR base captured by rebels)
     // 2. Dictator tactics deck and hand are empty
     // 3. Day limit reached (after Day 6)
-    // 4. Explosives victory (rebels detonate in palace)
 
     // isDefeated now covers both dictator death AND base capture
     if (this.dictatorPlayer?.isDefeated) {
-      return true;
-    }
-
-    // Check if rebels won via explosives detonation
-    if (this.explosivesVictory) {
       return true;
     }
 
@@ -1742,9 +1733,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
     if (this.isBaseCaptured()) {
       return { winner: 'rebels', reason: 'Dictator base captured - Rebels win!', ...score };
-    }
-    if (this.explosivesVictory) {
-      return { winner: 'rebels', reason: 'Palace destroyed - Rebels win!', ...score };
     }
 
     // The game ran to its end (tactics exhausted, or the day cap with a larger

@@ -271,34 +271,6 @@ const selectedSectorIsBase = computed(() => {
   return activeSector.value.sectorId === dictatorBaseSectorId.value;
 });
 
-// Check if player has both explosives components
-const hasExplosivesComponents = computed(() => {
-  const allMercsInSquads = [
-    ...(primarySquad.value?.mercs || []),
-    ...(secondarySquad.value?.mercs || []),
-  ];
-
-  let hasDetonator = false;
-  let hasExplosives = false;
-
-  for (const merc of allMercsInSquads) {
-    const weapon = getAttr(merc, 'weaponSlot', null) as { equipmentName?: string } | null;
-    const accessory = getAttr(merc, 'accessorySlot', null) as { equipmentName?: string } | null;
-
-    const weaponName = weapon?.equipmentName?.toLowerCase() || '';
-    const accessoryName = accessory?.equipmentName?.toLowerCase() || '';
-
-    if (weaponName.includes('detonator') || accessoryName.includes('detonator')) {
-      hasDetonator = true;
-    }
-    if (weaponName.includes('explosive') || accessoryName.includes('explosive')) {
-      hasExplosives = true;
-    }
-  }
-
-  return hasDetonator && hasExplosives;
-});
-
 // ============================================================================
 // COORDINATED ATTACK STATE
 // ============================================================================
@@ -1561,7 +1533,6 @@ const clickableSectors = computed(() => {
       :squidhead-has-land-mine="squidheadHasLandMine"
       :has-enemy-forces="selectedSectorHasEnemyForces"
       :is-base="selectedSectorIsBase"
-      :has-explosives-components="hasExplosivesComponents"
       :militia-bonuses="militiaBonuses"
       :dictator-color="dictatorPlayerColor"
       :is-dictator="currentPlayerIsDictator"

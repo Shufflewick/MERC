@@ -95,7 +95,6 @@ import {
   createHagnessGiveEquipmentAction,
   createRepairKitAction,
   createMortarAction,
-  createDetonateExplosivesAction,
 } from './rebel-equipment.js';
 
 import {
@@ -176,7 +175,6 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createHagnessGiveEquipmentAction(game)); // MERC-jrph: Hagness give equipment (step 3)
   game.registerAction(createRepairKitAction(game)); // Repair Kit from stash
   game.registerAction(createMortarAction(game)); // Rebel mortar attack
-  game.registerAction(createDetonateExplosivesAction(game)); // Explosives win condition
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
   game.registerAction(createAssignToSquadAction(game));

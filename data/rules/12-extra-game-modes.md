@@ -8,13 +8,12 @@ These alternate game modes provide different ways to play MERC. Some can be comb
 
 ## Mode Compatibility Matrix
 
-| Mode | + Assassination | + Vehicles | + Versus | + I, Dictator | + AI |
-|------|-----------------|------------|----------|---------------|------|
-| **Assassination** | - | No | No | No | No |
-| **Vehicles** | No | - | Yes | Yes | No |
-| **Versus** | No | Yes | - | Yes | No |
-| **I, Dictator** | No | Yes | Yes | - | Yes |
-| **AI** | No | No | No | Yes | - |
+| Mode | + Assassination | + Vehicles | + Versus | + AI |
+|------|-----------------|------------|----------|------|
+| **Assassination** | - | No | No | No |
+| **Vehicles** | No | - | Yes | No |
+| **Versus** | No | Yes | - | No |
+| **AI** | No | No | No | - |
 
 ---
 
@@ -134,43 +133,6 @@ Game ends when:
 
 ---
 
-## I, Dictator Mode
-
-> **Reference:** expansion-rules-v1.4.pdf, Page 2 (I, Dictator)
-
-Race to collect super weapon components to become the next Dictator.
-
-### Compatibility
-
-- Can combine with: Normal game, Versus mode, Dictator AI
-
-### Setup
-
-1. Find 2 equipment cards marked with **puzzle letter B**
-2. Set up map with **at least 2 cities**
-3. Place explosive cards (2) and detonator cards (2) near the map
-
-### Rule Changes
-
-**Acquiring Components:**
-- **Detonator:** 1 action at Arms Dealer (in a city)
-- **Explosive:** 1 action at Arms Dealer (in a **different** city)
-- Must get each from **separate cities**
-- Each Rebel may only have **1 of each** at any time
-
-**Component Loss:**
-- If MERC holding component dies:
-  - Card returns to the supply pile
-  - Immediately available at Arms Dealers again
-
-### Victory Condition
-
-**Instant Win:** Any Rebel gains both a detonator AND an explosive at the same time.
-
-This overrides normal victory conditions.
-
----
-
 ## Mode-Specific Equipment
 
 Some modes have special equipment cards identified by puzzle letters:
@@ -178,7 +140,6 @@ Some modes have special equipment cards identified by puzzle letters:
 | Letter | Mode | Cards |
 |--------|------|-------|
 | A | Vehicles | 5 vehicle cards |
-| B | I, Dictator | 2 explosive + 2 detonator cards |
 
 > **Implementation Note:** Equipment data in `../equipment.json` indicates which mode each card belongs to.
 
@@ -193,14 +154,13 @@ interface GameMode {
   assassination: boolean
   vehicles: boolean
   versus: boolean
-  iDictator: boolean
   dictatorAI: boolean
 }
 
 function validateModeCompatibility(modes: GameMode): boolean {
   if (modes.assassination) {
     // Assassination cannot combine with anything
-    return !modes.vehicles && !modes.versus && !modes.iDictator && !modes.dictatorAI
+    return !modes.vehicles && !modes.versus && !modes.dictatorAI
   }
 
   if (modes.vehicles && modes.dictatorAI) {
@@ -257,53 +217,10 @@ function checkVersusEnd(factions: Faction[]): GameEndResult | null {
 }
 ```
 
-### I, Dictator Components
-
-```typescript
-interface IDictatorState {
-  explosives: { available: number, held: Map<string, boolean> }
-  detonators: { available: number, held: Map<string, boolean> }
-}
-
-function acquireComponent(rebel: string, type: 'explosive' | 'detonator', city: Sector) {
-  const state = iDictatorState[type + 's']
-
-  // Check if already holding one
-  if (state.held.get(rebel)) {
-    return false  // Can only hold 1
-  }
-
-  // Check if different city than other component
-  // (Implementation detail: track which city each was obtained from)
-
-  state.available--
-  state.held.set(rebel, true)
-
-  // Check instant win
-  if (iDictatorState.explosives.held.get(rebel) &&
-      iDictatorState.detonators.held.get(rebel)) {
-    endGame({ winner: rebel, reason: 'SUPER_WEAPON' })
-  }
-}
-
-function onMercDeath(merc: MERC) {
-  // Return components to supply
-  if (merc.hasExplosive) {
-    iDictatorState.explosives.available++
-    iDictatorState.explosives.held.set(merc.owner, false)
-  }
-  if (merc.hasDetonator) {
-    iDictatorState.detonators.available++
-    iDictatorState.detonators.held.set(merc.owner, false)
-  }
-}
-```
-
 ### UI Considerations
 
 - Mode selection screen before game setup
 - Show incompatible mode combinations
-- Track super weapon components (I, Dictator)
 - Display faction scores (Versus)
 - Show round counter for timed modes
 - Vehicle crew capacity display

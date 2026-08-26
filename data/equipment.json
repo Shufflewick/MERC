@@ -501,17 +501,6 @@
     "expansion": "A"
   },
   {
-    "id": "detonator",
-    "name": "Detonator",
-    "quantity": 1,
-    "type": "Accessory",
-    "serial": 0,
-    "negatesArmor": false,
-    "description": "If you also have the Explosives you win! Each Rebel may not have more than 1.",
-    "image": "equipment/circuit-board.png",
-    "expansion": "B"
-  },
-  {
     "id": "deuce",
     "name": "Deuce",
     "quantity": 1,
@@ -522,17 +511,6 @@
     "description": "For 1 action move 1 space a squad of up to 10 MERCs/militia.",
     "image": "equipment/deuce.png",
     "expansion": "A"
-  },
-  {
-    "id": "explosives",
-    "name": "Explosives",
-    "quantity": 1,
-    "type": "Accessory",
-    "serial": 0,
-    "negatesArmor": false,
-    "description": "If you also have a Detonator, you win! Each Rebel may not have more than 1.",
-    "image": "equipment/barrel.png",
-    "expansion": "B"
   },
   {
     "id": "humvee",

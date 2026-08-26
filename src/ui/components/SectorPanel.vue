@@ -91,7 +91,6 @@ const props = defineProps<{
   // Enemy forces (for mortar targeting - perspective-aware)
   hasEnemyForces?: boolean;
   isBase?: boolean;
-  hasExplosivesComponents?: boolean;
   // Militia bonuses (from dictator tactics)
   militiaBonuses?: {
     betterWeapons: boolean;  // +1 combat die per militia (hit on 3+)
@@ -534,9 +533,6 @@ const inSectorActions = computed(() => {
   }
   if (props.hasSquidhead && props.squidheadHasLandMine && props.availableActions.includes('squidheadArm')) {
     actions.push({ name: 'squidheadArm', label: 'Arm', icon: '💥' });
-  }
-  if (props.isBase && props.hasExplosivesComponents && props.availableActions.includes('detonateExplosives')) {
-    actions.push({ name: 'detonateExplosives', label: 'DETONATE!', icon: '🎆' });
   }
 
   return actions;

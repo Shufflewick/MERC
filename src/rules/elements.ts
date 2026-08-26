@@ -13,7 +13,6 @@ import {
   isUzi,
   isExplosive,
   isSmaw,
-  isExplosivesComponent,
 } from './equipment-effects.js';
 import {
   getMercAbility,
@@ -923,13 +922,6 @@ export class CombatantModel extends CombatantBase {
       }
     }
 
-    // Detonator/Explosives: "Each Rebel may not have more than 1." The cap is
-    // per player, so it counts copies across the whole team, not this MERC alone.
-    if (isExplosivesComponent(equipment.equipmentId) &&
-        this.teamAlreadyCarries(equipment.equipmentId)) {
-      return false;
-    }
-
     // MERC-o7js: Bandolier cannot be combined with another bandolier
     if (equipment.equipmentId === 'bandolier') {
       if (this.accessorySlot?.equipmentId === 'bandolier') return false;
@@ -947,23 +939,6 @@ export class CombatantModel extends CombatantBase {
     }
 
     return super.canEquip(equipment);
-  }
-
-  /**
-   * True when someone on this combatant's team already carries `equipmentId`.
-   * Used for the printed per-Rebel caps on the Detonator and the Explosives.
-   */
-  private teamAlreadyCarries(equipmentId: string): boolean {
-    const game = this.game as { players?: Array<{ team: CombatantModel[] }> } | undefined;
-    if (!game?.players) return false;
-
-    const owner = game.players.find(p => p.team.some(m => m.id === this.id));
-    if (!owner) return false;
-
-    return owner.team.some(merc => {
-      const carried = [merc.weaponSlot, merc.armorSlot, merc.accessorySlot, ...merc.bandolierSlots];
-      return carried.some(e => e?.equipmentId === equipmentId);
-    });
   }
 
   override equip(equipment: Equipment): EquipResult {
@@ -1082,10 +1057,6 @@ export class Equipment extends BaseCard {
 
   get isVehicle(): boolean {
     return this.expansion === 'A';
-  }
-
-  get isIDictatorItem(): boolean {
-    return this.expansion === 'B';
   }
 }
 

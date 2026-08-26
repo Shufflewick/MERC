@@ -13,7 +13,7 @@ function newGame(seed: string, rebelCount = 2) {
     playerCount: rebelCount + 1,
     playerNames: [...Array.from({ length: rebelCount }, (_, i) => `Rebel${i + 1}`), 'Dictator'],
     seed,
-    expansionModes: ['A', 'B'],
+    expansionModes: ['A'],
   }).game;
 }
 
