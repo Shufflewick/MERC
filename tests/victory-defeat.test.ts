@@ -190,6 +190,39 @@ describe('Victory/Defeat Conditions', () => {
     });
   });
 
+  describe('Published victory outcome', () => {
+    it('publishes the engine verdict for the UI to render', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'victory-outcome-publish',
+      });
+
+      const game = testGame.game;
+      expect(game.isFinished()).toBe(false);
+      expect(game.victoryOutcome).toBeNull();
+
+      const dictator = game.dictatorPlayer;
+      const baseSector = game.gameMap.getAllSectors()[0];
+      if (!dictator.dictator) {
+        console.log('Skipping: dictator card not populated');
+        return;
+      }
+      dictator.baseRevealed = true;
+      dictator.baseSectorId = baseSector.sectorId;
+      dictator.dictator.inPlay = true;
+      dictator.dictator.damage = dictator.dictator.maxHealth;
+
+      expect(game.isFinished()).toBe(true);
+      expect(game.victoryOutcome).toEqual({
+        winner: 'rebels',
+        reason: 'Dictator defeated - Rebels win!',
+        rebelPoints: expect.any(Number),
+        dictatorPoints: expect.any(Number),
+      });
+    });
+  });
+
   describe('Day limit scoring', () => {
     it('scores the map instead of handing the Dictator the win', () => {
       const testGame = createTestGame(MERCGame, {

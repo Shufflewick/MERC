@@ -142,6 +142,15 @@ interface TacticsData {
 
 export type MERCPlayerRole = 'rebel' | 'dictator';
 
+/** The engine's final verdict on a finished game. */
+export interface VictoryOutcome {
+  winner: 'rebels' | 'dictator';
+  /** Human-readable statement of how the game was won. */
+  reason: string;
+  rebelPoints: number;
+  dictatorPoints: number;
+}
+
 /**
  * Unified player class for rebels and dictator. Check role with isRebel()/isDictator().
  * Rebels have playerColor and area; dictator has dictator card, tactics deck, and base state.
@@ -583,6 +592,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Explosives victory - set when rebels detonate explosives in palace
   explosivesVictory: boolean = false;
+
+  /**
+   * The engine's final verdict, published on game end so the UI can render it
+   * verbatim rather than re-deriving control, points and the winner.
+   */
+  victoryOutcome: VictoryOutcome | null = null;
 
   // Flag to track if game end has been announced (prevents duplicate messages)
   private _gameEndAnnounced: boolean = false;
@@ -1611,13 +1626,19 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // ==========================================================================
 
   override isFinished(): boolean {
+    const over = this.checkGameOver();
+    // Publish the verdict as soon as the game ends, so it is in the game view
+    // for the UI whether or not anything has called getWinners() yet.
+    this.victoryOutcome = over ? this.evaluateOutcome() : null;
+    return over;
+  }
+
+  private checkGameOver(): boolean {
     // Game ends when:
     // 1. Dictator is defeated (dictator killed OR base captured by rebels)
     // 2. Dictator tactics deck and hand are empty
-    // 3. All dictator units eliminated (militia + MERCs)
-    // 4. All rebel units eliminated (MERCs + militia)
-    // 5. Day limit reached (after Day 6)
-    // 6. Explosives victory (rebels detonate in palace)
+    // 3. Day limit reached (after Day 6)
+    // 4. Explosives victory (rebels detonate in palace)
 
     // isDefeated now covers both dictator death AND base capture
     if (this.dictatorPlayer?.isDefeated) {
@@ -1702,51 +1723,51 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return { rebelPoints, dictatorPoints };
   }
 
-  override getWinners(): MERCPlayer[] {
-    if (!this.isFinished()) return [];
+  /**
+   * Who won and why, once the game is over.
+   *
+   * Serialized into the game view so the UI renders the engine's own verdict
+   * instead of re-deriving control and points from the view tree.
+   */
+  evaluateOutcome(): VictoryOutcome {
+    const { rebelPoints, dictatorPoints } = this.calculateVictoryPoints();
+    const score = { rebelPoints, dictatorPoints };
 
-    // Helper to announce game end only once
-    const announce = (msg: string) => {
-      if (!this._gameEndAnnounced) {
-        this._gameEndAnnounced = true;
-        this.message(msg);
-      }
-    };
-
-    // If dictator is defeated, rebels win
     if (this.dictatorPlayer?.isDefeated) {
-      announce('Dictator defeated - Rebels win!');
-      return [...this.rebelPlayers];
+      return { winner: 'rebels', reason: 'Dictator defeated - Rebels win!', ...score };
     }
-
-    // If rebels captured the base, rebels win
     if (this.isBaseCaptured()) {
-      announce('Dictator base captured - Rebels win!');
-      return [...this.rebelPlayers];
+      return { winner: 'rebels', reason: 'Dictator base captured - Rebels win!', ...score };
     }
-
-    // If rebels won via explosives detonation, rebels win
     if (this.explosivesVictory) {
-      announce('Palace destroyed - Rebels win!');
-      return [...this.rebelPlayers];
+      return { winner: 'rebels', reason: 'Palace destroyed - Rebels win!', ...score };
     }
 
     // The game ran to its end (tactics exhausted, or the day cap with a larger
     // deck): score sector value. Per rules (11-victory-and-game-end.md) rebels
     // must have strictly more points; the Dictator wins ties.
-    if (this.isDayLimitReached()) {
-      announce('Day limit reached - scoring the map.');
+    return rebelPoints > dictatorPoints
+      ? { winner: 'rebels', reason: 'Rebels win on points!', ...score }
+      : { winner: 'dictator', reason: 'Dictator wins on points!', ...score };
+  }
+
+  override getWinners(): MERCPlayer[] {
+    if (!this.isFinished()) return [];
+    const outcome = this.victoryOutcome ?? this.evaluateOutcome();
+
+    // Announce the verdict exactly once.
+    if (!this._gameEndAnnounced) {
+      this._gameEndAnnounced = true;
+      if (this.isDayLimitReached()) {
+        this.message('Day limit reached - scoring the map.');
+      }
+      this.message(
+        `Final score - Rebels: ${outcome.rebelPoints}, Dictator: ${outcome.dictatorPoints}`
+      );
+      this.message(outcome.reason);
     }
 
-    const { rebelPoints, dictatorPoints } = this.calculateVictoryPoints();
-    announce(`Final score - Rebels: ${rebelPoints}, Dictator: ${dictatorPoints}`);
-
-    if (rebelPoints > dictatorPoints) {
-      announce('Rebels win on points!');
-      return [...this.rebelPlayers];
-    }
-
-    announce('Dictator wins on points!');
+    if (outcome.winner === 'rebels') return [...this.rebelPlayers];
     return this.dictatorPlayer ? [this.dictatorPlayer] : [];
   }
 

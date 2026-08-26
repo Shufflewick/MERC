@@ -91,11 +91,11 @@ const {
 } = useGameViewHelpers(() => props.gameView);
 
 const {
-  countTacticsCards,
-  calculateRebelVictoryPoints,
-  calculateDictatorVictoryPoints,
   isGameOver,
   gameWinner,
+  victoryReason,
+  rebelVictoryPoints,
+  dictatorVictoryPoints,
 } = useVictoryCalculations(() => props.gameView);
 
 // ============================================================================
@@ -1463,12 +1463,15 @@ const clickableSectors = computed(() => {
         <h1 class="game-over-title">Game Over</h1>
         <div v-if="gameWinner === 'rebels'" class="game-over-winner rebels">
           <h2>Rebels Victory!</h2>
-          <p>The dictator has been eliminated. Freedom prevails!</p>
+          <p>{{ victoryReason }}</p>
         </div>
-        <div v-else class="game-over-winner dictator">
+        <div v-else-if="gameWinner === 'dictator'" class="game-over-winner dictator">
           <h2>Dictator Victory!</h2>
-          <p>The rebellion has been crushed. Order is restored.</p>
+          <p>{{ victoryReason }}</p>
         </div>
+        <p class="game-over-score">
+          Sector value — Rebels {{ rebelVictoryPoints }}, Dictator {{ dictatorVictoryPoints }}
+        </p>
       </div>
     </GameOverlay>
 
@@ -1964,6 +1967,12 @@ const clickableSectors = computed(() => {
 
 .game-over-winner.dictator h2 {
   color: #f44336;
+}
+
+.game-over-score {
+  margin: 16px 0 0 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.65);
 }
 
 /* Tactics Card Banner */
