@@ -39,6 +39,7 @@ import type { MERCGame } from '../game.js';
 // Import all action creators
 import {
   createMoveAction,
+  createVehicleMoveAction,
   createCoordinatedAttackAction,
   createDeclareMultiPlayerAttackAction,
   createCommitSquadToCoordinatedAttackAction,
@@ -152,6 +153,8 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createRehireMercAction(game));
   game.registerAction(createPlaceLandingAction(game));
   game.registerAction(createMoveAction(game));
+  game.registerAction(createVehicleMoveAction(game)); // Expansion A: vehicle squad transport
+  game.registerAction(createVehicleMoveAction(game)); // Expansion A: vehicle squad transport
   game.registerAction(createCoordinatedAttackAction(game)); // MERC-wrq: Same-player coordinated attack
   game.registerAction(createDeclareMultiPlayerAttackAction(game)); // MERC-a2h: Multi-player coordinated attack
   game.registerAction(createCommitSquadToCoordinatedAttackAction(game)); // MERC-a2h: Simultaneous response

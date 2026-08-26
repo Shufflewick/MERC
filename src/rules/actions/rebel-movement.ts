@@ -13,12 +13,13 @@
 
 import { Action, type ActionDefinition, type GameElement, type ActionContext, dependentFilter } from 'boardsmith';
 import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.js';
-import { Sector, Squad, CombatantModel } from '../elements.js';
+import { Sector, Squad, CombatantModel, Equipment } from '../elements.js';
 import { hasEnemies, queuePendingCombat } from '../combat.js';
 import { checkLandMines } from '../landmine.js';
 import { buildMapCombatantMove, emitMapCombatantMoves } from '../animation-events.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 import { getMilitiaBringCount } from '../merc-abilities.js';
+import { getVehicleEffect } from '../equipment-effects.js';
 
 // =============================================================================
 // Move Action Helpers (work for both player types)
@@ -104,6 +105,244 @@ function isAdjacentToMovableSquad(sector: Sector, player: unknown, game: MERCGam
     if (adjacent.some(s => s.sectorId === sector.sectorId)) return true;
   }
   return false;
+}
+
+/**
+ * Everything a vehicle needs to know to move a squad.
+ */
+interface VehicleRide {
+  merc: CombatantModel;
+  squad: Squad;
+  equipmentId: string;
+  equipmentName: string;
+  movementSpaces: number;
+  actionsRequired: number;
+  capacity: number;
+  diagonalMovement: boolean;
+}
+
+/** Every equipment slot a combatant is carrying something in. */
+function carriedEquipment(merc: CombatantModel): Equipment[] {
+  return [merc.weaponSlot, merc.armorSlot, merc.accessorySlot, ...merc.bandolierSlots]
+    .filter((e): e is Equipment => !!e);
+}
+
+/**
+ * The vehicles this player could drive right now: one per squad, from a living
+ * MERC carrying a vehicle who still has the actions the card asks for.
+ */
+function getAvailableVehicleRides(player: unknown, game: MERCGame): VehicleRide[] {
+  if (!game.isRebelPlayer(player) && !game.isDictatorPlayer(player)) return [];
+  const owner = player as MERCPlayer;
+
+  const rides: VehicleRide[] = [];
+  for (const squad of owner.squads) {
+    if (!squad.sectorId) continue;
+    for (const merc of squad.getLivingMercs()) {
+      for (const item of carriedEquipment(merc)) {
+        const vehicle = getVehicleEffect(item.equipmentId);
+        if (!vehicle) continue;
+        if (merc.actionsRemaining < vehicle.actionsRequired) continue;
+        rides.push({
+          merc,
+          squad,
+          equipmentId: item.equipmentId,
+          equipmentName: item.equipmentName,
+          movementSpaces: vehicle.movementSpaces,
+          actionsRequired: vehicle.actionsRequired,
+          capacity: vehicle.capacity,
+          diagonalMovement: vehicle.diagonalMovement ?? false,
+        });
+        break;
+      }
+    }
+  }
+  return rides;
+}
+
+/**
+ * Sectors a vehicle can reach from `from`.
+ *
+ * Orthogonal movement of N spaces covers everything within N steps of Manhattan
+ * distance; a vehicle whose card allows diagonal movement (the Chopper) covers
+ * the square of Chebyshev distance N instead.
+ */
+function sectorsInVehicleRange(
+  game: MERCGame,
+  from: Sector,
+  spaces: number,
+  diagonal: boolean
+): Sector[] {
+  return game.gameMap.getAllSectors().filter(sector => {
+    if (sector.sectorId === from.sectorId) return false;
+    const dr = Math.abs(sector.row - from.row);
+    const dc = Math.abs(sector.col - from.col);
+    return diagonal ? Math.max(dr, dc) <= spaces : dr + dc <= spaces;
+  });
+}
+
+/** How many militia the driver's player has in the squad's sector. */
+function militiaAvailableToRide(game: MERCGame, ride: VehicleRide, player: unknown): number {
+  const sector = ride.squad.sectorId ? game.getSector(ride.squad.sectorId) : undefined;
+  if (!sector) return 0;
+  return game.isDictatorPlayer(player)
+    ? sector.dictatorMilitia
+    : sector.getRebelMilitia(`${(player as MERCPlayer).seat}`);
+}
+
+function describeRide(ride: VehicleRide): string {
+  return `${capitalize(ride.merc.combatantName)}'s ${ride.equipmentName}`;
+}
+
+/**
+ * Expansion A vehicles: "For 1 action move 2 spaces a squad of up to 4
+ * MERCs/militia" (and the Tank's 2 actions for 1 space, the Deuce's 10
+ * capacity, the Chopper's diagonal movement).
+ *
+ * Cost: the vehicle's own action count, spent by the MERC carrying it — not one
+ * action per MERC as an ordinary move costs.
+ */
+export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
+  return Action.create('vehicleMove')
+    .prompt('Move by vehicle')
+    .condition({
+      'not in combat': () => isNotInActiveCombat(game),
+      'is rebel or dictator player': (ctx) =>
+        game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
+      'has a vehicle ready to drive': (ctx) =>
+        getAvailableVehicleRides(ctx.player, game).length > 0,
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+    })
+    .chooseFrom('vehicle', {
+      prompt: 'Which vehicle?',
+      choices: (ctx: ActionContext) =>
+        getAvailableVehicleRides(ctx.player, game).map(describeRide),
+    })
+    .chooseElement('destination', {
+      prompt: 'Select destination sector',
+      elementClass: Sector,
+      dependsOn: 'vehicle',
+      filter: (element, ctx) => {
+        const ride = getAvailableVehicleRides(ctx.player, game)
+          .find(r => describeRide(r) === ctx.args?.vehicle);
+        if (!ride?.squad.sectorId) return false;
+        const from = game.getSector(ride.squad.sectorId);
+        if (!from) return false;
+        const sector = element as unknown as Sector;
+        return sectorsInVehicleRange(game, from, ride.movementSpaces, ride.diagonalMovement)
+          .some(s => s.sectorId === sector.sectorId);
+      },
+      boardRef: (element) => ({ id: asSector(element).id }),
+    })
+    .chooseFrom('militiaCount', {
+      prompt: 'How many militia ride along?',
+      dependsOn: 'vehicle',
+      choices: (ctx: ActionContext) => {
+        const ride = getAvailableVehicleRides(ctx.player, game)
+          .find(r => describeRide(r) === ctx.args?.vehicle);
+        if (!ride) return [0];
+        const seats = ride.capacity - ride.squad.getLivingMercs().length;
+        if (seats <= 0) return [0];
+        const available = militiaAvailableToRide(game, ride, ctx.player);
+        const max = Math.min(seats, available);
+        return Array.from({ length: max + 1 }, (_, i) => i);
+      },
+      display: (n: number) => (n === 0 ? 'None' : `${n} militia`),
+    })
+    .execute((args, ctx) => {
+      const ride = getAvailableVehicleRides(ctx.player, game)
+        .find(r => describeRide(r) === args.vehicle);
+      if (!ride) return { success: false, message: 'That vehicle is no longer available.' };
+
+      const destination = asSector(args.destination);
+      const fromSectorId = ride.squad.sectorId;
+      const sourceSector = fromSectorId ? game.getSector(fromSectorId) : undefined;
+      if (!sourceSector) return { success: false, message: 'The squad is not on the map.' };
+
+      const passengers = ride.squad.getLivingMercs();
+      const militiaCount = (args.militiaCount as number) ?? 0;
+      if (passengers.length + militiaCount > ride.capacity) {
+        return {
+          success: false,
+          message: `The ${ride.equipmentName} carries only ${ride.capacity} units.`,
+        };
+      }
+
+      if (!useAction(ride.merc, ride.actionsRequired)) {
+        return {
+          success: false,
+          message: `${capitalize(ride.merc.combatantName)} does not have ${ride.actionsRequired} action(s) left.`,
+        };
+      }
+
+      const isRebel = game.isRebelPlayer(ctx.player);
+      if (militiaCount > 0) {
+        if (isRebel) {
+          const playerId = `${asRebelPlayer(ctx.player).seat}`;
+          sourceSector.removeRebelMilitia(playerId, militiaCount);
+          destination.addRebelMilitia(playerId, militiaCount);
+        } else {
+          sourceSector.dictatorMilitia -= militiaCount;
+          destination.dictatorMilitia += militiaCount;
+        }
+      }
+
+      ride.squad.sectorId = destination.sectorId;
+
+      const movedCombatants: CombatantModel[] = [...passengers];
+      if (!isRebel && game.dictatorPlayer?.dictator?.inPlay) {
+        const dictatorCombatant = game.dictatorPlayer.dictator;
+        if (isKimInSquad(ride.squad, dictatorCombatant) && !dictatorCombatant.isDead) {
+          movedCombatants.push(dictatorCombatant);
+        }
+      }
+
+      if (fromSectorId) {
+        emitMapCombatantMoves(
+          game,
+          movedCombatants.map(c => buildMapCombatantMove(c, fromSectorId, destination.sectorId))
+        );
+      }
+
+      game.message(
+        `${describeRide(ride)} carries ${passengers.length} MERC(s)` +
+        `${militiaCount > 0 ? ` and ${militiaCount} militia` : ''} to ${destination.sectorName}`
+      );
+
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
+      }
+
+      checkLandMines(game, destination, [ride.squad], isRebel);
+
+      if (isRebel) {
+        const player = asRebelPlayer(ctx.player);
+        if (hasEnemies(game, destination, player)) {
+          game.message(`Enemies detected at ${destination.sectorName} - combat begins!`);
+          game.pendingCombat = {
+            sectorId: destination.sectorId,
+            playerId: `${player.seat}`,
+          };
+        }
+      } else {
+        for (const rebel of game.rebelPlayers) {
+          const hasSquad = rebel.primarySquad.sectorId === destination.sectorId ||
+            rebel.secondarySquad.sectorId === destination.sectorId;
+          const hasMilitia = destination.getRebelMilitia(`${rebel.seat}`) > 0;
+          if (hasSquad || hasMilitia) {
+            game.message(`Rebels detected at ${destination.sectorName} - combat begins!`);
+            queuePendingCombat(game, destination, rebel, false);
+            return {
+              success: true,
+              message: `Drove to ${destination.sectorName} and engaged in combat`,
+              data: { combatTriggered: true, combatQueued: true },
+            };
+          }
+        }
+      }
+
+      return { success: true, message: `Drove to ${destination.sectorName}` };
+    });
 }
 
 /**

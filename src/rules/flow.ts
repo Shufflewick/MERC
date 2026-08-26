@@ -847,6 +847,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 players: () => game.rebelPlayers,
                 actions: [
                   'move',
+                  'vehicleMove',
                   'coordinatedAttack',
                   'declareMultiPlayerAttack',
                   'explore',
@@ -1043,6 +1044,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     name: 'dictator-merc-action',
                     actions: [
                       'move',
+                  'vehicleMove',
                       'explore',
                       'collectEquipment',
                       'train',
