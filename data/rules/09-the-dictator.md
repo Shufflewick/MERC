@@ -64,6 +64,22 @@ When the base is revealed, the **Dictator card enters play** as an actor on the 
 
 The Dictator always starts **at their base**.
 
+### Free Equipment on Entering Play
+
+The Dictator entering the battlefield gets **the same treatment as a newly
+hired MERC**, which includes **1 free equipment card**. He is effectively a MERC
+from the moment he steps onto the battlefield, and every MERC arriving on the
+battlefield gets a card.
+
+- The Dictator's controller chooses the type (Weapon, Armor or Accessory)
+- A Bot dictator fills its first empty slot: Weapon, then Armor, then Accessory
+- This applies however the base is revealed: a base-reveal tactics card,
+  Hussein's bonus tactics card, or Kim's day-1 pre-revealed base
+
+*(Designer ruling, issue #46. The printed rulebook grants the free card under
+"Hire MERCs" on p.4 and does not restate it on p.5; this is the designer's
+clarification of how p.5's "acts like a MERC" is meant to be read.)*
+
 ### Squad Rules
 
 The Dictator can form a **third squad** if the other 2 squads are already in play:

@@ -12,7 +12,7 @@ import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
 import { queuePendingCombat } from './combat.js';
 import { selectBotBaseLocation, selectNewMercLocation } from './bot-helpers.js';
-import { equipNewHire } from './actions/helpers.js';
+import { equipNewHire, equipDictatorOnEntry } from './actions/helpers.js';
 import { checkLandMines } from './landmine.js';
 import { killMercOutsideCombat } from './merc-death.js';
 
@@ -222,23 +222,11 @@ function revealBase(game: MERCGame): TacticsEffectResult {
     game.dictatorPlayer.dictator.putInto(baseSquad);
   }
 
-  // Dictators get 1 free equipment when entering play, just like MERCs
+  // Dictators get 1 free equipment when entering play, just like MERCs.
   // Only auto-equip for Bot - human players choose via the playTactics action's dictatorEquipment step
   const dictator = game.dictatorPlayer.dictator;
   if (game.dictatorPlayer?.isBot && dictator) {
-    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
-    if (dictator.weaponSlot) {
-      equipType = dictator.armorSlot ? 'Accessory' : 'Armor';
-    }
-    const freeEquipment = game.drawEquipment(equipType);
-    if (freeEquipment) {
-      const { displacedBandolierItems } = dictator.equip(freeEquipment);
-      for (const item of displacedBandolierItems) {
-        const discard = game.getEquipmentDiscard(item.equipmentType);
-        if (discard) item.putInto(discard);
-      }
-      game.message(`${dictator.combatantName} equipped ${freeEquipment.equipmentName}`);
-    }
+    equipDictatorOnEntry(game, dictator);
   }
 
   game.message('The Dictator reveals their base!');

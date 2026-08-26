@@ -19,7 +19,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer, selectNewMercLocation } from '../bot-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire, equipDictatorOnEntry } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain } from '../animation-events.js';
 import { doesntCountTowardLimit } from '../merc-abilities.js';
 
@@ -706,16 +706,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
       // Equip Kim with chosen equipment (same as MERCs get when hired)
       const dictator = game.dictatorPlayer?.dictator;
       if (dictator && args.dictatorEquipment) {
-        const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
-        const equipment = game.drawEquipment(equipType);
-        if (equipment) {
-          const { displacedBandolierItems } = dictator.equip(equipment);
-          for (const item of displacedBandolierItems) {
-            const discard = game.getEquipmentDiscard(item.equipmentType);
-            if (discard) item.putInto(discard);
-          }
-          game.message(`${dictator.combatantName} equipped ${equipment.equipmentName}`);
-        }
+        equipDictatorOnEntry(game, dictator, args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory');
       }
 
       return { success: true, message: `Base set at ${baseSector.sectorName}` };

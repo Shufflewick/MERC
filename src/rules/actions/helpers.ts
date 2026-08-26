@@ -593,6 +593,22 @@ export function equipNewHire(
   emitEquipSessionEnd(game, merc.combatantId);
 }
 
+/**
+ * The Dictator entering the battlefield gets the same treatment as a newly
+ * hired MERC: one free piece of equipment (designer ruling, issue #46, recorded
+ * in data/rules/09-the-dictator.md). Human dictators pick the type; a Bot fills
+ * its first empty slot.
+ */
+export function equipDictatorOnEntry(
+  game: MERCGame,
+  dictator: CombatantModel,
+  equipType?: 'Weapon' | 'Armor' | 'Accessory'
+): void {
+  const type = equipType
+    ?? (dictator.weaponSlot ? (dictator.armorSlot ? 'Accessory' : 'Armor') : 'Weapon');
+  equipNewHire(game, dictator, type);
+}
+
 // =============================================================================
 // Type exports for convenience
 // =============================================================================

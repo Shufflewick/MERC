@@ -18,7 +18,7 @@ import {
   mercNeedsHealing,
   getBotHealingPriority,
 } from '../bot-helpers.js';
-import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire, equipDictatorOnEntry } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 import { findEquipmentInDiscards } from '../dictator-abilities.js';
@@ -170,16 +170,11 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
           card.revealsBase &&
           game.dictatorPlayer?.dictator?.inPlay &&
           args.dictatorEquipment) {
-        const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
-        const equipment = game.drawEquipment(equipType);
-        if (equipment && game.dictatorPlayer.dictator) {
-          const { displacedBandolierItems } = game.dictatorPlayer.dictator.equip(equipment);
-          for (const item of displacedBandolierItems) {
-            const discard = game.getEquipmentDiscard(item.equipmentType);
-            if (discard) item.putInto(discard);
-          }
-          game.message(`${game.dictatorPlayer.dictator.combatantName} equipped ${equipment.equipmentName}`);
-        }
+        equipDictatorOnEntry(
+          game,
+          game.dictatorPlayer.dictator,
+          args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory',
+        );
       }
 
       return {
@@ -1989,16 +1984,11 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
           card.revealsBase &&
           game.dictatorPlayer?.dictator?.inPlay &&
           args.dictatorEquipment) {
-        const equipType = args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory';
-        const equipment = game.drawEquipment(equipType);
-        if (equipment && game.dictatorPlayer.dictator) {
-          const { displacedBandolierItems } = game.dictatorPlayer.dictator.equip(equipment);
-          for (const item of displacedBandolierItems) {
-            const discard = game.getEquipmentDiscard(item.equipmentType);
-            if (discard) item.putInto(discard);
-          }
-          game.message(`${game.dictatorPlayer.dictator.combatantName} equipped ${equipment.equipmentName}`);
-        }
+        equipDictatorOnEntry(
+          game,
+          game.dictatorPlayer.dictator,
+          args.dictatorEquipment as 'Weapon' | 'Armor' | 'Accessory',
+        );
       }
 
       return {
