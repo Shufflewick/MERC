@@ -10,7 +10,7 @@
         "count": 3
       },
       "complexity_high": {
-        "count": 6
+        "count": 4
       },
       "crap_critical": {
         "count": 3
@@ -38,13 +38,13 @@
         "count": 3
       },
       "complexity_high": {
-        "count": 3
+        "count": 1
       },
       "crap_critical": {
         "count": 3
       },
       "crap_high": {
-        "count": 3
+        "count": 1
       },
       "crap_moderate": {
         "count": 8
@@ -81,7 +81,7 @@
         "count": 3
       },
       "crap_moderate": {
-        "count": 13
+        "count": 10
       }
     },
     "src/rules/actions/rebel-movement.ts": {
@@ -125,22 +125,22 @@
     },
     "src/rules/combat.ts": {
       "complexity_critical": {
-        "count": 4
+        "count": 9
       },
       "complexity_high": {
-        "count": 3
+        "count": 5
       },
       "complexity_moderate": {
-        "count": 2
-      },
-      "crap_critical": {
-        "count": 4
-      },
-      "crap_high": {
         "count": 3
       },
+      "crap_critical": {
+        "count": 9
+      },
+      "crap_high": {
+        "count": 6
+      },
       "crap_moderate": {
-        "count": 5
+        "count": 6
       }
     },
     "src/rules/day-one.ts": {
@@ -162,24 +162,18 @@
         "count": 6
       },
       "complexity_moderate": {
-        "count": 4
+        "count": 3
       },
       "crap_critical": {
         "count": 1
       },
       "crap_high": {
         "count": 2
-      },
-      "crap_moderate": {
-        "count": 1
       }
     },
     "src/rules/elements.ts": {
       "complexity_critical": {
         "count": 2
-      },
-      "complexity_high": {
-        "count": 1
       },
       "complexity_moderate": {
         "count": 1
@@ -262,7 +256,7 @@
         "count": 1
       },
       "complexity_high": {
-        "count": 2
+        "count": 1
       },
       "complexity_moderate": {
         "count": 2
@@ -271,10 +265,10 @@
         "count": 1
       },
       "crap_high": {
-        "count": 2
+        "count": 1
       },
       "crap_moderate": {
-        "count": 1
+        "count": 2
       }
     },
     "src/ui/App.vue": {
@@ -395,7 +389,7 @@
         "count": 3
       },
       "crap_critical": {
-        "count": 8
+        "count": 7
       },
       "crap_high": {
         "count": 5
@@ -587,27 +581,27 @@
   },
   "production_coverage_findings": [],
   "target_keys": [
-    "src/rules/flow.ts:high impact",
     "src/rules/combat.ts:circular dependency",
+    "src/rules/flow.ts:high impact",
     "src/rules/bot-action-helpers.ts:dead code",
     "src/ui/composables/useGameViewHelpers.ts:dead code",
     "src/rules/actions/index.ts:dead code",
-    "src/rules/bot-helpers.ts:circular dependency",
     "src/rules/game.ts:circular dependency",
+    "src/rules/bot-helpers.ts:circular dependency",
     "src/rules/actions/rebel-combat.ts:complexity",
     "src/ui/colors.ts:dead code",
-    "src/rules/actions/rebel-movement.ts:complexity",
     "src/rules/actions/dictator-actions.ts:complexity",
-    "src/rules/actions/helpers.ts:circular dependency",
+    "src/rules/actions/rebel-movement.ts:complexity",
     "src/rules/day-one.ts:circular dependency",
+    "src/rules/actions/helpers.ts:circular dependency",
     "src/rules/actions/rebel-equipment.ts:complexity",
     "src/rules/dictator-abilities.ts:circular dependency",
-    "src/rules/actions/rebel-economy.ts:complexity",
     "src/rules/actions/day-one-actions.ts:circular dependency",
     "src/ui/components/GameTable.vue:complexity",
-    "src/rules/landmine.ts:complexity",
+    "src/rules/actions/rebel-economy.ts:complexity",
     "src/rules/tactics-effects.ts:circular dependency",
     "src/ui/composables/useActionState.ts:untested risk",
+    "src/rules/landmine.ts:complexity",
     "tests/helpers/auto-play.ts:high impact",
     "src/ui/composables/useSquadState.ts:complexity",
     "tests/mcts-clone.test.ts:complexity",
