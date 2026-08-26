@@ -107,6 +107,18 @@ export function useAction(merc: CombatantModel, cost: number): boolean {
 }
 
 /**
+ * Spend a move action for `merc`, drawing on the player's free move actions
+ * (Oil Reserves) before charging the MERC's own.
+ */
+export function useMoveAction(player: MERCPlayer, merc: CombatantModel, cost: number): boolean {
+  if (player.freeMoveActions >= cost) {
+    player.freeMoveActions -= cost;
+    return true;
+  }
+  return merc.useAction(cost);
+}
+
+/**
  * MERC-bd4: Check if a MERC can perform a training action
  * Faustina can use her trainingActionsRemaining in addition to regular actions
  */

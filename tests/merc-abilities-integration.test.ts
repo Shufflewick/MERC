@@ -211,25 +211,21 @@ describe('MERC Ability Integration Tests', () => {
       });
     });
 
-    describe('Shooter - +3 combat', () => {
-      it('Shooter should have effectiveCombat = baseCombat + 3 and activeStatModifiers', () => {
+    describe('Shooter - combat 6 on the card', () => {
+      it('carries his 6 combat as a base stat, not a hidden ability bonus', () => {
         const shooter = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'shooter');
         if (!shooter) {
           console.log('Shooter not in deck, skipping test');
           return;
         }
 
-        // Record base combat before ability update
-        const baseCombat = shooter.baseCombat;
-
         shooter.updateAbilityBonuses([]);
 
-        // Verify effectiveCombat equals baseCombat + 3 (ability bonus)
-        expect(shooter.effectiveCombat).toBe(baseCombat + 3);
-
-        // Verify activeStatModifiers includes the combat modifier
-        const combatMod = shooter.activeStatModifiers.find(m => m.stat === 'combat' && m.bonus === 3);
-        expect(combatMod).toBeDefined();
+        // data/mercs.csv prints combat 6 and a flavour-only ability, so base-stat
+        // consumers (hire AI, Haarg's comparison) must see 6.
+        expect(shooter.baseCombat).toBe(6);
+        expect(shooter.effectiveCombat).toBe(6);
+        expect(shooter.activeStatModifiers.find(m => m.stat === 'combat')).toBeUndefined();
       });
     });
 

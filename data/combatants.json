@@ -356,7 +356,7 @@
     "name": "Shooter",
     "quantity": 1,
     "training": 0,
-    "combat": 3,
+    "combat": 6,
     "initiative": 1,
     "ability": "Is an extremely good shot.",
     "bio": "Volunteered for two tours in a hot zone.",
@@ -679,7 +679,7 @@
     "combat": 3,
     "initiative": 0,
     "ability": "Once per turn, hire 1 random MERC; then pick a Rebel, until you choose another Rebel your forces have automatic initiative over all their forces.",
-    "bio": "Führer, Germany, 1933-1945",
+    "bio": "F\u00fchrer, Germany, 1933-1945",
     "image": "dictators/hitler.png",
     "sex": "M"
   },

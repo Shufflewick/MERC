@@ -956,6 +956,18 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }),
               }),
 
+              // Seizure — dictator chooses which wilderness sectors to flip
+              loop({
+                name: 'seizure-sector-flips',
+                while: () => game.pendingSeizureFlips != null && game.pendingSeizureFlips.remaining > 0 && !game.isFinished(),
+                maxIterations: 20,
+                do: actionStep({
+                  name: 'seizure-flip-sector',
+                  actions: ['seizureFlipSector'],
+                  skipIf: () => game.isFinished() || game.pendingSeizureFlips == null || game.pendingSeizureFlips.remaining <= 0,
+                }),
+              }),
+
               // Lockdown militia placement — dictator places militia on base/adjacent sectors
               loop({
                 name: 'lockdown-militia-placement',

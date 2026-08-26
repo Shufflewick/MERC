@@ -126,16 +126,21 @@ export function applyHusseinSetupAbility(game: MERCGame): DictatorAbilityResult 
     return { success: true, message: 'Deck already at target size', data: { deckSize: currentCount } };
   }
 
-  // Build pool of all available tactics (expanded by quantity)
-  const allTactics: TacticsData[] = [];
+  // Build the top-up pool from the printed card pool minus what is already in
+  // his deck, so the deck can never hold more copies of a card than exist.
+  const alreadyDealt = new Map<string, number>();
+  for (const card of tacticsDeck.all(TacticsCard)) {
+    alreadyDealt.set(card.tacticsId, (alreadyDealt.get(card.tacticsId) ?? 0) + 1);
+  }
+
+  const pool: TacticsData[] = [];
   for (const t of game.tacticsData as TacticsData[]) {
-    for (let q = 0; q < t.quantity; q++) {
-      allTactics.push(t);
+    const remaining = t.quantity - (alreadyDealt.get(t.id) ?? 0);
+    for (let q = 0; q < remaining; q++) {
+      pool.push(t);
     }
   }
 
-  // Select additional random tactics from pool
-  const pool = [...allTactics];
   const selected: TacticsData[] = [];
   for (let i = 0; i < additionalNeeded && pool.length > 0; i++) {
     const idx = Math.floor(game.random() * pool.length);
@@ -566,15 +571,8 @@ export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult
     return { success: true, message: 'No rebels', data: { militiaPlaced: 0 } };
   }
 
-  // Get sectors the dictator controls: militia > 0, dictator MERCs present,
-  // or the revealed base sector
-  const allSectors = game.gameMap.getAllSectors();
-  const controlledSectors = allSectors.filter(s => {
-    if (s.dictatorMilitia > 0) return true;
-    if (game.getDictatorMercsInSector(s).length > 0) return true;
-    if (game.dictatorPlayer.baseRevealed && game.dictatorPlayer.baseSectorId === s.sectorId) return true;
-    return false;
-  });
+  const controlledSectors = game.gameMap.getAllSectors()
+    .filter(s => game.dictatorControls(s));
 
   if (controlledSectors.length === 0) {
     game.message('Mussolini: No controlled sectors for militia placement');

@@ -30,7 +30,7 @@ export interface TacticsEffectResult {
 // Individual Tactics Effects
 // =============================================================================
 
-function checkLandmineOnDictatorMilitiaEntry(
+export function checkLandmineOnDictatorMilitiaEntry(
   game: MERCGame,
   sector: Sector,
   placed: number,
@@ -100,7 +100,7 @@ export function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
  * Each sector is processed one at a time through the allocation action.
  */
 function artilleryBarrage(game: MERCGame): TacticsEffectResult {
-  const dictatorSectors = game.gameMap.getAllSectors().filter(s => s.dictatorMilitia > 0);
+  const dictatorSectors = game.gameMap.getAllSectors().filter(s => game.dictatorControls(s));
   const adjacentRebelSectors = new Set<Sector>();
 
   // Find rebel-controlled sectors adjacent to dictator sectors
@@ -246,27 +246,65 @@ function revealBase(game: MERCGame): TacticsEffectResult {
   return { success: true, message: 'Base revealed' };
 }
 
+const FAMILY_THREAT_LOSS = 2;
+
 /**
- * Family Threat: Each rebel sector loses 2 militia
+ * Rebel militia present in a sector, biggest stack first, lower seat winning ties.
+ */
+function rebelMilitiaStacks(game: MERCGame, sector: Sector): Array<{ seat: number; count: number }> {
+  return game.rebelPlayers
+    .map(rebel => ({ seat: rebel.seat, count: sector.getRebelMilitia(`${rebel.seat}`) }))
+    .filter(entry => entry.count > 0)
+    .sort((a, b) => b.count - a.count || a.seat - b.seat);
+}
+
+/**
+ * How many militia each rebel loses when a sector must shed `total` of them.
+ *
+ * The card scales per sector, not per rebel, so when two rebels share a sector
+ * the loss is split between them: each militia comes off whichever stack is
+ * currently largest, lower seat winning ties.
+ */
+function splitSectorMilitiaLoss(
+  game: MERCGame,
+  sector: Sector,
+  total: number
+): Map<number, number> {
+  const remaining = new Map(rebelMilitiaStacks(game, sector).map(e => [e.seat, e.count]));
+  const losses = new Map<number, number>();
+
+  for (let i = 0; i < total; i++) {
+    let victim: number | undefined;
+    for (const [seat, count] of remaining) {
+      if (count <= 0) continue;
+      if (victim === undefined || count > remaining.get(victim)! ||
+          (count === remaining.get(victim)! && seat < victim)) {
+        victim = seat;
+      }
+    }
+    if (victim === undefined) break;
+    remaining.set(victim, remaining.get(victim)! - 1);
+    losses.set(victim, (losses.get(victim) ?? 0) + 1);
+  }
+
+  return losses;
+}
+
+/**
+ * Family Threat: "Each rebel sector loses 2 militia as they run home to their
+ * families." Two per sector, not two per rebel per sector.
  */
 function familyThreat(game: MERCGame): TacticsEffectResult {
   // Pre-compute affected sectors before animation
-  const affectedSectors: Array<{ sectorId: string; sectorName: string; removed: number }> = [];
-  for (const sector of game.gameMap.getAllSectors()) {
-    let sectorRemoved = 0;
-    for (const rebel of game.rebelPlayers) {
-      const available = sector.getRebelMilitia(`${rebel.seat}`);
-      const toRemove = Math.min(2, available);
-      sectorRemoved += toRemove;
-    }
-    if (sectorRemoved > 0) {
-      affectedSectors.push({
-        sectorId: sector.sectorId,
-        sectorName: sector.sectorName,
-        removed: sectorRemoved,
-      });
-    }
-  }
+  const plans = game.gameMap.getAllSectors()
+    .map(sector => ({ sector, losses: splitSectorMilitiaLoss(game, sector, FAMILY_THREAT_LOSS) }))
+    .filter(plan => plan.losses.size > 0);
+
+  const affectedSectors = plans.map(({ sector, losses }) => ({
+    sectorId: sector.sectorId,
+    sectorName: sector.sectorName,
+    removed: [...losses.values()].reduce((sum, n) => sum + n, 0),
+  }));
 
   let totalRemoved = 0;
 
@@ -275,13 +313,14 @@ function familyThreat(game: MERCGame): TacticsEffectResult {
     description: 'Each rebel sector loses 2 militia as they run home to their families',
     affectedSectors,
   }, () => {
-    for (const sector of game.gameMap.getAllSectors()) {
-      for (const rebel of game.rebelPlayers) {
-        const removed = sector.removeRebelMilitia(`${rebel.seat}`, 2);
-        if (removed > 0) {
-          totalRemoved += removed;
-          game.message(`${removed} militia fled from ${sector.sectorName}`);
-        }
+    for (const { sector, losses } of plans) {
+      let sectorRemoved = 0;
+      for (const [seat, count] of losses) {
+        sectorRemoved += sector.removeRebelMilitia(`${seat}`, count);
+      }
+      if (sectorRemoved > 0) {
+        totalRemoved += sectorRemoved;
+        game.message(`${sectorRemoved} militia fled from ${sector.sectorName}`);
       }
     }
   });
@@ -369,7 +408,7 @@ function fodder(game: MERCGame): TacticsEffectResult {
  */
 function reinforcements(game: MERCGame): TacticsEffectResult {
   const industries = game.gameMap.getAllSectors().filter(s =>
-    s.isIndustry && s.dictatorMilitia > 0
+    s.isIndustry && game.dictatorControls(s)
   );
 
   let totalPlaced = 0;
@@ -430,7 +469,20 @@ function seizure(game: MERCGame): TacticsEffectResult {
     s => s.isWilderness && !s.explored
   );
 
-  // Flip up to X sectors
+  // A human dictator picks which sectors to seize; the AI takes them in map order.
+  if (!game.dictatorPlayer.isAI && unexploredWilderness.length > 0) {
+    game.pendingSeizureFlips = {
+      remaining: Math.min(x, unexploredWilderness.length),
+      militiaPerSector: militiaToAdd,
+    };
+    game.message(`Seizure: choose ${game.pendingSeizureFlips.remaining} wilderness sector(s) to flip`);
+    return {
+      success: true,
+      message: 'Seizure: awaiting sector choices',
+      data: { sectorsFlipped: 0, totalMilitiaPlaced: 0 },
+    };
+  }
+
   const sectorsToFlip = unexploredWilderness.slice(0, x);
   let sectorsFlipped = 0;
   let totalMilitiaPlaced = 0;
@@ -474,19 +526,8 @@ function sentry(game: MERCGame): TacticsEffectResult {
   const militiaToAdd = Math.ceil(game.rebelCount / 2);
 
   // Pre-compute uncontrolled sectors
-  const uncontrolledSectors: Sector[] = [];
-  for (const sector of game.gameMap.getAllSectors()) {
-    const dictatorControls = sector.dictatorMilitia > 0;
-    const rebelControls = sector.getTotalRebelMilitia() > 0 ||
-      game.rebelPlayers.some(r =>
-        r.primarySquad.sectorId === sector.sectorId ||
-        r.secondarySquad.sectorId === sector.sectorId
-      );
-
-    if (!dictatorControls && !rebelControls) {
-      uncontrolledSectors.push(sector);
-    }
-  }
+  const uncontrolledSectors = game.gameMap.getAllSectors()
+    .filter(sector => game.isSectorUncontrolled(sector));
 
   let totalPlaced = 0;
 
@@ -610,7 +651,7 @@ export function applyConscriptsEffect(game: MERCGame): void {
   let totalPlaced = 0;
 
   for (const sector of game.gameMap.getAllSectors()) {
-    if (sector.dictatorMilitia > 0) {
+    if (game.dictatorControls(sector)) {
       const placed = sector.addDictatorMilitia(amount);
       totalPlaced += placed;
 
@@ -954,25 +995,20 @@ export function applyOilReservesEffect(game: MERCGame, isRebelTurn: boolean, reb
       oilSector.getRebelMilitia(`${rebelPlayer.seat}`) > 0;
 
     if (!dictatorPresence && thisRebelPresence) {
-      // Grant +1 action to the first living MERC with < max actions
-      const merc = rebelPlayer.team.find(m => !m.isDead);
-      if (merc) {
-        merc.actionsRemaining += 1;
-        game.message(`Oil Reserves: ${merc.combatantName} gains 1 free action`);
-      }
+      // Card: "1 free move action for their MERCs" — a player-level move-only
+      // credit, spent by whichever MERC moves. Never banked past one turn.
+      rebelPlayer.freeMoveActions = 1;
+      game.message(`Oil Reserves: ${rebelPlayer.name} gains 1 free move action`);
+    } else {
+      rebelPlayer.freeMoveActions = 0;
     }
   } else if (!isRebelTurn) {
     // Dictator turn - check if dictator controls the oil (no rebel presence)
     if (dictatorPresence && !hasAnyRebelPresence) {
-      // Grant +1 action to first available unit
-      const merc = game.dictatorPlayer.hiredMercs.find(m => !m.isDead);
-      if (merc) {
-        merc.actionsRemaining += 1;
-        game.message(`Oil Reserves: ${merc.combatantName} gains 1 free action`);
-      } else if (game.dictatorPlayer.dictator?.inPlay && !game.dictatorPlayer.dictator.isDead) {
-        game.dictatorPlayer.dictator.actionsRemaining += 1;
-        game.message('Oil Reserves: Dictator gains 1 free action');
-      }
+      game.dictatorPlayer.freeMoveActions = 1;
+      game.message('Oil Reserves: the Dictator gains 1 free move action');
+    } else {
+      game.dictatorPlayer.freeMoveActions = 0;
     }
   }
 }

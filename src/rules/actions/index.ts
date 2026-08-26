@@ -105,6 +105,7 @@ import {
   createKimBonusMilitiaAction,
   createGeneralissimoPickAction,
   createLockdownPlaceMilitiaAction,
+  createSeizureFlipSectorAction,
   createMaoBonusMilitiaAction,
   createMussoliniBonusMilitiaAction,
   createMussoliniSpreadMilitiaAction,
@@ -238,6 +239,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createKimBonusMilitiaAction(game));
   game.registerAction(createGeneralissimoPickAction(game)); // Generalissimo MERC hire
   game.registerAction(createLockdownPlaceMilitiaAction(game)); // Lockdown militia placement
+  game.registerAction(createSeizureFlipSectorAction(game)); // Seizure: human dictator picks sectors
   game.registerAction(createMaoBonusMilitiaAction(game)); // Mao per-turn wilderness militia
   game.registerAction(createMussoliniBonusMilitiaAction(game)); // Mussolini per-turn militia placement
   game.registerAction(createMussoliniSpreadMilitiaAction(game)); // Mussolini militia spread

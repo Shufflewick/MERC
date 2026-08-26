@@ -179,6 +179,11 @@ export class MERCPlayer extends Player {
   baseRevealed: boolean = false;
   baseSectorId?: string;
   stationedSectorId?: string;
+  /**
+   * Free move actions this player holds (Oil Reserves). Spent by the move
+   * actions before charging a MERC's own actions; never banked past one turn.
+   */
+  freeMoveActions: number = 0;
   isAI: boolean = false;
   privacyPlayerId?: string;
 
@@ -663,6 +668,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   get hasLockdownPending(): boolean {
     return this.pendingLockdownMilitia !== null;
+  }
+
+  // Pending Seizure flips — a human dictator chooses which wilderness sectors
+  // to flip over, one per iteration.
+  pendingSeizureFlips: {
+    remaining: number;        // Sectors still to flip
+    militiaPerSector: number; // X - 1 militia garrisoned on each
+  } | null = null;
+
+  get hasSeizurePending(): boolean {
+    return this.pendingSeizureFlips !== null;
   }
 
   // Pending Mao militia placement — dictator places militia on wilderness sectors
@@ -1406,6 +1422,34 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     return false;
+  }
+
+  /**
+   * Does the Dictator control this sector?
+   *
+   * "Whoever has the most units on it controls it" (rulebook p.6, "Sectors"),
+   * counting MERCs and the Dictator card, not militia alone — the Dictator wins
+   * ties. His revealed base is his while no rebel stands on it.
+   *
+   * This is the one control test for reinforce placement and for every tactics
+   * card that says "you control"; do not re-derive it with a militia count.
+   */
+  dictatorControls(sector: Sector): boolean {
+    const dictatorUnits = this.getDictatorUnitsInSector(sector);
+    const rebelUnits = this.getTotalRebelUnitsInSector(sector);
+
+    if (dictatorUnits > 0 && dictatorUnits >= rebelUnits) return true;
+
+    return this.dictatorPlayer?.baseRevealed === true &&
+      this.dictatorPlayer.baseSectorId === sector.sectorId &&
+      rebelUnits === 0;
+  }
+
+  /** True when neither side has a unit in the sector and it is not the base. */
+  isSectorUncontrolled(sector: Sector): boolean {
+    return this.getDictatorUnitsInSector(sector) === 0 &&
+      this.getTotalRebelUnitsInSector(sector) === 0 &&
+      this.dictatorPlayer?.baseSectorId !== sector.sectorId;
   }
 
   getDictatorUnitsInSector(sector: Sector): number {

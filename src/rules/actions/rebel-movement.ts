@@ -17,7 +17,7 @@ import { Sector, Squad, CombatantModel, Equipment } from '../elements.js';
 import { hasEnemies, queuePendingCombat } from '../combat.js';
 import { checkLandMines } from '../landmine.js';
 import { buildMapCombatantMove, emitMapCombatantMoves } from '../animation-events.js';
-import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
+import { ACTION_COSTS, useAction, useMoveAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 import { getMilitiaBringCount } from '../merc-abilities.js';
 import { getVehicleEffect } from '../equipment-effects.js';
 
@@ -73,7 +73,10 @@ function canSquadMove(squad: Squad | null | undefined, player?: unknown, game?: 
 
   // Need at least one unit (MERCs or Kim)
   if (mercs.length === 0 && !hasKim) return false;
-  if (!mercs.every(m => m.actionsRemaining >= ACTION_COSTS.MOVE)) return false;
+  // A free move action (Oil Reserves) can cover one MERC who is out of actions.
+  const free = (player as MERCPlayer | undefined)?.freeMoveActions ?? 0;
+  const short = mercs.filter(m => m.actionsRemaining < ACTION_COSTS.MOVE).length;
+  if (short > free) return false;
 
   return true;
 }
@@ -440,10 +443,11 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       const isRebel = game.isRebelPlayer(ctx.player);
       const fromSectorId = squad.sectorId;
 
-      // Spend action from each living MERC in squad
+      // Spend action from each living MERC in squad, drawing on any free move
+      // actions (Oil Reserves) first.
       const mercs = squad.getLivingMercs();
       for (const merc of mercs) {
-        useAction(merc, ACTION_COSTS.MOVE);
+        useMoveAction(ctx.player as MERCPlayer, merc, ACTION_COSTS.MOVE);
       }
 
       // Log action consumption for debugging

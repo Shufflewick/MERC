@@ -8,7 +8,7 @@ import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { queuePendingCombat, hasEnemies } from '../combat.js';
-import { executeTacticsEffect } from '../tactics-effects.js';
+import { executeTacticsEffect, checkLandmineOnDictatorMilitiaEntry } from '../tactics-effects.js';
 import {
   hasMortar,
   getMortarTargets,
@@ -228,14 +228,8 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       prompt: 'Place reinforcement militia where?',
       elementClass: Sector,
       filter: (element) => {
-        const sector = asSector(element);
-        // Per rules: "Sector must be Dictator-controlled"
-        // Dictator controls if militia >= total rebel militia (ties go to dictator)
-        const isControlled = sector.dictatorMilitia >= sector.getTotalRebelMilitia() &&
-          sector.dictatorMilitia > 0;
-        // Also allow base sector even if no militia yet
-        const isBase = game.dictatorPlayer.baseSectorId === sector.sectorId;
-        return isControlled || isBase;
+        // Per rules: "may only be placed on sectors controlled by the dictator"
+        return game.dictatorControls(asSector(element));
       },
       boardRef: (element: Sector) => ({ id: asSector(element).id }),
     })
@@ -756,6 +750,58 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
 // =============================================================================
 // Lockdown Militia Placement Action (Human Players)
 // =============================================================================
+
+/**
+ * Seizure: "Flip over X wilderness sectors to their explored side. Add X - 1 of
+ * your militia to each of the sectors you flipped over."
+ *
+ * Which sectors to seize is a real strategic choice, so a human dictator picks
+ * them one at a time; the AI takes them in map order inside the effect itself.
+ */
+export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition {
+  return Action.create('seizureFlipSector')
+    .prompt('Seizure: choose a wilderness sector to flip')
+    .condition({
+      'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
+      'has sectors left to seize': () =>
+        game.pendingSeizureFlips != null && game.pendingSeizureFlips.remaining > 0,
+      'is human player': () => !game.dictatorPlayer?.isAI,
+    })
+    .chooseElement('targetSector', {
+      prompt: 'Which wilderness sector?',
+      elementClass: Sector,
+      filter: (element) => {
+        const sector = asSector(element);
+        return sector.isWilderness && !sector.explored;
+      },
+      boardRef: (element: Sector) => ({ id: asSector(element).id }),
+    })
+    .execute((args) => {
+      const pending = game.pendingSeizureFlips;
+      if (!pending) return { success: false, message: 'No pending Seizure' };
+
+      const sector = asSector(args.targetSector);
+      sector.explore();
+      game.message(`Seizure: ${sector.sectorName} is now explored`);
+
+      let placed = 0;
+      if (pending.militiaPerSector > 0) {
+        placed = sector.addDictatorMilitia(pending.militiaPerSector);
+        if (placed > 0) {
+          checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
+          game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
+        }
+      }
+
+      pending.remaining -= 1;
+      if (pending.remaining <= 0 ||
+          game.gameMap.getAllSectors().every(s => !s.isWilderness || s.explored)) {
+        game.pendingSeizureFlips = null;
+      }
+
+      return { success: true, message: `Seized ${sector.sectorName}` };
+    });
+}
 
 /**
  * Lockdown: Place militia on base or adjacent sectors.

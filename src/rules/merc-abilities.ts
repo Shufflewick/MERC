@@ -597,13 +597,6 @@ export const MERC_ABILITIES: Record<string, MercAbility> = {
 
   // --- MERCs with no special abilities (just stats) ---
 
-  shooter: {
-    id: 'shooter',
-    passive: { extraCombat: 3 },
-    statModifiers: [
-      { stat: 'combat', bonus: 3 },
-    ],
-  },
 };
 
 // =============================================================================
