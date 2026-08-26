@@ -95,7 +95,7 @@ export function useSectorState(
   getGameView: () => any,
   deps: SectorStateDependencies
 ): SectorState {
-  const { findAllByClassName, findByRef, findByClassName, getAttr } =
+  const { findAllByClassName, findByName, findByClassName, getAttr } =
     useGameViewHelpers(getGameView);
 
   // Writable ref for selected sector (from UI clicks)
@@ -104,7 +104,7 @@ export function useSectorState(
   // Extract map sectors from gameView
   const sectors = computed<Sector[]>(() => {
     // Try to find GameMap element
-    const map = findByClassName('GameMap') || findByRef('game-map');
+    const map = findByClassName('GameMap') || findByName('game-map');
     if (!map?.children) {
       // Fallback: look for Sector elements directly
       const sectorElements = findAllByClassName('Sector');
@@ -257,7 +257,7 @@ export function useSectorState(
 
     // Find the sector element in gameView to get stash
     const sectorElement =
-      findByRef(activeSector.value.sectorId) ||
+      findByName(activeSector.value.sectorId) ||
       findAllByClassName('Sector').find(
         (s: any) =>
           getAttr<string>(s, 'sectorId', '') === activeSector.value?.sectorId
@@ -410,7 +410,7 @@ export function useSectorState(
     if (!activeSector.value) return false;
 
     const sectorElement =
-      findByRef(activeSector.value.sectorId) ||
+      findByName(activeSector.value.sectorId) ||
       findAllByClassName('Sector').find(
         (s: any) =>
           getAttr<string>(s, 'sectorId', '') === activeSector.value?.sectorId

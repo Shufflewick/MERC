@@ -82,7 +82,6 @@ const {
   normalizeClassName,
   findByClassName,
   findAllByClassName,
-  findByRef,
   findElementById,
   getAttr,
   findDictatorCombatant,

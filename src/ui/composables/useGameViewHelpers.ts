@@ -1,7 +1,12 @@
 /**
- * Pure utility functions for traversing and querying the gameView tree.
- * These have no Vue reactivity dependencies.
+ * Querying the gameView tree.
+ *
+ * Traversal itself comes from 'boardsmith/ui' — these are thin MERC-specific
+ * wrappers over it, not a second implementation. The framework finders prefer
+ * $type and name because className can be mangled by production bundlers.
  */
+
+import { findElement, findElements, findElementById, type GameElement } from 'boardsmith/ui';
 
 // ============================================================================
 // Pure function exports (can be used directly without composable)
@@ -30,88 +35,47 @@ export function getAttr<T>(node: any, key: string, defaultVal: T): T {
 
 /**
  * Find first element matching className in tree.
- * Handles underscore prefix and also checks ref for class name matches.
+ *
+ * Traversal is the framework's, not a local copy. The framework matches
+ * className exactly, so the underscore-prefixed serialization is tried too.
  */
 export function findByClassNameInTree(className: string, root: any): any {
   if (!root) return null;
-
-  // Check className (handle underscore prefix) or ref that contains the class name
-  const rootClass = normalizeClassName(root.className);
-  if (rootClass === className || root.className === className || root.ref?.includes(className.toLowerCase())) {
-    return root;
-  }
-
-  if (root.children) {
-    for (const child of root.children) {
-      const found = findByClassNameInTree(className, child);
-      if (found) return found;
-    }
-  }
-  return null;
+  return findElement(root as GameElement, { className })
+    ?? findElement(root as GameElement, { className: `_${className}` })
+    ?? null;
 }
 
 /**
  * Find all elements matching className in tree.
  */
 export function findAllByClassNameInTree(className: string, root: any): any[] {
-  const results: any[] = [];
-
-  function search(node: any) {
-    if (!node) return;
-    const nodeClass = normalizeClassName(node.className);
-    if (nodeClass === className || node.className === className || node.ref?.includes(className.toLowerCase())) {
-      results.push(node);
-    }
-    if (node.children) {
-      for (const child of node.children) {
-        search(child);
-      }
-    }
-  }
-
-  search(root);
-  return results;
+  if (!root) return [];
+  return [
+    ...findElements(root as GameElement, { className }),
+    ...findElements(root as GameElement, { className: `_${className}` }),
+  ];
 }
 
 /**
- * Find element by ref attribute in tree.
+ * Find element by name in tree.
+ *
+ * Names survive minification where class names do not, so prefer this when the
+ * element you want has one (decks, discard piles, squads, player areas).
  */
-export function findByRefInTree(ref: string, root: any): any {
+export function findByNameInTree(name: string, root: any): any {
   if (!root) return null;
-
-  if (root.ref === ref) return root;
-
-  if (root.children) {
-    for (const child of root.children) {
-      const found = findByRefInTree(ref, child);
-      if (found) return found;
-    }
-  }
-  return null;
+  return findElement(root as GameElement, { name }) ?? null;
 }
 
 /**
  * Find element by numeric ID in tree.
- * BoardSmith element IDs are numbers, but handles string comparison too.
  */
 export function findElementByIdInTree(id: number | string, root: any): any {
   if (!root) return null;
-
-  // Compare as both number and string for flexibility
-  const idNum = typeof id === 'number' ? id : parseInt(id, 10);
-  const idStr = String(id);
-
-  if (root.ref === idNum || root.ref === idStr || root.id === idNum || root.id === idStr) {
-    return root;
-  }
-
-  if (root.children) {
-    for (const child of root.children) {
-      const found = findElementByIdInTree(id, child);
-      if (found) return found;
-    }
-  }
-  return null;
+  const numericId = typeof id === 'number' ? id : parseInt(id, 10);
+  if (Number.isNaN(numericId)) return null;
+  return findElementById(root as GameElement, numericId) ?? null;
 }
 
 /**
@@ -216,18 +180,18 @@ export function useGameViewHelpers(getGameView: () => any) {
   };
 
   /**
-   * Find element by ref attribute.
+   * Find element by name.
    * Uses getGameView() as default root when none provided.
    */
-  const findByRef = (ref: string, root?: any): any => {
-    return findByRefInTree(ref, root ?? getGameView());
+  const findByName = (name: string, root?: any): any => {
+    return findByNameInTree(name, root ?? getGameView());
   };
 
   /**
    * Find element by numeric ID.
    * Uses getGameView() as default root when none provided.
    */
-  const findElementById = (id: number | string, root?: any): any => {
+  const findById = (id: number | string, root?: any): any => {
     return findElementByIdInTree(id, root ?? getGameView());
   };
 
@@ -258,8 +222,8 @@ export function useGameViewHelpers(getGameView: () => any) {
     // Bound tree traversal functions
     findByClassName,
     findAllByClassName,
-    findByRef,
-    findElementById,
+    findByName,
+    findElementById: findById,
     findDictatorCombatant,
     findDictatorCombatantWithParent,
   };
