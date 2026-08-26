@@ -52,7 +52,6 @@ import {
   createCombatRetreatAction,
   createCombatSelectTargetAction,
   createCombatAssignAttackDogAction,
-  createCombatHealAction,
   createCombatSurgeonHealAction,
   createCombatBeforeAttackHealAction,
   createCombatSkipBeforeAttackHealAction,
@@ -128,7 +127,6 @@ import {
   createHireFirstMercAction,
   createHireSecondMercAction,
   createHireThirdMercAction,
-  createEquipStartingAction,
   createPlaceLandingAction,
   createSelectDictatorAction,
   createDictatorPlaceInitialMilitiaAction,
@@ -186,7 +184,6 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatRetreatAction(game));
   game.registerAction(createCombatSelectTargetAction(game)); // MERC-t5k: Target selection
   game.registerAction(createCombatAssignAttackDogAction(game)); // MERC-l09: Attack Dog assignment
-  game.registerAction(createCombatHealAction(game)); // Medical Kit / First Aid Kit healing
   game.registerAction(createCombatSurgeonHealAction(game)); // Surgeon's heal ability (human-controlled)
   game.registerAction(createCombatBeforeAttackHealAction(game)); // Before-attack healing (correct timing per rules)
   game.registerAction(createCombatSkipBeforeAttackHealAction(game)); // Skip before-attack healing
@@ -215,7 +212,6 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createHireFirstMercAction(game));
   game.registerAction(createHireSecondMercAction(game));
   game.registerAction(createHireThirdMercAction(game));
-  game.registerAction(createEquipStartingAction(game));
 
   // Day 1 specific actions (Dictator) - MERC-mtoq
   game.registerAction(createSelectDictatorAction(game)); // Human dictator chooses their dictator

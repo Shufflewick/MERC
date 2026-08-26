@@ -387,56 +387,6 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
 }
 
 /**
- * Equip starting equipment on Day 1.
- * Each MERC gets 1 free equipment from any deck.
- * Auto-selects the unequipped MERC (no need to ask - we just hired them).
- */
-export function createEquipStartingAction(game: MERCGame): ActionDefinition {
-  return Action.create<MERCGame>('equipStarting')
-    .prompt('Equip starting equipment')
-    .notUndoable() // Involves randomness (drawing equipment)
-    .condition({
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
-      'has MERC without equipment': (ctx) => {
-        if (!isRebelPlayer(ctx.player)) return false;
-        return ctx.player.team.some(merc =>
-          !merc.weaponSlot && !merc.armorSlot && !merc.accessorySlot
-        );
-      },
-    })
-    .chooseFrom('equipmentType', {
-      prompt: 'Choose equipment type',
-      choices: () => ['Weapon', 'Armor', 'Accessory'],
-    })
-    .execute((args, ctx) => {
-      const player = asRebelPlayer(ctx.player);
-      // Auto-select the unequipped MERC
-      const merc = player.team.find(m =>
-        !m.weaponSlot && !m.armorSlot && !m.accessorySlot
-      );
-
-      if (!merc) {
-        return { success: false, message: 'No MERC needs equipment' };
-      }
-
-      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-      const equipment = equipStartingEquipment(game, merc, equipmentType);
-
-      if (equipment) {
-        return {
-          success: true,
-          message: `${merc.combatantName} equipped ${equipment.equipmentName}`,
-        };
-      }
-
-      return {
-        success: false,
-        message: `No ${equipmentType.toLowerCase()} available`,
-      };
-    });
-}
-
-/**
  * Place Landing action for Day 1.
  */
 export function createPlaceLandingAction(game: MERCGame): ActionDefinition {

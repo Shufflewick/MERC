@@ -186,7 +186,6 @@ const {
   isHagnessDrawActive,
   isPlacingLanding,
   isSelectingRetreatSector,
-  isEquipping,
   isSelectingEquipmentType,
   isCastroHiring,
   isGadafiHiring,
@@ -829,13 +828,6 @@ async function handleRetreatCombat() {
 async function handleAssignAttackDog(targetId: string) {
   if (!props.availableActions.includes('combatAssignAttackDog')) return;
   await props.actionController.execute('combatAssignAttackDog', { target: targetId });
-}
-
-// Handle Medical Kit heal from CombatPanel
-async function handleUseMedicalKit() {
-  if (!props.availableActions.includes('combatHeal')) return;
-  // Start in wizard mode to let player choose healer and target
-  await props.actionController.start('combatHeal');
 }
 
 // Handle Surgeon's heal ability from CombatPanel
@@ -1481,7 +1473,6 @@ const clickableSectors = computed(() => {
       @select-retreat-sector="handleSelectRetreatSector"
       @assign-attack-dog="handleAssignAttackDog"
       @combat-finished="handleCombatFinished"
-      @use-medical-kit="handleUseMedicalKit"
       @use-surgeon-heal="handleUseSurgeonHeal"
       @use-before-attack-heal="handleUseBeforeAttackHeal"
       @skip-before-attack-heal="handleSkipBeforeAttackHeal"

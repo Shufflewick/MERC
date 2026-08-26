@@ -62,7 +62,6 @@ export {
   // Day 1 specific actions
   createHireFirstMercAction,
   createHireSecondMercAction,
-  createEquipStartingAction,
   createPlaceLandingDay1Action,
   // Dictator MERC actions
   // Note: All basic MERC actions are now unified with rebel actions

@@ -186,7 +186,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
           if (!pending) return ctx.player!;
           return getCombatDecisionPlayer(game, pending.attackerId, ctx.player!);
         },
-        actions: ['combatBeforeAttackHeal', 'combatSkipBeforeAttackHeal'],
+        actions: ['combatBeforeAttackHeal', 'combatSurgeonHeal', 'combatSkipBeforeAttackHeal'],
         skipIf: () => game.isFinished() || game.activeCombat?.pendingBeforeAttackHealing == null,
       }),
     }),
@@ -846,6 +846,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'repairKit',
                   'mortar',
                   'assignToSquad',
+                  'viewStash',
+                  'takeFromStash',
                   'endTurn',
                 ],
                 // A wiped-out rebel still gets a turn: the rules let them hire a
@@ -1047,6 +1049,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'repairKit',
                       'mortar',
                       'assignToSquad',
+                      'viewStash',
+                      'takeFromStash',
                       'endTurn',
                     ],
                     skipIf: () => game.isFinished() || (game.activeCombat !== null && !game.activeCombat.combatComplete),

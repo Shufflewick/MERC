@@ -2215,8 +2215,27 @@ function executeCombatRound(
           });
         }
 
-        // If we have both healers and damaged allies, pause for healing decision
-        if (availableHealers.length > 0 && damagedAllies.length > 0) {
+        // The Surgeon heals with his own ability rather than an item, so he
+        // never shows up in availableHealers. A human-controlled Surgeon still
+        // needs this pause, or combatSurgeonHeal is never offered (issue #54).
+        const surgeonCanHeal = alliedCombatants.some(ally => {
+          if (ally.health <= 0) return false;
+          const sourceElem = ally.sourceElement as CombatantModel | undefined;
+          if (!sourceElem?.isMerc || sourceElem.combatantId !== 'surgeon') return false;
+          // One die to sacrifice, one left to attack with.
+          const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
+          if (ally.combat - diceUsed < 2) return false;
+          return alliedCombatants.some(other =>
+            other !== ally &&
+            other.health > 0 &&
+            other.health < other.maxHealth &&
+            !other.isMilitia &&
+            !other.isAttackDog
+          );
+        });
+
+        // If someone can heal and someone needs it, pause for the decision
+        if ((availableHealers.length > 0 || surgeonCanHeal) && damagedAllies.length > 0) {
           // Set the pending state - strip combatant from healers for serialization
           game.activeCombat!.pendingBeforeAttackHealing = {
             attackerId: attacker.id,

@@ -58,7 +58,6 @@ const emit = defineEmits<{
   (e: 'select-retreat-sector', sectorId: string | number): void;
   (e: 'assign-attack-dog', targetId: string): void;
   (e: 'combat-finished'): void;
-  (e: 'use-medical-kit'): void;
   (e: 'use-surgeon-heal'): void;
   (e: 'use-before-attack-heal'): void;
   (e: 'skip-before-attack-heal'): void;
@@ -935,8 +934,19 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="healing-actions">
-        <button class="healing-use-btn" @click="emit('use-before-attack-heal')">
+        <button
+          v-if="availableActions.includes('combatBeforeAttackHeal')"
+          class="healing-use-btn"
+          @click="emit('use-before-attack-heal')"
+        >
           Use Healing Item
+        </button>
+        <button
+          v-if="availableActions.includes('combatSurgeonHeal')"
+          class="healing-use-btn"
+          @click="emit('use-surgeon-heal')"
+        >
+          Surgeon's Heal
         </button>
         <button class="healing-skip-btn" @click="emit('skip-before-attack-heal')">
           Skip Healing
@@ -958,20 +968,6 @@ onUnmounted(() => {
       v-if="!isAllocating && !isSelectingTargets && !isAllocatingWolverineSixes && !isAssigningAttackDog && !isSelectingRetreatSector && !isHealingBeforeAttack && isMyTurn && !isAnimating"
       class="combat-actions"
     >
-      <button
-        v-if="availableActions.includes('combatHeal')"
-        class="combat-heal-btn"
-        @click="emit('use-medical-kit')"
-      >
-        Use Medical Kit
-      </button>
-      <button
-        v-if="availableActions.includes('combatSurgeonHeal')"
-        class="combat-heal-btn"
-        @click="emit('use-surgeon-heal')"
-      >
-        Surgeon's Heal
-      </button>
       <button
         v-if="availableActions.includes('combatContinue')"
         class="combat-continue-btn"
@@ -1310,23 +1306,6 @@ onUnmounted(() => {
 .combat-retreat-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
-}
-
-.combat-heal-btn {
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #4fc3f7 0%, #0288d1 100%);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.combat-heal-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
 }
 
 /* Before-attack healing phase panel */

@@ -123,7 +123,6 @@ describe('MERC Smoke Tests', () => {
       expect(game.getAction('hireFirstMerc')).toBeDefined();
       expect(game.getAction('hireSecondMerc')).toBeDefined();
       expect(game.getAction('placeLanding')).toBeDefined();
-      expect(game.getAction('equipStarting')).toBeDefined();
 
       // Day 1 dictator actions
       expect(game.getAction('dictatorPlaceInitialMilitia')).toBeDefined();

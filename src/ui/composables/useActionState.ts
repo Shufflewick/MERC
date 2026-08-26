@@ -39,7 +39,6 @@ export interface ActionStateReturn {
   isHagnessDrawActive: ComputedRef<boolean>;
   isPlacingLanding: ComputedRef<boolean>;
   isSelectingRetreatSector: ComputedRef<boolean>;
-  isEquipping: ComputedRef<boolean>;
   isSelectingEquipmentType: ComputedRef<boolean>;
   isCastroHiring: ComputedRef<boolean>;
   isGadafiHiring: ComputedRef<boolean>;
@@ -310,11 +309,6 @@ export function useActionState(
     const currentAction = props.actionController.currentAction.value;
     const currentSel = props.actionController.currentPick.value;
     return currentAction === 'combatRetreat' && currentSel?.name === 'retreatSector';
-  });
-
-  // Check if we're equipping starting equipment
-  const isEquipping = computed(() => {
-    return props.availableActions.includes('equipStarting');
   });
 
   // Check if current selection is for equipment type (Day 1 hiring or Castro hire)
@@ -706,7 +700,6 @@ export function useActionState(
     isHagnessDrawActive,
     isPlacingLanding,
     isSelectingRetreatSector,
-    isEquipping,
     isSelectingEquipmentType,
     isCastroHiring,
     isGadafiHiring,
