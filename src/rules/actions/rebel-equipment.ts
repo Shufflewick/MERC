@@ -155,7 +155,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  return Action.create('reEquip')
+  return Action.create<MERCGame>('reEquip')
     .prompt('Equip')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -361,7 +361,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  return Action.create('reEquipContinue')
+  return Action.create<MERCGame>('reEquipContinue')
     .prompt('Continue equipping')
     .condition({
       'has combatant and sector from followUp': (ctx) => {
@@ -557,7 +557,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
     return g.getSector(sectorId) || null;
   }
 
-  return Action.create('dropEquipment')
+  return Action.create<MERCGame>('dropEquipment')
     .prompt('Unequip')
     .condition({
       'not in combat': (ctx) => isNotInActiveCombat(ctx.game as MERCGame),
@@ -712,7 +712,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
  * Per rules: "May take equipment from discard pile"
  */
 export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
-  return Action.create('feedbackDiscard')
+  return Action.create<MERCGame>('feedbackDiscard')
     .prompt('Feedback: Take from discard')
     .condition({
       'has living Feedback with actions': (ctx) => {
@@ -748,7 +748,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
       const feedback = player.team.find(m => m.combatantId === 'feedback' && !m.isDead)!;
-      const selectedEquipment = args.equipment as Equipment;
+      const selectedEquipment = args.equipment;
 
       if (!selectedEquipment) {
         return { success: false, message: 'No equipment selected' };
@@ -805,7 +805,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
  * Takes a land mine from sector stash and equips it to Squidhead
  */
 export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
-  return Action.create('squidheadDisarm')
+  return Action.create<MERCGame>('squidheadDisarm')
     .prompt('Squidhead: Disarm mine')
     .condition({
       'has living Squidhead in sector with land mine': (ctx) => {
@@ -894,7 +894,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
     return player.team.find(m => m.combatantId === 'doc' && !m.isDead);
   }
 
-  return Action.create('docHeal')
+  return Action.create<MERCGame>('docHeal')
     .prompt('Doc: Heal squad')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -955,7 +955,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
  * Places a land mine from Squidhead's equipment into sector stash
  */
 export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
-  return Action.create('squidheadArm')
+  return Action.create<MERCGame>('squidheadArm')
     .prompt('Squidhead: Arm mine')
     .condition({
       'Squidhead has land mine equipped': (ctx) => {
@@ -1160,7 +1160,7 @@ function serializeEquipmentForCard(equipment: Equipment): HagnessEquipmentData {
  * member of his squad."
  */
 export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
-  return Action.create('hagnessDrawType')
+  return Action.create<MERCGame>('hagnessDrawType')
     .prompt('Hagness: Draw equipment for squad')
     .condition({
       'has living Hagness with actions': (ctx) => {
@@ -1231,7 +1231,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
  * so the custom UI can render the 3 cards.
  */
 export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefinition {
-  return Action.create('hagnessSelectFromDrawn')
+  return Action.create<MERCGame>('hagnessSelectFromDrawn')
     .prompt('Choose equipment to keep')
     .condition({
       'has drawn choices cached': (ctx) => {
@@ -1255,7 +1255,7 @@ export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefini
       const player = ctx.player as MERCPlayer;
       const playerId = `${player.seat}`;
       const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead)!;
-      const selectedName = args.selectedEquipment as string;
+      const selectedName = args.selectedEquipment;
 
       const drawnCache = getHagnessDrawnChoicesCache(game, playerId);
       if (!drawnCache || drawnCache.elementIds.length === 0) {
@@ -1315,7 +1315,7 @@ export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefini
  * If cancelled (no recipient selected), equipment drops in Hagness's sector.
  */
 export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefinition {
-  return Action.create('hagnessGiveEquipment')
+  return Action.create<MERCGame>('hagnessGiveEquipment')
     .prompt('Give equipment to squad member')
     .condition({
       'has pending equipment': (ctx) => {
@@ -1522,7 +1522,7 @@ function getDiscardPileEquipment(game: MERCGame): Array<{ equipment: Equipment; 
  * Per rules: "Discard this card to take 1 card from any equipment discard pile."
  */
 export function createRepairKitAction(game: MERCGame): ActionDefinition {
-  return Action.create('repairKit')
+  return Action.create<MERCGame>('repairKit')
     .prompt('Use Repair Kit')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -1551,8 +1551,8 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const combatant = args.combatant as CombatantModel;
-      const equipmentChoice = args.equipment as string;
+      const combatant = args.combatant;
+      const equipmentChoice = args.equipment;
 
       // Find the Repair Kit on the combatant
       let repairKit: Equipment | undefined;
@@ -1755,7 +1755,7 @@ function isUnitOwnedForMortar(unit: CombatantModel, player: any, game: MERCGame)
  * Works for both rebel and dictator players.
  */
 export function createMortarAction(game: MERCGame): ActionDefinition {
-  return Action.create('mortar')
+  return Action.create<MERCGame>('mortar')
     .prompt('Fire Mortar')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -1811,7 +1811,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       // Find the unit by name
-      const unitName = args.unitId as string;
+      const unitName = args.unitId;
       const units = getMercsWithMortars(game, ctx.player);
       const unit = units.find(u => {
         const name = (u as CombatantModel).combatantName;
@@ -1819,7 +1819,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       });
 
       // Find the target sector (extract name from display format)
-      const targetSectorDisplay = args.targetSectorName as string;
+      const targetSectorDisplay = args.targetSectorName;
       const targetSectorName = targetSectorDisplay.replace(/ \(\d+ targets?\)$/, '');
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
 
@@ -2221,7 +2221,7 @@ function hasBothExplosivesComponents(merc: CombatantModel): boolean {
  * they can use this action to destroy the palace and win the game.
  */
 export function createDetonateExplosivesAction(game: MERCGame): ActionDefinition {
-  return Action.create('detonateExplosives')
+  return Action.create<MERCGame>('detonateExplosives')
     .prompt('Detonate Explosives (Win Game)')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),

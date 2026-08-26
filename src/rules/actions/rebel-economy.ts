@@ -59,7 +59,7 @@ function getHireDrawnMercs(game: MERCGame, playerId: string): CombatantModel[] |
  * MERC-l1q: New MERCs join existing squad
  */
 export function createHireMercAction(game: MERCGame): ActionDefinition {
-  return Action.create('hireMerc')
+  return Action.create<MERCGame>('hireMerc')
     .prompt('Hire')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -143,11 +143,11 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const actingMerc = asCombatantModel(args.actingMerc);
+      const actingMerc = args.actingMerc;
       const playerId = `${player.seat}`;
       const drawnMercs = getHireDrawnMercs(game, playerId) || [];
       const selectedNames = (args.selectedMercs as unknown as string[]) || [];
-      const fireChoice = args.fireFirst as string;
+      const fireChoice = args.fireFirst;
       const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
 
       // Spend action
@@ -294,7 +294,7 @@ const REHIRE_DRAWN_MERCS_KEY = 'rehireDrawnMercs';
  * actions, so this free action stands in for it — draw 3, take 1, no cost.
  */
 export function createRehireMercAction(game: MERCGame): ActionDefinition {
-  return Action.create('rehireMerc')
+  return Action.create<MERCGame>('rehireMerc')
     .prompt('Hire a replacement MERC (free)')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -332,7 +332,7 @@ export function createRehireMercAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const playerId = `${player.seat}`;
-      const chosenName = args.selectedMerc as string;
+      const chosenName = args.selectedMerc;
       const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
 
       const ids = getCachedValue<number[]>(game, REHIRE_DRAWN_MERCS_KEY, playerId) ?? [];
@@ -437,7 +437,7 @@ function getPlayerUnitsForExplore(player: unknown, game: MERCGame): CombatantMod
  * so the UI updates immediately after exploration.
  */
 export function createExploreAction(game: MERCGame): ActionDefinition {
-  return Action.create('explore')
+  return Action.create<MERCGame>('explore')
     .prompt('Explore')
     .notUndoable() // Involves randomness (drawing equipment)
     .condition({
@@ -460,7 +460,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       // Get the unit directly from chooseElement
-      const actingUnit = args.actingUnit as CombatantModel;
+      const actingUnit = args.actingUnit;
 
       if (!actingUnit) {
         return { success: false, message: 'Unit not found' };
@@ -597,7 +597,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
     return undefined;
   }
 
-  return Action.create('collectEquipment')
+  return Action.create<MERCGame>('collectEquipment')
     .prompt('Take from stash')
     .condition({
       'triggered via followUp from explore': (ctx) => ctx.args?.sectorId != null,
@@ -740,7 +740,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
     return null;
   }
 
-  return Action.create('takeFromStash')
+  return Action.create<MERCGame>('takeFromStash')
     .prompt('Take equipment from stash')
     .condition({
       'unit just explored': () => !!game.lastExplorer,
@@ -780,7 +780,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const equipmentChoice = args.equipment as string;
+      const equipmentChoice = args.equipment;
 
       // Always clear lastExplorer when this action completes
       const explorer = game.lastExplorer;
@@ -912,7 +912,7 @@ function getPlayerUnitsForTrain(player: unknown, game: MERCGame): CombatantModel
  * Works for both rebel and dictator players.
  */
 export function createTrainAction(game: MERCGame): ActionDefinition {
-  return Action.create('train')
+  return Action.create<MERCGame>('train')
     .prompt('Train')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -937,7 +937,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const unitChoiceStr = args.unit as string;
+      const unitChoiceStr = args.unit;
 
       // Parse string format: "id:name:isDictator"
       const [idStr, , isDictatorStr] = unitChoiceStr.split(':');
@@ -1107,7 +1107,7 @@ function findCitySectorForPlayer(player: unknown, game: MERCGame): Sector | null
  * Works for both mercs and dictator combatants.
  */
 export function createHospitalAction(game: MERCGame): ActionDefinition {
-  return Action.create('hospital')
+  return Action.create<MERCGame>('hospital')
     .prompt('Visit hospital')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -1140,7 +1140,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const unitChoiceStr = args.actingUnit as string;
+      const unitChoiceStr = args.actingUnit;
 
       // Parse string format: "id:name:isDictator"
       const parts = unitChoiceStr.split(':');
@@ -1202,7 +1202,7 @@ function getArmsDealerPlayerId(player: unknown, game: MERCGame): string {
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
-  return Action.create('armsDealer')
+  return Action.create<MERCGame>('armsDealer')
     .prompt('Visit arms dealer')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -1299,7 +1299,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const actingUnitStr = args.actingUnit as string;
+      const actingUnitStr = args.actingUnit;
       const playerId = getArmsDealerPlayerId(ctx.player, game);
       const sector = findCitySectorForPlayer(ctx.player, game);
 
@@ -1341,7 +1341,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId); // Clean up
 
       if (equipment && sector) {
-        const equipUnitStr = args.equipUnit as string;
+        const equipUnitStr = args.equipUnit;
 
         if (equipUnitStr && equipUnitStr !== 'skip') {
           // Parse equip target unit string
@@ -1414,7 +1414,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
  * Works for both rebel and dictator players.
  */
 export function createEndTurnAction(game: MERCGame): ActionDefinition {
-  return Action.create('endTurn')
+  return Action.create<MERCGame>('endTurn')
     .prompt('End turn')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -1500,7 +1500,7 @@ export function createViewStashAction(game: MERCGame): ActionDefinition {
     return choices;
   };
 
-  return Action.create('viewStash')
+  return Action.create<MERCGame>('viewStash')
     .prompt('View sector stash')
     .condition({
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
@@ -1515,7 +1515,7 @@ export function createViewStashAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const sectorId = args.sector as string;
+      const sectorId = args.sector;
       const sector = game.getSector(sectorId);
 
       if (!sector) {

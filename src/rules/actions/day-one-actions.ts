@@ -67,7 +67,7 @@ function ensureMercsDrawn(game: MERCGame, playerId: string): CombatantModel[] {
  * Draw 3 MERCs, player picks 1 to hire, then picks their starting equipment.
  */
 export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
-  return Action.create('hireFirstMerc')
+  return Action.create<MERCGame>('hireFirstMerc')
     .prompt('Hire your first MERC')
     .notUndoable() // Involves randomness (drawing cards)
     .condition({
@@ -119,7 +119,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const chosenMercName = args.merc as string;
+      const chosenMercName = args.merc;
       if (!chosenMercName || chosenMercName === 'No MERCs available') {
         return { success: false, message: 'No MERCs available in deck' };
       }
@@ -165,7 +165,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
  * If Teresa was hired (doesn't count toward limit), a third hire may be available.
  */
 export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
-  return Action.create('hireSecondMerc')
+  return Action.create<MERCGame>('hireSecondMerc')
     .prompt('Hire your second MERC')
     .notUndoable()
     .condition({
@@ -215,7 +215,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERCs available in deck' };
       }
 
-      const chosenMercName = args.merc as string;
+      const chosenMercName = args.merc;
       if (!chosenMercName || chosenMercName === 'No MERCs available' || chosenMercName === 'No compatible MERCs available') {
         return { success: false, message: 'No compatible MERCs available' };
       }
@@ -278,7 +278,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
  * Teresa doesn't count toward team limit, so you can hire an extra MERC.
  */
 export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
-  return Action.create('hireThirdMerc')
+  return Action.create<MERCGame>('hireThirdMerc')
     .prompt('Hire your third MERC (Teresa bonus)')
     .notUndoable()
     .condition({
@@ -326,7 +326,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       const player = asRebelPlayer(ctx.player);
       const playerId = `${player.seat}`;
       const available = getMercsFromCache(game, playerId) || [];
-      const chosenMercName = args.merc as string;
+      const chosenMercName = args.merc;
 
       // Handle skip option
       if (chosenMercName === 'Skip (no third hire)') {
@@ -392,7 +392,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
  * Auto-selects the unequipped MERC (no need to ask - we just hired them).
  */
 export function createEquipStartingAction(game: MERCGame): ActionDefinition {
-  return Action.create('equipStarting')
+  return Action.create<MERCGame>('equipStarting')
     .prompt('Equip starting equipment')
     .notUndoable() // Involves randomness (drawing equipment)
     .condition({
@@ -440,7 +440,7 @@ export function createEquipStartingAction(game: MERCGame): ActionDefinition {
  * Place Landing action for Day 1.
  */
 export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
-  return Action.create('placeLanding')
+  return Action.create<MERCGame>('placeLanding')
     .prompt('Choose your landing zone')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -462,7 +462,7 @@ export function createPlaceLandingAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const sector = asSector(args.sector);
+      const sector = args.sector;
 
       player.primarySquad.sectorId = sector.sectorId;
       game.message(`${player.name} landed at ${sector.sectorName}`);
@@ -487,7 +487,7 @@ export function createPlaceLandingDay1Action(game: MERCGame): ActionDefinition {
  * AI dictators get a random selection during setup, so this is skipped for them.
  */
 export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
-  return Action.create('selectDictator')
+  return Action.create<MERCGame>('selectDictator')
     .prompt('Choose your Dictator')
     .condition({
       'is Day 1': () => game.currentDay === 1,
@@ -503,7 +503,7 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const chosenDictatorName = args.dictatorChoice as string;
+      const chosenDictatorName = args.dictatorChoice;
 
       // Find the dictator by name and set up - filter combatantData for dictator entries
       const dictatorData = game.combatantData.filter(d => d.cardType === 'dictator');
@@ -529,7 +529,7 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
  * For AI dictator: Auto-executes
  */
 export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('dictatorPlaceInitialMilitia')
+  return Action.create<MERCGame>('dictatorPlaceInitialMilitia')
     .prompt('Place initial militia on unoccupied industries')
     .condition({
       'is Day 1': () => game.currentDay === 1,
@@ -577,7 +577,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
     return (isCombatantModel(el) && el.isMerc) ? el : null;
   };
 
-  return Action.create('dictatorHireFirstMerc')
+  return Action.create<MERCGame>('dictatorHireFirstMerc')
     .prompt('Hire your first MERC')
     .condition({
       'is Day 1': () => game.currentDay === 1,
@@ -631,7 +631,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       merc.putInto(game.dictatorPlayer.primarySquad);
 
       // Find target sector and set squad location (merc inherits via computed getter)
-      const sectorName = args.targetSector as string;
+      const sectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
 
       if (targetSector) {
@@ -666,7 +666,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
  * Kim's ability requires a base location to be set before applying
  */
 export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
-  return Action.create('chooseKimBase')
+  return Action.create<MERCGame>('chooseKimBase')
     .prompt("Kim's Ability: Choose your base location")
     .condition({
       'is Day 1': () => game.currentDay === 1,
@@ -691,7 +691,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     .execute((args) => {
-      const baseSector = asSector(args.baseLocation);
+      const baseSector = args.baseLocation;
 
       if (!baseSector) {
         return { success: false, message: 'Invalid base location' };
@@ -727,7 +727,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
  * This is automatic based on which dictator is selected
  */
 export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefinition {
-  return Action.create('dictatorSetupAbility')
+  return Action.create<MERCGame>('dictatorSetupAbility')
     .prompt('Apply dictator special ability')
     .condition({
       'is Day 1': () => game.currentDay === 1,
@@ -750,7 +750,7 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
  * AI plays from deck top, human gets a hand
  */
 export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinition {
-  return Action.create('dictatorDrawTactics')
+  return Action.create<MERCGame>('dictatorDrawTactics')
     .prompt('Draw tactics cards')
     .condition({
       'is Day 1': () => game.currentDay === 1,
@@ -772,7 +772,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
   // Tracks the sector chosen in the current selection so amount choices can cap by capacity
   let selectedSectorName: string | undefined;
 
-  return Action.create('dictatorPlaceExtraMilitia')
+  return Action.create<MERCGame>('dictatorPlaceExtraMilitia')
     .prompt('Place extra militia')
     .condition({
       'is Day 1 with extra militia': () => {
@@ -843,8 +843,8 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
       let remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY) ?? total;
 
-      const targetChoice = args.targetSector as string;
-      const amountChoice = args.amount as string;
+      const targetChoice = args.targetSector;
+      const amountChoice = args.amount;
 
       // Parse amount
       let amount = parseInt(amountChoice, 10);
@@ -891,7 +891,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
  * Skip extra militia placement (when none to place)
  */
 export function createDictatorSkipExtraMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('dictatorSkipExtraMilitia')
+  return Action.create<MERCGame>('dictatorSkipExtraMilitia')
     .prompt('No extra militia to place')
     .condition({
       'is Day 1 with no extra militia': () => game.currentDay === 1 && game.setupConfig.dictatorStrength.extra === 0,
@@ -923,7 +923,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
     return (isCombatantModel(el) && el.isMerc) ? el : null;
   };
 
-  return Action.create('bonusMercSetup')
+  return Action.create<MERCGame>('bonusMercSetup')
     .prompt('Dictator Ability: Choose squad for bonus MERC')
     .notUndoable()
     .condition({
@@ -990,7 +990,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No MERC drawn' };
       }
 
-      const squadChoice = args.targetSquad as string;
+      const squadChoice = args.targetSquad;
       const dictatorName = game.dictatorPlayer.dictator?.combatantName ?? 'Dictator';
 
       // Handle squads full case
@@ -1052,7 +1052,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
  * MERC-xj2: Per AI rules, one Rebel player handles all Dictator actions.
  */
 export function createDesignatePrivacyPlayerAction(game: MERCGame): ActionDefinition {
-  return Action.create('designatePrivacyPlayer')
+  return Action.create<MERCGame>('designatePrivacyPlayer')
     .prompt('Designate Privacy Player')
     .condition({
       'AI dictator needs privacy player': () => game.dictatorPlayer?.isAI && !game.dictatorPlayer.privacyPlayerId,

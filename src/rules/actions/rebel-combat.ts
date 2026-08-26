@@ -24,7 +24,7 @@ const ALL_SQUADS = 'all';
  * Continue fighting in active combat
  */
 export function createCombatContinueAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatContinue')
+  return Action.create<MERCGame>('combatContinue')
     .prompt('Continue fighting')
     .condition({
       'has active combat': () => game.activeCombat !== null,
@@ -87,7 +87,7 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
  * Retreat from active combat
  */
 export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatRetreat')
+  return Action.create<MERCGame>('combatRetreat')
     .prompt('Retreat from combat')
     .condition({
       'has active combat': () => game.activeCombat !== null,
@@ -141,13 +141,13 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
       display: (value: string) => value === ALL_SQUADS ? 'All my squads' : value,
     })
     .execute((args, ctx) => {
-      const retreatSector = args.retreatSector as Sector;
+      const retreatSector = args.retreatSector;
       if (!retreatSector) {
         return { success: false, message: 'No retreat sector provided' };
       }
 
       const player = ctx.player as RebelPlayer | DictatorPlayer;
-      const squadChoice = args.retreatingSquad as string | undefined;
+      const squadChoice = args.retreatingSquad;
       const retreatSquadName = !squadChoice || squadChoice === ALL_SQUADS ? undefined : squadChoice;
 
       if (game.activeCombat?.awaitingRetreatDecisions) {
@@ -184,7 +184,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
  * Uses chooseFrom() with smart resolution - CombatPanel can send element IDs directly
  */
 export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatSelectTarget')
+  return Action.create<MERCGame>('combatSelectTarget')
     .prompt('Select target')
     .condition({
       'player can select targets for this attacker': (ctx) => {
@@ -252,7 +252,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       // args.targets contains string IDs directly (single or array)
       const targetIds = Array.isArray(args.targets)
         ? args.targets as string[]
-        : [args.targets as string];
+        : [args.targets];
 
       if (targetIds.length === 0) {
         return { success: false, message: 'No targets selected' };
@@ -321,7 +321,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
  * When a human-controlled MERC with Attack Dog attacks, they choose which enemy to assign it to
  */
 export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatAssignAttackDog')
+  return Action.create<MERCGame>('combatAssignAttackDog')
     .prompt('Assign Attack Dog')
     .condition({
       'player can assign attack dog for this attacker': (ctx) => {
@@ -374,7 +374,7 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
       }
 
       const pending = game.activeCombat.pendingAttackDogSelection;
-      const targetId = args.target as string;
+      const targetId = args.target;
 
       if (!targetId) {
         return { success: false, message: 'No target selected' };
@@ -522,7 +522,7 @@ function isCombatDecisionPlayer(game: MERCGame, player: unknown, combatantId: st
  * Takes a map of targetId -> number of hits allocated.
  */
 export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatAllocateHits')
+  return Action.create<MERCGame>('combatAllocateHits')
     .prompt('Confirm hit allocation')
     .condition({
       'has pending hit allocation': () => {
@@ -684,7 +684,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
  * Rerolls all dice once per combat (per Basic's ability).
  */
 export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatBasicReroll')
+  return Action.create<MERCGame>('combatBasicReroll')
     .prompt("Use Basic's reroll")
     .condition({
       'has pending hit allocation': () => game.activeCombat?.pendingHitAllocation != null,
@@ -772,7 +772,7 @@ export function createAdelheidToggleConversionAction(game: MERCGame): ActionDefi
     );
   }
 
-  return Action.create('adelheidToggleConversion')
+  return Action.create<MERCGame>('adelheidToggleConversion')
     .prompt('Adelheid: convert or kill militia')
     .condition({
       'has active combat': () => game.activeCombat !== null,
@@ -791,7 +791,7 @@ export function createAdelheidToggleConversionAction(game: MERCGame): ActionDefi
       const combat = game.activeCombat;
       if (!combat) return { success: false, message: 'No active combat' };
 
-      const mode = args.mode as string;
+      const mode = args.mode;
       const ids = adelheidsFor(ctx.player as MERCPlayer).map(c => c.id);
       const current = new Set(combat.adelheidKillsInstead ?? []);
 
@@ -838,7 +838,7 @@ function resumeAfterGolemChoice(game: MERCGame, message: string) {
 }
 
 export function createGolemPreCombatAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('golemPreCombatAttack')
+  return Action.create<MERCGame>('golemPreCombatAttack')
     .prompt('Golem: strike before combat')
     .condition({
       'has pending Golem strike': () => game.activeCombat?.pendingGolemAttack != null,
@@ -855,7 +855,7 @@ export function createGolemPreCombatAttackAction(game: MERCGame): ActionDefiniti
       const pending = game.activeCombat?.pendingGolemAttack;
       if (!pending) return { success: false, message: 'No Golem strike pending' };
 
-      const targetId = (args.target as string).split('::')[1];
+      const targetId = (args.target).split('::')[1];
       if (!game.activeCombat!.selectedTargets) {
         game.activeCombat!.selectedTargets = new Map();
       }
@@ -867,7 +867,7 @@ export function createGolemPreCombatAttackAction(game: MERCGame): ActionDefiniti
 }
 
 export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition {
-  return Action.create('golemSkipPreCombat')
+  return Action.create<MERCGame>('golemSkipPreCombat')
     .prompt('Golem: hold fire')
     .condition({
       'has pending Golem strike': () => game.activeCombat?.pendingGolemAttack != null,
@@ -892,7 +892,7 @@ export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition
  * Called after normal hit allocation when Wolverine rolled 6s.
  */
 export function createCombatAllocateWolverineSixesAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatAllocateWolverineSixes')
+  return Action.create<MERCGame>('combatAllocateWolverineSixes')
     .prompt("Allocate Wolverine's bonus targets")
     .condition({
       'has pending Wolverine sixes': () => game.activeCombat?.pendingWolverineSixes != null,
@@ -919,7 +919,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       const pending = game.activeCombat.pendingWolverineSixes;
       const targetChoices = Array.isArray(args.bonusTargets)
         ? args.bonusTargets as string[]
-        : [args.bonusTargets as string];
+        : [args.bonusTargets];
 
       // Parse target IDs
       const targetIds = targetChoices.map(choice => choice.split('::')[1]);
@@ -969,7 +969,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
  * Cost: 1 combat die (reduces dice rolled this round)
  */
 export function createCombatHealAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatHeal')
+  return Action.create<MERCGame>('combatHeal')
     .prompt('Use Medical Kit')
     .condition({
       'has active combat': () => game.activeCombat != null,
@@ -1038,8 +1038,8 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'No active combat' };
       }
 
-      const healerChoice = args.healer as string;
-      const targetChoice = args.target as string;
+      const healerChoice = args.healer;
+      const targetChoice = args.target;
 
       const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
 
@@ -1159,7 +1159,7 @@ export function createCombatHealAction(game: MERCGame): ActionDefinition {
  * This is triggered when pendingBeforeAttackHealing is set, not at end of round.
  */
 export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatBeforeAttackHeal')
+  return Action.create<MERCGame>('combatBeforeAttackHeal')
     .prompt('Use healing item')
     .condition({
       'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
@@ -1191,8 +1191,8 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
       }
 
       const pending = game.activeCombat.pendingBeforeAttackHealing;
-      const healerChoice = args.healer as string;
-      const targetChoice = args.target as string;
+      const healerChoice = args.healer;
+      const targetChoice = args.target;
 
       // Find the selected healer
       const healerData = pending.availableHealers.find(h =>
@@ -1317,7 +1317,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
  * Skip before-attack healing and proceed to attack
  */
 export function createCombatSkipBeforeAttackHealAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatSkipBeforeAttackHeal')
+  return Action.create<MERCGame>('combatSkipBeforeAttackHeal')
     .prompt('Skip healing')
     .condition({
       'has pending before-attack healing': () => game.activeCombat?.pendingBeforeAttackHealing != null,
@@ -1393,7 +1393,7 @@ function getSurgeonHealTargets(surgeon: Combatant, allies: Combatant[]): Combata
  * For human-controlled Surgeon only - AI Surgeon auto-heals in combat.ts.
  */
 export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatSurgeonHeal')
+  return Action.create<MERCGame>('combatSurgeonHeal')
     .prompt("Surgeon's Heal")
     .condition({
       'has active combat': () => game.activeCombat != null,
@@ -1480,7 +1480,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         return { success: false, message: 'No active combat' };
       }
 
-      const targetChoice = args.target as string;
+      const targetChoice = args.target;
 
       // Find Surgeon and target on the appropriate side
       let surgeonData: { combatant: Combatant; merc: CombatantModel } | null = null;
@@ -1577,7 +1577,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
  * Each rebel allocates hits to their own units in the targeted sector.
  */
 export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinition {
-  return Action.create('artilleryAllocateHits')
+  return Action.create<MERCGame>('artilleryAllocateHits')
     .prompt('Allocate artillery damage')
     .condition({
       'has pending artillery allocation': () => game.pendingArtilleryAllocation != null,
@@ -1729,7 +1729,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
  * MERC-4.9: Any equipped Epinephrine Shot in the squad can prevent death
  */
 export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatUseEpinephrine')
+  return Action.create<MERCGame>('combatUseEpinephrine')
     .prompt('Use Epinephrine Shot')
     .condition({
       'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
@@ -1746,7 +1746,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       },
     })
     .execute((args) => {
-      const saverMerc = args.saverMerc as CombatantModel;
+      const saverMerc = args.saverMerc;
       const pending = game.activeCombat?.pendingEpinephrine;
       if (!pending) {
         return { success: false, message: 'No pending epinephrine choice' };
@@ -1789,7 +1789,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
  * Decline to use epinephrine - let the MERC die
  */
 export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefinition {
-  return Action.create('combatDeclineEpinephrine')
+  return Action.create<MERCGame>('combatDeclineEpinephrine')
     .prompt('Let MERC die')
     .condition({
       'has pending epinephrine choice': () => game.activeCombat?.pendingEpinephrine != null,
@@ -1837,7 +1837,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
  * Only works when combatComplete is true (combat has ended, animations played)
  */
 export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinition {
-  return Action.create('clearCombatAnimations')
+  return Action.create<MERCGame>('clearCombatAnimations')
     .prompt('Clear combat animations')
     .condition({
       'has completed combat': () => game.activeCombat !== null && game.activeCombat.combatComplete === true,
@@ -1856,7 +1856,7 @@ export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinit
  * Called when player confirms their hit allocation in the MortarAttackPanel UI.
  */
 export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition {
-  return Action.create('mortarAllocateHits')
+  return Action.create<MERCGame>('mortarAllocateHits')
     .prompt('Allocate mortar hits')
     .condition({
       'has pending mortar attack': () => game.pendingMortarAttack != null,

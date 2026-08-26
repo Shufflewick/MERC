@@ -72,7 +72,7 @@ function getHealingAmountForItem(equipmentId: string): number {
 // Cards that reveal the dictator's base now use the revealsBase property on TacticsCard
 
 export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
-  return Action.create('playTactics')
+  return Action.create<MERCGame>('playTactics')
     .prompt('Play a tactics card')
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -140,7 +140,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const card = asTacticsCard(args.card);
+      const card = args.card;
       game.message(`Dictator plays: ${card.tacticsName}`);
 
       // Move card to discard
@@ -151,7 +151,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
           card.revealsBase &&
           !game.dictatorPlayer?.baseRevealed &&
           args.baseLocation) {
-        const baseName = args.baseLocation as string;
+        const baseName = args.baseLocation;
         const baseSector = game.gameMap.getAllSectors().find(s => s.sectorName === baseName);
         if (baseSector) {
           game.dictatorPlayer.baseSectorId = baseSector.sectorId;
@@ -196,7 +196,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
  * MERC-5j2: AI uses top card from deck
  */
 export function createReinforceAction(game: MERCGame): ActionDefinition {
-  return Action.create('reinforce')
+  return Action.create<MERCGame>('reinforce')
     .prompt('Reinforce militia')
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -233,8 +233,8 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       boardRef: (element: Sector) => ({ id: asSector(element).id }),
     })
     .execute((args) => {
-      const card = asTacticsCard(args.card);
-      const sector = asSector(args.sector);
+      const card = args.card;
+      const sector = args.sector;
 
       // Calculate reinforcement amount
       const reinforcements = game.getReinforcementAmount();
@@ -300,7 +300,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
   // Settings keys to persist state across choices
   const DRAWN_MERCS_KEY = '_castro_drawn_mercs';
 
-  return Action.create('castroBonusHire')
+  return Action.create<MERCGame>('castroBonusHire')
     .prompt("Castro's Ability: Hire a MERC")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -376,7 +376,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const combatantElementIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
@@ -395,7 +395,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       // Set MERC location from selected sector
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
 
       // Extract sector name (remove militia count suffix if present)
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
@@ -496,7 +496,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
  * Human players choose where to place the militia.
  */
 export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('kimBonusMilitia')
+  return Action.create<MERCGame>('kimBonusMilitia')
     .prompt("Kim's Ability: Place bonus militia")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -527,7 +527,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       }
 
       // Find sector by name (since choices are sector names)
-      const targetSectorName = args.targetSector as string;
+      const targetSectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
       if (!targetSector) {
         return { success: false, message: 'Invalid sector' };
@@ -571,7 +571,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
  * Follows the castroBonusHire pattern closely.
  */
 export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition {
-  return Action.create('generalissimoPick')
+  return Action.create<MERCGame>('generalissimoPick')
     .prompt('Generalissimo: Choose a MERC to hire')
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -631,7 +631,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
     })
     .execute((args, ctx) => {
       const mercIds = game.pendingGeneralissimoHire?.drawnMercIds ?? [];
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!selectedMercName || selectedMercName === 'No MERCs available') {
         // Discard all drawn MERCs and clear state
@@ -657,7 +657,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       }
 
       // Find target sector
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
       const allSectors = game.gameMap.getAllSectors();
       let targetSector = allSectors.find(s => s.sectorName === sectorName);
@@ -758,7 +758,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
  * them one at a time; the AI takes them in map order inside the effect itself.
  */
 export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition {
-  return Action.create('seizureFlipSector')
+  return Action.create<MERCGame>('seizureFlipSector')
     .prompt('Seizure: choose a wilderness sector to flip')
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -779,7 +779,7 @@ export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition 
       const pending = game.pendingSeizureFlips;
       if (!pending) return { success: false, message: 'No pending Seizure' };
 
-      const sector = asSector(args.targetSector);
+      const sector = args.targetSector;
       sector.explore();
       game.message(`Seizure: ${sector.sectorName} is now explored`);
 
@@ -808,7 +808,7 @@ export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition 
  * Human dictator picks sector and amount per iteration until all militia are placed.
  */
 export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('lockdownPlaceMilitia')
+  return Action.create<MERCGame>('lockdownPlaceMilitia')
     .prompt('Lockdown: Place militia on base or adjacent sectors')
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -838,11 +838,11 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
       const pending = game.pendingLockdownMilitia;
       if (!pending) return { success: false, message: 'No pending lockdown militia' };
 
-      const sectorName = args.targetSector as string;
+      const sectorName = args.targetSector;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
       if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
 
-      const requestedAmount = parseInt(args.amount as string, 10);
+      const requestedAmount = parseInt(args.amount, 10);
       if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, message: 'Invalid amount' };
 
       // Enforce actual sector cap: can only place up to (10 - current militia)
@@ -887,7 +887,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
  * Human players choose which wilderness sector and how many per iteration.
  */
 export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('maoBonusMilitia')
+  return Action.create<MERCGame>('maoBonusMilitia')
     .prompt("Mao's Ability: Place militia in wilderness sectors")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -915,11 +915,11 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
       const pending = game.pendingMaoMilitia;
       if (!pending) return { success: false, message: 'No pending Mao militia' };
 
-      const sectorName = args.targetSector as string;
+      const sectorName = args.targetSector;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
       if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
 
-      const requestedAmount = parseInt(args.amount as string, 10);
+      const requestedAmount = parseInt(args.amount, 10);
       if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, message: 'Invalid amount' };
 
       // Enforce actual sector cap: can only place up to (10 - current militia)
@@ -963,7 +963,7 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
  * After placing, sets up pendingMussoliniSpread for the spread loop.
  */
 export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('mussoliniBonusMilitia')
+  return Action.create<MERCGame>('mussoliniBonusMilitia')
     .prompt("Mussolini's Ability: Add militia to a controlled sector")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -986,7 +986,7 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
       },
     })
     .execute((args) => {
-      const sectorName = args.targetSector as string;
+      const sectorName = args.targetSector;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
       if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
 
@@ -1031,7 +1031,7 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
  * Can choose "Done spreading" to skip. Loop continues until done or no militia left.
  */
 export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('mussoliniSpreadMilitia')
+  return Action.create<MERCGame>('mussoliniSpreadMilitia')
     .prompt("Mussolini: Spread militia to adjacent sectors (or skip)")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1069,7 +1069,7 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
       },
     })
     .execute((args) => {
-      const targetSectorName = args.targetSector as string;
+      const targetSectorName = args.targetSector;
 
       // Handle "Done spreading"
       if (targetSectorName === 'Done spreading') {
@@ -1087,7 +1087,7 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
       if (!targetSector) return { success: false, message: `Invalid sector: "${targetSectorName}"` };
 
-      const requestedAmount = parseInt(args.amount as string, 10);
+      const requestedAmount = parseInt(args.amount, 10);
       if (isNaN(requestedAmount) || requestedAmount <= 0) {
         return { success: false, message: 'Invalid amount' };
       }
@@ -1135,7 +1135,7 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
  * Human players choose which rebel-controlled sector to target.
  */
 export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('polpotBonusMilitia')
+  return Action.create<MERCGame>('polpotBonusMilitia')
     .prompt("Pol Pot's Ability: Place militia on a rebel sector")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1171,7 +1171,7 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
       }
 
       // Find sector by name
-      const targetSectorName = args.targetSector as string;
+      const targetSectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
       if (!targetSector) {
         return { success: false, message: `Invalid sector: "${targetSectorName}"` };
@@ -1220,7 +1220,7 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
 export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
   const DRAWN_MERC_KEY = '_polpot_drawn_merc';
 
-  return Action.create('polpotBonusHire')
+  return Action.create<MERCGame>('polpotBonusHire')
     .prompt("Pol Pot: Hire a MERC (combat loss consolation)")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1274,7 +1274,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .execute((args) => {
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -1289,7 +1289,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'MERC not found' };
       }
 
-      const squadChoice = args.targetSquad as string;
+      const squadChoice = args.targetSquad;
       if (squadChoice === 'All squads full') {
         merc.putInto(game.mercDiscard);
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -1344,7 +1344,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
 export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
   const DRAWN_MERC_KEY = '_hitler_drawn_merc';
 
-  return Action.create('hitlerBonusHire')
+  return Action.create<MERCGame>('hitlerBonusHire')
     .prompt("Hitler's Ability: Hire a MERC")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1415,7 +1415,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .execute((args) => {
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -1429,7 +1429,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       // Find target sector
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
       const allSectors = game.gameMap.getAllSectors();
       let targetSector = allSectors.find(s => s.sectorName === sectorName);
@@ -1506,7 +1506,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
  * Human players choose which rebel to target. If only 1 rebel, auto-selects.
  */
 export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDefinition {
-  return Action.create('hitlerPickInitiativeTarget')
+  return Action.create<MERCGame>('hitlerPickInitiativeTarget')
     .prompt("Hitler's Ability: Choose a rebel for auto-initiative")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1528,7 +1528,7 @@ export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDe
     })
     .execute((args) => {
       const rebels = game.rebelPlayers;
-      const selectedLabel = args.targetRebel as string;
+      const selectedLabel = args.targetRebel;
 
       // Find selected rebel by matching label
       const targetRebel = rebels.find(r => {
@@ -1560,7 +1560,7 @@ export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDe
 export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
   const DRAWN_MERC_KEY = '_gadafi_drawn_merc';
 
-  return Action.create('gadafiBonusHire')
+  return Action.create<MERCGame>('gadafiBonusHire')
     .prompt("Gaddafi's Ability: Hire a MERC")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1629,7 +1629,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .execute((args) => {
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -1643,7 +1643,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       // Find target sector
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
       const allSectors = game.gameMap.getAllSectors();
       let targetSector = allSectors.find(s => s.sectorName === sectorName);
@@ -1725,7 +1725,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
 export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
   const DRAWN_MERC_KEY = '_stalin_drawn_merc_primary';
 
-  return Action.create('stalinBonusHire')
+  return Action.create<MERCGame>('stalinBonusHire')
     .prompt("Stalin's Ability: Hire MERCs")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1792,7 +1792,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .execute((args) => {
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -1806,7 +1806,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       // Find target sector
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
       const allSectors = game.gameMap.getAllSectors();
       let targetSector = allSectors.find(s => s.sectorName === sectorName);
@@ -1909,7 +1909,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
  * for clear UX prompting ("Hussein's Ability").
  */
 export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinition {
-  return Action.create('husseinBonusTactics')
+  return Action.create<MERCGame>('husseinBonusTactics')
     .prompt("Hussein's Ability: Play a second tactics card")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -1959,7 +1959,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
       },
     })
     .execute((args) => {
-      const card = asTacticsCard(args.card);
+      const card = args.card;
       game.message(`Hussein plays bonus tactics: ${card.tacticsName}`);
 
       // Move card to discard
@@ -1970,7 +1970,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
           card.revealsBase &&
           !game.dictatorPlayer?.baseRevealed &&
           args.baseLocation) {
-        const baseName = args.baseLocation as string;
+        const baseName = args.baseLocation;
         const baseSector = game.gameMap.getAllSectors().find(s => s.sectorName === baseName);
         if (baseSector) {
           game.dictatorPlayer.baseSectorId = baseSector.sectorId;
@@ -2014,7 +2014,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
  * Identical to reinforce but with Hussein/human checks and distinct action name.
  */
 export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinition {
-  return Action.create('husseinBonusReinforce')
+  return Action.create<MERCGame>('husseinBonusReinforce')
     .prompt("Hussein's Ability: Reinforce instead of playing tactics")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -2045,8 +2045,8 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
       boardRef: (element: Sector) => ({ id: asSector(element).id }),
     })
     .execute((args) => {
-      const card = asTacticsCard(args.card);
-      const sector = asSector(args.sector);
+      const card = args.card;
+      const sector = args.sector;
 
       // Calculate reinforcement amount
       const reinforcements = game.getReinforcementAmount();
@@ -2093,7 +2093,7 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
  * Conversion is automatic (no selection needed), sets up pendingNoriegaConversion.
  */
 export function createNoriegaConvertMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('noriegaConvertMilitia')
+  return Action.create<MERCGame>('noriegaConvertMilitia')
     .prompt("Noriega's Ability: Convert rebel militia")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -2131,7 +2131,7 @@ export function createNoriegaConvertMilitiaAction(game: MERCGame): ActionDefinit
  * Noriega Step 2: Choose a non-rebel sector to place all converted militia.
  */
 export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinition {
-  return Action.create('noriegaPlaceMilitia')
+  return Action.create<MERCGame>('noriegaPlaceMilitia')
     .prompt("Noriega: Choose sector for converted militia")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -2159,7 +2159,7 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
       const pending = game.pendingNoriegaConversion;
       if (!pending) return { success: false, message: 'No pending conversion' };
 
-      const sectorName = args.targetSector as string;
+      const sectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
       if (!targetSector) return { success: false, message: `Invalid sector: "${sectorName}"` };
 
@@ -2190,7 +2190,7 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
 export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
   const DRAWN_MERC_KEY = '_noriega_drawn_merc';
 
-  return Action.create('noriegaBonusHire')
+  return Action.create<MERCGame>('noriegaBonusHire')
     .prompt("Noriega: Hire a MERC (controlling fewer sectors)")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -2266,7 +2266,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
     })
     .execute((args) => {
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -2279,7 +2279,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
         return { success: false, message: 'MERC not found' };
       }
 
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
       const allSectors = game.gameMap.getAllSectors();
       let targetSector = allSectors.find(s => s.sectorName === sectorName);
@@ -2358,7 +2358,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
 export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition {
   const DRAWN_MERC_KEY = '_pinochet_drawn_merc';
 
-  return Action.create('pinochetBonusHire')
+  return Action.create<MERCGame>('pinochetBonusHire')
     .prompt("Pinochet: Hire a MERC (sector loss)")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -2430,7 +2430,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
     })
     .execute((args) => {
       const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc as string;
+      const selectedMercName = args.selectedMerc;
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
@@ -2447,7 +2447,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       }
 
       // Find target sector
-      const targetSectorChoice = args.targetSector as string;
+      const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
       const allSectors = game.gameMap.getAllSectors();
       let targetSector = allSectors.find(s => s.sectorName === sectorName);
@@ -2533,7 +2533,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
   // Closure variable to store selected equipment index between selection steps
   let selectedItemIndex = -1;
 
-  return Action.create('gaddafiLootEquipment')
+  return Action.create<MERCGame>('gaddafiLootEquipment')
     .prompt("Gaddafi's Ability: Equip looted equipment on a MERC")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
@@ -2611,7 +2611,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
       },
     })
     .execute((args) => {
-      const itemIndex = parseInt((args.equipment as string).split(':')[0], 10);
+      const itemIndex = parseInt((args.equipment).split(':')[0], 10);
       if (!game._gaddafiLootableEquipment || isNaN(itemIndex)) {
         return { success: false, message: 'Invalid equipment selection' };
       }
@@ -2628,7 +2628,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
         return { success: false, message: 'Equipment no longer available' };
       }
 
-      const recipient = args.recipient as CombatantModel;
+      const recipient = args.recipient;
       if (!recipient) {
         return { success: false, message: 'No recipient selected' };
       }
@@ -2651,7 +2651,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
  * Clears the staging field so the loot loop exits.
  */
 export function createGaddafiDiscardLootAction(game: MERCGame): ActionDefinition {
-  return Action.create('gaddafiDiscardLoot')
+  return Action.create<MERCGame>('gaddafiDiscardLoot')
     .prompt("Decline remaining loot")
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),

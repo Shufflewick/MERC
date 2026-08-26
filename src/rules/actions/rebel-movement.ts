@@ -206,7 +206,7 @@ function describeRide(ride: VehicleRide): string {
  * action per MERC as an ordinary move costs.
  */
 export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
-  return Action.create('vehicleMove')
+  return Action.create<MERCGame>('vehicleMove')
     .prompt('Move by vehicle')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -257,7 +257,7 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
         .find(r => describeRide(r) === args.vehicle);
       if (!ride) return { success: false, message: 'That vehicle is no longer available.' };
 
-      const destination = asSector(args.destination);
+      const destination = args.destination;
       const fromSectorId = ride.squad.sectorId;
       const sourceSector = fromSectorId ? game.getSector(fromSectorId) : undefined;
       if (!sourceSector) return { success: false, message: 'The squad is not on the map.' };
@@ -354,7 +354,7 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
  * Works for both rebel and dictator players.
  */
 export function createMoveAction(game: MERCGame): ActionDefinition {
-  return Action.create('move')
+  return Action.create<MERCGame>('move')
     .prompt('Move')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
@@ -437,8 +437,8 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       display: (n: number) => n === 0 ? 'None' : `${n} militia`,
     })
     .execute((args, ctx) => {
-      const squad = asSquad(args.squad);
-      const destination = asSector(args.destination);
+      const squad = args.squad;
+      const destination = args.destination;
       const sourceSector = game.getSector(squad.sectorId!);
       const isRebel = game.isRebelPlayer(ctx.player);
       const fromSectorId = squad.sectorId;
@@ -546,7 +546,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
  * Cost: 1 action per MERC in both squads
  */
 export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('coordinatedAttack')
+  return Action.create<MERCGame>('coordinatedAttack')
     .prompt('Coordinated attack (both squads)')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -606,7 +606,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const target = asSector(args.target);
+      const target = args.target;
       const primaryFromSectorId = player.primarySquad.sectorId;
       const secondaryFromSectorId = player.secondarySquad.sectorId;
 
@@ -664,7 +664,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
  * Cost: Free (action spent when attack executes)
  */
 export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('declareMultiPlayerAttack')
+  return Action.create<MERCGame>('declareMultiPlayerAttack')
     .prompt('Declare multi-player coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -735,8 +735,8 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const squad = asSquad(args.squad);
-      const target = asSector(args.target);
+      const squad = args.squad;
+      const target = args.target;
       const squadType = squad.name === player.primarySquadRef ? 'primary' : 'secondary';
 
       game.initCoordinatedAttack(target.sectorId, player.seat, squadType);
@@ -758,7 +758,7 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
  * Used during the simultaneousActionStep — player commits one of their eligible squads.
  */
 export function createCommitSquadToCoordinatedAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('commitSquadToCoordinatedAttack')
+  return Action.create<MERCGame>('commitSquadToCoordinatedAttack')
     .prompt('Commit squad to coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -797,7 +797,7 @@ export function createCommitSquadToCoordinatedAttackAction(game: MERCGame): Acti
  * Used during the simultaneousActionStep — player declines to participate.
  */
 export function createDeclineCoordinatedAttackAction(game: MERCGame): ActionDefinition {
-  return Action.create('declineCoordinatedAttack')
+  return Action.create<MERCGame>('declineCoordinatedAttack')
     .prompt('Decline coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -1015,7 +1015,7 @@ function getCombatantName(combatant: CombatantModel): string {
  * Works for both rebel and dictator players.
  */
 export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
-  return Action.create('assignToSquad')
+  return Action.create<MERCGame>('assignToSquad')
     .prompt('Assign to squad')
     .condition({
       // Rulebook p.3: "you can break off a secondary squad at any time, including
@@ -1050,8 +1050,8 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args, ctx) => {
-      const combatantName = args.combatantName as string;
-      const targetSquadLabel = args.targetSquad as string;
+      const combatantName = args.combatantName;
+      const targetSquadLabel = args.targetSquad;
 
       // Parse target squad type from label
       let targetType: TargetSquadType;
