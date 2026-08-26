@@ -1,0 +1,9 @@
+{
+  // `three` reaches this project through the vendored engine: importing
+  // `boardsmith/ui/dice` (DiceRollDisplay.vue) pulls in Die3D.vue, which does
+  // `import * as THREE from 'three'`. BoardSmith does not declare three
+  // itself, so MERC must, and fallow cannot follow the import across the
+  // vendored package boundary. Without this entry every commit that touches
+  // package.json is blocked on a dependency that is genuinely in use.
+  "ignoreDependencies": ["three"]
+}
