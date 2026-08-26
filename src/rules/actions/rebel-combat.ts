@@ -7,7 +7,7 @@
  */
 
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
-import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
+import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatAttacker, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
@@ -33,6 +33,7 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
       'no pending attack dog selection': () => game.activeCombat?.pendingAttackDogSelection === undefined,
       'no pending wolverine sixes': () => game.activeCombat?.pendingWolverineSixes === undefined,
       'no pending epinephrine': () => game.activeCombat?.pendingEpinephrine === undefined,
+      'no pending Golem strike': () => game.activeCombat?.pendingGolemAttack === undefined,
     })
     .execute((_, ctx) => {
       if (!game.activeCombat) {
@@ -95,6 +96,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
       'no pending attack dog selection': () => game.activeCombat?.pendingAttackDogSelection === undefined,
       'no pending wolverine sixes': () => game.activeCombat?.pendingWolverineSixes === undefined,
       'no pending epinephrine': () => game.activeCombat?.pendingEpinephrine === undefined,
+      'no pending Golem strike': () => game.activeCombat?.pendingGolemAttack === undefined,
       'current player can retreat': (ctx) => {
         if (!game.activeCombat) return false;
         // Must be a rebel or dictator player
@@ -744,6 +746,144 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
           newHits,
         },
       };
+    });
+}
+
+/**
+ * Adelheid: "Each hit targeting militia can convert the militia to her side
+ * rather than killing it."
+ *
+ * A per-combat toggle rather than a prompt per kill: the choice only matters in
+ * bulk (a sector already at the 10-militia cap gains nothing from converting).
+ */
+export function createAdelheidToggleConversionAction(game: MERCGame): ActionDefinition {
+  function adelheidsFor(player: MERCPlayer): Combatant[] {
+    const combat = game.activeCombat;
+    if (!combat) return [];
+    const side = (game.isDictatorPlayer(player)
+      ? combat.dictatorCombatants
+      : combat.rebelCombatants) as Combatant[];
+    return side.filter(c =>
+      c.sourceElement?.isMerc &&
+      c.sourceElement.combatantId === 'adelheid' &&
+      c.health > 0 &&
+      (game.isDictatorPlayer(player) ||
+        (player as RebelPlayer).team.some(m => m.id === c.sourceElement!.id))
+    );
+  }
+
+  return Action.create('adelheidToggleConversion')
+    .prompt('Adelheid: convert or kill militia')
+    .condition({
+      'has active combat': () => game.activeCombat !== null,
+      'controls Adelheid in this combat': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        return adelheidsFor(ctx.player as MERCPlayer).length > 0;
+      },
+    })
+    .chooseFrom('mode', {
+      prompt: 'What should Adelheid do to militia she kills?',
+      choices: () => ['convert', 'kill'],
+      display: (value: string) =>
+        value === 'convert' ? 'Convert them to her side' : 'Kill them outright',
+    })
+    .execute((args, ctx) => {
+      const combat = game.activeCombat;
+      if (!combat) return { success: false, message: 'No active combat' };
+
+      const mode = args.mode as string;
+      const ids = adelheidsFor(ctx.player as MERCPlayer).map(c => c.id);
+      const current = new Set(combat.adelheidKillsInstead ?? []);
+
+      for (const id of ids) {
+        if (mode === 'kill') current.add(id);
+        else current.delete(id);
+      }
+      combat.adelheidKillsInstead = [...current];
+
+      game.message(
+        mode === 'kill'
+          ? 'Adelheid will kill militia rather than convert them.'
+          : 'Adelheid will convert the militia she kills.'
+      );
+      return { success: true, message: `Adelheid set to ${mode}` };
+    });
+}
+
+/**
+ * Golem: "May attack any 1 target before the first round of combat."
+ *
+ * Two actions, because the ability is optional: pick a target, or decline.
+ */
+function resumeAfterGolemChoice(game: MERCGame, message: string) {
+  const sector = game.getSector(game.activeCombat!.sectorId);
+  if (!sector) {
+    return { success: false as const, message: 'Combat sector not found' };
+  }
+
+  const player = resolveActiveCombatAttacker(game);
+  if (!player) {
+    return {
+      success: false as const,
+      message: `Cannot continue combat: no player holds seat ${game.activeCombat!.attackingPlayerId}.`,
+    };
+  }
+
+  const outcome = executeCombat(game, sector, player);
+  return {
+    success: true as const,
+    message,
+    data: { combatPending: outcome.combatPending },
+  };
+}
+
+export function createGolemPreCombatAttackAction(game: MERCGame): ActionDefinition {
+  return Action.create('golemPreCombatAttack')
+    .prompt('Golem: strike before combat')
+    .condition({
+      'has pending Golem strike': () => game.activeCombat?.pendingGolemAttack != null,
+    })
+    .chooseFrom('target', {
+      prompt: 'Choose Golem\'s pre-combat target',
+      choices: () => {
+        const pending = game.activeCombat?.pendingGolemAttack;
+        if (!pending) return [];
+        return pending.validTargets.map(t => `${t.name}::${t.id}`);
+      },
+    })
+    .execute((args) => {
+      const pending = game.activeCombat?.pendingGolemAttack;
+      if (!pending) return { success: false, message: 'No Golem strike pending' };
+
+      const targetId = (args.target as string).split('::')[1];
+      if (!game.activeCombat!.selectedTargets) {
+        game.activeCombat!.selectedTargets = new Map();
+      }
+      game.activeCombat!.selectedTargets.set(`golem:${pending.golemId}`, [targetId]);
+      game.activeCombat!.pendingGolemAttack = undefined;
+
+      return resumeAfterGolemChoice(game, `${pending.golemName} strikes`);
+    });
+}
+
+export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition {
+  return Action.create('golemSkipPreCombat')
+    .prompt('Golem: hold fire')
+    .condition({
+      'has pending Golem strike': () => game.activeCombat?.pendingGolemAttack != null,
+    })
+    .execute(() => {
+      const pending = game.activeCombat?.pendingGolemAttack;
+      if (!pending) return { success: false, message: 'No Golem strike pending' };
+
+      if (!game.activeCombat!.selectedTargets) {
+        game.activeCombat!.selectedTargets = new Map();
+      }
+      // An empty target id records "declined".
+      game.activeCombat!.selectedTargets.set(`golem:${pending.golemId}`, ['']);
+      game.activeCombat!.pendingGolemAttack = undefined;
+
+      return resumeAfterGolemChoice(game, `${pending.golemName} holds fire`);
     });
 }
 

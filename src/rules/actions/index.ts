@@ -58,6 +58,9 @@ import {
   createCombatAllocateHitsAction,
   createCombatBasicRerollAction,
   createCombatAllocateWolverineSixesAction,
+  createAdelheidToggleConversionAction,
+  createGolemPreCombatAttackAction,
+  createGolemSkipPreCombatAction,
   createArtilleryAllocateHitsAction,
   createCombatUseEpinephrineAction,
   createCombatDeclineEpinephrineAction,
@@ -189,6 +192,9 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createCombatAllocateHitsAction(game));
   game.registerAction(createCombatBasicRerollAction(game));
   game.registerAction(createCombatAllocateWolverineSixesAction(game));
+  game.registerAction(createAdelheidToggleConversionAction(game)); // Adelheid: convert or kill militia
+  game.registerAction(createGolemPreCombatAttackAction(game)); // Golem: optional pre-combat strike
+  game.registerAction(createGolemSkipPreCombatAction(game));
 
   // MERC-4.9: Epinephrine Shot player choice
   game.registerAction(createCombatUseEpinephrineAction(game));

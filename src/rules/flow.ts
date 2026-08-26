@@ -164,6 +164,26 @@ function getEpinephrineDecisionPlayer(game: MERCGame, fallback: Player): Player 
  * @param game - The game instance
  * @param prefix - Loop name prefix for uniqueness (e.g., 'combat', 'tactics-combat')
  */
+/**
+ * Whoever controls the Golem awaiting his pre-combat strike.
+ */
+function getGolemDecisionPlayer(game: MERCGame, fallback: Player): Player {
+  const pending = game.activeCombat?.pendingGolemAttack;
+  if (!pending) return fallback;
+
+  const golem = [
+    ...(game.activeCombat?.rebelCombatants ?? []),
+    ...(game.activeCombat?.dictatorCombatants ?? []),
+  ].find((c: any) => c.id === pending.golemId) as any;
+  if (!golem) return fallback;
+
+  if (golem.isDictatorSide) return game.dictatorPlayer ?? fallback;
+
+  const merc = golem.sourceElement;
+  if (!merc) return fallback;
+  return game.rebelPlayers.find(r => r.team.some(m => m.id === merc.id)) ?? fallback;
+}
+
 function combatResolutionFlow(game: MERCGame, prefix: string) {
   return sequence(
     // 1. Before-attack healing - "On your initiative, before your attack, discard dice to heal"
@@ -234,6 +254,19 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }),
     }),
 
+    // 4b. Golem's optional pre-combat strike
+    loop({
+      name: `${prefix}-golem-strike`,
+      while: () => game.activeCombat?.pendingGolemAttack != null && !game.isFinished(),
+      maxIterations: 10,
+      do: actionStep({
+        name: 'golem-pre-combat',
+        player: (ctx) => getGolemDecisionPlayer(game, ctx.player!),
+        actions: ['golemPreCombatAttack', 'golemSkipPreCombat'],
+        skipIf: () => game.isFinished() || game.activeCombat?.pendingGolemAttack == null,
+      }),
+    }),
+
     // 5. Wolverine 6s allocation loop
     loop({
       name: `${prefix}-wolverine-sixes`,
@@ -272,11 +305,12 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                   game.activeCombat.pendingHitAllocation == null &&
                   game.activeCombat.pendingWolverineSixes == null &&
                   game.activeCombat.pendingEpinephrine == null &&
+                  game.activeCombat.pendingGolemAttack == null &&
                   !game.isFinished(),
       maxIterations: 50,
       do: actionStep({
         name: 'combat-continue',
-        actions: ['combatContinue'],
+        actions: ['combatContinue', 'adelheidToggleConversion'],
         skipIf: () => game.isFinished() || game.activeCombat === null ||
                       game.activeCombat.combatComplete ||
                       game.activeCombat.awaitingRetreatDecisions ||
@@ -285,7 +319,8 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                       game.activeCombat.pendingTargetSelection != null ||
                       game.activeCombat.pendingHitAllocation != null ||
                       game.activeCombat.pendingWolverineSixes != null ||
-                      game.activeCombat.pendingEpinephrine != null,
+                      game.activeCombat.pendingEpinephrine != null ||
+                      game.activeCombat.pendingGolemAttack != null,
       }),
     }),
 
@@ -301,6 +336,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                   game.activeCombat.pendingHitAllocation == null &&
                   game.activeCombat.pendingWolverineSixes == null &&
                   game.activeCombat.pendingEpinephrine == null &&
+                  game.activeCombat.pendingGolemAttack == null &&
                   !game.isFinished(),
       maxIterations: 50,
       do: sequence(
@@ -314,7 +350,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
           players: () => getCombatDecisionParticipants(game),
           // assignToSquad is offered here so a player can break off a squad
           // before deciding who retreats (rulebook p.3, "Squads").
-          actions: ['combatContinue', 'combatRetreat', 'assignToSquad'],
+          actions: ['combatContinue', 'combatRetreat', 'assignToSquad', 'adelheidToggleConversion'],
           playerDone: (_ctx, player) => {
             return game.activeCombat?.retreatDecisions?.[`${player.seat}`] !== undefined;
           },
@@ -327,6 +363,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                         game.activeCombat.pendingHitAllocation != null ||
                         game.activeCombat.pendingWolverineSixes != null ||
                         game.activeCombat.pendingEpinephrine != null ||
+                        game.activeCombat.pendingGolemAttack != null ||
                         getCombatDecisionParticipants(game).every(p =>
                           game.activeCombat?.retreatDecisions?.[`${p.seat}`] !== undefined),
         }),

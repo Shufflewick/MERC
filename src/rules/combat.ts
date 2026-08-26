@@ -14,7 +14,7 @@
  * 8. Check for retreat opportunities
  */
 
-import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
+import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from './game.js';
 import { Sector, Militia, CombatantModel, Equipment } from './elements.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
@@ -470,6 +470,10 @@ function convertMilitiaOnKill(
 ): boolean {
   if (!isAdelheid(attacker) || !target.isMilitia) return false;
 
+  // The card says "can convert ... rather than killing it", so the controlling
+  // player may choose to kill instead (the 10-militia sector cap makes that real).
+  if (game.activeCombat?.adelheidKillsInstead?.includes(attacker.id)) return false;
+
   const attackerIsDictator = attacker.isDictatorSide;
   let ownerId: string | undefined;
   let playerColor: string | undefined;
@@ -633,30 +637,80 @@ export function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void 
 }
 
 /**
- * MERC-b9p4: Execute Golem's pre-combat attack
- * Golem may attack any 1 target before the first round of combat
+ * Who controls this combatant, or null when nobody does (militia have owners,
+ * dogs do not).
+ */
+function getControllingPlayer(game: MERCGame, combatant: Combatant): MERCPlayer | null {
+  if (combatant.isDictatorSide) return game.dictatorPlayer ?? null;
+  const merc = combatant.sourceElement;
+  if (!merc) return null;
+  return game.rebelPlayers.find(r => r.team.some(m => m.id === merc.id)) ?? null;
+}
+
+/**
+ * MERC-b9p4: Golem — "May attack any 1 target before the first round of combat."
+ *
+ * The ability is optional and the target is the player's to pick, so a
+ * human-controlled Golem pauses for a choice (or a decline). The AI fires
+ * automatically at its highest-priority target.
+ *
+ * Returns true when combat must pause for a player decision.
  */
 function executeGolemPreCombat(
   game: MERCGame,
   rebels: Combatant[],
-  dictatorSide: Combatant[]
-): void {
-  const allCombatants = [...rebels, ...dictatorSide];
-  const golems = allCombatants.filter(c => isGolem(c) && c.health > 0);
+  dictatorSide: Combatant[],
+  interactive: boolean
+): boolean {
+  const golems = [...rebels, ...dictatorSide].filter(c => isGolem(c) && c.health > 0);
+  const resolved = game.activeCombat?.golemResolved ?? [];
 
   for (const golem of golems) {
+    if (resolved.includes(golem.id)) continue;
+
     const enemies = golem.isDictatorSide ? rebels : dictatorSide;
-    const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
+    const eligible = getEligibleTargets(golem, enemies).filter(e => !e.isAttackDog);
+    if (eligible.length === 0) {
+      markGolemResolved(game, golem.id);
+      continue;
+    }
 
-    if (aliveEnemies.length === 0) continue;
+    const choiceKey = `golem:${golem.id}`;
+    const chosenId = game.activeCombat?.selectedTargets?.get(choiceKey)?.[0];
+    const owner = getControllingPlayer(game, golem);
+    const isHumanControlled = !!owner && !owner.isAI;
 
-    // Select target (use AI targeting)
-    const target = sortTargetsByAIPriority(aliveEnemies, game.random)[0];
+    let target: Combatant | undefined;
+    if (chosenId !== undefined) {
+      game.activeCombat?.selectedTargets?.delete(choiceKey);
+      // An empty string records "declined".
+      target = chosenId === '' ? undefined : eligible.find(e => e.id === chosenId);
+    } else if (isHumanControlled && interactive && game.activeCombat) {
+      game.activeCombat.pendingGolemAttack = {
+        golemId: golem.id,
+        golemName: capitalize(golem.name),
+        validTargets: eligible.map(t => ({
+          id: t.id,
+          name: t.name,
+          isMerc: !t.isMilitia && !t.isDictator,
+          currentHealth: t.health,
+          maxHealth: t.maxHealth,
+        })),
+      };
+      return true;
+    } else {
+      target = sortTargetsByAIPriority(eligible, game.random)[0];
+    }
+
+    markGolemResolved(game, golem.id);
+    if (!target) {
+      game.message(`${golem.name} holds his pre-combat strike.`);
+      continue;
+    }
 
     game.message(`${golem.name} strikes before combat begins!`);
     game.message(`${golem.name} targets: ${target.name}`);
 
-    // Roll dice for pre-combat attack
     const rolls = rollDice(golem.combat, game);
     const hits = countHitsForCombatant(rolls, golem, game);
     game.message(`${golem.name} rolls [${rolls.join(', ')}] - ${hits} hit(s)`);
@@ -669,6 +723,16 @@ function executeGolemPreCombat(
         game.message(`${golem.name} hits ${target.name} for ${damage} damage`);
       }
     }
+  }
+
+  return false;
+}
+
+function markGolemResolved(game: MERCGame, golemId: string): void {
+  if (!game.activeCombat) return;
+  const resolved = game.activeCombat.golemResolved ?? [];
+  if (!resolved.includes(golemId)) {
+    game.activeCombat.golemResolved = [...resolved, golemId];
   }
 }
 
@@ -1696,6 +1760,7 @@ interface CombatRoundResult {
   currentAttackerIndex?: number;
   // Pause for Epinephrine choice
   pausedForEpinephrine?: boolean;
+  pausedForGolemAttack?: boolean;
   // Pause for before-attack healing decision (Medical Kit, First Aid Kit, Surgeon)
   pausedForBeforeAttackHealing?: {
     attackerId: string;
@@ -1755,8 +1820,16 @@ function executeCombatRound(
       }
     }
 
-    // MERC-cm0: Apply Haarg's comparative bonus (must be after refresh, before sorting)
-    // Haarg compares to ALL combatants per rules, not just squad (unlike card display)
+    // MERC-b9p4: Golem strikes before the round is set up. This runs first
+    // because it can pause for a human choice, and the one-shot bonuses below
+    // must not be applied twice when combat resumes.
+    if (executeGolemPreCombat(game, rebels, dictatorSide, interactive)) {
+      return {
+        round: { roundNumber, results: [...partialResults], casualties: [...partialCasualties] },
+        complete: false,
+        pausedForGolemAttack: true,
+      };
+    }
 
     // Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
     applyEnemyDebuffs(rebels, dictatorSide);
@@ -1767,9 +1840,6 @@ function executeCombatRound(
 
     // MERC-ml7: Apply Khenn's random initiative (must be before sorting)
     applyKhennInitiative([...rebels, ...dictatorSide], game);
-
-    // MERC-b9p4: Execute Golem's pre-combat attack (before first round)
-    executeGolemPreCombat(game, rebels, dictatorSide);
 
     allCombatants = sortByInitiative([...rebels, ...dictatorSide], game);
   } else if (roundInitiativeOrder) {
@@ -3149,6 +3219,41 @@ export function executeCombat(
     }
 
     // Check if round paused for epinephrine decision
+    // Golem's optional pre-combat strike, awaiting the controlling player's choice.
+    if (!roundResult.complete && roundResult.pausedForGolemAttack) {
+      game.activeCombat = {
+        ...game.activeCombat!,
+        sectorId: sector.sectorId,
+        attackingPlayerId,
+        attackingPlayerIsRebel,
+        round,
+        rebelCombatants: rebels,
+        dictatorCombatants: dictator,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        dogAssignments: Array.from(dogState.assignments.entries()),
+        dogs: dogState.dogs,
+        selectedTargets: playerSelectedTargets,
+        selectedDogTargets: playerSelectedDogTargets,
+        currentAttackerIndex: 0,
+        awaitingRetreatDecisions: false,
+      };
+
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
+      game.message(`${game.activeCombat.pendingGolemAttack?.golemName} may strike before combat begins.`);
+
+      return {
+        rounds,
+        rebelVictory: false,
+        dictatorVictory: false,
+        rebelCasualties: allRebelCasualties,
+        dictatorCasualties: allDictatorCasualties,
+        retreated: false,
+        combatPending: true,
+        canRetreat: false,
+      };
+    }
+
     if (!roundResult.complete && roundResult.pausedForEpinephrine) {
       // pendingEpinephrine is already set on game.activeCombat by executeCombatRound
       // Save the rest of combat state for resuming

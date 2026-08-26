@@ -529,6 +529,24 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         maxHealth: number;
       }>;
     };
+    // Golem: "May attack any 1 target before the first round of combat."
+    // Optional, so a human-controlled Golem is asked rather than auto-fired.
+    pendingGolemAttack?: {
+      golemId: string;
+      golemName: string;
+      validTargets: Array<{
+        id: string;
+        name: string;
+        isMerc: boolean;
+        currentHealth: number;
+        maxHealth: number;
+      }>;
+    };
+    // Adelheid: "Each hit targeting militia can convert the militia to her side
+    // rather than killing it." Per-combat, per-Adelheid toggle; convert by default.
+    adelheidKillsInstead?: string[];
+    // Golem ids whose pre-combat choice has already been made this combat.
+    golemResolved?: string[];
     // Epinephrine Shot choice - pause when a MERC takes lethal damage
     pendingEpinephrine?: {
       dyingCombatantId: number;
