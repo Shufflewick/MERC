@@ -1278,29 +1278,65 @@ function isRizen(combatant: Combatant): boolean {
 }
 
 /**
- * MERC-t5k: Get valid targets that a rebel attacker can select
- * This is used to present choices to the player for target selection
+ * The targets an attacker is allowed to declare.
+ *
+ * One list for everyone: the human pause path and AI auto-selection both read
+ * this, so a card's targeting restrictions cannot differ by who is holding it.
+ * Applies, in order:
+ *   - only living enemies
+ *   - Runde ("targeted last"): skipped while anyone else is available
+ *   - Buzzkill ("Always attacks enemy MERCs instead of militia when possible"):
+ *     militia and attack dogs drop out while an enemy MERC stands
+ *   - the dictator is protected until his other units are gone
+ */
+export function getEligibleTargets(attacker: Combatant, enemies: Combatant[]): Combatant[] {
+  const alive = enemies.filter(e => e.health > 0);
+
+  // Runde is targeted last: only offered when nothing else is.
+  const nonTargetedLast = alive.filter(t => {
+    const combatantId = getCombatantId(t);
+    return !combatantId || !isTargetedLast(combatantId);
+  });
+  let eligible = nonTargetedLast.length > 0 ? nonTargetedLast : alive;
+
+  // MERC-2se: Buzzkill's restriction is mandatory ("Always"), not a preference.
+  if (isBuzzkill(attacker)) {
+    const mercs = eligible.filter(e => !e.isMilitia && !e.isAttackDog);
+    if (mercs.length > 0) eligible = mercs;
+  }
+
+  if (!canTargetDictator(eligible)) {
+    eligible = eligible.filter(e => !e.isDictator);
+  }
+
+  return eligible;
+}
+
+/**
+ * MERC-dz0: Rizen — "each hit counts as a new target when attacking militia",
+ * so every eligible militia joins whatever he declared.
+ */
+function withRizenMilitia(
+  attacker: Combatant,
+  declared: Combatant[],
+  eligible: Combatant[]
+): Combatant[] {
+  if (!isRizen(attacker)) return declared;
+  const extraMilitia = eligible.filter(
+    e => e.isMilitia && !declared.some(d => d.id === e.id)
+  );
+  return [...declared, ...extraMilitia];
+}
+
+/**
+ * MERC-t5k: Get valid targets that an attacker can select.
+ * Presented to the player during the target-selection pause.
  */
 export function getValidTargetsForPlayer(
   attacker: Combatant,
   enemies: Combatant[]
 ): Combatant[] {
-  const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
-
-  // Filter out "targeted last" MERCs (Runde) if other targets exist
-  const nonTargetedLast = aliveEnemies.filter(t => {
-    const combatantId = getCombatantId(t);
-    return !combatantId || !isTargetedLast(combatantId);
-  });
-
-  // Only include "targeted last" MERCs if no other targets available
-  const validTargets = nonTargetedLast.length > 0 ? nonTargetedLast : aliveEnemies;
-
-  // Check dictator protection rule
-  const canHitDictator = canTargetDictator(validTargets);
-  return canHitDictator
-    ? validTargets
-    : validTargets.filter(e => !e.isDictator);
+  return getEligibleTargets(attacker, enemies);
 }
 
 /**
@@ -1316,9 +1352,11 @@ function selectTargetsWithPlayerChoice(
   // If player has selected targets, use those (for both rebels and human dictator)
   // The check for human control is done upstream when deciding to pause for selection
   if (selectedTargetIds && selectedTargetIds.length > 0) {
-    const selectedTargets = enemies.filter(e => selectedTargetIds.includes(e.id) && e.health > 0);
-    // Ensure we don't exceed maxTargets
-    return selectedTargets.slice(0, maxTargets);
+    const eligible = getEligibleTargets(attacker, enemies);
+    const selected = eligible
+      .filter(e => selectedTargetIds.includes(e.id))
+      .slice(0, maxTargets);
+    return withRizenMilitia(attacker, selected, eligible);
   }
 
   // Fall back to automatic selection
@@ -1339,50 +1377,9 @@ function selectTargets(
   maxTargets: number,
   game: MERCGame
 ): Combatant[] {
-  const aliveEnemies = enemies.filter(e => e.health > 0);
-
-  // Filter out "targeted last" MERCs (Runde) if other targets exist
-  // This must be applied before any special targeting logic
-  const nonTargetedLast = aliveEnemies.filter(t => {
-    const combatantId = getCombatantId(t);
-    return !combatantId || !isTargetedLast(combatantId);
-  });
-  const validEnemies = nonTargetedLast.length > 0 ? nonTargetedLast : aliveEnemies;
-
-  // MERC-dz0: Rizen can target ALL militia with his attack
-  // Per rules: "each hit counts as a new target when attacking militia"
-  if (isRizen(attacker)) {
-    const militia = validEnemies.filter(e => e.isMilitia);
-    const nonMilitia = validEnemies.filter(e => !e.isMilitia);
-    // Rizen targets all militia plus normal targets for non-militia
-    const rizenTargets = [...militia, ...nonMilitia.slice(0, maxTargets)];
-    return rizenTargets;
-  }
-
-  // MERC-2se: Buzzkill always attacks enemy MERCs instead of militia when possible
-  if (isBuzzkill(attacker)) {
-    const mercs = validEnemies.filter(e => !e.isMilitia && !e.isAttackDog);
-    const militia = validEnemies.filter(e => e.isMilitia || e.isAttackDog);
-    // Prioritize MERCs, then militia
-    const buzzkillTargets = [...mercs, ...militia].slice(0, maxTargets);
-    return buzzkillTargets;
-  }
-
-  // If attacker is rebel and dictator is present, check protection rule
-  if (!attacker.isDictatorSide) {
-    const canHitDictator = canTargetDictator(validEnemies);
-    const validTargets = canHitDictator
-      ? validEnemies
-      : validEnemies.filter(e => !e.isDictator);
-
-    // MERC-fix: AI rebels also use priority targeting (lowest health+armor first)
-    const prioritized = sortTargetsByAIPriority(validTargets, game.random);
-    return prioritized.slice(0, maxTargets);
-  }
-
-  // MERC-0q8: Dictator AI uses priority targeting
-  const prioritized = sortTargetsByAIPriority(validEnemies, game.random);
-  return prioritized.slice(0, maxTargets);
+  const eligible = getEligibleTargets(attacker, enemies);
+  const prioritized = sortTargetsByAIPriority(eligible, game.random);
+  return withRizenMilitia(attacker, prioritized.slice(0, maxTargets), eligible);
 }
 
 /**
@@ -1818,19 +1815,14 @@ function executeCombatRound(
       const batch = getMilitiaBatch(allCombatants, i);
       if (batch && batch.militia.length > 0) {
         const enemies = attacker.isDictatorSide ? rebels : dictatorSide;
-        const aliveEnemies = enemies.filter(e => e.health > 0 && !e.isAttackDog);
 
-        if (aliveEnemies.length === 0) {
+        // Same eligibility rules as every other attacker (Runde, dictator protection).
+        const validEnemies = getEligibleTargets(attacker, enemies).filter(e => !e.isAttackDog);
+
+        if (validEnemies.length === 0) {
           i = batch.endIndex;
           continue;
         }
-
-        // Apply "targeted last" filter (Runde's ability) — exclude if other targets exist
-        const nonTargetedLast = aliveEnemies.filter(t => {
-          const cid = getCombatantId(t);
-          return !cid || !isTargetedLast(cid);
-        });
-        const validEnemies = nonTargetedLast.length > 0 ? nonTargetedLast : aliveEnemies;
 
         // Use standard target selection: check for stored targets from pendingTargetSelection
         const batchLeaderId = batch.militia[0].id;
@@ -1851,7 +1843,7 @@ function executeCombatRound(
         if (storedTargetIds) {
           // Resume with player-selected targets
           selectedTargets = storedTargetIds
-            .map(id => aliveEnemies.find(e => e.id === id))
+            .map(id => validEnemies.find(e => e.id === id))
             .filter((e): e is Combatant => e != null);
         } else if (validEnemies.length === 1 || !isHumanControlled || !interactive) {
           // Auto-select: single target, AI, or non-interactive
@@ -2261,7 +2253,11 @@ function executeCombatRound(
 
       if (!dogForcesTarget) {
         // Need player input - pause and return
-        const validTargets = getValidTargetsForPlayer(attacker, enemies);
+        const eligible = getValidTargetsForPlayer(attacker, enemies);
+        // Rizen's militia targets are added automatically, so they are not a choice.
+        const validTargets = isRizen(attacker)
+          ? eligible.filter(t => !t.isMilitia)
+          : eligible;
         // Only pause for target selection if there's actually a choice to make
         // If attacker can target >= all valid enemies, auto-select all (no user input needed)
         const needsPlayerChoice = validTargets.length > 0 && attacker.targets < validTargets.length;
