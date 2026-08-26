@@ -597,27 +597,31 @@ function applyKhennInitiative(combatants: Combatant[], game: MERCGame): void {
 }
 
 /**
- * MERC-djs0: Apply Walter's militia initiative bonus
- * Walter's militia get +2 initiative
+ * MERC-djs0: Apply Walter's militia initiative bonus.
+ * "+2 Initiative to his militia when he's present."
+ *
+ * Dictators hire from the same MERC deck, so Walter turns up on either side;
+ * a dictator-side Walter buffs the dictator's militia.
  */
-function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
-  // Find Walter in combatants
+export function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void {
   const walterCombatant = combatants.find(c => isWalter(c) && c.health > 0);
   if (!walterCombatant) return;
 
-  // Find which player owns Walter
   const walterMerc = walterCombatant.sourceElement as CombatantModel;
-  let walterOwnerId: string | undefined;
-  for (const rebel of game.rebelPlayers) {
-    if (rebel.team.some(m => m.id === walterMerc.id)) {
-      walterOwnerId = `${rebel.seat}`;
-      break;
+
+  if (walterCombatant.isDictatorSide) {
+    for (const combatant of combatants) {
+      if (combatant.isMilitia && combatant.isDictatorSide) {
+        combatant.initiative += 2;
+      }
     }
+    return;
   }
 
-  if (!walterOwnerId) return;
+  const owner = game.rebelPlayers.find(rebel => rebel.team.some(m => m.id === walterMerc.id));
+  if (!owner) return;
 
-  // Apply +2 initiative to militia owned by Walter's player
+  const walterOwnerId = `${owner.seat}`;
   for (const combatant of combatants) {
     if (combatant.isMilitia && combatant.ownerId === walterOwnerId) {
       combatant.initiative += 2;
@@ -1009,13 +1013,15 @@ function dictatorToCombatant(dictator: CombatantModel, playerColor?: string): Co
     maxHealth: dictator.maxHealth,
     armor: dictator.effectiveArmor,
     maxArmor: dictator.equipmentArmor,
-    targets: 1,
+    // Rulebook p.5: "Once in play the Dictator card acts like a MERC with regard
+    // to actions and equipment" — so his weapon's targets and armour piercing count.
+    targets: dictator.targets,
     isDictatorSide: true,
     isMilitia: false,
     isDictator: true,
     isAttackDog: false,
     sourceElement: dictator,
-    armorPiercing: false,
+    armorPiercing: dictator.weaponSlot?.negatesArmor ?? false,
     hasAttackDog: false,
     isImmuneToAttackDogs: false,
     willNotHarmDogs: false,
@@ -1134,55 +1140,10 @@ function refreshCombatantStats(combatant: Combatant): void {
     const dictator = combatant.sourceElement as CombatantModel;
     combatant.initiative = dictator.initiative;
     combatant.combat = dictator.combat;
+    combatant.targets = dictator.targets;
     combatant.armor = dictator.effectiveArmor;
     combatant.maxArmor = dictator.equipmentArmor;
-  }
-}
-
-/**
- * MERC-cm0: Check if a combatant is Haarg
- */
-function isHaarg(combatant: Combatant): boolean {
-  if (combatant.sourceElement?.isMerc) {
-    return combatant.sourceElement.combatantId === 'haarg';
-  }
-  return false;
-}
-
-/**
- * MERC-cm0: Apply Haarg's comparative bonus ability
- * Per rules 13-clarifications-and-edge-cases.md:
- * - Compare to all other units in combat
- * - If anyone has higher Initiative → Haarg gets +1 Initiative
- * - If anyone has higher Combat → Haarg gets +1 Combat
- * - Can get bonuses to multiple stats simultaneously
- * - Recalculates each combat round
- */
-function applyHaargBonus(allCombatants: Combatant[]): void {
-  const haargCombatants = allCombatants.filter(c => isHaarg(c) && c.health > 0);
-  if (haargCombatants.length === 0) return;
-
-  const otherCombatants = allCombatants.filter(c => !isHaarg(c) && c.health > 0);
-  if (otherCombatants.length === 0) return;
-
-  // Find max stats among other combatants
-  const maxInitiative = Math.max(...otherCombatants.map(c => c.initiative));
-  const maxCombat = Math.max(...otherCombatants.map(c => c.combat));
-
-  for (const haarg of haargCombatants) {
-    // Get Haarg's base stats (before any bonus)
-    const baseInitiative = haarg.sourceElement?.isMerc
-      ? haarg.sourceElement.initiative : haarg.initiative;
-    const baseCombat = haarg.sourceElement?.isMerc
-      ? haarg.sourceElement.combat : haarg.combat;
-
-    // Apply +1 if anyone has higher
-    if (maxInitiative > baseInitiative) {
-      haarg.initiative = baseInitiative + 1;
-    }
-    if (maxCombat > baseCombat) {
-      haarg.combat = baseCombat + 1;
-    }
+    combatant.armorPiercing = dictator.weaponSlot?.negatesArmor ?? false;
   }
 }
 
@@ -1796,7 +1757,6 @@ function executeCombatRound(
 
     // MERC-cm0: Apply Haarg's comparative bonus (must be after refresh, before sorting)
     // Haarg compares to ALL combatants per rules, not just squad (unlike card display)
-    applyHaargBonus([...rebels, ...dictatorSide]);
 
     // Apply enemy debuffs from registry (e.g., Max's -1 combat to enemy MERCs)
     applyEnemyDebuffs(rebels, dictatorSide);

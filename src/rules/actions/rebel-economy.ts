@@ -495,14 +495,6 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         const accessory = game.drawEquipment('Accessory');
         if (accessory) sector.addToStash(accessory);
       }
-      // Industry bonus
-      if (sector.isIndustry) {
-        const types: ('Weapon' | 'Armor' | 'Accessory')[] = ['Weapon', 'Armor', 'Accessory'];
-        const randomType = types[Math.floor(game.random() * types.length)];
-        const bonusEquipment = game.drawEquipment(randomType);
-        if (bonusEquipment) sector.addToStash(bonusEquipment);
-      }
-
       // Get unit name for messages
       const unitName = getUnitName(actingUnit);
 
