@@ -28,7 +28,7 @@ import {
   isNotInActiveCombat,
 } from './helpers.js';
 import { isLandMine, isRepairKit, hasRangedAttack, getRangedRange, isExplosivesComponent, getMatchingComponent } from '../equipment-effects.js';
-import { hasMortar } from '../ai-helpers.js';
+import { hasMortar } from '../bot-helpers.js';
 import { rollDice } from '../combat.js';
 import { getHitThreshold } from '../merc-abilities.js';
 import { CombatConstants } from '../constants.js';
@@ -161,7 +161,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit that can re-equip': (ctx) => canAnyUnitReEquip(ctx.player, game),
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('actingUnit', {
       prompt: 'Which unit equips?',
@@ -244,7 +244,7 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       // Spend action upfront when first starting re-equip
       unit.actionsRemaining -= ACTION_COSTS.RE_EQUIP;
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -569,7 +569,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
         const combatants = getPlayerCombatantsFromCtx(ctx);
         return combatants.some(m => getMercEquipment(m).length > 0);
       },
-      'ai batch gate': (ctx) => !(ctx.game as MERCGame).shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !(ctx.game as MERCGame).shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseElement('actingMerc', {
       prompt: 'Select combatant to drop equipment from',
@@ -694,7 +694,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
 
       g.message(`${capitalize(actingCombatant.combatantName)} dropped a piece of equipment in ${sector.sectorName}`);
 
-      if (g.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (g.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         g.recordRebelActionForBatching(ctx.player);
       }
 
@@ -731,7 +731,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
         const hasAccessories = accessoryDiscard && accessoryDiscard.count(Equipment) > 0;
         return (hasWeapons || hasArmor || hasAccessories) ?? false;
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseElement('equipment', {
       prompt: 'Select equipment from discard pile',
@@ -787,7 +787,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
 
       feedback.useAction(ACTION_COSTS.RE_EQUIP);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -821,7 +821,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         const stash = sector.getStashContents();
         return stash.some(e => isLandMine(e.equipmentId));
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
@@ -870,7 +870,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
         game.message(`${squidhead.combatantName} disarms the land mine (left in stash)`);
       }
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -907,7 +907,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
         if (!squad) return false;
         return squad.getLivingMercs().some(m => m.damage > 0);
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .execute((_args, ctx) => {
       const player = ctx.player as MERCPlayer;
@@ -933,7 +933,7 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
         }
       });
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -970,7 +970,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
         const hasLandMineInBandolier = squidhead.bandolierSlots.some(e => isLandMine(e.equipmentId));
         return hasLandMineInSlots || hasLandMineInBandolier;
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .execute((args, ctx) => {
       const player = ctx.player as MERCPlayer;
@@ -1016,7 +1016,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       ]);
       game.message(`${squidhead.combatantName} arms a land mine at ${sector.sectorName}`);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1169,7 +1169,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
         const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
         return hagness != null && hagness.actionsRemaining >= 1;
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose equipment type to draw',
@@ -1202,7 +1202,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
       };
       setHagnessDrawnChoicesCache(game, playerId, cache);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1324,7 +1324,7 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
         const playerId = `${player.seat}`;
         return getHagnessCache(game, playerId) != null;
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('recipient', {
       prompt: 'Give to which squad member?',
@@ -1436,7 +1436,7 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
 
       game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.combatantName}`);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1528,7 +1528,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'has combatant with repair kit': (ctx) => getCombatantsWithRepairKit(ctx.player, game).length > 0,
       'has equipment in discard piles': () => getDiscardPileEquipment(game).length > 0,
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseElement('combatant', {
       prompt: 'Select combatant to use Repair Kit',
@@ -1617,7 +1617,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
 
       game.message(`${combatant.combatantName} uses Repair Kit to retrieve ${retrievedEquip.equipmentName} from discard`);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1759,7 +1759,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
     .prompt('Fire Mortar')
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has unit with mortar and valid targets': (ctx) => {
         const mercsWithMortars = getMercsWithMortars(game, ctx.player);
@@ -1831,8 +1831,8 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       // Use action
       unit.useAction(1);
 
-      // Record for AI batching
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      // Record for Bot batching
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1872,8 +1872,8 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         };
       }
 
-      // AI player: auto-allocate hits and apply damage immediately
-      if ((ctx.player as MERCPlayer).isAI) {
+      // Bot player: auto-allocate hits and apply damage immediately
+      if ((ctx.player as MERCPlayer).isBot) {
         const { totalDamage, hitCombatantIds, militiaKilled } = autoAllocateAndApplyMortarHits(
           game, targetSector, validTargets, hits, isRebel,
         );
@@ -2069,7 +2069,7 @@ export function buildMortarTargets(
 }
 
 /**
- * Auto-allocate mortar hits for AI players: prioritize low-health targets to secure kills,
+ * Auto-allocate mortar hits for Bot players: prioritize low-health targets to secure kills,
  * then spread remaining hits.
  */
 function autoAllocateAndApplyMortarHits(
@@ -2110,7 +2110,7 @@ function autoAllocateAndApplyMortarHits(
 
 /**
  * Apply mortar damage based on hit allocation.
- * Used by both AI auto-allocate and human allocation action.
+ * Used by both Bot auto-allocate and human allocation action.
  */
 export function applyMortarDamage(
   game: MERCGame,

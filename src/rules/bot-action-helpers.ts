@@ -1,8 +1,8 @@
 /**
- * MERC AI Action Helpers
+ * MERC Bot Action Helpers
  *
- * Extracted from ai-helpers.ts for better code organization.
- * Contains AI action decision logic.
+ * Extracted from bot-helpers.ts for better code organization.
+ * Contains Bot action decision logic.
  */
 
 import type { MERCGame } from './game.js';
@@ -10,20 +10,20 @@ import { Sector, CombatantModel } from './elements.js';
 import {
   calculateRebelStrength,
   getRebelControlledSectors,
-} from './ai-combat-helpers.js';
+} from './bot-combat-helpers.js';
 
 // Forward import to avoid circular dependency
-// distanceBetweenSectors is kept in ai-helpers.ts since it's used by many functions
-import { distanceBetweenSectors, shouldLeaveInStash } from './ai-helpers.js';
+// distanceBetweenSectors is kept in bot-helpers.ts since it's used by many functions
+import { distanceBetweenSectors, shouldLeaveInStash } from './bot-helpers.js';
 
 // =============================================================================
-// AI MERC Action Priority (Section 3)
+// Bot MERC Action Priority (Section 3)
 // =============================================================================
 
-export type AIActionType = 'explore' | 're-equip' | 'train' | 'move';
+export type BotActionType = 'explore' | 're-equip' | 'train' | 'move';
 
-export interface AIActionDecision {
-  action: AIActionType;
+export interface BotActionDecision {
+  action: BotActionType;
   target?: Sector;
   reason: string;
 }
@@ -44,7 +44,7 @@ export function sortMercsByInitiative(mercs: CombatantModel[]): CombatantModel[]
 }
 
 /**
- * Get all AI MERCs in the same squad/sector for movement cohesion.
+ * Get all Bot MERCs in the same squad/sector for movement cohesion.
  * MERC-1gu: Per rules 3.4, "Never split the squad - All MERCs with actions remaining move together"
  */
 export function getSquadMercs(game: MERCGame): CombatantModel[] {
@@ -69,7 +69,7 @@ export function canSquadMoveTogether(game: MERCGame, fromSectorId: string): bool
  * MERC-1gu: Per rules 3.4, all MERCs move together when possible.
  * Returns a single decision for the entire squad.
  */
-export function getSquadAction(game: MERCGame): AIActionDecision & { mercs: CombatantModel[] } {
+export function getSquadAction(game: MERCGame): BotActionDecision & { mercs: CombatantModel[] } {
   const mercs = getSquadMercs(game);
   if (mercs.length === 0) {
     return { action: 'move', reason: 'No MERCs available', mercs: [] };
@@ -82,7 +82,7 @@ export function getSquadAction(game: MERCGame): AIActionDecision & { mercs: Comb
   }
 
   // Get decision for the leader (highest initiative)
-  const decision = getAIMercAction(game, mercs[0]);
+  const decision = getBotMercAction(game, mercs[0]);
 
   // For move actions, ensure all MERCs move together
   if (decision.action === 'move' && decision.target) {
@@ -150,7 +150,7 @@ function isRebelInRange(game: MERCGame, fromSector: Sector): boolean {
 }
 
 /**
- * Get AI MERC action decision following priority rules.
+ * Get Bot MERC action decision following priority rules.
  * Per rules Section 3, priority order is:
  * 3.1 - If not fully equipped → Explore and equip/re-equip
  * 3.2 - If on undefended Industry → Train militia
@@ -159,7 +159,7 @@ function isRebelInRange(game: MERCGame, fromSector: Sector): boolean {
  * 3.5 - If militia < 10 → Train militia
  * 3.6 - Default → Move toward nearest Rebel
  */
-export function getAIMercAction(game: MERCGame, merc: CombatantModel): AIActionDecision {
+export function getBotMercAction(game: MERCGame, merc: CombatantModel): BotActionDecision {
   const sector = merc.sectorId ? game.getSector(merc.sectorId) : null;
 
   if (!sector) {
@@ -249,7 +249,7 @@ export function findClosestRebelSector(game: MERCGame, fromSector: Sector): Sect
 }
 
 /**
- * Determine best move direction for AI MERC.
+ * Determine best move direction for Bot MERC.
  * MERC-asf: Per rules 3.4, moves toward the CLOSEST rebel-controlled sector.
  * Uses "weakest" (4.5) only as tie-breaker when multiple sectors are equidistant.
  */

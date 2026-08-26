@@ -56,8 +56,8 @@ export type { SetupConfiguration } from './constants.js';
 // Per-player configuration from lobby
 export interface PlayerConfig {
   color?: string;
-  isAI?: boolean;
-  aiLevel?: string;
+  isBot?: boolean;
+  botLevel?: string;
 }
 
 export interface MERCOptions extends GameOptions {
@@ -65,12 +65,12 @@ export interface MERCOptions extends GameOptions {
   rebelCount?: number;  // 1-6 rebels
   dictatorChoice?: string;  // Which dictator character to use
   expansionModes?: string[]; // 'A' for vehicles, 'B' for I, Dictator
-  dictatorIsAI?: boolean;  // MERC-exaf: Explicitly set if dictator is AI-controlled
+  dictatorIsBot?: boolean;  // MERC-exaf: Explicitly set if dictator is Bot-controlled
   // MERC-pbx4: Role selection - which player seat is the dictator
   // Default: last player (seat = playerCount - 1)
   // Set to 0 for first player, 1 for second player, etc.
   dictatorPlayerSeat?: number;
-  // Player configurations from lobby (colors, AI settings)
+  // Player configurations from lobby (colors, Bot settings)
   playerConfigs?: PlayerConfig[];
   // Game options from lobby
   gameOptions?: {
@@ -184,7 +184,7 @@ export class MERCPlayer extends Player {
    * actions before charging a MERC's own actions; never banked past one turn.
    */
   freeMoveActions: number = 0;
-  isAI: boolean = false;
+  isBot: boolean = false;
   privacyPlayerId?: string;
 
   // Type guards
@@ -398,7 +398,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // MERC-pbx4: Static storage for dictator position during construction
   // -1 means "use default" (last player)
   private static _pendingDictatorPosition: number = -1;
-  // Player configurations from lobby (colors, AI settings)
+  // Player configurations from lobby (colors, Bot settings)
   private static _pendingPlayerConfigs: PlayerConfig[] = [];
 
   // Configuration
@@ -620,8 +620,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Flag to track if game end has been announced (prevents duplicate messages)
   private _gameEndAnnounced: boolean = false;
 
-  // AI rebel action batching state (private = ephemeral, not serialized to clients)
-  // Tracks per-AI-rebel action counts and the current batch round within a simultaneous step
+  // Bot rebel action batching state (private = ephemeral, not serialized to clients)
+  // Tracks per-Bot-rebel action counts and the current batch round within a simultaneous step
   private _rebelActionCounts: Map<number, number> = new Map();
   private _rebelBatchRound: number = 0;
 
@@ -924,10 +924,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Determine rebel count from players or options
     this.rebelCount = options.rebelCount ?? Math.max(1, playerCount - 1);
 
-    // MERC-exaf: Set dictator AI mode from options
-    // When true, enables AI auto-selection logic and privacy player designation
-    if (options.dictatorIsAI !== undefined) {
-      this.dictatorPlayer.isAI = options.dictatorIsAI;
+    // MERC-exaf: Set dictator Bot mode from options
+    // When true, enables Bot auto-selection logic and privacy player designation
+    if (options.dictatorIsBot !== undefined) {
+      this.dictatorPlayer.isBot = options.dictatorIsBot;
     }
 
     // Create decks (will be populated later when data is loaded)
@@ -993,9 +993,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       player.playerColor = hexToPlayerColor(player.color);
     }
 
-    // Set AI flag from player config (for bot players)
-    if (playerConfig?.isAI !== undefined) {
-      player.isAI = playerConfig.isAI;
+    // Set Bot flag from player config (for bot players)
+    if (playerConfig?.isBot !== undefined) {
+      player.isBot = playerConfig.isBot;
     }
 
     // Create three squads for dictator: primary, secondary, and base
@@ -1032,9 +1032,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       player.playerColor = colors[(seat - 1) % colors.length];
     }
 
-    // Set AI flag from player config (for bot players)
-    if (playerConfig?.isAI !== undefined) {
-      player.isAI = playerConfig.isAI;
+    // Set Bot flag from player config (for bot players)
+    if (playerConfig?.isBot !== undefined) {
+      player.isBot = playerConfig.isBot;
     }
 
     // Create squads and area for rebel
@@ -1187,8 +1187,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Check for debug tactics order in settings as well
     const effectiveTacticsOrder = debugTacticsOrder || this.settings.debugTacticsOrder as string[] | undefined;
 
-    // Skip dictator setup if human player will choose (no dictatorChoice specified and not AI)
-    const skipDictatorSetup = !dictatorChoice && !this.dictatorPlayer?.isAI;
+    // Skip dictator setup if human player will choose (no dictatorChoice specified and not Bot)
+    const skipDictatorSetup = !dictatorChoice && !this.dictatorPlayer?.isBot;
 
     performSetup(this, {
       sectorData: this.sectorData as SetupSectorData[],
@@ -1898,7 +1898,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   // ==========================================================================
-  // AI Rebel Action Batching
+  // Bot Rebel Action Batching
   // ==========================================================================
 
   /**
@@ -1911,12 +1911,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Check if an AI rebel player should be gated from taking an action.
+   * Check if an Bot rebel player should be gated from taking an action.
    * Returns true if the player is ahead of the current batch round and must wait.
    * Humans are never gated. Dictator actions are never gated.
    */
-  shouldGateAIAction(player: MERCPlayer): boolean {
-    if (!player.isAI) return false;
+  shouldGateBotAction(player: MERCPlayer): boolean {
+    if (!player.isBot) return false;
     if (!player.isRebel()) return false;
     const count = this._rebelActionCounts.get(player.seat) ?? 0;
     if (count > this._rebelBatchRound) return true;
@@ -1924,17 +1924,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Record that an AI rebel player has taken an action in the current batch.
-   * After recording, checks if all AI rebels have caught up or are done,
+   * Record that an Bot rebel player has taken an action in the current batch.
+   * After recording, checks if all Bot rebels have caught up or are done,
    * and advances the batch round if so.
    */
   recordRebelActionForBatching(player: MERCPlayer): void {
     const currentCount = this._rebelActionCounts.get(player.seat) ?? 0;
     this._rebelActionCounts.set(player.seat, currentCount + 1);
 
-    // Check if all AI rebels have taken at least _rebelBatchRound + 1 actions, or are "done"
-    const aiRebels = this.rebelPlayers.filter(p => p.isAI);
-    const allCaughtUp = aiRebels.every(p => {
+    // Check if all Bot rebels have taken at least _rebelBatchRound + 1 actions, or are "done"
+    const botRebels = this.rebelPlayers.filter(p => p.isBot);
+    const allCaughtUp = botRebels.every(p => {
       const actionCount = this._rebelActionCounts.get(p.seat) ?? 0;
       if (actionCount >= this._rebelBatchRound + 1) return true;
       // Player is "done" if no MERCs have actions remaining

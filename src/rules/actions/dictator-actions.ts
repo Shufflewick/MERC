@@ -16,8 +16,8 @@ import {
   selectMilitiaPlacementSector,
   selectNewMercLocation,
   mercNeedsHealing,
-  getAIHealingPriority,
-} from '../ai-helpers.js';
+  getBotHealingPriority,
+} from '../bot-helpers.js';
 import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
@@ -67,7 +67,7 @@ function getHealingAmountForItem(equipmentId: string): number {
 
 /**
  * Play a tactics card
- * MERC-5j2: AI plays from top of deck (no hand), auto-selects
+ * MERC-5j2: Bot plays from top of deck (no hand), auto-selects
  */
 // Cards that reveal the dictator's base now use the revealsBase property on TacticsCard
 
@@ -77,7 +77,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'has tactics cards available': () => {
-        if (game.dictatorPlayer?.isAI) {
+        if (game.dictatorPlayer?.isBot) {
           return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
         }
         return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
@@ -89,8 +89,8 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       display: (card: TacticsCard) => card.tacticsName,
       filter: (element) => {
         const card = asTacticsCard(element);
-        // MERC-5j2: AI auto-selects top card from deck
-        if (game.dictatorPlayer?.isAI) {
+        // MERC-5j2: Bot auto-selects top card from deck
+        if (game.dictatorPlayer?.isBot) {
           const topCard = game.dictatorPlayer?.tacticsDeck?.first(TacticsCard);
           return topCard ? card.id === topCard.id : false;
         }
@@ -147,7 +147,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       card.putInto(game.dictatorPlayer.tacticsDiscard!);
 
       // For human players playing base-reveal cards, set base location first
-      if (!game.dictatorPlayer?.isAI &&
+      if (!game.dictatorPlayer?.isBot &&
           card.revealsBase &&
           !game.dictatorPlayer?.baseRevealed &&
           args.baseLocation) {
@@ -166,7 +166,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       const result = executeTacticsEffect(game, card);
 
       // For human players playing base-reveal cards, equip the dictator
-      if (!game.dictatorPlayer?.isAI &&
+      if (!game.dictatorPlayer?.isBot &&
           card.revealsBase &&
           game.dictatorPlayer?.dictator?.inPlay &&
           args.dictatorEquipment) {
@@ -193,7 +193,7 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
 /**
  * Reinforce instead of playing a tactics card
  * Discard a tactics card to gain militia
- * MERC-5j2: AI uses top card from deck
+ * MERC-5j2: Bot uses top card from deck
  */
 export function createReinforceAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('reinforce')
@@ -201,7 +201,7 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'has tactics cards to discard': () => {
-        if (game.dictatorPlayer?.isAI) {
+        if (game.dictatorPlayer?.isBot) {
           return (game.dictatorPlayer?.tacticsDeck?.count(TacticsCard) ?? 0) > 0;
         }
         return (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0;
@@ -213,8 +213,8 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       display: (card: TacticsCard) => card.tacticsName,
       filter: (element) => {
         const card = asTacticsCard(element);
-        // MERC-5j2: AI auto-selects top card from deck
-        if (game.dictatorPlayer?.isAI) {
+        // MERC-5j2: Bot auto-selects top card from deck
+        if (game.dictatorPlayer?.isBot) {
           const topCard = game.dictatorPlayer?.tacticsDeck?.first(TacticsCard);
           return topCard ? card.id === topCard.id : false;
         }
@@ -305,7 +305,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Castro': () => game.dictatorPlayer?.dictator?.combatantId === 'castro',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('selectedMerc', {
       prompt: 'Choose a MERC to hire',
@@ -501,7 +501,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Kim': () => game.dictatorPlayer?.dictator?.combatantId === 'kim',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('targetSector', {
       prompt: 'Choose sector to place militia (based on rebel-controlled sectors)',
@@ -576,7 +576,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'has pending hire': () => game.pendingGeneralissimoHire != null,
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('selectedMerc', {
       prompt: 'Choose a MERC to hire (6 drawn)',
@@ -755,7 +755,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
  * your militia to each of the sectors you flipped over."
  *
  * Which sectors to seize is a real strategic choice, so a human dictator picks
- * them one at a time; the AI takes them in map order inside the effect itself.
+ * them one at a time; the Bot takes them in map order inside the effect itself.
  */
 export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('seizureFlipSector')
@@ -764,7 +764,7 @@ export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition 
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'has sectors left to seize': () =>
         game.pendingSeizureFlips != null && game.pendingSeizureFlips.remaining > 0,
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseElement('targetSector', {
       prompt: 'Which wilderness sector?',
@@ -813,7 +813,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'has pending militia': () => game.pendingLockdownMilitia != null && game.pendingLockdownMilitia.remaining > 0,
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('targetSector', {
       prompt: 'Choose sector for militia placement',
@@ -892,7 +892,7 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Mao': () => game.dictatorPlayer?.dictator?.combatantId === 'mao',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'has pending militia': () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0,
     })
     .chooseFrom('targetSector', {
@@ -968,7 +968,7 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Mussolini': () => game.dictatorPlayer?.dictator?.combatantId === 'mussolini',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'has not placed yet': () => game.pendingMussoliniSpread == null,
     })
     .chooseFrom('targetSector', {
@@ -1036,7 +1036,7 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Mussolini': () => game.dictatorPlayer?.dictator?.combatantId === 'mussolini',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'has pending spread': () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0,
     })
     .chooseFrom('targetSector', {
@@ -1140,7 +1140,7 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Pol Pot': () => game.dictatorPlayer?.dictator?.combatantId === 'polpot',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('targetSector', {
       prompt: 'Choose rebel-controlled sector to place militia',
@@ -1225,7 +1225,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Pol Pot': () => game.dictatorPlayer?.dictator?.combatantId === 'polpot',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'rebel won combat': () => game.lastAbilityCombatOutcome?.rebelVictory === true,
     })
     .chooseFrom('selectedMerc', {
@@ -1349,7 +1349,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Hitler': () => game.dictatorPlayer?.dictator?.combatantId === 'hitler',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
@@ -1511,7 +1511,7 @@ export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDe
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Hitler': () => game.dictatorPlayer?.dictator?.combatantId === 'hitler',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
     })
     .chooseFrom('targetRebel', {
@@ -1565,7 +1565,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for hire',
@@ -1730,7 +1730,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Stalin': () => game.dictatorPlayer?.dictator?.combatantId === 'stalin',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('selectedMerc', {
       prompt: 'MERC drawn for primary squad',
@@ -1914,7 +1914,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Hussein': () => game.dictatorPlayer?.dictator?.combatantId === 'hussein',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'has tactics cards in hand': () => (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0,
     })
     .chooseElement('card', {
@@ -1966,7 +1966,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
       card.putInto(game.dictatorPlayer.tacticsDiscard!);
 
       // For human players playing base-reveal cards, set base location first
-      if (!game.dictatorPlayer?.isAI &&
+      if (!game.dictatorPlayer?.isBot &&
           card.revealsBase &&
           !game.dictatorPlayer?.baseRevealed &&
           args.baseLocation) {
@@ -1985,7 +1985,7 @@ export function createHusseinBonusTacticsAction(game: MERCGame): ActionDefinitio
       const result = executeTacticsEffect(game, card);
 
       // For human players playing base-reveal cards, equip the dictator
-      if (!game.dictatorPlayer?.isAI &&
+      if (!game.dictatorPlayer?.isBot &&
           card.revealsBase &&
           game.dictatorPlayer?.dictator?.inPlay &&
           args.dictatorEquipment) {
@@ -2019,7 +2019,7 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Hussein': () => game.dictatorPlayer?.dictator?.combatantId === 'hussein',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'has tactics cards in hand': () => (game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0) > 0,
     })
     .chooseElement('card', {
@@ -2098,7 +2098,7 @@ export function createNoriegaConvertMilitiaAction(game: MERCGame): ActionDefinit
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Noriega': () => game.dictatorPlayer?.dictator?.combatantId === 'noriega',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
     })
     .execute(() => {
@@ -2136,7 +2136,7 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Noriega': () => game.dictatorPlayer?.dictator?.combatantId === 'noriega',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
       'has pending conversion': () => game.pendingNoriegaConversion != null && game.pendingNoriegaConversion.convertedCount > 0,
     })
@@ -2195,7 +2195,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Noriega': () => game.dictatorPlayer?.dictator?.combatantId === 'noriega',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
       'conversion complete': () => game.pendingNoriegaConversion == null,
       'controls fewer sectors': () => {
@@ -2363,7 +2363,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Pinochet': () => game.dictatorPlayer?.dictator?.combatantId === 'pinochet',
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
       'has pending hires': () => game._pinochetPendingHires > 0,
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
@@ -2538,7 +2538,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
-      'not AI': () => !game.dictatorPlayer?.isAI,
+      'dictator is not a bot': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
       'has loot available': () =>
         game._gaddafiLootableEquipment != null &&
@@ -2656,7 +2656,7 @@ export function createGaddafiDiscardLootAction(game: MERCGame): ActionDefinition
     .condition({
       'is dictator player': (ctx) => game.isDictatorPlayer(ctx.player),
       'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
-      'not AI': () => !game.dictatorPlayer?.isAI,
+      'dictator is not a bot': () => !game.dictatorPlayer?.isBot,
       'game not finished': () => !game.isFinished(),
       'has loot available': () =>
         game._gaddafiLootableEquipment != null &&

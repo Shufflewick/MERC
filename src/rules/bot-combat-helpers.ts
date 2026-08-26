@@ -1,8 +1,8 @@
 /**
- * MERC AI Combat Helpers
+ * MERC Bot Combat Helpers
  *
- * Extracted from ai-helpers.ts for better code organization.
- * Contains combat-related AI functions.
+ * Extracted from bot-helpers.ts for better code organization.
+ * Contains combat-related Bot functions.
  */
 
 import type { MERCGame } from './game.js';
@@ -90,7 +90,7 @@ export function getRebelControlledSectors(game: MERCGame): Sector[] {
 }
 
 // =============================================================================
-// AI Target Selection (Section 4.6)
+// Bot Target Selection (Section 4.6)
 // =============================================================================
 
 export interface CombatTarget {
@@ -104,7 +104,7 @@ export interface CombatTarget {
 }
 
 /**
- * Sort targets by AI priority.
+ * Sort targets by Bot priority.
  * Per rules 4.6:
  * 1. Lowest health + armor
  * 2. If tied, highest number of targets
@@ -112,7 +112,7 @@ export interface CombatTarget {
  * 4. If still tied, random
  * @param random - Seeded random function from game.random
  */
-export function sortTargetsByAIPriority<T extends CombatTarget>(targets: T[], random: () => number): T[] {
+export function sortTargetsByBotPriority<T extends CombatTarget>(targets: T[], random: () => number): T[] {
   return [...targets].sort((a, b) => {
     // 4.6.1 - Lowest health + armor (survivability)
     const survA = a.health + a.armor;
@@ -131,13 +131,13 @@ export function sortTargetsByAIPriority<T extends CombatTarget>(targets: T[], ra
 }
 
 // =============================================================================
-// AI Land Mine Detonation (Section 4.2 - When Attacked)
+// Bot Land Mine Detonation (Section 4.2 - When Attacked)
 // =============================================================================
 
 /**
  * Check and detonate land mine when dictator is attacked.
  * MERC-0nu: Per rules 4.2 ("When Attacked"), when rebels attack a sector,
- * AI detonates land mines immediately before combat, dealing 1 damage to all attackers.
+ * Bot detonates land mines immediately before combat, dealing 1 damage to all attackers.
  * Returns the number of land mines detonated.
  */
 export function detonateLandMines(

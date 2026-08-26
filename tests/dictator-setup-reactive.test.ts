@@ -20,7 +20,7 @@ import {
  */
 
 /**
- * Create a 2-player GameRunner with AI dictator set to a specific dictator character.
+ * Create a 2-player GameRunner with Bot dictator set to a specific dictator character.
  * Returns the runner already started (flow is ready but not advanced past first step).
  */
 function createDictatorGame(dictatorId: string, seed: string): { runner: GameRunner<MERCGame>; game: MERCGame } {
@@ -31,11 +31,11 @@ function createDictatorGame(dictatorId: string, seed: string): { runner: GameRun
       playerCount: 2,
       playerNames: ['Rebel1', 'DictatorBot'],
       seed,
-      dictatorIsAI: true,
+      dictatorIsBot: true,
       dictatorChoice: dictatorId,
       playerConfigs: [
-        { color: '#e74c3c', isDictator: false, isAI: true },
-        { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'medium' },
+        { color: '#e74c3c', isDictator: false, isBot: true },
+        { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'medium' },
       ],
     } as any,
   });
@@ -82,12 +82,12 @@ describe('Setup Abilities', () => {
     const { game } = createDictatorGame('mao', 'mao-setup-test');
 
     expect(game.dictatorPlayer.dictator!.combatantId).toBe('mao');
-    expect(game.dictatorPlayer.isAI).toBe(true);
+    expect(game.dictatorPlayer.isBot).toBe(true);
 
     // Record current MERC count (should be 0 since flow hasn't advanced to Day 1 hire)
     const mercsBefore = game.dictatorPlayer.hiredMercs.length;
 
-    // Apply Mao's setup ability (AI path auto-hires)
+    // Apply Mao's setup ability (Bot path auto-hires)
     const result = applyMaoSetupAbility(game);
     expect(result.success).toBe(true);
     expect(result.data?.hired).toBe(game.rebelCount);
@@ -102,7 +102,7 @@ describe('Setup Abilities', () => {
     const { game } = createDictatorGame('mussolini', 'mussolini-setup-test');
 
     expect(game.dictatorPlayer.dictator!.combatantId).toBe('mussolini');
-    expect(game.dictatorPlayer.isAI).toBe(true);
+    expect(game.dictatorPlayer.isBot).toBe(true);
 
     const mercsBefore = game.dictatorPlayer.hiredMercs.length;
 
@@ -245,7 +245,7 @@ describe('Reactive Abilities', () => {
     expect(flowSource).toContain('lastAbilityCombatOutcome');
     expect(flowSource).toContain('polpot-bonus-hire');
 
-    // AI auto-hire path
+    // Bot auto-hire path
     expect(flowSource).toContain('Pol Pot lost combat - hired');
 
     // Full integration testing of Pol Pot's conditional hire is covered in Plan 03

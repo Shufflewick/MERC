@@ -214,7 +214,7 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
         game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has a vehicle ready to drive': (ctx) =>
         getAvailableVehicleRides(ctx.player, game).length > 0,
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('vehicle', {
       prompt: 'Which vehicle?',
@@ -312,7 +312,7 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
         `${militiaCount > 0 ? ` and ${militiaCount} militia` : ''} to ${destination.sectorName}`
       );
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -360,7 +360,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
       'has squad that can move': (ctx) => getMovableSquads(ctx.player, game).length > 0,
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     // Destination first so squad filter can auto-narrow based on clicked sector
     .chooseElement('destination', {
@@ -453,8 +453,8 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       // Log action consumption for debugging
       game.message(`(${mercs.length} action(s) consumed)`);
 
-      // Record action for AI rebel batching (before any early returns from combat)
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      // Record action for Bot rebel batching (before any early returns from combat)
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -550,7 +550,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
     .prompt('Coordinated attack (both squads)')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
       'both squads can attack common target': (ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
         const player = asRebelPlayer(ctx.player);
@@ -617,7 +617,7 @@ export function createCoordinatedAttackAction(game: MERCGame): ActionDefinition 
         useAction(merc, ACTION_COSTS.MOVE);
       }
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -668,7 +668,7 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
     .prompt('Declare multi-player coordinated attack')
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
       'is multi-player game': () => game.rebelPlayers.length > 1,
       'no attack already in progress': () => game.coordinatedAttack === null,
       'has squad adjacent to enemy sector with another rebel also adjacent': (ctx) => {
@@ -742,7 +742,7 @@ export function createDeclareMultiPlayerAttackAction(game: MERCGame): ActionDefi
       game.initCoordinatedAttack(target.sectorId, player.seat, squadType);
       game.message(`${player.name} declared a coordinated attack on ${target.sectorName} with their ${squadType} squad`);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1025,7 +1025,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         isNotInActiveCombat(game) || game.activeCombat?.awaitingRetreatDecisions === true,
       'day 2 or later': () => game.currentDay >= 2,
       'has assignable combatants': (ctx) => getAssignableCombatants(ctx.player, game).length > 0,
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('combatantName', {
       prompt: 'Select combatant to reassign',
@@ -1097,7 +1097,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
 
         game.message(`${player.name} assigned ${merc.combatantName} to ${targetType} squad`);
 
-        if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
           game.recordRebelActionForBatching(ctx.player);
         }
 

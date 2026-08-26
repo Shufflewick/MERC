@@ -47,7 +47,7 @@ function isRebelActionsStep(flowState: any, game: MERCGame): boolean {
 }
 
 /**
- * Create a 3-player GameRunner (2 rebels + 1 dictator) with AI dictator.
+ * Create a 3-player GameRunner (2 rebels + 1 dictator) with Bot dictator.
  */
 function create3PlayerRunner(seed: string): GameRunner<MERCGame> {
   return new GameRunner<MERCGame>({
@@ -57,7 +57,7 @@ function create3PlayerRunner(seed: string): GameRunner<MERCGame> {
       playerCount: 3,
       playerNames: ['Rebel1', 'Rebel2', 'DictatorBot'],
       seed,
-      dictatorIsAI: true,
+      dictatorIsBot: true,
     } as any,
   });
 }
@@ -160,7 +160,7 @@ describe('Combat Barriers', () => {
       //
       // Why manual pendingCombat: Getting a rebel to naturally trigger combat
       // requires dictator militia in a reachable adjacent sector, which depends
-      // on map layout and AI placement. The move action just sets this field.
+      // on map layout and Bot placement. The move action just sets this field.
 
       const seeds = ['barrier-combat-1', 'barrier-combat-2', 'barrier-combat-3'];
       let testPassed = false;

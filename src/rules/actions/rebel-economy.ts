@@ -64,7 +64,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
       'can hire MERC': (ctx) => {
         if (!game.isRebelPlayer(ctx.player)) return false;
         const player = asRebelPlayer(ctx.player);
@@ -268,7 +268,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
 
       clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -360,7 +360,7 @@ export function createRehireMercAction(game: MERCGame): ActionDefinition {
       hired.resetActions();
       equipNewHire(game, hired, chosenEquipType);
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -447,7 +447,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
         const livingUnits = getPlayerUnitsForExplore(ctx.player, game);
         return livingUnits.some(u => canUnitExplore(u, ctx.player, game));
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseElement('actingUnit', {
       prompt: 'Which unit explores?',
@@ -478,7 +478,7 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.EXPLORE;
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -921,7 +921,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         const livingUnits = getPlayerUnitsForTrain(ctx.player, game);
         return livingUnits.some(u => canUnitTrain(u, ctx.player, game));
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('unit', {
       prompt: 'Select unit to train militia',
@@ -970,7 +970,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
         useTrainingAction(actingUnit as CombatantModel, ACTION_COSTS.TRAIN);
       }
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1116,7 +1116,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
         const sector = findCitySectorForPlayer(ctx.player, game);
         return !!sector?.hasHospital;
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
       'has damaged unit with actions': (ctx) => {
         const sector = findCitySectorForPlayer(ctx.player, game);
         if (!sector) return false;
@@ -1165,7 +1165,7 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.HOSPITAL;
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1211,7 +1211,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const sector = findCitySectorForPlayer(ctx.player, game);
         return !!sector?.hasArmsDealer;
       },
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
       'has unit with actions': (ctx) => {
         const sector = findCitySectorForPlayer(ctx.player, game);
         if (!sector) return false;
@@ -1328,7 +1328,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
 
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
 
@@ -1420,7 +1420,7 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
       'not in combat': () => isNotInActiveCombat(game),
       'day 2 or later': () => game.currentDay >= 2,
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
-      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('confirm', {
       prompt: 'End your turn?',
@@ -1435,7 +1435,7 @@ export function createEndTurnAction(game: MERCGame): ActionDefinition {
         }
         game.message(`${player.name} ends their turn`);
 
-        if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
           game.recordRebelActionForBatching(ctx.player);
         }
       } else if (game.isDictatorPlayer(ctx.player)) {

@@ -12,7 +12,7 @@ import { Equipment, Sector, TacticsCard, isGrenadeOrMortar, CombatantModel } fro
 import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId, buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain, type MapMilitiaTrainEventData } from './animation-events.js';
 import { TeamConstants, DictatorConstants, SectorConstants } from './constants.js';
 import { applyDictatorSetupAbilities } from './dictator-abilities.js';
-import { selectNewMercLocation, distributeExtraMilitiaEvenly } from './ai-helpers.js';
+import { selectNewMercLocation, distributeExtraMilitiaEvenly } from './bot-helpers.js';
 import { equipNewHire } from './actions/helpers.js';
 
 // =============================================================================
@@ -305,7 +305,7 @@ export function hireDictatorMerc(game: MERCGame): CombatantModel | undefined {
     // Put the hired MERC into the dictator's primary squad
     merc.putInto(game.dictatorPlayer.primarySquad);
 
-    // MERC-2ay: Place at sector closest to weakest rebel per AI rules 4.3.2
+    // MERC-2ay: Place at sector closest to weakest rebel per Bot rules 4.3.2
     const targetSector = selectNewMercLocation(game);
     if (targetSector) {
       // Set squad's sectorId - merc inherits via computed getter
@@ -343,12 +343,12 @@ export function applyDictatorSetupAbility(game: MERCGame): void {
 
 /**
  * Draw tactics cards until the dictator has a full hand.
- * MERC-5j2: AI does not draw a hand - plays directly from deck.
+ * MERC-5j2: Bot does not draw a hand - plays directly from deck.
  */
 export function drawTacticsHand(game: MERCGame): TacticsCard[] {
-  // MERC-5j2: AI doesn't have a hand, plays from deck top
-  if (game.dictatorPlayer.isAI) {
-    game.message('AI Dictator plays tactics from deck (no hand)');
+  // MERC-5j2: Bot doesn't have a hand, plays from deck top
+  if (game.dictatorPlayer.isBot) {
+    game.message('Bot Dictator plays tactics from deck (no hand)');
     return [];
   }
 
@@ -423,7 +423,7 @@ export function placeExtraMilitia(
 
 /**
  * Auto-place extra militia during setup.
- * MERC-cgn: Per AI Setup rules, extra militia are distributed EVENLY
+ * MERC-cgn: Per Bot Setup rules, extra militia are distributed EVENLY
  * among Dictator-controlled Industries during setup.
  * Note: For card-based placement during play, use selectMilitiaPlacementSector.
  */

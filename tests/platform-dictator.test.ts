@@ -17,7 +17,7 @@ describe('Platform dictator view', () => {
         seed: '12345',
         exclusiveSeats: { role: 1 },
         playerOptions: [{ role: 'dictator' }, {}],
-        playerIsAI: [false, true],
+        playerIsBot: [false, true],
         dictatorCharacter: 'random',
       },
     });

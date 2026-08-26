@@ -107,7 +107,7 @@ describe('Reinforcements', () => {
 describe('Seizure', () => {
   it('asks a human dictator which wilderness sectors to flip', () => {
     const game = newGame('seizure-human');
-    game.dictatorPlayer.isAI = false;
+    game.dictatorPlayer.isBot = false;
 
     const result = executeTacticsEffect(game, card(game, 'seizure', 'Seizure'));
 
@@ -116,9 +116,9 @@ describe('Seizure', () => {
     expect(game.pendingSeizureFlips!.remaining).toBeGreaterThan(0);
   });
 
-  it('flips them itself for an AI dictator', () => {
-    const game = newGame('seizure-ai');
-    game.dictatorPlayer.isAI = true;
+  it('flips them itself for an Bot dictator', () => {
+    const game = newGame('seizure-bot');
+    game.dictatorPlayer.isBot = true;
     const unexploredBefore = game.gameMap.getAllSectors()
       .filter(s => s.isWilderness && !s.explored).length;
 

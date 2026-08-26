@@ -2,13 +2,13 @@
  * MCTS hooks for MERC.
  *
  * Vanilla MCTS has no evaluation gradient on a board this size: playouts wander
- * and the AI seats the presets advertise play far below what the framework can
+ * and the Bot seats the presets advertise play far below what the framework can
  * deliver. These hooks give the search something to climb — objectives that
  * score the position, and a playout policy that keeps random rollouts doing
  * something a MERC player would recognise.
  */
 
-import type { AIConfig, BotMove, Objective } from 'boardsmith/ai';
+import type { BotStrategy, BotMove, Objective } from 'boardsmith/bot';
 import type { Game } from 'boardsmith';
 import { MERCGame, type MERCPlayer } from './game.js';
 import { TacticsCard } from './elements.js';
@@ -104,7 +104,7 @@ const PLAYOUT_WEIGHTS: Record<string, number> = {
 
 const DEFAULT_PLAYOUT_WEIGHT = 2;
 
-export const mercAI: AIConfig = {
+export const mercBot: BotStrategy = {
   objectives: (game: Game, _playerIndex: number): Record<string, Objective> => ({
     // The printed win condition: more sector value than the other side.
     sectorControl: objective(1.0, (g, p) => sectorValueShare(g, p)),

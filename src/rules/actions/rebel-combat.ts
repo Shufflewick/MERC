@@ -201,12 +201,12 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         // Player can only select targets for units on their side
         const playerIsRebel = isRebelPlayer(ctx.player);
         const playerIsDictator = game.isDictatorPlayer(ctx.player);
-        const dictatorIsAI = game.dictatorPlayer?.isAI;
+        const dictatorIsBot = game.dictatorPlayer?.isBot;
 
         if (playerIsRebel) {
           return !attacker.isDictatorSide;  // Rebel selects for rebel units
         }
-        if (playerIsDictator && !dictatorIsAI) {
+        if (playerIsDictator && !dictatorIsBot) {
           return attacker.isDictatorSide;   // Dictator selects for dictator units
         }
         return false;
@@ -339,7 +339,7 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
         if (isRebelPlayer(ctx.player)) {
           return !attacker.isDictatorSide;  // Rebel assigns for rebel units
         }
-        if (game.isDictatorPlayer(ctx.player) && !game.dictatorPlayer?.isAI) {
+        if (game.isDictatorPlayer(ctx.player) && !game.dictatorPlayer?.isBot) {
           return attacker.isDictatorSide;   // Dictator assigns for dictator units
         }
         return false;
@@ -1363,10 +1363,10 @@ function findSurgeonInCombat(combatants: Combatant[], game: MERCGame): {
     if (combatant.health <= 0) continue;
     if (!isCombatantModel(combatant.sourceElement) || !combatant.sourceElement.isMerc) continue;
     if (combatant.sourceElement.combatantId === 'surgeon') {
-      // Check if controlled by human player (not dictator AI)
+      // Check if controlled by human player (not dictator Bot)
       const isDictatorSide = combatant.isDictatorSide;
-      if (isDictatorSide && game.dictatorPlayer?.isAI) {
-        // Surgeon is AI-controlled, skip
+      if (isDictatorSide && game.dictatorPlayer?.isBot) {
+        // Surgeon is Bot-controlled, skip
         continue;
       }
       return { combatant, merc: combatant.sourceElement };
@@ -1390,7 +1390,7 @@ function getSurgeonHealTargets(surgeon: Combatant, allies: Combatant[]): Combata
 
 /**
  * Surgeon's ability: Sacrifice 1 combat die to heal 1 damage to a squad mate.
- * For human-controlled Surgeon only - AI Surgeon auto-heals in combat.ts.
+ * For human-controlled Surgeon only - Bot Surgeon auto-heals in combat.ts.
  */
 export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('combatSurgeonHeal')
@@ -1416,7 +1416,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         }
 
         // Check dictator side for human Surgeon (human dictator mode)
-        if (!game.dictatorPlayer?.isAI) {
+        if (!game.dictatorPlayer?.isBot) {
           const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
           const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
           if (dictatorSurgeon && isCombatDecisionPlayer(game, ctx.player, dictatorSurgeon.combatant.id)) {
@@ -1454,7 +1454,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         }
 
         // Check dictator side for human dictator
-        if (!game.dictatorPlayer?.isAI) {
+        if (!game.dictatorPlayer?.isBot) {
           const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
           const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
           if (dictatorSurgeon) {
@@ -1493,7 +1493,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         combatants = rebelCombatants;
       }
 
-      if (!surgeonData && !game.dictatorPlayer?.isAI) {
+      if (!surgeonData && !game.dictatorPlayer?.isBot) {
         const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
         const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
         if (dictatorSurgeon) {

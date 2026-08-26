@@ -4,10 +4,10 @@ import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 import { autoResolveArgs, getCurrentAction, getPlayerAction } from './helpers/auto-play.js';
 
 /**
- * AI Rebel Batching Integration Tests (AI-01)
+ * Bot Rebel Batching Integration Tests (Bot-01)
  *
- * Phase 54: Verify that AI rebels submit actions in batched rounds
- * during simultaneous play. All AI rebels must complete round N
+ * Phase 54: Verify that Bot rebels submit actions in batched rounds
+ * during simultaneous play. All Bot rebels must complete round N
  * before any can start round N+1.
  *
  * Uses GameRunner pattern from combat-barriers.test.ts.
@@ -29,28 +29,28 @@ function isRebelActionsStep(flowState: any, game: MERCGame): boolean {
 }
 
 /**
- * Create a 3-player GameRunner with 2 AI rebels + 1 AI dictator.
+ * Create a 3-player GameRunner with 2 Bot rebels + 1 Bot dictator.
  */
-function create3PlayerAllAI(seed: string): GameRunner<MERCGame> {
+function create3PlayerAllBot(seed: string): GameRunner<MERCGame> {
   return new GameRunner<MERCGame>({
     GameClass: MERCGame,
     gameType: 'merc',
     gameOptions: {
       playerCount: 3,
-      playerNames: ['AIRebel1', 'AIRebel2', 'DictatorBot'],
+      playerNames: ['BotRebel1', 'BotRebel2', 'DictatorBot'],
       seed,
-      dictatorIsAI: true,
+      dictatorIsBot: true,
       playerConfigs: [
-        { color: '#e74c3c', isDictator: false, isAI: true },
-        { color: '#3498db', isDictator: false, isAI: true },
-        { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'medium' },
+        { color: '#e74c3c', isDictator: false, isBot: true },
+        { color: '#3498db', isDictator: false, isBot: true },
+        { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'medium' },
       ],
     } as any,
   });
 }
 
 /**
- * Create a 3-player GameRunner with 1 human rebel + 1 AI rebel + 1 AI dictator.
+ * Create a 3-player GameRunner with 1 human rebel + 1 Bot rebel + 1 Bot dictator.
  */
 function create3PlayerMixedRebels(seed: string): GameRunner<MERCGame> {
   return new GameRunner<MERCGame>({
@@ -58,13 +58,13 @@ function create3PlayerMixedRebels(seed: string): GameRunner<MERCGame> {
     gameType: 'merc',
     gameOptions: {
       playerCount: 3,
-      playerNames: ['HumanRebel', 'AIRebel', 'DictatorBot'],
+      playerNames: ['HumanRebel', 'BotRebel', 'DictatorBot'],
       seed,
-      dictatorIsAI: true,
+      dictatorIsBot: true,
       playerConfigs: [
-        { color: '#e74c3c', isDictator: false, isAI: false },
-        { color: '#3498db', isDictator: false, isAI: true },
-        { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'medium' },
+        { color: '#e74c3c', isDictator: false, isBot: false },
+        { color: '#3498db', isDictator: false, isBot: true },
+        { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'medium' },
       ],
     } as any,
   });
@@ -160,15 +160,15 @@ function playerHasNonEndTurnActions(flowState: any, playerSeat: number): boolean
 }
 
 
-describe('AI Rebel Batching (AI-01)', () => {
+describe('Bot Rebel Batching (Bot-01)', () => {
 
-  it('AI rebels batch actions -- all first actions before any second actions', () => {
+  it('Bot rebels batch actions -- all first actions before any second actions', () => {
     // Try multiple seeds to find a viable game state
     const seeds = ['batch-test-1', 'batch-test-2', 'batch-test-3', 'batch-test-4', 'batch-test-5'];
     let testPassed = false;
 
     for (const seed of seeds) {
-      const runner = create3PlayerAllAI(seed);
+      const runner = create3PlayerAllBot(seed);
       runner.start();
       const game = runner.game;
 
@@ -178,9 +178,9 @@ describe('AI Rebel Batching (AI-01)', () => {
       const rebel1 = game.rebelPlayers[0];
       const rebel2 = game.rebelPlayers[1];
 
-      // Both must be AI
-      expect(rebel1.isAI).toBe(true);
-      expect(rebel2.isAI).toBe(true);
+      // Both must be Bot
+      expect(rebel1.isBot).toBe(true);
+      expect(rebel2.isBot).toBe(true);
 
       let flowState = game.getFlowState();
       if (!playerHasNonEndTurnActions(flowState, rebel1.seat) ||
@@ -188,7 +188,7 @@ describe('AI Rebel Batching (AI-01)', () => {
         continue; // Need both rebels to have actions available
       }
 
-      // AI rebel 1 takes an action
+      // Bot rebel 1 takes an action
       const rebel1Acted = performAnyAction(runner, rebel1.seat);
       if (!rebel1Acted) continue;
 
@@ -198,7 +198,7 @@ describe('AI Rebel Batching (AI-01)', () => {
 
       // Rebel 1 should be GATED now (took 1 action, batch round still 0)
       // Verify by checking that rebel 1's non-endTurn actions are reduced
-      // (shouldGateAIAction returns true, so 'ai batch gate' condition fails)
+      // (shouldGateBotAction returns true, so 'bot batch gate' condition fails)
       const rebel1Actions = getPlayerAction(flowState, rebel1.seat);
       // Rebel 1 might only have endTurn left if gate blocks all other actions
       // OR might have no entry at all if all actions blocked
@@ -221,7 +221,7 @@ describe('AI Rebel Batching (AI-01)', () => {
     expect(testPassed).toBe(true);
   });
 
-  it('human rebel can act freely regardless of AI batch state', () => {
+  it('human rebel can act freely regardless of Bot batch state', () => {
     const seeds = ['mixed-test-1', 'mixed-test-2', 'mixed-test-3', 'mixed-test-4', 'mixed-test-5'];
     let testPassed = false;
 
@@ -233,9 +233,9 @@ describe('AI Rebel Batching (AI-01)', () => {
       const { reached } = playUntilRebelActions(runner, 500);
       if (!reached) continue;
 
-      const humanRebel = game.rebelPlayers.find(p => !p.isAI);
-      const aiRebel = game.rebelPlayers.find(p => p.isAI);
-      if (!humanRebel || !aiRebel) continue;
+      const humanRebel = game.rebelPlayers.find(p => !p.isBot);
+      const botRebel = game.rebelPlayers.find(p => p.isBot);
+      if (!humanRebel || !botRebel) continue;
 
       let flowState = game.getFlowState();
       if (!playerHasNonEndTurnActions(flowState, humanRebel.seat)) continue;
@@ -253,11 +253,11 @@ describe('AI Rebel Batching (AI-01)', () => {
       const humanAct2 = performAnyAction(runner, humanRebel.seat);
       expect(humanAct2).toBe(true);
 
-      // AI rebel should also be able to act (human actions don't affect AI tracking)
+      // Bot rebel should also be able to act (human actions don't affect Bot tracking)
       flowState = game.getFlowState();
-      if (playerHasNonEndTurnActions(flowState, aiRebel.seat)) {
-        const aiAct = performAnyAction(runner, aiRebel.seat);
-        expect(aiAct).toBe(true);
+      if (playerHasNonEndTurnActions(flowState, botRebel.seat)) {
+        const botAct = performAnyAction(runner, botRebel.seat);
+        expect(botAct).toBe(true);
       }
 
       testPassed = true;
@@ -267,12 +267,12 @@ describe('AI Rebel Batching (AI-01)', () => {
     expect(testPassed).toBe(true);
   });
 
-  it('AI rebel that ends turn does not block batch round advancement', () => {
+  it('Bot rebel that ends turn does not block batch round advancement', () => {
     const seeds = ['exhaust-test-1', 'exhaust-test-2', 'exhaust-test-3', 'exhaust-test-4', 'exhaust-test-5'];
     let testPassed = false;
 
     for (const seed of seeds) {
-      const runner = create3PlayerAllAI(seed);
+      const runner = create3PlayerAllBot(seed);
       runner.start();
       const game = runner.game;
 
@@ -326,14 +326,14 @@ describe('AI Rebel Batching (AI-01)', () => {
 
   it('batching resets when resetRebelBatching is called', () => {
     // This tests the reset mechanism directly: after building up batch state,
-    // calling resetRebelBatching() clears it so AI rebels are no longer gated.
+    // calling resetRebelBatching() clears it so Bot rebels are no longer gated.
     // flow.ts calls resetRebelBatching() before each simultaneous step entry
     // (including re-entry after combat barriers) -- verified structurally below.
     const seeds = ['reset-test-1', 'reset-test-2', 'reset-test-3', 'reset-test-4', 'reset-test-5'];
     let testPassed = false;
 
     for (const seed of seeds) {
-      const runner = create3PlayerAllAI(seed);
+      const runner = create3PlayerAllBot(seed);
       runner.start();
       const game = runner.game;
 
@@ -354,15 +354,15 @@ describe('AI Rebel Batching (AI-01)', () => {
       if (!r1acted) continue;
 
       // Verify rebel 1 is now gated
-      expect(game.shouldGateAIAction(rebel1)).toBe(true);
+      expect(game.shouldGateBotAction(rebel1)).toBe(true);
 
       // Reset batching (simulates what flow.ts does on re-entry)
       game.resetRebelBatching();
 
       // Rebel 1 should no longer be gated
-      expect(game.shouldGateAIAction(rebel1)).toBe(false);
+      expect(game.shouldGateBotAction(rebel1)).toBe(false);
       // Rebel 2 should also not be gated
-      expect(game.shouldGateAIAction(rebel2)).toBe(false);
+      expect(game.shouldGateBotAction(rebel2)).toBe(false);
 
       testPassed = true;
       break;

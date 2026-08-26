@@ -16,7 +16,7 @@ import {
   selectNewMercLocation,
   selectMilitiaPlacementSector,
   getRebelControlledSectors,
-} from './ai-helpers.js';
+} from './bot-helpers.js';
 import { queuePendingCombat } from './combat.js';
 import { equipNewHire } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
@@ -72,8 +72,8 @@ export function applyKimSetupAbility(game: MERCGame): DictatorAbilityResult {
   dictator.putInto(game.dictatorPlayer.baseSquad);
 
   // Dictators get 1 free equipment when entering play, just like MERCs
-  // Only auto-equip for AI - human players choose via the chooseKimBase action
-  if (game.dictatorPlayer?.isAI) {
+  // Only auto-equip for Bot - human players choose via the chooseKimBase action
+  if (game.dictatorPlayer?.isBot) {
     let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
     if (dictator.weaponSlot) {
       equipType = dictator.armorSlot ? 'Accessory' : 'Armor';
@@ -182,12 +182,12 @@ export function applyMaoSetupAbility(game: MERCGame): DictatorAbilityResult {
   }
 
   // Human path is handled via interactive flow (bonusMercSetup action loop)
-  if (!game.dictatorPlayer?.isAI) {
+  if (!game.dictatorPlayer?.isBot) {
     game.message(`Mao's ability: Hire ${game.rebelCount} bonus MERC(s) — choose squads below`);
     return { success: true, message: 'Handled via interactive flow' };
   }
 
-  // AI path: auto-hire N bonus MERCs
+  // Bot path: auto-hire N bonus MERCs
   const bonusCount = game.rebelCount;
   let hired = 0;
 
@@ -255,12 +255,12 @@ export function applyMussoliniSetupAbility(game: MERCGame): DictatorAbilityResul
   }
 
   // Human path is handled via interactive flow (bonusMercSetup action loop)
-  if (!game.dictatorPlayer?.isAI) {
+  if (!game.dictatorPlayer?.isBot) {
     game.message(`Mussolini's ability: Hire ${game.rebelCount} bonus MERC(s) — choose squads below`);
     return { success: true, message: 'Handled via interactive flow' };
   }
 
-  // AI path: auto-hire N bonus MERCs (identical logic to Mao)
+  // Bot path: auto-hire N bonus MERCs (identical logic to Mao)
   const bonusCount = game.rebelCount;
   let hired = 0;
 
@@ -345,7 +345,7 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: false, message: 'No MERCs available' };
   }
 
-  // AI/Auto selection: hire the MERC with highest combat
+  // Bot/Auto selection: hire the MERC with highest combat
   const bestMerc = drawnMercs.reduce((best, current) =>
     current.baseCombat > best.baseCombat ? current : best
   );
@@ -368,7 +368,7 @@ export function applyCastroTurnAbility(game: MERCGame): DictatorAbilityResult {
 
   bestMerc.putInto(targetSquad);
 
-  // MERC-2ay: Set squad location per AI rules 4.3.2
+  // MERC-2ay: Set squad location per Bot rules 4.3.2
   // Dictator-controlled sector closest to weakest rebel sector
   // Note: This moves all mercs in the squad - sectorId is derived from squad
   const targetSector = selectNewMercLocation(game);
@@ -422,7 +422,7 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: true, message: 'No rebel sectors', data: { militiaPlaced: 0 } };
   }
 
-  // MERC-611: Use AI placement rules per section 4.4
+  // MERC-611: Use Bot placement rules per section 4.4
   const allSectors = game.gameMap.getAllSectors();
   const rebelSectors = getRebelControlledSectors(game);
   const dictatorSectors = allSectors.filter(s => s.dictatorMilitia > 0);
@@ -513,7 +513,7 @@ export function applyMaoTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: true, message: 'No wilderness sectors', data: { militiaPlaced: 0 } };
   }
 
-  // AI distribution: place one at a time to spread across sectors
+  // Bot distribution: place one at a time to spread across sectors
   let totalPlaced = 0;
   let remaining = rebelSectorCount;
 
@@ -579,7 +579,7 @@ export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult
     return { success: true, message: 'No controlled sectors', data: { militiaPlaced: 0 } };
   }
 
-  // AI picks target sector
+  // Bot picks target sector
   const targetSector = selectMilitiaPlacementSector(game, controlledSectors, 'dictator');
   if (!targetSector) {
     game.message('Mussolini: Could not select a placement sector');
@@ -602,7 +602,7 @@ export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult
     }
   }
 
-  // AI spread: move militia from source to adjacent sectors opportunistically
+  // Bot spread: move militia from source to adjacent sectors opportunistically
   const adjacentSectors = game.getAdjacentSectors(targetSector);
   let spreadTotal = 0;
 
@@ -687,7 +687,7 @@ export function applyPolpotTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: true, message: 'No valid targets', data: { militiaPlaced: 0 } };
   }
 
-  // AI picks target sector
+  // Bot picks target sector
   const targetSector = selectMilitiaPlacementSector(game, rebelSectors, 'rebel');
   if (!targetSector) {
     game.message('Pol Pot: Could not select a placement sector');
@@ -904,11 +904,11 @@ export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 // =============================================================================
-// Pinochet's Per-Turn Abilities (AI + Human Paths)
+// Pinochet's Per-Turn Abilities (Bot + Human Paths)
 // =============================================================================
 
 /**
- * Apply Pinochet's pending hires from sector losses (AI auto-hire).
+ * Apply Pinochet's pending hires from sector losses (Bot auto-hire).
  * For each pending hire: draw a MERC, place in non-full squad, auto-equip, emit map entry.
  */
 export function applyPinochetPendingHires(game: MERCGame): void {
@@ -967,7 +967,7 @@ export function applyPinochetPendingHires(game: MERCGame): void {
  * Apply Pinochet's damage spread ability.
  * Distributes damage equal to rebel-controlled sector count across all rebel forces.
  * Damage is spread as evenly as possible across living MERCs and militia.
- * Runs for both AI and human Pinochet (no player choices required).
+ * Runs for both Bot and human Pinochet (no player choices required).
  */
 export function applyPinochetDamageSpread(game: MERCGame): void {
   // Count rebel-controlled sectors
@@ -1047,7 +1047,7 @@ export function applyPinochetDamageSpread(game: MERCGame): void {
 }
 
 /**
- * Apply Pinochet's per-turn ability (AI dispatcher entry point).
+ * Apply Pinochet's per-turn ability (Bot dispatcher entry point).
  * Processes pending hires first (from sector losses), then applies damage spread.
  */
 export function applyPinochetTurnAbility(game: MERCGame): void {
@@ -1056,7 +1056,7 @@ export function applyPinochetTurnAbility(game: MERCGame): void {
 }
 
 // =============================================================================
-// Noriega's Per-Turn Ability (AI Path)
+// Noriega's Per-Turn Ability (Bot Path)
 // =============================================================================
 
 /**
@@ -1108,7 +1108,7 @@ export function applyNoriegaTurnAbility(game: MERCGame): DictatorAbilityResult {
         game.message(`Noriega moved ${totalConverted} converted militia to ${fallback.sectorName}`);
       }
     } else {
-      // AI strategy: prefer non-rebel sector with most adjacent rebel sectors
+      // Bot strategy: prefer non-rebel sector with most adjacent rebel sectors
       let bestSector = nonRebelSectors[0];
       let bestScore = -1;
 
@@ -1193,13 +1193,13 @@ export function applyNoriegaTurnAbility(game: MERCGame): DictatorAbilityResult {
 }
 
 // =============================================================================
-// Hussein's Per-Turn Bonus Tactics (AI Path)
+// Hussein's Per-Turn Bonus Tactics (Bot Path)
 // =============================================================================
 
 /**
- * Apply Hussein's per-turn ability (AI path):
+ * Apply Hussein's per-turn ability (Bot path):
  * "Draw and play a second tactics card at the end of each turn."
- * AI auto-plays the top card from the deck.
+ * Bot auto-plays the top card from the deck.
  */
 export function applyHusseinBonusTactics(game: MERCGame): DictatorAbilityResult {
   const dictator = game.dictatorPlayer.dictator;
@@ -1328,7 +1328,7 @@ export function findEquipmentInDiscards(game: MERCGame, equipmentId: number): Eq
 }
 
 /**
- * Process Gaddafi's looted equipment (AI auto-equip path).
+ * Process Gaddafi's looted equipment (Bot auto-equip path).
  * For each staged equipment item, find a dictator MERC in the combat sector
  * with an open slot of the matching type and equip it.
  * Equipment with no valid recipient stays in the discard pile.

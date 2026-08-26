@@ -1,9 +1,14 @@
 /**
- * AI Helper Functions
+ * Bot Helper Functions
  *
- * Based on: data/rules/10-dictator-ai.md
+ * Based on: data/rules/10-dictator-ai.md, a transcription of the printed
+ * expansion rules. The printed rules call this player the "Dictator AI" and
+ * title their sections accordingly ("AI Overview", "AI Setup"), and the
+ * transcription keeps that wording so it can still be checked against the PDF.
+ * The code calls the same player the bot, which is what it is, so a comment
+ * here citing "Bot Setup" is citing the printed "AI Setup".
  *
- * Contains helper functions for AI decision-making including:
+ * Contains helper functions for Bot decision-making including:
  * - Rebel strength calculation
  * - Target prioritization
  * - Distance calculations
@@ -22,40 +27,40 @@ import {
 } from './equipment-effects.js';
 import { isCombatantModel } from './actions/helpers.js';
 
-// Re-export from ai-combat-helpers.ts for backwards compatibility
+// Re-export from bot-combat-helpers.ts for backwards compatibility
 export {
   calculateRebelStrength,
   chooseWeakestRebelSector,
   getRebelControlledSectors,
-  sortTargetsByAIPriority,
+  sortTargetsByBotPriority,
   detonateLandMines,
-} from './ai-combat-helpers.js';
-export type { CombatTarget } from './ai-combat-helpers.js';
+} from './bot-combat-helpers.js';
+export type { CombatTarget } from './bot-combat-helpers.js';
 
 // Import for internal use
 import {
   calculateRebelStrength,
   chooseWeakestRebelSector,
   getRebelControlledSectors,
-} from './ai-combat-helpers.js';
+} from './bot-combat-helpers.js';
 
-// Re-export from ai-action-helpers.ts
+// Re-export from bot-action-helpers.ts
 export {
   sortMercsByInitiative,
   getSquadMercs,
   canSquadMoveTogether,
   getSquadAction,
   findUnoccupiedIndustriesInRange,
-  getAIMercAction,
+  getBotMercAction,
   findClosestRebelSector,
   getBestMoveDirection,
-} from './ai-action-helpers.js';
-export type { AIActionType, AIActionDecision } from './ai-action-helpers.js';
+} from './bot-action-helpers.js';
+export type { BotActionType, BotActionDecision } from './bot-action-helpers.js';
 
 // Import types for internal use
-import type { AIActionType } from './ai-action-helpers.js';
-import type { CombatTarget } from './ai-combat-helpers.js';
-import { sortTargetsByAIPriority } from './ai-combat-helpers.js';
+import type { BotActionType } from './bot-action-helpers.js';
+import type { CombatTarget } from './bot-combat-helpers.js';
+import { sortTargetsByBotPriority } from './bot-combat-helpers.js';
 
 // =============================================================================
 // Distance Calculations
@@ -125,7 +130,7 @@ export function distanceBetweenSectors(game: MERCGame, from: Sector, to: Sector)
 }
 
 // =============================================================================
-// Privacy Player Designation (Section AI Setup)
+// Privacy Player Designation (Section Bot Setup)
 // =============================================================================
 
 /**
@@ -133,7 +138,7 @@ export function distanceBetweenSectors(game: MERCGame, from: Sector, to: Sector)
  * MERC-q4v: Per rules, one Rebel player is designated to:
  * - Take all Dictator actions
  * - See hidden information (mine locations, etc.)
- * - Make AI decisions impartially
+ * - Make Bot decisions impartially
  */
 export function isPrivacyPlayer(game: MERCGame, playerId: string): boolean {
   return game.dictatorPlayer.privacyPlayerId === playerId;
@@ -141,7 +146,7 @@ export function isPrivacyPlayer(game: MERCGame, playerId: string): boolean {
 
 /**
  * Get the privacy player.
- * MERC-q4v: Per rules, returns the designated Rebel player for AI decisions.
+ * MERC-q4v: Per rules, returns the designated Rebel player for Bot decisions.
  */
 export function getPrivacyPlayer(game: MERCGame): { name: string; seat: number } | null {
   const privacyId = game.dictatorPlayer.privacyPlayerId;
@@ -155,12 +160,12 @@ export function getPrivacyPlayer(game: MERCGame): { name: string; seat: number }
 }
 
 /**
- * Designate a privacy player for AI decisions.
+ * Designate a privacy player for Bot decisions.
  * MERC-q4v: Should be called during setup.
  */
 export function setPrivacyPlayer(game: MERCGame, playerId: string): void {
   game.dictatorPlayer.privacyPlayerId = playerId;
-  game.message(`Player ${playerId} designated as Privacy Player for AI decisions`);
+  game.message(`Player ${playerId} designated as Privacy Player for Bot decisions`);
 }
 
 // =============================================================================
@@ -199,7 +204,7 @@ export function isDictatorAtBase(game: MERCGame): boolean {
  * Get valid actions for dictator at base.
  * MERC-mme: Dictator can equip, train, but NOT move.
  */
-export function getDictatorBaseActions(): AIActionType[] {
+export function getDictatorBaseActions(): BotActionType[] {
   return ['explore', 're-equip', 'train']; // No 'move'
 }
 
@@ -208,11 +213,11 @@ export function getDictatorBaseActions(): AIActionType[] {
 // =============================================================================
 
 /**
- * Select base location for AI dictator.
+ * Select base location for Bot dictator.
  * Chooses the most valuable industry not occupied by rebels.
  * If there are multiple industries with the same value, chooses randomly.
  */
-export function selectAIBaseLocation(game: MERCGame): Sector | null {
+export function selectBotBaseLocation(game: MERCGame): Sector | null {
   // Get industries with dictator militia (not chosen by rebels)
   const controlledIndustries = game.gameMap.getAllSectors()
     .filter(s => s.isIndustry && s.dictatorMilitia > 0);
@@ -248,12 +253,12 @@ export function selectAIBaseLocation(game: MERCGame): Sector | null {
 }
 
 // =============================================================================
-// AI Militia Placement (Section 4.4 & Setup)
+// Bot Militia Placement (Section 4.4 & Setup)
 // =============================================================================
 
 /**
  * Check if extra militia should be skipped for solo/1-rebel games.
- * MERC-93p: Per AI Setup rules, extra militia is skipped "unless solo/1 Rebel".
+ * MERC-93p: Per Bot Setup rules, extra militia is skipped "unless solo/1 Rebel".
  */
 export function shouldSkipExtraMilitia(game: MERCGame): boolean {
   // MERC-93p: Skip extra militia for solo games (1 rebel)
@@ -262,7 +267,7 @@ export function shouldSkipExtraMilitia(game: MERCGame): boolean {
 
 /**
  * Distribute militia evenly among Dictator-controlled Industries.
- * MERC-cgn: Per AI Setup rules, extra militia during setup are distributed EVENLY
+ * MERC-cgn: Per Bot Setup rules, extra militia during setup are distributed EVENLY
  * among Dictator-controlled Industries (not using placement priority).
  * MERC-93p: Skips if solo/1-rebel game.
  */
@@ -318,7 +323,7 @@ export function distributeExtraMilitiaEvenly(
 }
 
 /**
- * Select sector for AI militia placement.
+ * Select sector for Bot militia placement.
  * Per rules 4.4, depends on placement type:
  * - Rebel sectors: weakest rebel force
  * - Neutral sectors: highest value closest to base
@@ -375,7 +380,7 @@ export function selectMilitiaPlacementSector(
 }
 
 // =============================================================================
-// AI Equipment Selection (Section 4.7)
+// Bot Equipment Selection (Section 4.7)
 // =============================================================================
 
 /**
@@ -387,10 +392,10 @@ export function shouldLeaveInStash(equipment: Equipment): boolean {
 }
 
 /**
- * Sort equipment by AI priority (highest serial number first).
+ * Sort equipment by Bot priority (highest serial number first).
  * Per rules 4.7.3: Take equipment with highest number.
  */
-export function sortEquipmentByAIPriority(equipment: Equipment[]): Equipment[] {
+export function sortEquipmentByBotPriority(equipment: Equipment[]): Equipment[] {
   return [...equipment]
     .filter(e => !shouldLeaveInStash(e))
     .sort((a, b) => (b.serial || 0) - (a.serial || 0));
@@ -405,23 +410,23 @@ export function sortMercsAlphabetically(mercs: CombatantModel[]): CombatantModel
 }
 
 // =============================================================================
-// AI MERC Hiring (Section 4.3)
+// Bot MERC Hiring (Section 4.3)
 // =============================================================================
 
 /**
- * Get free equipment type for AI.
- * MERC-pyo: Per rules 4.3.3, AI always chooses Weapon as free equipment.
+ * Get free equipment type for Bot.
+ * MERC-pyo: Per rules 4.3.3, Bot always chooses Weapon as free equipment.
  */
-export function getAIFreeEquipmentType(): 'Weapon' | 'Armor' | 'Accessory' {
+export function getBotFreeEquipmentType(): 'Weapon' | 'Armor' | 'Accessory' {
   return 'Weapon';
 }
 
 /**
- * Select MERC for AI hiring when there's a choice.
+ * Select MERC for Bot hiring when there's a choice.
  * MERC-632: Per rules 4.3.1, if choice of more than 1, pick randomly from top of deck.
  * Returns the index of the selected MERC.
  */
-export function selectAIMercForHiring(availableMercs: CombatantModel[], random: () => number): number {
+export function selectBotMercForHiring(availableMercs: CombatantModel[], random: () => number): number {
   if (availableMercs.length === 0) return -1;
   if (availableMercs.length === 1) return 0;
 
@@ -430,11 +435,11 @@ export function selectAIMercForHiring(availableMercs: CombatantModel[], random: 
 }
 
 /**
- * Select multiple MERCs for AI hiring.
+ * Select multiple MERCs for Bot hiring.
  * MERC-632: Per rules 4.3.1, pick randomly when there's a choice.
  * Returns indices of selected MERCs.
  */
-export function selectAIMercsForHiring(
+export function selectBotMercsForHiring(
   availableMercs: CombatantModel[],
   countToSelect: number,
   random: () => number
@@ -455,7 +460,7 @@ export function selectAIMercsForHiring(
 }
 
 /**
- * Select sector for new AI MERC placement.
+ * Select sector for new Bot MERC placement.
  * Per rules 4.3.2: Dictator-controlled sector closest to weakest rebel sector.
  */
 export function selectNewMercLocation(game: MERCGame): Sector | null {
@@ -484,11 +489,11 @@ export function selectNewMercLocation(game: MERCGame): Sector | null {
 }
 
 // =============================================================================
-// AI Auto-Equip (Section 4.7)
+// Bot Auto-Equip (Section 4.7)
 // =============================================================================
 
 /**
- * Auto-equip dictator units from stash according to AI rules.
+ * Auto-equip dictator units from stash according to Bot rules.
  * MERC-0dp: Per rules 4.7:
  * 1. Equip MERCs in alphabetical order
  * 2. Take equipment with highest serial number first
@@ -513,7 +518,7 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
 
   // Get equipment from stash, sorted by priority
   const stash = sector.getStashContents();
-  const prioritizedEquipment = sortEquipmentByAIPriority(stash);
+  const prioritizedEquipment = sortEquipmentByBotPriority(stash);
 
   let equippedCount = 0;
 
@@ -563,12 +568,12 @@ export function autoEquipDictatorUnits(game: MERCGame, sector: Sector): number {
 }
 
 // =============================================================================
-// AI Healing and Saving MERCs (Sections 4.8-4.10)
+// Bot Healing and Saving MERCs (Sections 4.8-4.10)
 // =============================================================================
 
 /**
  * Check if a MERC needs healing.
- * Per rules 4.8, AI prioritizes healing when MERCs are injured.
+ * Per rules 4.8, Bot prioritizes healing when MERCs are injured.
  */
 export function mercNeedsHealing(merc: CombatantModel): boolean {
   return merc.damage > 0 && !merc.isDead;
@@ -576,7 +581,7 @@ export function mercNeedsHealing(merc: CombatantModel): boolean {
 
 /**
  * Get MERCs with healing abilities.
- * MERC-6kw: Per rules 4.8.1, AI uses MERC healing abilities first.
+ * MERC-6kw: Per rules 4.8.1, Bot uses MERC healing abilities first.
  */
 export function getMercsWithHealingAbility(mercs: CombatantModel[]): CombatantModel[] {
   return mercs.filter(m =>
@@ -589,12 +594,12 @@ export function getMercsWithHealingAbility(mercs: CombatantModel[]): CombatantMo
 }
 
 /**
- * Get AI healing priority order.
+ * Get Bot healing priority order.
  * MERC-6kw: Per rules 4.8:
  * 1. Use MERC healing abilities first
  * 2. Then discard combat dice for Medical Kit / First Aid Kit
  */
-export interface AIHealingAction {
+export interface BotHealingAction {
   type: 'ability' | 'item' | 'repairKit';
   merc?: CombatantModel;
   item?: string;
@@ -602,11 +607,11 @@ export interface AIHealingAction {
   sector?: Sector;
 }
 
-export function getAIHealingPriority(
+export function getBotHealingPriority(
   game: MERCGame,
   damagedMercs: CombatantModel[],
   allMercs: CombatantModel[]
-): AIHealingAction | null {
+): BotHealingAction | null {
   if (damagedMercs.length === 0) return null;
 
   // Sort damaged MERCs by health (lowest first)
@@ -634,7 +639,7 @@ export function getAIHealingPriority(
     }
   }
 
-  // MERC-3po: 4.7.2 - Try Repair Kit from stash (AI leaves these in stash per rules)
+  // MERC-3po: 4.7.2 - Try Repair Kit from stash (Bot leaves these in stash per rules)
   // Check if the damaged MERC's sector has a repair kit
   if (target.sectorId) {
     const sector = game.getSector(target.sectorId);
@@ -648,7 +653,7 @@ export function getAIHealingPriority(
 
 /**
  * Check if squad has Epinephrine Shot.
- * MERC-jjr: Per rules 4.9, AI saves dying MERCs with Epinephrine Shot.
+ * MERC-jjr: Per rules 4.9, Bot saves dying MERCs with Epinephrine Shot.
  */
 export function hasEpinephrineShot(mercs: CombatantModel[]): CombatantModel | null {
   for (const merc of mercs) {
@@ -667,7 +672,7 @@ export function hasEpinephrineShot(mercs: CombatantModel[]): CombatantModel | nu
 
 /**
  * Check if a MERC should use Epinephrine Shot.
- * MERC-jjr: Per rules 4.9, AI uses Epinephrine to save dying MERCs.
+ * MERC-jjr: Per rules 4.9, Bot uses Epinephrine to save dying MERCs.
  * Returns the MERC with the shot if saving is needed.
  */
 export function shouldUseEpinephrine(
@@ -682,33 +687,33 @@ export function shouldUseEpinephrine(
 }
 
 // =============================================================================
-// AI Special Abilities (Section 4.10)
+// Bot Special Abilities (Section 4.10)
 // =============================================================================
 
 /**
- * Check if AI should use a MERC's special ability.
- * MERC-65u: Per rules 4.10, AI ALWAYS uses MERC special abilities when appropriate.
+ * Check if Bot should use a MERC's special ability.
+ * MERC-65u: Per rules 4.10, Bot ALWAYS uses MERC special abilities when appropriate.
  */
 export function shouldUseSpecialAbility(merc: CombatantModel, _situation: string): boolean {
-  // AI always uses abilities when they can be used
+  // Bot always uses abilities when they can be used
   return !!merc.ability && merc.ability.length > 0;
 }
 
 /**
- * Get list of special ability activations for the AI.
- * MERC-65u: AI always uses abilities when beneficial.
+ * Get list of special ability activations for the Bot.
+ * MERC-65u: Bot always uses abilities when beneficial.
  */
-export function getAIAbilityActivations(mercs: CombatantModel[]): CombatantModel[] {
+export function getBotAbilityActivations(mercs: CombatantModel[]): CombatantModel[] {
   return mercs.filter(m => !m.isDead && shouldUseSpecialAbility(m, 'any'));
 }
 
 // =============================================================================
-// AI Attack Dog Assignment (Section 4.11)
+// Bot Attack Dog Assignment (Section 4.11)
 // =============================================================================
 
 /**
  * Check if a unit has Attack Dogs.
- * MERC-dol: Per rules 4.11, AI always assigns Attack Dogs to Rebel MERCs.
+ * MERC-dol: Per rules 4.11, Bot always assigns Attack Dogs to Rebel MERCs.
  */
 export function hasAttackDogEquipped(unit: CombatantModel): boolean {
   // Check accessory slot
@@ -728,7 +733,7 @@ export function getUnitsWithAttackDogs(mercs: CombatantModel[]): CombatantModel[
 }
 
 /**
- * Select target for Attack Dog assignment using AI target rules.
+ * Select target for Attack Dog assignment using Bot target rules.
  * MERC-dol: Per rules 4.11, uses "Choosing Targets in Combat" (4.6).
  * @param random - Seeded random function from game.random
  */
@@ -738,8 +743,8 @@ export function selectAttackDogTarget(
 ): CombatTarget | null {
   if (targets.length === 0) return null;
 
-  // Use standard AI target priority (4.6)
-  const sorted = sortTargetsByAIPriority(targets, random);
+  // Use standard Bot target priority (4.6)
+  const sorted = sortTargetsByBotPriority(targets, random);
   return sorted[0];
 }
 
@@ -752,7 +757,7 @@ export function hasRepairKitInStash(sector: Sector): boolean {
 
 /**
  * Use repair kit from stash to heal a MERC.
- * MERC-gqy: Per rules 4.10, AI uses repair kits to heal MERCs.
+ * MERC-gqy: Per rules 4.10, Bot uses repair kits to heal MERCs.
  * Returns true if healing was performed.
  */
 export function useRepairKit(game: MERCGame, sector: Sector, merc: CombatantModel): boolean {
@@ -822,7 +827,7 @@ export function findNearestHospital(game: MERCGame, fromSector: Sector): Sector 
 }
 
 // =============================================================================
-// AI Mortar Attacks (Section 4.12)
+// Bot Mortar Attacks (Section 4.12)
 // =============================================================================
 
 /**
@@ -884,8 +889,8 @@ export function countTargetsInSector(game: MERCGame, sector: Sector): number {
 }
 
 /**
- * Select best mortar target using AI priority.
- * MERC-gcb: Per rules 4.12, AI always attacks with mortars when possible.
+ * Select best mortar target using Bot priority.
+ * MERC-gcb: Per rules 4.12, Bot always attacks with mortars when possible.
  * Chooses sector with most targets. If tied, uses target selection rules.
  */
 export function selectMortarTarget(game: MERCGame, fromSector: Sector): Sector | null {

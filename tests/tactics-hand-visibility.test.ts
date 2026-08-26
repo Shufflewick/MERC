@@ -34,7 +34,7 @@ describe('Audit F32: tactics hand / deck per-player snapshot visibility', () => 
         seed: '12345',
         exclusiveSeats: { role: 1 },
         playerOptions: [{ role: 'dictator' }, {}],
-        playerIsAI: [false, false],
+        playerIsBot: [false, false],
         dictatorCharacter: 'random',
       },
     });
@@ -78,7 +78,7 @@ describe('Audit F32: tactics hand / deck per-player snapshot visibility', () => 
         seed: '12345',
         exclusiveSeats: { role: 1 },
         playerOptions: [{ role: 'dictator' }, {}],
-        playerIsAI: [false, false],
+        playerIsBot: [false, false],
         dictatorCharacter: 'random',
       },
     });

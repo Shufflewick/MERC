@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
-import { createBot } from 'boardsmith/ai';
+import { createBot } from 'boardsmith/bot';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 import { Sector, CombatantModel, Equipment, TacticsCard } from '../src/rules/elements.js';
 import { isValidLandingSector } from '../src/rules/day-one.js';
@@ -96,7 +96,7 @@ describe('MCTS Clone Divergence', () => {
         playerCount: 2,
         playerNames: ['Rebel1', 'DictatorBot'],
         seed,
-        dictatorIsAI: true,
+        dictatorIsBot: true,
       } as any,
     });
 
@@ -187,7 +187,7 @@ describe('MCTS Clone Divergence', () => {
           playerCount: 2,
           playerNames: ['Rebel1', 'DictatorBot'],
           seed,
-          dictatorIsAI: true,
+          dictatorIsBot: true,
         } as any,
       });
 
@@ -333,7 +333,7 @@ describe('MCTS Clone Divergence', () => {
           playerCount: 2,
           playerNames: ['Rebel1', 'DictatorBot'],
           seed,
-          dictatorIsAI: true,
+          dictatorIsBot: true,
         } as any,
       });
 
@@ -384,7 +384,7 @@ describe('MCTS Clone Divergence', () => {
   it('should clone correctly after playerConfigs is stripped (HMR scenario)', () => {
     // This test simulates the HMR bug: after Hot Module Replacement, the game's
     // _constructorOptions loses playerConfigs. The clone would then create a game
-    // without setting dictatorPlayer.isAI, causing flow divergence.
+    // without setting dictatorPlayer.isBot, causing flow divergence.
     const seed = 'hmr-clone-test';
     const runner = new GameRunner<MERCGame>({
       GameClass: MERCGame,
@@ -394,8 +394,8 @@ describe('MCTS Clone Divergence', () => {
         playerNames: ['Rebel1', 'DictatorBot'],
         seed,
         playerConfigs: [
-          { color: '#e74c3c', isDictator: false, isAI: false },
-          { color: '#95a5a6', isDictator: true, isAI: true, aiLevel: 'medium' },
+          { color: '#e74c3c', isDictator: false, isBot: false },
+          { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'medium' },
         ],
       } as any,
     });
@@ -403,8 +403,8 @@ describe('MCTS Clone Divergence', () => {
     runner.start();
     const game = runner.game;
 
-    // Verify dictator is AI
-    expect(game.dictatorPlayer.isAI).toBe(true);
+    // Verify dictator is Bot
+    expect(game.dictatorPlayer.isBot).toBe(true);
 
     // Play a few actions
     let actionCount = 0;
@@ -438,7 +438,7 @@ describe('MCTS Clone Divergence', () => {
     const configs = opts.playerConfigs as any[];
     const dictatorConfig = configs.find((c: any) => c.isDictator);
     expect(dictatorConfig).toBeDefined();
-    expect(dictatorConfig.isAI).toBe(true);
+    expect(dictatorConfig.isBot).toBe(true);
 
     // Now simulate HMR by creating a snapshot WITHOUT playerConfigs
     // and verify the clone still works (because getConstructorOptions fills it in)
@@ -452,9 +452,9 @@ describe('MCTS Clone Divergence', () => {
       },
     };
 
-    // Without the fix, this clone's dictator would NOT be AI.
+    // Without the fix, this clone's dictator would NOT be Bot.
     // The stripped clone may throw during action replay because the flow topology
-    // diverges (e.g., designatePrivacyPlayer is skipped when dictator isn't AI,
+    // diverges (e.g., designatePrivacyPlayer is skipped when dictator isn't Bot,
     // causing subsequent actions to replay against the wrong flow step).
     // This is expected — the stripped snapshot is deliberately broken.
     try {
@@ -470,7 +470,7 @@ describe('MCTS Clone Divergence', () => {
 
     // Verify the REAL snapshot produces a correct clone
     const { clone: realClone, flowState: realCloneFlow } = cloneGame(snapshot);
-    expect(realClone.dictatorPlayer.isAI).toBe(true);
+    expect(realClone.dictatorPlayer.isBot).toBe(true);
 
     const realDiverged = realCloneFlow.complete !== origFlow.complete ||
       realCloneFlow.awaitingInput !== origFlow.awaitingInput ||

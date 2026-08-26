@@ -703,7 +703,7 @@ export abstract class CombatantBase extends BaseCard {
 
   // Stat getters with full bonus support
   /**
-   * Initiative as used everywhere: combat ordering, the UI, and AI evaluation.
+   * Initiative as used everywhere: combat ordering, the UI, and Bot evaluation.
    * Vulture ignores negative equipment initiative, so that exemption lives here
    * rather than in a parallel getter that only the card display would read.
    */

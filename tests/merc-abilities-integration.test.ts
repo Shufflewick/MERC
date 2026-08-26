@@ -222,7 +222,7 @@ describe('MERC Ability Integration Tests', () => {
         shooter.updateAbilityBonuses([]);
 
         // data/mercs.csv prints combat 6 and a flavour-only ability, so base-stat
-        // consumers (hire AI, Haarg's comparison) must see 6.
+        // consumers (hire Bot, Haarg's comparison) must see 6.
         expect(shooter.baseCombat).toBe(6);
         expect(shooter.effectiveCombat).toBe(6);
         expect(shooter.activeStatModifiers.find(m => m.stat === 'combat')).toBeUndefined();

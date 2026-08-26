@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
-import { mercAI } from '../src/rules/ai.js';
+import { mercBot } from '../src/rules/bot.js';
 import { gameDefinition } from '../src/rules/index';
 
 /**
- * The presets mark AI seats, so the MCTS bot runs for them. Without these hooks
+ * The presets mark Bot seats, so the MCTS bot runs for them. Without these hooks
  * it searches with no evaluation gradient.
  */
 describe('MCTS hooks', () => {
@@ -18,14 +18,14 @@ describe('MCTS hooks', () => {
   }
 
   it('is attached to the game definition', () => {
-    expect(gameDefinition.ai).toBe(mercAI);
+    expect(gameDefinition.bot).toBe(mercBot);
   });
 
   it('scores every objective inside 0..1 for both sides', () => {
-    const game = newGame('ai-objectives');
+    const game = newGame('bot-objectives');
 
     for (const player of game.players) {
-      const objectives = mercAI.objectives!(game, player.seat);
+      const objectives = mercBot.objectives!(game, player.seat);
       expect(Object.keys(objectives).length).toBeGreaterThan(0);
 
       for (const [name, objective] of Object.entries(objectives)) {
@@ -38,7 +38,7 @@ describe('MCTS hooks', () => {
   });
 
   it('rewards the side holding more sector value', () => {
-    const game = newGame('ai-sector-control');
+    const game = newGame('bot-sector-control');
     const rebel = game.rebelPlayers[0];
     const dictator = game.dictatorPlayer;
 
@@ -47,15 +47,15 @@ describe('MCTS hooks', () => {
       sector.addRebelMilitia(`${rebel.seat}`, 3);
     }
 
-    const rebelScore = mercAI.objectives!(game, rebel.seat).sectorControl.checker(game, rebel.seat);
-    const dictatorScore = mercAI.objectives!(game, dictator.seat)
+    const rebelScore = mercBot.objectives!(game, rebel.seat).sectorControl.checker(game, rebel.seat);
+    const dictatorScore = mercBot.objectives!(game, dictator.seat)
       .sectorControl.checker(game, dictator.seat);
 
     expect(rebelScore).toBeGreaterThan(dictatorScore);
   });
 
   it('always returns one of the available moves from the playout policy', () => {
-    const game = newGame('ai-playout');
+    const game = newGame('bot-playout');
     const moves = [
       { action: 'endTurn', args: {} },
       { action: 'move', args: {} },
@@ -63,14 +63,14 @@ describe('MCTS hooks', () => {
     ];
 
     for (const roll of [0, 0.25, 0.5, 0.75, 0.999]) {
-      const chosen = mercAI.playoutPolicy!(game, 1, moves, () => roll);
+      const chosen = mercBot.playoutPolicy!(game, 1, moves, () => roll);
       expect(moves).toContain(chosen);
     }
   });
 
   it('orders board-changing moves ahead of ending the turn', () => {
-    const game = newGame('ai-ordering');
-    const ordered = mercAI.moveOrdering!(game, 1, [
+    const game = newGame('bot-ordering');
+    const ordered = mercBot.moveOrdering!(game, 1, [
       { action: 'endTurn', args: {} },
       { action: 'move', args: {} },
     ]);

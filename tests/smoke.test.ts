@@ -161,7 +161,7 @@ describe('MERC Smoke Tests', () => {
       // Dictator Day 2+ actions
       expect(game.getAction('playTactics')).toBeDefined();
       expect(game.getAction('reinforce')).toBeDefined();
-      // Note: dictatorMove, dictatorExplore, moveMilitia are AI-internal only
+      // Note: dictatorMove, dictatorExplore, moveMilitia are Bot-internal only
       // and are not registered as general actions
     });
   });

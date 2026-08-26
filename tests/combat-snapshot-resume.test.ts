@@ -20,7 +20,7 @@ function startRunner(seed: string): GameRunner<MERCGame> {
       playerNames: ['Rebel1', 'Dictator'],
       seed,
       // Two humans, so combat pauses for decisions instead of auto-resolving.
-      playerIsAI: [false, false],
+      playerIsBot: [false, false],
       dictatorCharacter: 'random',
     },
   }) as GameRunner<MERCGame>;

@@ -18,8 +18,8 @@ import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from './game.j
 import { Sector, Militia, CombatantModel, Equipment } from './elements.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
-  sortTargetsByAIPriority,
-} from './ai-helpers.js';
+  sortTargetsByBotPriority,
+} from './bot-helpers.js';
 import {
   getMercAbility,
   getHitThreshold,
@@ -329,7 +329,7 @@ function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MER
 /**
  * MERC-5l3: Check if combatant should use reroll
  * Uses registry to check if MERC can reroll (Basic)
- * AI decision: reroll if hits are below expected value (50% hit rate)
+ * Bot decision: reroll if hits are below expected value (50% hit rate)
  */
 function shouldUseReroll(combatant: Combatant, rolls: number[], hits: number): boolean {
   if (combatant.hasUsedReroll) return false;
@@ -387,7 +387,7 @@ function isSurgeon(combatant: Combatant): boolean {
  * MERC-7te: Surgeon can sacrifice a combat die to heal 1 damage to squad mate
  * Returns true if Surgeon used ability (combat reduced by 1)
  *
- * NOTE: This function only auto-heals for AI-controlled Surgeon.
+ * NOTE: This function only auto-heals for Bot-controlled Surgeon.
  * Human-controlled Surgeon uses the combatSurgeonHeal action to choose targets.
  */
 function applySurgeonHeal(
@@ -399,10 +399,10 @@ function applySurgeonHeal(
     return false;
   }
 
-  // Only auto-heal for AI-controlled Surgeon
+  // Only auto-heal for Bot-controlled Surgeon
   // Human players use the combatSurgeonHeal action to choose targets
-  const isAIControlled = surgeon.isDictatorSide && game.dictatorPlayer?.isAI;
-  if (!isAIControlled) {
+  const isBotControlled = surgeon.isDictatorSide && game.dictatorPlayer?.isBot;
+  if (!isBotControlled) {
     return false;
   }
 
@@ -419,7 +419,7 @@ function applySurgeonHeal(
     return false;
   }
 
-  // AI decision: heal the most damaged ally
+  // Bot decision: heal the most damaged ally
   const mostDamaged = damagedAllies.sort((a, b) =>
     (b.maxHealth - b.health) - (a.maxHealth - a.health)
   )[0];
@@ -651,7 +651,7 @@ function getControllingPlayer(game: MERCGame, combatant: Combatant): MERCPlayer 
  * MERC-b9p4: Golem — "May attack any 1 target before the first round of combat."
  *
  * The ability is optional and the target is the player's to pick, so a
- * human-controlled Golem pauses for a choice (or a decline). The AI fires
+ * human-controlled Golem pauses for a choice (or a decline). The Bot fires
  * automatically at its highest-priority target.
  *
  * Returns true when combat must pause for a player decision.
@@ -678,7 +678,7 @@ function executeGolemPreCombat(
     const choiceKey = `golem:${golem.id}`;
     const chosenId = game.activeCombat?.selectedTargets?.get(choiceKey)?.[0];
     const owner = getControllingPlayer(game, golem);
-    const isHumanControlled = !!owner && !owner.isAI;
+    const isHumanControlled = !!owner && !owner.isBot;
 
     let target: Combatant | undefined;
     if (chosenId !== undefined) {
@@ -699,7 +699,7 @@ function executeGolemPreCombat(
       };
       return true;
     } else {
-      target = sortTargetsByAIPriority(eligible, game.random)[0];
+      target = sortTargetsByBotPriority(eligible, game.random)[0];
     }
 
     markGolemResolved(game, golem.id);
@@ -856,12 +856,12 @@ function distributeHitsEvenly(totalHits: number, targets: Combatant[]): Map<stri
 }
 
 /**
- * Distribute hits using AI priority — concentrate on highest-priority target first,
+ * Distribute hits using Bot priority — concentrate on highest-priority target first,
  * then overflow to next priority target.
  */
-function distributeHitsAI(totalHits: number, targets: Combatant[], randomFn: () => number): Map<string, number> {
+function distributeHitsBot(totalHits: number, targets: Combatant[], randomFn: () => number): Map<string, number> {
   const result = new Map<string, number>();
-  const sorted = sortTargetsByAIPriority(targets, randomFn);
+  const sorted = sortTargetsByBotPriority(targets, randomFn);
   let remaining = totalHits;
   for (const t of sorted) {
     if (remaining <= 0) break;
@@ -1391,7 +1391,7 @@ function isRizen(combatant: Combatant): boolean {
 /**
  * The targets an attacker is allowed to declare.
  *
- * One list for everyone: the human pause path and AI auto-selection both read
+ * One list for everyone: the human pause path and Bot auto-selection both read
  * this, so a card's targeting restrictions cannot differ by who is holding it.
  * Applies, in order:
  *   - only living enemies
@@ -1476,7 +1476,7 @@ function selectTargetsWithPlayerChoice(
 
 /**
  * Select targets for an attacker
- * MERC-0q8: AI (dictator side) uses priority targeting per rules 4.6:
+ * MERC-0q8: Bot (dictator side) uses priority targeting per rules 4.6:
  * 1. Lowest health + armor
  * 2. If tied, highest targets
  * 3. If tied, highest initiative
@@ -1489,7 +1489,7 @@ function selectTargets(
   game: MERCGame
 ): Combatant[] {
   const eligible = getEligibleTargets(attacker, enemies);
-  const prioritized = sortTargetsByAIPriority(eligible, game.random);
+  const prioritized = sortTargetsByBotPriority(eligible, game.random);
   return withRizenMilitia(attacker, prioritized.slice(0, maxTargets), eligible);
 }
 
@@ -1670,7 +1670,7 @@ function assignAttackDog(
 
   // MERC-tbq: Per rules 4.11, use "Choosing Targets in Combat" (4.6) for Attack Dog assignment
   // Priority: lowest health+armor, most targets, highest initiative, random
-  const sortedTargets = sortTargetsByAIPriority(validTargets, game.random);
+  const sortedTargets = sortTargetsByBotPriority(validTargets, game.random);
   const target = sortedTargets[0];
 
   // Create the dog combatant (not yet in game tree — just an object)
@@ -1700,7 +1700,7 @@ function assignAttackDog(
 
 /**
  * MERC-l09: Assign Attack Dog to a specific target (for human player selection)
- * Similar to assignAttackDog but uses player-selected target instead of AI priority
+ * Similar to assignAttackDog but uses player-selected target instead of Bot priority
  */
 function assignAttackDogToTarget(
   attacker: Combatant,
@@ -1947,11 +1947,11 @@ function executeCombatRound(
 
         // Determine if human-controlled
         const isDictatorMilitia = attacker.isDictatorSide;
-        const isDictatorHumanControlled = isDictatorMilitia && !game.dictatorPlayer?.isAI;
+        const isDictatorHumanControlled = isDictatorMilitia && !game.dictatorPlayer?.isBot;
         let isRebelMilitiaHumanControlled = false;
         if (!isDictatorMilitia && attacker.ownerId) {
           const ownerPlayer = game.rebelPlayers.find(p => `${p.seat}` === attacker.ownerId);
-          isRebelMilitiaHumanControlled = !!(ownerPlayer && !ownerPlayer.isAI);
+          isRebelMilitiaHumanControlled = !!(ownerPlayer && !ownerPlayer.isBot);
         }
         const isHumanControlled = isDictatorHumanControlled || isRebelMilitiaHumanControlled;
 
@@ -1963,12 +1963,12 @@ function executeCombatRound(
             .map(id => validEnemies.find(e => e.id === id))
             .filter((e): e is Combatant => e != null);
         } else if (validEnemies.length === 1 || !isHumanControlled || !interactive) {
-          // Auto-select: single target, AI, or non-interactive
+          // Auto-select: single target, Bot, or non-interactive
           if (batch.militia.length >= validEnemies.length) {
             selectedTargets = validEnemies;
           } else {
-            // AI: pick batch.length highest-priority targets
-            const sorted = sortTargetsByAIPriority(validEnemies, () => game.random());
+            // Bot: pick batch.length highest-priority targets
+            const sorted = sortTargetsByBotPriority(validEnemies, () => game.random());
             selectedTargets = sorted.slice(0, batch.militia.length);
           }
         } else if (batch.militia.length >= validEnemies.length) {
@@ -2077,7 +2077,7 @@ function executeCombatRound(
         // ── PATH B: Auto-distribute hits ──
         const hitsByTarget = isHumanControlled
           ? distributeHitsEvenly(totalHits, selectedTargets)
-          : distributeHitsAI(totalHits, selectedTargets, () => game.random());
+          : distributeHitsBot(totalHits, selectedTargets, () => game.random());
         const batchResults = applyMilitiaBatchDamage(batch.militia[0], batch.militia.length, enemies, hitsByTarget, game, casualties);
         results.push(...batchResults);
         i = batch.endIndex;
@@ -2099,17 +2099,17 @@ function executeCombatRound(
     const isDictatorMercOrDictator = attacker.isDictatorSide && !attacker.isMilitia && (hasMercSource || hasDictatorSource);
     const isDictatorMilitia = attacker.isDictatorSide && attacker.isMilitia;
 
-    // MERC-fix: For rebel mercs, find the owning player and check if they're AI
+    // MERC-fix: For rebel mercs, find the owning player and check if they're Bot
     let isRebelHumanControlled = false;
     if (isRebelMerc && hasMercSource) {
       const attackerMerc = attacker.sourceElement as CombatantModel;
       const ownerPlayer = game.rebelPlayers.find(p =>
         p.team.some(m => m.id === attackerMerc.id)
       );
-      isRebelHumanControlled = !!(ownerPlayer && !ownerPlayer.isAI);
+      isRebelHumanControlled = !!(ownerPlayer && !ownerPlayer.isBot);
     }
     // Dictator-controlled includes MERCs, dictator card, AND militia when human player
-    const isDictatorHumanControlled = (isDictatorMercOrDictator || isDictatorMilitia) && !game.dictatorPlayer?.isAI;
+    const isDictatorHumanControlled = (isDictatorMercOrDictator || isDictatorMilitia) && !game.dictatorPlayer?.isBot;
 
     // Pause for combat decisions if unit is human controlled (both sides get choices)
     const isHumanControlled = isRebelHumanControlled || isDictatorHumanControlled;
@@ -2347,7 +2347,7 @@ function executeCombatRound(
           };
         }
       } else {
-        // AI player - auto-assign
+        // Bot player - auto-assign
         const dog = assignAttackDog(attacker, enemies, activeDogState, game, dogIndex++);
         // Add dog to attacker's side so it appears in combat panel
         if (dog) {
@@ -2564,7 +2564,7 @@ function executeCombatRound(
       // Clear the allocation so it's not reused
       game.activeCombat?.selectedTargets?.delete(`allocation:${attacker.id}`);
     } else {
-      // MERC-9mpr: Add additional targets for Wolverine's 6s (AI allocation)
+      // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
       expandedTargets = [...targets];
       if (wolverineBonus6s > 0) {
         const availableExtra = enemies.filter(e =>
@@ -2658,14 +2658,14 @@ function executeCombatRound(
             const merc = target.sourceElement;
             const savers = getEpinephrineSavers(game, merc);
 
-            // A human owner picks which shot is spent; the AI spends the first available.
+            // A human owner picks which shot is spent; the Bot spends the first available.
             const owner = target.isDictatorSide
               ? game.dictatorPlayer
               : game.rebelPlayers.find(r =>
                   [...r.primarySquad.getMercs(), ...r.secondarySquad.getMercs()]
                     .some(m => m.id === merc.id));
 
-            if (savers.length > 0 && owner && !owner.isAI && game.activeCombat) {
+            if (savers.length > 0 && owner && !owner.isBot && game.activeCombat) {
               game.activeCombat.pendingEpinephrine = {
                 dyingCombatantId: merc.id,
                 dyingCombatantName: merc.combatantName,
@@ -3447,15 +3447,15 @@ export function executeCombat(
     }
 
     // MERC-n1f: Check if retreat is possible and pause for player decision
-    // Only pause for HUMAN players — AI players decide automatically, and pausing
-    // for an AI's retreat option causes an infinite loop when the human player
+    // Only pause for HUMAN players — Bot players decide automatically, and pausing
+    // for an Bot's retreat option causes an infinite loop when the human player
     // can't retreat (ActionPanel auto-executes the sole combatContinue action).
-    const humanRebels = game.rebelPlayers.filter(p => !p.isAI);
+    const humanRebels = game.rebelPlayers.filter(p => !p.isBot);
     const rebelsCanRetreat = humanRebels.some(p => canRetreatFromModule(game, sector, p));
     const dictatorPlayer = game.dictatorPlayer;
-    const dictatorCanRetreat = dictatorPlayer && !dictatorPlayer.isAI
+    const dictatorCanRetreat = dictatorPlayer && !dictatorPlayer.isBot
       ? canRetreatFromModule(game, sector, dictatorPlayer)
-      : false;  // AI dictators don't need pause for decision
+      : false;  // Bot dictators don't need pause for decision
 
     retreatAvailable = rebelsCanRetreat || dictatorCanRetreat;
     if (interactive && retreatAvailable) {
@@ -3693,7 +3693,7 @@ export function hasEnemies(game: MERCGame, sector: Sector, player: RebelPlayer):
 }
 
 /**
- * Calculate expected combat advantage (for AI)
+ * Calculate expected combat advantage (for Bot)
  */
 export function calculateCombatOdds(
   game: MERCGame,

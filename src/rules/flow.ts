@@ -86,7 +86,7 @@ function getCombatDecisionParticipants(game: MERCGame): Player[] {
   const dictatorCombatants = (game.activeCombat.dictatorCombatants ?? []) as Combatant[];
 
   for (const rebel of game.rebelPlayers) {
-    if (rebel.isAI) continue;
+    if (rebel.isBot) continue;
     const hasUnit = rebelCombatants.some(c => c.health > 0 && !c.isDictatorSide && (
       (c.sourceElement && rebel.team.some(m => m.id === c.sourceElement!.id)) ||
       (c.isMilitia && c.ownerId === `${rebel.seat}`)
@@ -95,7 +95,7 @@ function getCombatDecisionParticipants(game: MERCGame): Player[] {
   }
 
   const dictator = game.dictatorPlayer;
-  if (dictator && !dictator.isAI) {
+  if (dictator && !dictator.isBot) {
     const hasUnit = dictatorCombatants.some(c => c.health > 0 && c.isDictatorSide);
     if (hasUnit) participants.push(dictator);
   }
@@ -146,7 +146,7 @@ function getEpinephrineDecisionPlayer(game: MERCGame, fallback: Player): Player 
  * 6. Epinephrine decision
  * 7. Combat continue (non-retreat rounds)
  * 8. Retreat decision (simultaneous)
- * 9. Auto-clear for all-AI games
+ * 9. Auto-clear for all-Bot games
  * 10. Animation wait for human games
  *
  * @param game - The game instance
@@ -410,12 +410,12 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       ),
     }),
 
-    // 9. Gaddafi: AI auto-loot after combat
+    // 9. Gaddafi: Bot auto-loot after combat
     execute(() => {
       if (game.dictatorPlayer?.dictator?.combatantId !== 'gadafi') return;
       if (!game._gaddafiLootableEquipment || game._gaddafiLootableEquipment.length === 0) return;
       if (!game.activeCombat?.combatComplete) return;
-      if (game.dictatorPlayer?.isAI) {
+      if (game.dictatorPlayer?.isBot) {
         processGaddafiLoot(game);
       }
     }),
@@ -424,7 +424,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
     loop({
       name: `${prefix}-gaddafi-loot`,
       while: () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi' &&
-        game.dictatorPlayer?.isAI !== true &&
+        game.dictatorPlayer?.isBot !== true &&
         game._gaddafiLootableEquipment != null &&
         game._gaddafiLootableEquipment.length > 0 &&
         !game.isFinished(),
@@ -438,11 +438,11 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }),
     }),
 
-    // 11. Auto-clear in fully AI games
+    // 11. Auto-clear in fully Bot games
     execute(() => {
       if (game.activeCombat?.combatComplete &&
-          game.dictatorPlayer?.isAI &&
-          game.rebelPlayers.every(p => p.isAI)) {
+          game.dictatorPlayer?.isBot &&
+          game.rebelPlayers.every(p => p.isBot)) {
         clearActiveCombat(game);
       }
     }),
@@ -451,7 +451,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
     loop({
       name: `${prefix}-animation-wait`,
       while: () => game.activeCombat?.combatComplete === true &&
-        !(game.dictatorPlayer?.isAI && game.rebelPlayers.every(p => p.isAI)),
+        !(game.dictatorPlayer?.isBot && game.rebelPlayers.every(p => p.isBot)),
       maxIterations: 5,
       do: actionStep({
         name: 'wait-for-combat-animations',
@@ -500,11 +500,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
             game.currentDay = 1;
           }),
 
-          // MERC-1kq: Designate Privacy Player for AI mode
+          // MERC-1kq: Designate Privacy Player for Bot mode
           actionStep({
             name: 'designate-privacy-player',
             actions: ['designatePrivacyPlayer'],
-            skipIf: () => !game.dictatorPlayer?.isAI,
+            skipIf: () => !game.dictatorPlayer?.isBot,
           }),
 
           // ===== REBEL PHASE =====
@@ -546,7 +546,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'select-dictator',
                 actions: ['selectDictator'],
-                skipIf: () => game.dictatorPlayer?.isAI === true || game.dictatorPlayer?.dictator !== undefined,
+                skipIf: () => game.dictatorPlayer?.isBot === true || game.dictatorPlayer?.dictator !== undefined,
               }),
 
               // Step 1: Place initial militia on unoccupied industries
@@ -562,9 +562,9 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['chooseKimBase'],
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
-                  // Skip if not Kim, or AI, or base already set
+                  // Skip if not Kim, or Bot, or base already set
                   return dictator?.combatantId !== 'kim' ||
-                         game.dictatorPlayer?.isAI === true ||
+                         game.dictatorPlayer?.isBot === true ||
                          !!game.dictatorPlayer?.baseSectorId;
                 },
               }),
@@ -580,7 +580,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 },
               }),
 
-              // Step 2: Draw MERC for dictator hiring (human only — AI draws in execute handler)
+              // Step 2: Draw MERC for dictator hiring (human only — Bot draws in execute handler)
               execute(
                 () => {
                   drawDictatorFirstMerc(game);
@@ -614,7 +614,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 const dictator = game.dictatorPlayer?.dictator;
                 if (!dictator) return;
                 if (dictator.combatantId !== 'mao' && dictator.combatantId !== 'mussolini') return;
-                if (game.dictatorPlayer?.isAI) return; // AI handled in applyDictatorSetupAbilities
+                if (game.dictatorPlayer?.isBot) return; // Bot handled in applyDictatorSetupAbilities
                 setGlobalCachedValue(game, '_bonus_mercs_remaining', game.rebelCount);
               }),
 
@@ -624,7 +624,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 while: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   if (dictator?.combatantId !== 'mao' && dictator?.combatantId !== 'mussolini') return false;
-                  if (game.dictatorPlayer?.isAI) return false;
+                  if (game.dictatorPlayer?.isBot) return false;
                   const remaining = getGlobalCachedValue<number>(game, '_bonus_mercs_remaining');
                   return remaining !== undefined && remaining > 0;
                 },
@@ -647,8 +647,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 while: () => {
                   const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
                   if (extra === 0) return false;
-                  // For AI, only run once
-                  if (game.dictatorPlayer?.isAI) {
+                  // For Bot, only run once
+                  if (game.dictatorPlayer?.isBot) {
                     const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
                     return remaining === undefined; // Run once, then stop
                   }
@@ -811,7 +811,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 ),
               }),
 
-              // Reset AI rebel batching state before entering the simultaneous step
+              // Reset Bot rebel batching state before entering the simultaneous step
               // (including re-entry after combat barrier resolution)
               execute(() => {
                 game.resetRebelBatching();
@@ -913,7 +913,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
 
                 // Ensure human dictator has cards in hand at start of turn
                 // This handles cases where Day 1 drawing may have been skipped
-                if (!game.dictatorPlayer?.isAI) {
+                if (!game.dictatorPlayer?.isBot) {
                   const handCount = game.dictatorPlayer?.tacticsHand?.count(TacticsCard) ?? 0;
                   if (handCount === 0) {
                     drawTacticsHand(game);
@@ -1073,10 +1073,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Step 3: Apply per-turn dictator special ability
-              // For AI: auto-apply ability; For human: let them choose
+              // For Bot: auto-apply ability; For human: let them choose
               execute(() => {
                 if (game.isFinished()) return;
-                if (game.dictatorPlayer?.isAI) {
+                if (game.dictatorPlayer?.isBot) {
                   applyDictatorTurnAbilities(game);
                 } else if (game.dictatorPlayer?.dictator?.combatantId === 'mao') {
                   // Human Mao: initialize pending militia for interactive placement
@@ -1098,11 +1098,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // Human players use the actionStep below
               }),
 
-              // Human dictator ability choice (skipped for AI)
+              // Human dictator ability choice (skipped for Bot)
               actionStep({
                 name: 'dictator-ability',
                 actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'noriegaConvertMilitia'],
-                skipIf: () => game.isFinished() || game.dictatorPlayer?.isAI === true,
+                skipIf: () => game.isFinished() || game.dictatorPlayer?.isBot === true,
               }),
 
               // Hitler initiative target pick (human only, after hire)
@@ -1111,7 +1111,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['hitlerPickInitiativeTarget'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hitler' ||
-                  game.dictatorPlayer?.isAI === true,
+                  game.dictatorPlayer?.isBot === true,
               }),
 
               // Noriega: Choose sector for converted militia (human only)
@@ -1120,7 +1120,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['noriegaPlaceMilitia'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'noriega' ||
-                  game.dictatorPlayer?.isAI === true ||
+                  game.dictatorPlayer?.isBot === true ||
                   game.pendingNoriegaConversion == null ||
                   game.pendingNoriegaConversion.convertedCount <= 0,
               }),
@@ -1132,7 +1132,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => {
                   if (game.isFinished()) return true;
                   if (game.dictatorPlayer?.dictator?.combatantId !== 'noriega') return true;
-                  if (game.dictatorPlayer?.isAI === true) return true;
+                  if (game.dictatorPlayer?.isBot === true) return true;
                   if (game.pendingNoriegaConversion != null) return true; // conversion not done yet
                   const dictSectors = game.getControlledSectors(game.dictatorPlayer).length;
                   let rebelSectors = 0;
@@ -1206,8 +1206,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 }
                 game._polpotTargetSectorId = null;
 
-                // AI Pol Pot: auto-hire on combat loss
-                if (game.dictatorPlayer?.isAI && game.lastAbilityCombatOutcome?.rebelVictory) {
+                // Bot Pol Pot: auto-hire on combat loss
+                if (game.dictatorPlayer?.isBot && game.lastAbilityCombatOutcome?.rebelVictory) {
                   const merc = game.drawMerc();
                   if (merc) {
                     const primarySquad = game.dictatorPlayer.primarySquad;
@@ -1239,7 +1239,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['polpotBonusHire'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'polpot' ||
-                  game.dictatorPlayer?.isAI === true ||
+                  game.dictatorPlayer?.isBot === true ||
                   !game.lastAbilityCombatOutcome?.rebelVictory,
               }),
 
@@ -1255,7 +1255,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 name: 'pinochet-bonus-hire',
                 while: () => !game.isFinished() &&
                   game.dictatorPlayer?.dictator?.combatantId === 'pinochet' &&
-                  game.dictatorPlayer?.isAI !== true &&
+                  game.dictatorPlayer?.isBot !== true &&
                   game._pinochetPendingHires > 0,
                 maxIterations: 20,
                 do: actionStep({
@@ -1273,7 +1273,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
 
               // Hussein: Draw bonus card and play second tactics (persistent per-turn ability)
               // UNDO-02: the human branch draws from the tactics deck into the
-              // hidden hand, and the AI branch plays a card whose effect can
+              // hidden hand, and the Bot branch plays a card whose effect can
               // itself reveal (executeTacticsEffect). Either way information has
               // left the deck, so undo must not reach behind this step.
               execute(() => {
@@ -1281,8 +1281,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 const dictator = game.dictatorPlayer?.dictator;
                 if (dictator?.combatantId !== 'hussein') return;
 
-                if (game.dictatorPlayer?.isAI) {
-                  // AI: Auto-play second card
+                if (game.dictatorPlayer?.isBot) {
+                  // Bot: Auto-play second card
                   applyHusseinBonusTactics(game);
                 } else {
                   // Human: Draw 1 card from deck to hand for the bonus play
@@ -1304,7 +1304,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['husseinBonusTactics', 'husseinBonusReinforce'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hussein' ||
-                  game.dictatorPlayer?.isAI === true,
+                  game.dictatorPlayer?.isBot === true,
               }),
 
               // Post-effects for Hussein's second tactics play

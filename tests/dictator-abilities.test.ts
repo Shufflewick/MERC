@@ -24,7 +24,7 @@ import {
  */
 
 /**
- * Helper: create a 2-player test game with a specific dictator and AI flag set.
+ * Helper: create a 2-player test game with a specific dictator and Bot flag set.
  */
 function createDictatorTestGame(dictatorId: string, seed: string) {
   const testGame = createTestGame(MERCGame, {
@@ -34,8 +34,8 @@ function createDictatorTestGame(dictatorId: string, seed: string) {
   });
   const game = testGame.game;
   game.setupDictator(dictatorId);
-  // Most ability functions require the dictator player to be AI-controlled
-  game.dictatorPlayer.isAI = true;
+  // Most ability functions require the dictator player to be Bot-controlled
+  game.dictatorPlayer.isBot = true;
   return { testGame, game };
 }
 

@@ -16,7 +16,7 @@ describe('Dictator Day 1 Hire', () => {
 
     const game = testGame.game;
     const executor = new ActionExecutor(game);
-    console.log('Dictator isAI:', game.dictatorPlayer.isAI);
+    console.log('Dictator isBot:', game.dictatorPlayer.isBot);
 
     // Find a valid landing sector
     const validSectors = game.gameMap.getAllSectors()

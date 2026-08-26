@@ -11,7 +11,7 @@ import type { MERCGame, RebelPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
 import { queuePendingCombat } from './combat.js';
-import { selectAIBaseLocation, selectNewMercLocation } from './ai-helpers.js';
+import { selectBotBaseLocation, selectNewMercLocation } from './bot-helpers.js';
 import { equipNewHire } from './actions/helpers.js';
 import { checkLandMines } from './landmine.js';
 import { killMercOutsideCombat } from './merc-death.js';
@@ -188,16 +188,16 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
 /**
  * Reveal the dictator's base
  * MERC-55b: Now properly sets baseSectorId to a controlled industry
- * MERC-897: Uses AI criteria (furthest from rebels, most defended, highest value)
+ * MERC-897: Uses Bot criteria (furthest from rebels, most defended, highest value)
  */
 function revealBase(game: MERCGame): TacticsEffectResult {
   if (game.dictatorPlayer.baseRevealed) {
     return { success: true, message: 'Base was already revealed' };
   }
 
-  // MERC-897: Use AI base selection criteria per rules 4.1
+  // MERC-897: Use Bot base selection criteria per rules 4.1
   if (!game.dictatorPlayer.baseSectorId) {
-    const baseSector = selectAIBaseLocation(game);
+    const baseSector = selectBotBaseLocation(game);
     if (baseSector) {
       game.dictatorPlayer.baseSectorId = baseSector.sectorId;
       if (game.dictatorPlayer.dictator) {
@@ -223,9 +223,9 @@ function revealBase(game: MERCGame): TacticsEffectResult {
   }
 
   // Dictators get 1 free equipment when entering play, just like MERCs
-  // Only auto-equip for AI - human players choose via the playTactics action's dictatorEquipment step
+  // Only auto-equip for Bot - human players choose via the playTactics action's dictatorEquipment step
   const dictator = game.dictatorPlayer.dictator;
-  if (game.dictatorPlayer?.isAI && dictator) {
+  if (game.dictatorPlayer?.isBot && dictator) {
     let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
     if (dictator.weaponSlot) {
       equipType = dictator.armorSlot ? 'Accessory' : 'Armor';
@@ -469,8 +469,8 @@ function seizure(game: MERCGame): TacticsEffectResult {
     s => s.isWilderness && !s.explored
   );
 
-  // A human dictator picks which sectors to seize; the AI takes them in map order.
-  if (!game.dictatorPlayer.isAI && unexploredWilderness.length > 0) {
+  // A human dictator picks which sectors to seize; the Bot takes them in map order.
+  if (!game.dictatorPlayer.isBot && unexploredWilderness.length > 0) {
     game.pendingSeizureFlips = {
       remaining: Math.min(x, unexploredWilderness.length),
       militiaPerSector: militiaToAdd,
@@ -728,7 +728,7 @@ function betterWeapons(game: MERCGame): TacticsEffectResult {
 /**
  * Generalisimo: Reveals base AND draws 6 MERCs — dictator picks 1 to hire.
  * Per CSV: "Reveal base. Draw 6 MERCs, pick 1 to add to either squad."
- * AI auto-picks highest combat MERC. Human sets pending state for interactive flow.
+ * Bot auto-picks highest combat MERC. Human sets pending state for interactive flow.
  */
 function generalisimo(game: MERCGame): TacticsEffectResult {
   // First reveal the base
@@ -750,8 +750,8 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
     };
   }
 
-  // AI dictator: auto-pick the highest combat MERC
-  if (game.dictatorPlayer.isAI) {
+  // Bot dictator: auto-pick the highest combat MERC
+  if (game.dictatorPlayer.isBot) {
     const bestMerc = drawnMercs.reduce((best, current) =>
       current.baseCombat > best.baseCombat ? current : best
     );
@@ -778,7 +778,7 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
 
     bestMerc.putInto(targetSquad);
 
-    // Set squad location per AI rules
+    // Set squad location per Bot rules
     const targetSector = selectNewMercLocation(game);
     if (targetSector && !targetSquad.sectorId) {
       targetSquad.sectorId = targetSector.sectorId;
@@ -834,7 +834,7 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
 /**
  * Lockdown: Reveals base AND places 5 * rebelCount militia on base or adjacent sectors.
  * Per CSV: "Reveal base. Get 5 extra militia per rebel player. Place them on base or adjacent sectors."
- * AI auto-distributes evenly; human sets pending state for interactive flow.
+ * Bot auto-distributes evenly; human sets pending state for interactive flow.
  */
 function lockdown(game: MERCGame): TacticsEffectResult {
   // First reveal the base — must complete before computing adjacent sectors
@@ -858,8 +858,8 @@ function lockdown(game: MERCGame): TacticsEffectResult {
   const adjacentSectors = game.getAdjacentSectors(baseSector);
   const validSectorIds = [baseSector.sectorId, ...adjacentSectors.map(s => s.sectorId)];
 
-  // AI dictator: auto-distribute evenly across base + adjacent sectors
-  if (game.dictatorPlayer.isAI) {
+  // Bot dictator: auto-distribute evenly across base + adjacent sectors
+  if (game.dictatorPlayer.isBot) {
     const validSectors = [baseSector, ...adjacentSectors];
     const placedSectors: Array<{ sectorId: string; sectorName: string; militiaPlaced: number }> = [];
     let remaining = totalMilitia;

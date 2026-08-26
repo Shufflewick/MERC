@@ -1313,7 +1313,7 @@ describe('Action Conditions', () => {
           card.putInto(dictator.tacticsDiscard);
         }
       }
-      // Also empty deck for AI check
+      // Also empty deck for Bot check
       if (dictator.tacticsDeck) {
         const deckCards = dictator.tacticsDeck.all();
         for (const card of deckCards) {

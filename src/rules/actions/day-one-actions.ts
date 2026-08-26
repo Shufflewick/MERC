@@ -18,7 +18,7 @@ import {
   autoPlaceExtraMilitia,
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
-import { setPrivacyPlayer, selectNewMercLocation } from '../ai-helpers.js';
+import { setPrivacyPlayer, selectNewMercLocation } from '../bot-helpers.js';
 import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain } from '../animation-events.js';
 import { doesntCountTowardLimit } from '../merc-abilities.js';
@@ -484,7 +484,7 @@ export function createPlaceLandingDay1Action(game: MERCGame): ActionDefinition {
 
 /**
  * Select Dictator - Human dictator players choose which dictator to play as
- * AI dictators get a random selection during setup, so this is skipped for them.
+ * Bot dictators get a random selection during setup, so this is skipped for them.
  */
 export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('selectDictator')
@@ -492,7 +492,7 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
     .condition({
       'is Day 1': () => game.currentDay === 1,
       'dictator not yet selected': () => !game.dictatorPlayer?.dictator,
-      'is human dictator player': () => !game.dictatorPlayer?.isAI,
+      'is human dictator player': () => !game.dictatorPlayer?.isBot,
     })
     .chooseFrom('dictatorChoice', {
       prompt: 'Select your Dictator',
@@ -526,7 +526,7 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
 /**
  * MERC-f6m6: Place initial militia on unoccupied industries
  * For human dictator: Shows where militia will be placed and confirms
- * For AI dictator: Auto-executes
+ * For Bot dictator: Auto-executes
  */
 export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('dictatorPlaceInitialMilitia')
@@ -544,10 +544,10 @@ export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionD
  * Draw the dictator's first MERC and cache it for the hire action.
  * Called from flow execute() step to ensure drawing happens at exactly the right time —
  * after dictator selection and militia placement, before the hire action.
- * Skipped for AI dictators (they draw in the execute handler via hireDictatorMerc).
+ * Skipped for Bot dictators (they draw in the execute handler via hireDictatorMerc).
  */
 export function drawDictatorFirstMerc(game: MERCGame): void {
-  if (game.dictatorPlayer?.isAI) return;
+  if (game.dictatorPlayer?.isBot) return;
 
   const DRAWN_MERC_KEY = 'dictatorFirstMercId';
   if (getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) return; // Already drawn
@@ -610,8 +610,8 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       },
     })
     .execute((args) => {
-      // AI path - use auto hire
-      if (game.dictatorPlayer?.isAI) {
+      // Bot path - use auto hire
+      if (game.dictatorPlayer?.isBot) {
         hireDictatorMerc(game);
         return { success: true, message: 'Dictator MERC hired' };
       }
@@ -671,7 +671,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
     .condition({
       'is Day 1': () => game.currentDay === 1,
       'is Kim': () => game.dictatorPlayer?.dictator?.combatantId === 'kim',
-      'is human dictator player': () => !game.dictatorPlayer?.isAI,
+      'is human dictator player': () => !game.dictatorPlayer?.isBot,
       'base not yet set': () => !game.dictatorPlayer?.baseSectorId,
     })
     .chooseElement('baseLocation', {
@@ -733,7 +733,7 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
       'is Day 1': () => game.currentDay === 1,
       'Kim base set if needed': () => {
         const dictator = game.dictatorPlayer?.dictator;
-        if (dictator?.combatantId === 'kim' && !game.dictatorPlayer?.isAI && !game.dictatorPlayer?.baseSectorId) {
+        if (dictator?.combatantId === 'kim' && !game.dictatorPlayer?.isBot && !game.dictatorPlayer?.baseSectorId) {
           return false;
         }
         return true;
@@ -747,7 +747,7 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
 
 /**
  * Draw tactics cards for dictator
- * AI plays from deck top, human gets a hand
+ * Bot plays from deck top, human gets a hand
  */
 export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('dictatorDrawTactics')
@@ -763,7 +763,7 @@ export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinitio
 
 /**
  * MERC-l2nb: Place extra militia
- * For AI: Distributes evenly among controlled sectors
+ * For Bot: Distributes evenly among controlled sectors
  * For human: Choose where to place each militia
  */
 export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDefinition {
@@ -829,8 +829,8 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       },
     })
     .execute((args) => {
-      // AI path - use auto placement (places all extra militia in one call)
-      if (game.dictatorPlayer?.isAI) {
+      // Bot path - use auto placement (places all extra militia in one call)
+      if (game.dictatorPlayer?.isBot) {
         autoPlaceExtraMilitia(game);
         // Set to 0 (not clear) so the loop's while condition stops after one
         // iteration. Clearing would make it undefined, which the loop treats as
@@ -932,7 +932,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
         const dictator = game.dictatorPlayer?.dictator;
         return dictator?.combatantId === 'mao' || dictator?.combatantId === 'mussolini';
       },
-      'is human player': () => !game.dictatorPlayer?.isAI,
+      'is human player': () => !game.dictatorPlayer?.isBot,
       'has mercs to place': () => {
         const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY);
         return remaining !== undefined && remaining > 0;
@@ -1048,17 +1048,17 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
 // =============================================================================
 
 /**
- * Action to designate the privacy player for AI games.
- * MERC-xj2: Per AI rules, one Rebel player handles all Dictator actions.
+ * Action to designate the privacy player for Bot games.
+ * MERC-xj2: Per Bot rules, one Rebel player handles all Dictator actions.
  */
 export function createDesignatePrivacyPlayerAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('designatePrivacyPlayer')
     .prompt('Designate Privacy Player')
     .condition({
-      'AI dictator needs privacy player': () => game.dictatorPlayer?.isAI && !game.dictatorPlayer.privacyPlayerId,
+      'bot dictator needs privacy player': () => game.dictatorPlayer?.isBot && !game.dictatorPlayer.privacyPlayerId,
     })
     .chooseElement('player', {
-      prompt: 'Choose which player will handle AI decisions',
+      prompt: 'Choose which player will handle Bot decisions',
       filter: (element) => {
         if (!isRebelPlayer(element)) return false;
         return game.rebelPlayers.includes(element);
