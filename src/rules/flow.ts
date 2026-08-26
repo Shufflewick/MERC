@@ -24,6 +24,7 @@ function actionStep(config: MERCActionStepConfig) {
   return boardsmithActionStep(rest);
 }
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
+import { doesntCountTowardLimit } from './merc-abilities.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
@@ -451,8 +452,8 @@ function isDay1Complete(game: MERCGame, player: Player): boolean {
   // Must have at least 2 MERCs (conservative: if Teresa is on team with only 2,
   // hireThirdMerc action may still be available. The engine auto-completes players
   // with no available actions, so returning false here is safe.)
-  const hasTeresa = rebel.team.some(m => m.combatantId === 'teresa');
-  const requiredSize = hasTeresa ? 3 : 2;
+  const hasFreeSlotMerc = rebel.team.some(m => doesntCountTowardLimit(m.combatantId));
+  const requiredSize = hasFreeSlotMerc ? 3 : 2;
   return rebel.team.length >= requiredSize;
 }
 
@@ -1200,7 +1201,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, sectorId)]);
                     }
 
-                    game.updateAllSargeBonuses();
+                    game.updateAllSquadBonuses();
                     game.message(`Pol Pot lost combat - hired ${merc.combatantName} as consolation`);
                   }
                   game.lastAbilityCombatOutcome = null;

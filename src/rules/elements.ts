@@ -16,6 +16,9 @@ import {
 } from './equipment-effects.js';
 import {
   getMercAbility,
+  getExtraActions,
+  getExtraHealth,
+  getExtraTrainingActions,
   ignoresInitiativePenalties,
   FEMALE_MERCS,
   getActiveStatModifiers,
@@ -509,9 +512,7 @@ export abstract class CombatantBase extends BaseCard {
     this.updateEquipmentBonuses();
     this.updateEquipmentConditionalModifiers();
 
-    const ability = getMercAbility(this.combatantId);
-    const extraHealth = ability?.passive?.extraHealth || 0;
-    this.effectiveMaxHealth = CombatantBase.BASE_HEALTH + extraHealth;
+    this.effectiveMaxHealth = CombatantBase.BASE_HEALTH + getExtraHealth(this.combatantId);
 
     // Training
     let t = this.baseTraining;
@@ -755,9 +756,7 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   get maxHealth(): number {
-    const ability = getMercAbility(this.combatantId);
-    const extraHealth = ability?.passive?.extraHealth || 0;
-    return CombatantBase.BASE_HEALTH + extraHealth;
+    return CombatantBase.BASE_HEALTH + getExtraHealth(this.combatantId);
   }
 
   get health(): number {
@@ -827,19 +826,10 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   resetActions(): void {
-    // Ewok gets +1 action (3 total instead of 2)
-    if (this.combatantId === 'ewok') {
-      this.actionsRemaining = CombatantBase.BASE_ACTIONS + 1;
-    } else {
-      this.actionsRemaining = CombatantBase.BASE_ACTIONS;
-    }
-
-    // Faustina gets +1 action for training only
-    if (this.combatantId === 'faustina') {
-      this.trainingActionsRemaining = 1;
-    } else {
-      this.trainingActionsRemaining = 0;
-    }
+    // Ewok's extra action and Faustina's extra training action come from the
+    // ability registry, so editing the registry is what changes the rule.
+    this.actionsRemaining = CombatantBase.BASE_ACTIONS + getExtraActions(this.combatantId);
+    this.trainingActionsRemaining = getExtraTrainingActions(this.combatantId);
   }
 
   useAction(cost: number = 1): boolean {

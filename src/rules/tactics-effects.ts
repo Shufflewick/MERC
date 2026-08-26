@@ -744,7 +744,7 @@ function generalisimo(game: MERCGame): TacticsEffectResult {
     }
 
     // Update squad-based ability bonuses
-    game.updateAllSargeBonuses();
+    game.updateAllSquadBonuses();
 
     // Give equipment — prioritize weapon
     let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';

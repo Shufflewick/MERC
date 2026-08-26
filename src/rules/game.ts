@@ -41,6 +41,7 @@ import {
   type TacticsData as SetupTacticsData,
 } from './setup.js';
 import type { Combatant, CombatResult } from './combat.js';
+import { doesntCountTowardLimit, getAutoHealPerDay } from './merc-abilities.js';
 
 // Import game data from JSON files
 import combatantsData from '../../data/combatants.json';
@@ -259,28 +260,46 @@ export class MERCPlayer extends Player {
     return area;
   }
 
+  /**
+   * Every squad this player owns that has been built yet.
+   *
+   * Squad lookup throws while setup is still running, so callers that may run
+   * mid-setup use this instead of catching — a catch here would also swallow
+   * genuine errors from inside the squad and quietly shrink the roster.
+   */
+  get squads(): Squad[] {
+    const game = this.game as MERCGame | undefined;
+    if (!game) return [];
+
+    const refs = [this.primarySquadRef, this.secondarySquadRef];
+    if (this.isDictator()) refs.push(this.baseSquadRef);
+
+    const squads: Squad[] = [];
+    for (const ref of refs) {
+      if (!ref) continue;
+      const squad = game.first(Squad, s => s.name === ref);
+      if (squad) squads.push(squad);
+    }
+    return squads;
+  }
+
+  /** The dictator's base squad, or null while setup has not created it yet. */
+  get baseSquadOrNull(): Squad | null {
+    if (!this.isDictator() || !this.baseSquadRef) return null;
+    const game = this.game as MERCGame | undefined;
+    if (!game) return null;
+    return game.first(Squad, s => s.name === this.baseSquadRef) ?? null;
+  }
+
   get team(): CombatantModel[] {
     // Return only living MERCs (dead MERCs can't take actions)
-    const mercs: CombatantModel[] = [];
-    try {
-      mercs.push(...this.primarySquad.getLivingMercs());
-    } catch { /* Squad not initialized yet */ }
-    try {
-      mercs.push(...this.secondarySquad.getLivingMercs());
-    } catch { /* Squad not initialized yet */ }
-    // Dictator also has base squad
-    if (this.isDictator() && this.baseSquadRef) {
-      try {
-        mercs.push(...this.baseSquad.getLivingMercs());
-      } catch { /* Squad not initialized yet */ }
-    }
-    return mercs;
+    return this.squads.flatMap(squad => squad.getLivingMercs());
   }
 
   get teamSize(): number {
     if (this.isRebel()) {
-      // MERC-0ue: Teresa doesn't count toward team limit for rebels
-      return this.team.filter(m => m.combatantId !== 'teresa').length;
+      // MERC-0ue: some MERCs (Teresa) don't count toward the team limit
+      return this.team.filter(m => !doesntCountTowardLimit(m.combatantId)).length;
     }
     return this.team.length;
   }
@@ -302,18 +321,6 @@ export class MERCPlayer extends Player {
     return this.team;
   }
 
-  // Dictator-only: all mercs including dead ones
-  get allMercs(): CombatantModel[] {
-    const mercs: CombatantModel[] = [];
-    try {
-      mercs.push(...this.primarySquad.getMercs());
-    } catch { /* Squad not initialized yet */ }
-    try {
-      mercs.push(...this.secondarySquad.getMercs());
-    } catch { /* Squad not initialized yet */ }
-    return mercs;
-  }
-
   // Dictator-only: check if defeated (dead OR base captured)
   get isDefeated(): boolean {
     if (!this.isDictator()) return false;
@@ -327,16 +334,9 @@ export class MERCPlayer extends Player {
    * Returns null if the MERC is not in either squad.
    */
   getSquadContaining(merc: CombatantModel): Squad | null {
-    try {
-      if (this.primarySquad.getMercs().some(m => m.id === merc.id)) {
-        return this.primarySquad;
-      }
-    } catch { /* Squad not initialized */ }
-    try {
-      if (this.secondarySquad.getMercs().some(m => m.id === merc.id)) {
-        return this.secondarySquad;
-      }
-    } catch { /* Squad not initialized */ }
+    for (const squad of this.squads) {
+      if (squad.getMercs().some(m => m.id === merc.id)) return squad;
+    }
     return null;
   }
 
@@ -1337,70 +1337,16 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   }
 
   /**
-   * Update ability bonuses for all squads in the game.
-   * @deprecated Individual methods like updateAllHaargBonuses are superseded by unified updateSquadBonuses.
+   * Recompute squad-conditional ability bonuses (Haarg, Sarge, Tack, Valkyrie,
+   * Snake, Tavisto) for every squad in the game, the dictator's base squad
+   * included. Call whenever squad composition changes: hiring, movement, death.
    */
-  updateAllHaargBonuses(): void {
-    // Update all rebel squads
-    for (const rebel of this.rebelPlayers) {
-      try {
-        this.updateSquadBonuses(rebel.primarySquad);
-      } catch { /* squad not initialized */ }
-      try {
-        this.updateSquadBonuses(rebel.secondarySquad);
-      } catch { /* squad not initialized */ }
+  updateAllSquadBonuses(): void {
+    for (const player of this.players) {
+      for (const squad of player.squads) {
+        this.updateSquadBonuses(squad);
+      }
     }
-    // Update dictator squads
-    if (this.dictatorPlayer) {
-      try {
-        this.updateSquadBonuses(this.dictatorPlayer.primarySquad);
-      } catch { /* squad not initialized */ }
-      try {
-        this.updateSquadBonuses(this.dictatorPlayer.secondarySquad);
-      } catch { /* squad not initialized */ }
-    }
-  }
-
-  /**
-   * @deprecated Use updateSquadBonuses instead. Haarg is now handled by unified updateAbilityBonuses.
-   */
-  updateHaargBonusForSquad(squad: Squad): void {
-    // Delegate to unified method - updates all MERCs including Haarg
-    this.updateSquadBonuses(squad);
-  }
-
-  /**
-   * Update Sarge's and Tack's ability bonuses for all squads.
-   * Sarge gets +1 to all skills when his initiative is highest in the squad.
-   * Tack gives +2 initiative to her whole squad when she has highest initiative.
-   * Call this whenever squad composition changes (hiring, movement, death, etc.)
-   */
-  updateAllSargeBonuses(): void {
-    // Check all rebel squads
-    for (const rebel of this.rebelPlayers) {
-      try {
-        this.updateSquadBonuses(rebel.primarySquad);
-      } catch { /* squad not initialized */ }
-      try {
-        this.updateSquadBonuses(rebel.secondarySquad);
-      } catch { /* squad not initialized */ }
-    }
-    // Check dictator squads (in case Sarge/Tack is hired by dictator)
-    if (this.dictatorPlayer) {
-      try {
-        this.updateSquadBonuses(this.dictatorPlayer.primarySquad);
-      } catch { /* squad not initialized */ }
-      try {
-        this.updateSquadBonuses(this.dictatorPlayer.secondarySquad);
-      } catch { /* squad not initialized */ }
-    }
-  }
-
-  /**
-   * Update Sarge's bonus for a specific squad (legacy method)
-   */
-  updateSargeBonusForSquad(squad: Squad): void {
-    this.updateSquadBonuses(squad);
   }
 
   /**
@@ -1847,6 +1793,21 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Day Management
   // ==========================================================================
 
+  /**
+   * MERC-4t3: some MERCs (Preaction) recover health at the start of each day.
+   * The amount comes from the ability registry.
+   */
+  private applyDailyAutoHeal(merc: CombatantModel): void {
+    const amount = getAutoHealPerDay(merc.combatantId);
+    if (amount <= 0 || merc.damage <= 0) return;
+    const healed = merc.heal(amount);
+    if (healed > 0) {
+      this.message(
+        `${merc.combatantName} auto-heals ${healed} health (${merc.health}/${merc.maxHealth})`
+      );
+    }
+  }
+
   advanceDay(): void {
     this.currentDay++;
 
@@ -1854,26 +1815,14 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     for (const rebel of this.rebelPlayers) {
       for (const merc of rebel.team) {
         merc.resetActions();
-        // MERC-4t3: Preaction auto-heals 1 health at the start of each day
-        if (merc.combatantId === 'preaction' && merc.damage > 0) {
-          const healed = merc.heal(1);
-          if (healed > 0) {
-            this.message(`Preaction auto-heals 1 health (${merc.health}/${merc.maxHealth})`);
-          }
-        }
+        this.applyDailyAutoHeal(merc);
       }
     }
 
     // Reset dictator MERC actions
     for (const merc of this.dictatorPlayer.hiredMercs) {
       merc.resetActions();
-      // MERC-4t3: Preaction auto-heals 1 health at the start of each day
-      if (merc.combatantId === 'preaction' && merc.damage > 0) {
-        const healed = merc.heal(1);
-        if (healed > 0) {
-          this.message(`Preaction auto-heals 1 health (${merc.health}/${merc.maxHealth})`);
-        }
-      }
+      this.applyDailyAutoHeal(merc);
     }
 
     // Reset dictator card actions if in play

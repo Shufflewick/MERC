@@ -221,7 +221,7 @@ export function applyMaoSetupAbility(game: MERCGame): DictatorAbilityResult {
       equipType = merc.armorSlot ? 'Accessory' : 'Armor';
     }
     equipNewHire(game, merc, equipType);
-    game.updateAllSargeBonuses();
+    game.updateAllSquadBonuses();
 
     // Emit map entry animation
     if (targetSquad.sectorId) {
@@ -294,7 +294,7 @@ export function applyMussoliniSetupAbility(game: MERCGame): DictatorAbilityResul
       equipType = merc.armorSlot ? 'Accessory' : 'Armor';
     }
     equipNewHire(game, merc, equipType);
-    game.updateAllSargeBonuses();
+    game.updateAllSquadBonuses();
 
     // Emit map entry animation
     if (targetSquad.sectorId) {
@@ -772,7 +772,7 @@ export function applyHitlerTurnAbility(game: MERCGame): DictatorAbilityResult {
       }
       equipNewHire(game, merc, equipType);
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       if (targetSquad.sectorId) {
         emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);
@@ -844,7 +844,7 @@ export function applyGadafiTurnAbility(game: MERCGame): DictatorAbilityResult {
   }
   equipNewHire(game, merc, equipType);
 
-  game.updateAllSargeBonuses();
+  game.updateAllSquadBonuses();
   game.message(`Gaddafi hired ${merc.combatantName}`);
   return { success: true, message: `Hired ${merc.combatantName}` };
 }
@@ -871,7 +871,7 @@ export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
       let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
       if (merc1.weaponSlot) equipType = merc1.armorSlot ? 'Accessory' : 'Armor';
       equipNewHire(game, merc1, equipType);
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
       game.message(`Stalin hired ${merc1.combatantName} to primary squad`);
     } else {
       merc1.putInto(game.mercDiscard);
@@ -893,7 +893,7 @@ export function applyStalinTurnAbility(game: MERCGame): DictatorAbilityResult {
         let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
         if (merc2.weaponSlot) equipType = merc2.armorSlot ? 'Accessory' : 'Armor';
         equipNewHire(game, merc2, equipType);
-        game.updateAllSargeBonuses();
+        game.updateAllSquadBonuses();
         game.message(`Stalin hired ${merc2.combatantName} to secondary squad`);
       } else {
         merc2.putInto(game.mercDiscard);
@@ -954,7 +954,7 @@ export function applyPinochetPendingHires(game: MERCGame): void {
       equipType = merc.armorSlot ? 'Accessory' : 'Armor';
     }
     equipNewHire(game, merc, equipType);
-    game.updateAllSargeBonuses();
+    game.updateAllSquadBonuses();
 
     // Emit map entry animation
     if (targetSquad.sectorId) {
@@ -1172,7 +1172,7 @@ export function applyNoriegaTurnAbility(game: MERCGame): DictatorAbilityResult {
         }
         equipNewHire(game, merc, equipType);
 
-        game.updateAllSargeBonuses();
+        game.updateAllSquadBonuses();
 
         if (targetSquad.sectorId) {
           emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, targetSquad.sectorId)]);

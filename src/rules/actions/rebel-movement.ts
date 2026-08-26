@@ -18,6 +18,7 @@ import { hasEnemies, queuePendingCombat } from '../combat.js';
 import { checkLandMines } from '../landmine.js';
 import { buildMapCombatantMove, emitMapCombatantMoves } from '../animation-events.js';
 import { ACTION_COSTS, useAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
+import { getMilitiaBringCount } from '../merc-abilities.js';
 
 // =============================================================================
 // Move Action Helpers (work for both player types)
@@ -40,13 +41,13 @@ function getMovableSquads(player: unknown, game: MERCGame): Squad[] {
     if (canSquadMove(player.secondarySquad)) squads.push(player.secondarySquad);
   } else if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
     const dictator = game.dictatorPlayer;
-    // Pass player and game for dictator combatant action check
-    try {
-      if (canSquadMove(dictator.primarySquad, player, game)) squads.push(dictator.primarySquad);
-    } catch { /* not initialized */ }
-    try {
-      if (canSquadMove(dictator.secondarySquad, player, game)) squads.push(dictator.secondarySquad);
-    } catch { /* not initialized */ }
+    // Pass player and game for dictator combatant action check.
+    // The base squad holds the base and is not a moving unit.
+    const base = dictator.baseSquadOrNull;
+    for (const squad of dictator.squads) {
+      if (base && squad.name === base.name) continue;
+      if (canSquadMove(squad, player, game)) squads.push(squad);
+    }
   }
 
   return squads;
@@ -84,12 +85,10 @@ function isSquadOwnedByPlayer(squad: Squad, player: unknown, game: MERCGame): bo
   }
   if (game.isDictatorPlayer(player) && game.dictatorPlayer) {
     const dictator = game.dictatorPlayer;
-    try {
-      if (squad.name === dictator.primarySquad?.name) return true;
-    } catch { /* not initialized */ }
-    try {
-      if (squad.name === dictator.secondarySquad?.name) return true;
-    } catch { /* not initialized */ }
+    const base = dictator.baseSquadOrNull;
+    return dictator.squads.some(
+      s => s.name === squad.name && (!base || s.name !== base.name)
+    );
   }
   return false;
 }
@@ -175,8 +174,12 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         if (!squad?.sectorId) return [0];
 
         const mercs = squad.getLivingMercs();
-        const hasSonia = mercs.some(m => m.combatantId === 'sonia');
-        if (!hasSonia) return [0];
+        // Sonia brings militia along; the count comes from the ability registry.
+        const bringLimit = Math.max(
+          0,
+          ...mercs.map(m => getMilitiaBringCount(m.combatantId))
+        );
+        if (bringLimit === 0) return [0];
 
         const player = asRebelPlayer(ctx.player);
         const sourceSector = game.getSector(squad.sectorId);
@@ -186,8 +189,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         const available = sourceSector.getRebelMilitia(playerId);
         if (available === 0) return [0];
 
-        // Return choices 0 up to min(2, available)
-        const max = Math.min(2, available);
+        const max = Math.min(bringLimit, available);
         return Array.from({ length: max + 1 }, (_, i) => i);
       },
       display: (n: number) => n === 0 ? 'None' : `${n} militia`,
@@ -681,10 +683,7 @@ function getValidTargetSquads(
     const dictator = game.dictatorPlayer;
     const primary = dictator.primarySquad;
     const secondary = dictator.secondarySquad;
-    let base: Squad | null = null;
-    try {
-      base = dictator.baseSquad;
-    } catch { /* base squad not initialized yet */ }
+    const base = dictator.baseSquadOrNull;
 
     // Find current squad for this combatant (check all 3 squads)
     let currentSquad: Squad | null = null;
@@ -847,8 +846,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         }
 
         // Update ability bonuses
-        game.updateAllHaargBonuses();
-        game.updateAllSargeBonuses();
+        game.updateAllSquadBonuses();
 
         game.message(`${player.name} assigned ${merc.combatantName} to ${targetType} squad`);
 
@@ -865,11 +863,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
           return { success: false, message: 'Invalid squads' };
         }
 
-        // Get base squad if available
-        let baseSquad: Squad | null = null;
-        try {
-          baseSquad = dictator.baseSquad;
-        } catch { /* base squad not initialized yet */ }
+        const baseSquad = dictator.baseSquadOrNull;
 
         // Find the combatant (could be merc or dictator)
         let combatant: CombatantModel | undefined;
@@ -932,8 +926,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         }
 
         // Update ability bonuses
-        game.updateAllHaargBonuses();
-        game.updateAllSargeBonuses();
+        game.updateAllSquadBonuses();
 
         game.message(`Dictator assigned ${getCombatantName(combatant)} to ${targetType} squad`);
         return { success: true, message: `Assigned ${getCombatantName(combatant)} to ${targetType} squad` };

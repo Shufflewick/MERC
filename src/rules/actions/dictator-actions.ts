@@ -473,7 +473,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       ]);
 
       // Update squad-based ability bonuses (Tack, Sarge, Valkyrie, etc.)
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       // Give equipment of chosen type - uses shared helper for Apeiron/Vrbansk ability handling
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -726,7 +726,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       ]);
 
       // Update squad-based ability bonuses
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       // Give equipment of chosen type
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -1274,7 +1274,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
         emitMapCombatantEntries(game, [buildMapCombatantEntry(merc, sectorId)]);
       }
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
@@ -1440,7 +1440,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
         buildMapCombatantEntry(merc, targetSector.sectorId),
       ]);
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
@@ -1654,7 +1654,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
         buildMapCombatantEntry(merc, targetSector.sectorId),
       ]);
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
@@ -1817,7 +1817,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
         buildMapCombatantEntry(merc, targetSector.sectorId),
       ]);
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
@@ -1842,7 +1842,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
             buildMapCombatantEntry(merc2, secondarySquad.sectorId ?? ''),
           ]);
 
-          game.updateAllSargeBonuses();
+          game.updateAllSquadBonuses();
           game.message(`Stalin hired ${merc2.combatantName} to secondary squad`);
         }
       } else if (game.dictatorPlayer.baseRevealed && secondarySquad.isFull) {
@@ -2289,7 +2289,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
         buildMapCombatantEntry(merc, targetSector.sectorId),
       ]);
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
@@ -2460,7 +2460,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
         buildMapCombatantEntry(merc, targetSector.sectorId),
       ]);
 
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);

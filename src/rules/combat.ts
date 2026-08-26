@@ -43,6 +43,7 @@ import {
   getEnemyInitiativeDebuff,
   FEMALE_MERCS,
   healsSquadAfterCombat,
+  getMilitiaInitiativeBonus,
 } from './merc-abilities.js';
 import { emitMapCombatantDeathFromData } from './animation-events.js';
 import {
@@ -608,11 +609,13 @@ export function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void 
   if (!walterCombatant) return;
 
   const walterMerc = walterCombatant.sourceElement as CombatantModel;
+  const bonus = getMilitiaInitiativeBonus(walterMerc.combatantId);
+  if (bonus === 0) return;
 
   if (walterCombatant.isDictatorSide) {
     for (const combatant of combatants) {
       if (combatant.isMilitia && combatant.isDictatorSide) {
-        combatant.initiative += 2;
+        combatant.initiative += bonus;
       }
     }
     return;
@@ -624,7 +627,7 @@ export function applyWalterBonus(game: MERCGame, combatants: Combatant[]): void 
   const walterOwnerId = `${owner.seat}`;
   for (const combatant of combatants) {
     if (combatant.isMilitia && combatant.ownerId === walterOwnerId) {
-      combatant.initiative += 2;
+      combatant.initiative += bonus;
     }
   }
 }

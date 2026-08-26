@@ -21,6 +21,7 @@ import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer, selectNewMercLocation } from '../ai-helpers.js';
 import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain } from '../animation-events.js';
+import { doesntCountTowardLimit } from '../merc-abilities.js';
 
 // =============================================================================
 // Rebel Day 1 Actions
@@ -138,8 +139,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
-      game.updateAllHaargBonuses();
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       // Equip starting equipment
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -240,8 +240,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
-      game.updateAllHaargBonuses();
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       // Equip starting equipment
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -251,11 +250,10 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       const remaining = available.filter(m => m !== merc);
       setCachedValue(game, DRAWN_MERCS_KEY, playerId, remaining.map(m => m.id));
 
-      const hasTeresa = player.team.some(m => m.combatantId === 'teresa');
+      // Teresa doesn't count toward the team limit, so her player can hire a 3rd MERC
+      const hasFreeSlotMerc = player.team.some(m => doesntCountTowardLimit(m.combatantId));
 
-      // Only discard remaining if Teresa is NOT on the team
-      // Teresa doesn't count toward limit, so player can hire a 3rd MERC
-      if (!hasTeresa) {
+      if (!hasFreeSlotMerc) {
         for (const other of remaining) {
           other.putInto(game.mercDiscard);
           game.message(`${other.combatantName} was not selected and is discarded`);
@@ -292,8 +290,8 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
         const player = ctx.player;
         const playerId = `${player.seat}`;
         const remaining = getMercsFromCache(game, playerId) || [];
-        const hasTeresa = player.team.some(m => m.combatantId === 'teresa');
-        return player.team.length === 2 && hasTeresa && remaining.length > 0;
+        const hasFreeSlotMerc = player.team.some(m => doesntCountTowardLimit(m.combatantId));
+        return player.team.length === 2 && hasFreeSlotMerc && remaining.length > 0;
       },
     })
     .chooseFrom('merc', {
@@ -369,8 +367,7 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       }
 
       // Update Haarg's ability bonuses (in case Haarg is in the squad)
-      game.updateAllHaargBonuses();
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       // Equip starting equipment
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
@@ -1024,7 +1021,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
       // Equip chosen equipment type
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
-      game.updateAllSargeBonuses();
+      game.updateAllSquadBonuses();
 
       // Emit map entry animation
       if (targetSquad.sectorId) {
