@@ -2,8 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
 import { gameDefinition } from '../src/rules/index';
 
+/**
+ * The platform decides which seat sees the dictator UI from the `role` attribute
+ * on each player in the serialized view. If that attribute stops serializing,
+ * every seat renders as a rebel, so this asserts it rather than logging it.
+ */
 describe('Platform dictator view', () => {
-  it('player view includes role in attributes', () => {
+  function startRunner() {
     const runner = new GameRunner({
       GameClass: gameDefinition.gameClass,
       gameType: gameDefinition.gameType,
@@ -17,34 +22,42 @@ describe('Platform dictator view', () => {
       },
     });
     runner.start();
+    return runner;
+  }
 
-    const snapshot = runner.getSnapshot();
-    const views = runner.getAllPlayerViews();
-    
-    // Dump the first player's view structure to find where role lives
-    const v1 = views[0] as any;
-    const vs = v1?.visibleState || v1;
-    
-    // Find player elements in the view
-    const allKeys = Object.keys(vs);
-    console.log('View 1 top keys:', allKeys.join(', '));
-    
-    // Look for players in the graph
-    if (vs.graph) {
-      const playerNodes = Object.entries(vs.graph).filter(([k, v]: [string, any]) => 
-        v?.className === 'MERCPlayer' || v?.attrs?.role
-      );
-      for (const [id, node] of playerNodes as any) {
-        console.log(`Graph node ${id}: className=${node.className}, role=${node.attrs?.role}, seat=${node.attrs?.seat}`);
+  /** The attributes of every MERCPlayer element in a serialized tree, by id. */
+  function playerAttributes(root: unknown): Array<Record<string, any>> {
+    const byId = new Map<unknown, Record<string, any>>();
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
       }
-    }
-    
-    // Check serialized snapshot for role
-    const snapStr = JSON.stringify(snapshot);
-    const dictatorCount = (snapStr.match(/role.*dictator/g) || []).length;
-    const rebelCount = (snapStr.match(/role.*rebel/g) || []).length;
-    console.log(`Snapshot contains: ${dictatorCount} dictator refs, ${rebelCount} rebel refs`);
+      if (node.className === 'MERCPlayer' && node.attributes) {
+        byId.set(node.id, node.attributes);
+      }
+      Object.values(node).forEach(walk);
+    };
+    walk(root);
+    return [...byId.values()];
+  }
 
-    expect(true).toBe(true); // Just for logging
+  it('exposes exactly one dictator seat and one rebel seat', () => {
+    const runner = startRunner();
+    const roles = playerAttributes(runner.getSnapshot()).map(p => p.role);
+
+    expect(roles.filter(r => r === 'dictator')).toHaveLength(1);
+    expect(roles.filter(r => r === 'rebel')).toHaveLength(1);
+  });
+
+  it('serializes role into every player view', () => {
+    const runner = startRunner();
+
+    for (const view of runner.getAllPlayerViews()) {
+      const roles = playerAttributes(view).map(p => p.role);
+      expect(roles).toContain('dictator');
+      expect(roles).toContain('rebel');
+    }
   });
 });

@@ -1229,6 +1229,50 @@ function isVandal(combatant: Combatant): boolean {
 // =============================================================================
 
 /**
+ * Pull one side out of a deadlocked fight.
+ *
+ * The attacking side goes first — they chose to start it — and the defenders are
+ * tried only if the attackers have nowhere to withdraw to. Returns false when
+ * neither side has a legal retreat sector.
+ */
+function forceStalemateRetreat(
+  game: MERCGame,
+  sector: Sector,
+  attackingPlayerIsRebel: boolean
+): boolean {
+  const rebelSides = game.rebelPlayers.filter(p => canRetreatFromModule(game, sector, p));
+  const dictatorSide = game.dictatorPlayer && canRetreatFromModule(game, sector, game.dictatorPlayer)
+    ? [game.dictatorPlayer]
+    : [];
+
+  const order = attackingPlayerIsRebel
+    ? [...rebelSides, ...dictatorSide]
+    : [...dictatorSide, ...rebelSides];
+
+  for (const player of order) {
+    const destination = getValidRetreatSectors(game, sector, player)[0];
+    if (!destination) continue;
+    executeRetreat(game, sector, destination, player);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Rounds of no hits and no casualties before combat is treated as deadlocked.
+ * The rulebook has no round limit — "Combat continues for as many rounds
+ * necessary until one side is either dead or has retreated" (p.6) — so this
+ * only catches genuine zero-damage stalemates and resolves them by retreat.
+ */
+const STALEMATE_ROUNDS = 10;
+
+/**
+ * A hard backstop. Reaching it means the round loop is not terminating, which is
+ * an engine bug rather than a game state, so it fails loudly.
+ */
+const ABSOLUTE_ROUND_LIMIT = 500;
+
+/**
  * The player recorded as the attacker on the active combat.
  *
  * Combat stores the attacker's seat and whether that seat is a rebel, so a
@@ -2892,9 +2936,9 @@ export function executeCombat(
   game: MERCGame,
   sector: Sector,
   attackingPlayer: RebelPlayer | DictatorPlayer,
-  options: { maxRounds?: number; interactive?: boolean; attackingPlayerIsRebel?: boolean } = {}
+  options: { interactive?: boolean; attackingPlayerIsRebel?: boolean } = {}
 ): CombatOutcome {
-  const { maxRounds = 10, interactive = true, attackingPlayerIsRebel: optionAttackingPlayerIsRebel = true } = options;
+  const { interactive = true, attackingPlayerIsRebel: optionAttackingPlayerIsRebel = true } = options;
 
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
@@ -3047,7 +3091,14 @@ export function executeCombat(
     }
   }
 
-  for (let round = startRound; round <= maxRounds; round++) {
+  let stalemateRounds = 0;
+  for (let round = startRound; round <= ABSOLUTE_ROUND_LIMIT; round++) {
+    if (round === ABSOLUTE_ROUND_LIMIT) {
+      throw new Error(
+        `Combat at ${sector.sectorName} ran ${ABSOLUTE_ROUND_LIMIT} rounds without resolving. ` +
+        `This is a bug in the round loop, not a legal game state.`
+      );
+    }
     // MERC-t5k: Only show round message if starting fresh (not resuming mid-round)
     if (currentAttackerIndex === 0) {
       game.message(`--- Round ${round} ---`);
@@ -3374,6 +3425,25 @@ export function executeCombat(
 
     if (aliveRebels.length === 0 || aliveDictator.length === 0) {
       break;
+    }
+
+    // Zero-damage deadlock (e.g. an unarmed MERC missing every roll). Rather than
+    // ending combat with both sides still in the sector — a state the rules do not
+    // permit — pull one side out.
+    const roundHadEffect = roundResult.round.casualties.length > 0 ||
+      roundResult.round.results.some(r => r.hits > 0);
+    stalemateRounds = roundHadEffect ? 0 : stalemateRounds + 1;
+    if (stalemateRounds >= STALEMATE_ROUNDS) {
+      if (forceStalemateRetreat(game, sector, attackingPlayerIsRebel)) {
+        game.message(
+          `Neither side can make headway at ${sector.sectorName}; the attackers withdraw.`
+        );
+        didRetreat = true;
+        break;
+      }
+      // Nobody has anywhere to withdraw to; keep fighting rather than inventing
+      // an end state, and let the absolute limit catch a true non-termination.
+      stalemateRounds = 0;
     }
 
     // MERC-n1f: Check if retreat is possible and pause for player decision

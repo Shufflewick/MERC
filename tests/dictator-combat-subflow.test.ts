@@ -1,26 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
+import { createTestGame } from 'boardsmith/testing';
+import { MERCGame } from '../src/rules/game.js';
+import { createGameFlow } from '../src/rules/flow.js';
 
 /**
- * FLOW-05 Verification Tests
- *
- * Phase 54: Verify that the dictator turn uses combatResolutionFlow
- * at all 3 call sites (tactics combat, dictator MERC combat, Kim militia combat).
- *
- * This is structural verification -- the behavior is already covered
- * by existing flow and combat tests.
+ * The dictator's turn can start combat three ways — a tactics card (Fodder),
+ * a dictator MERC moving in, and Kim's militia placement — and each must route
+ * through combatResolutionFlow so the pause/resume steps exist. This walks the
+ * built flow definition rather than grepping the source, so it survives renames
+ * and fails if a call site is actually removed.
  */
+describe('Dictator combat sub-flows', () => {
+  function stepNames(): string[] {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'subflow-structure',
+    }).game;
 
-describe('Dictator Combat Sub-flow (FLOW-05)', () => {
+    const names: string[] = [];
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (typeof node.name === 'string') names.push(node.name);
+      Object.values(node).forEach(walk);
+    };
+    walk(createGameFlow(game));
+    return names;
+  }
 
-  it('dictator turn uses combatResolutionFlow at all 3 sites', () => {
-    const flowSource = readFileSync('src/rules/flow.ts', 'utf-8');
-    // Tactics combat
-    expect(flowSource).toContain("combatResolutionFlow(game, 'tactics-combat')");
-    // Dictator MERC combat
-    expect(flowSource).toContain("combatResolutionFlow(game, 'dictator-combat')");
-    // Kim militia combat
-    expect(flowSource).toContain("combatResolutionFlow(game, 'kim-militia-combat')");
+  it('builds a combat resolution sub-flow for each dictator entry point', () => {
+    const names = stepNames();
+
+    for (const prefix of ['tactics-combat', 'dictator-combat', 'kim-militia-combat']) {
+      expect(names, `${prefix} sub-flow missing from the flow`).toContain(`${prefix}-continue`);
+      expect(names).toContain(`${prefix}-retreat-decision`);
+      expect(names).toContain(`${prefix}-target-selection`);
+    }
   });
-
 });

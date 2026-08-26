@@ -623,48 +623,46 @@ watch(() => props.combatSnapshot?.pendingTargetSelection, () => {
 }, { immediate: true });
 
 // Watch for attack sequence events
+// Each handler below null-guards its own inputs, so there is no blanket catch:
+// swallowing an error here would show a stale board with no trace anywhere.
 watch(currentEvent, (event, oldEvent) => {
-  try {
-    const isNewRoll = event?.type === 'roll';
-    const isAnimationEnded = !event;
-    const isNonAttackEvent = event?.type === 'round-start' || event?.type === 'combat-end';
+  const isNewRoll = event?.type === 'roll';
+  const isAnimationEnded = !event;
+  const isNonAttackEvent = event?.type === 'round-start' || event?.type === 'combat-end';
 
-    if (activeAttackerId.value && (isNewRoll || isAnimationEnded || isNonAttackEvent)) {
-      clearAttackSequence();
-    }
+  if (activeAttackerId.value && (isNewRoll || isAnimationEnded || isNonAttackEvent)) {
+    clearAttackSequence();
+  }
 
-    if (!event) {
-      pendingRollEvent.value = null;
-      return;
-    }
+  if (!event) {
+    pendingRollEvent.value = null;
+    return;
+  }
 
-    if (event.type === 'roll') {
-      pendingRollEvent.value = event;
-    }
+  if (event.type === 'roll') {
+    pendingRollEvent.value = event;
+  }
 
-    if (event.type === 'damage' && event.targetName && event.damage) {
-      const targetId = event.targetId || findCombatantId(event.targetName);
-      if (targetId) {
-        addDisplayedDamage(targetId, event.damage);
-        if (event.armorAbsorb && event.armorAbsorb > 0) {
-          addDisplayedArmorSoak(targetId, event.armorAbsorb, event.armorImage);
-        }
-      }
-      // Display health is now updated in the combat-damage event handler via healthAfter
-    }
-
-    if (event.type === 'armor-soak' && event.targetId && event.armorAbsorb) {
-      addDisplayedArmorSoak(event.targetId, event.armorAbsorb, event.armorImage);
-    }
-
-    if (event.type === 'death' && event.targetName) {
-      const targetId = findCombatantId(event.targetName);
-      if (targetId) {
-        markTargetDead(targetId);
+  if (event.type === 'damage' && event.targetName && event.damage) {
+    const targetId = event.targetId || findCombatantId(event.targetName);
+    if (targetId) {
+      addDisplayedDamage(targetId, event.damage);
+      if (event.armorAbsorb && event.armorAbsorb > 0) {
+        addDisplayedArmorSoak(targetId, event.armorAbsorb, event.armorImage);
       }
     }
-  } catch {
-    // Silently ignore errors
+    // Display health is now updated in the combat-damage event handler via healthAfter
+  }
+
+  if (event.type === 'armor-soak' && event.targetId && event.armorAbsorb) {
+    addDisplayedArmorSoak(event.targetId, event.armorAbsorb, event.armorImage);
+  }
+
+  if (event.type === 'death' && event.targetName) {
+    const targetId = findCombatantId(event.targetName);
+    if (targetId) {
+      markTargetDead(targetId);
+    }
   }
 }, { flush: 'sync' });
 
