@@ -99,16 +99,19 @@ The following table determines map size and sector distribution based on number 
 When the Dictator discards a Tactics card to reinforce:
 
 ```
-Militia Gained = floor(Rebel Players / 2) + 1
+Militia Gained = ceil(Rebel Players / 2) + 1
 ```
+
+Rulebook p.5, "Reinforce": "a number of militia ... equal to half the number of
+Rebel players in the game (round up), plus one."
 
 | Rebels | Reinforcement |
 |--------|---------------|
-| 1      | 1             |
+| 1      | 2             |
 | 2      | 2             |
-| 3      | 2             |
+| 3      | 3             |
 | 4      | 3             |
-| 5      | 3             |
+| 5      | 4             |
 | 6      | 4             |
 
 ---

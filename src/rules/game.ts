@@ -1,4 +1,4 @@
-import { Game, Player, type GameOptions, type ElementClass } from 'boardsmith';
+import { Game, Player, type GameOptions } from 'boardsmith';
 import {
   CombatantModel,
   Equipment,
@@ -446,11 +446,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return this.players.filter(p => p.isRebel());
   }
 
-  // Get all players in the game
-  get players(): MERCPlayer[] {
-    return [...this.all(MERCPlayer)];
-  }
-
   // MERC-a2h: Multi-player coordinated attack state
   // Set when a rebel declares a multi-player attack; cleared after execution
   coordinatedAttack: {
@@ -587,10 +582,10 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     roundInitiativeOrder?: string[];
     // MERC-retreat: Simultaneous retreat/continue decision tracking
     awaitingRetreatDecisions?: boolean;
-    // Plain Record (not a Map): activeCombat is captured by the
-    // snapshot-authoritative restore, and a Map JSON-serializes to {} — losing
-    // its entries AND its methods (.set/.has/.clear). A Record round-trips intact.
-    retreatDecisions?: Record<string, { action: 'continue' | 'retreat'; retreatSectorId?: string; retreatSquadName?: string }>;
+    // seat -> decision. Map, like its siblings above: the engine's attribute
+    // serializer round-trips Map and Set intact (see the engine's
+    // map-set-persistence tests, written for this very combat state).
+    retreatDecisions?: Map<string, { action: 'continue' | 'retreat'; retreatSectorId?: string; retreatSquadName?: string }>;
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow
@@ -876,25 +871,24 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
     super(options);
 
-    // Register all element classes for serialization
-    // Cast to ElementClass is safe - these are all valid GameElement subclasses
-    // The cast is needed because our constructors have additional parameters beyond ElementContext
-    // Register CombatantModel for serialization
-    this._ctx.classRegistry.set('CombatantModel', CombatantModel as unknown as ElementClass);
-    this._ctx.classRegistry.set('Equipment', Equipment as unknown as ElementClass);
-    this._ctx.classRegistry.set('Sector', Sector as unknown as ElementClass);
-    this._ctx.classRegistry.set('TacticsCard', TacticsCard as unknown as ElementClass);
-    this._ctx.classRegistry.set('Squad', Squad as unknown as ElementClass);
-    this._ctx.classRegistry.set('MercDeck', MercDeck as unknown as ElementClass);
-    this._ctx.classRegistry.set('EquipmentDeck', EquipmentDeck as unknown as ElementClass);
-    this._ctx.classRegistry.set('TacticsDeck', TacticsDeck as unknown as ElementClass);
-    this._ctx.classRegistry.set('TacticsHand', TacticsHand as unknown as ElementClass);
-    this._ctx.classRegistry.set('DiscardPile', DiscardPile as unknown as ElementClass);
-    this._ctx.classRegistry.set('GameMap', GameMap as unknown as ElementClass);
-    this._ctx.classRegistry.set('PlayerArea', PlayerArea as unknown as ElementClass);
-
-    // Register MERCPlayer class for serialization
-    this._ctx.classRegistry.set('MERCPlayer', MERCPlayer as unknown as ElementClass);
+    // Register all element classes for serialization. registerElements routes
+    // through the framework's collision guard, unlike a raw write into the
+    // private class registry. MERCPlayer is registered automatically by
+    // `static PlayerClass`.
+    this.registerElements([
+      CombatantModel,
+      Equipment,
+      Sector,
+      TacticsCard,
+      Squad,
+      MercDeck,
+      EquipmentDeck,
+      TacticsDeck,
+      TacticsHand,
+      DiscardPile,
+      GameMap,
+      PlayerArea,
+    ]);
 
     // BoardSmith v0.6: BoardSmith creates MERCPlayer instances in super() via static PlayerClass
     // Now configure each player as rebel or dictator based on position
@@ -1741,7 +1735,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   /**
    * Calculate reinforcement militia gained when Dictator discards a Tactics card
-   * Formula: floor(Rebel Players / 2) + 1
+   * Formula: ceil(Rebel Players / 2) + 1 (rulebook p.5, "round up, plus one")
    */
   getReinforcementAmount(): number {
     return getReinforcementAmount(this.rebelCount);

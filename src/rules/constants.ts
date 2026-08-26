@@ -192,16 +192,13 @@ export function getReinforcementAmount(rebelCount: number): number {
 }
 
 /**
- * Reinforcement table lookup (for reference)
+ * Reinforcement table lookup (for reference).
+ * Derived from getReinforcementAmount so it can never drift from the live rule:
+ * 1 rebel -> 2, 2 -> 2, 3 -> 3, 4 -> 3, 5 -> 4, 6 -> 4.
  */
-export const ReinforcementTable: Record<number, number> = {
-  1: 1,
-  2: 2,
-  3: 2,
-  4: 3,
-  5: 3,
-  6: 4,
-};
+export const ReinforcementTable: Record<number, number> = Object.fromEntries(
+  [1, 2, 3, 4, 5, 6].map(rebels => [rebels, getReinforcementAmount(rebels)])
+);
 
 // =============================================================================
 // Tie-Breaking Rules

@@ -1,28 +1,16 @@
 import {
   loop,
   eachPlayer,
-  actionStep as boardsmithActionStep,
+  actionStep,
   simultaneousActionStep,
   sequence,
   execute,
   phase,
   type FlowDefinition,
-  type ActionStepConfig,
   type Game,
   type Player,
 } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
-
-// Extended ActionStepConfig with prompt support (MERC extension)
-type MERCActionStepConfig = ActionStepConfig & {
-  prompt?: string;
-};
-
-// Wrapper that accepts prompt property and strips it before passing to boardsmith
-function actionStep(config: MERCActionStepConfig) {
-  const { prompt: _prompt, ...rest } = config;
-  return boardsmithActionStep(rest);
-}
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { doesntCountTowardLimit } from './merc-abilities.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
@@ -343,7 +331,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
         execute(() => {
           if (!game.activeCombat) return;
           // Reset to an empty Record at the start of each decision round.
-          game.activeCombat.retreatDecisions = {};
+          game.activeCombat.retreatDecisions = new Map();
         }),
         simultaneousActionStep({
           name: 'continue-or-retreat',
@@ -352,7 +340,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
           // before deciding who retreats (rulebook p.3, "Squads").
           actions: ['combatContinue', 'combatRetreat', 'assignToSquad', 'adelheidToggleConversion'],
           playerDone: (_ctx, player) => {
-            return game.activeCombat?.retreatDecisions?.[`${player.seat}`] !== undefined;
+            return game.activeCombat?.retreatDecisions?.has(`${player.seat}`) === true;
           },
           allDone: () => game.isFinished() || game.activeCombat === null ||
                         game.activeCombat.combatComplete ||
@@ -365,17 +353,17 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                         game.activeCombat.pendingEpinephrine != null ||
                         game.activeCombat.pendingGolemAttack != null ||
                         getCombatDecisionParticipants(game).every(p =>
-                          game.activeCombat?.retreatDecisions?.[`${p.seat}`] !== undefined),
+                          game.activeCombat?.retreatDecisions?.has(`${p.seat}`) === true),
         }),
         execute(() => {
           if (!game.activeCombat || game.activeCombat.combatComplete) return;
 
           const decisions = game.activeCombat.retreatDecisions;
           const continueChosen = decisions
-            ? Object.values(decisions).some(d => d.action === 'continue')
+            ? [...decisions.values()].some(d => d.action === 'continue')
             : false;
           const retreatEntries = decisions
-            ? Object.entries(decisions)
+            ? [...decisions.entries()]
               .filter(([, d]) => d.action === 'retreat' && d.retreatSectorId)
             : [];
 
@@ -416,7 +404,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
             // executeCombat sets it correctly — forcing it to false caused the flow
             // to skip the simultaneous retreat-decision step, leaving the non-context
             // player stuck with no buttons in two-human-player games.
-            game.activeCombat.retreatDecisions = {};
+            game.activeCombat.retreatDecisions = new Map();
           }
         }),
       ),
@@ -444,7 +432,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       do: actionStep({
         name: 'gaddafi-loot-equipment',
         actions: ['gaddafiLootEquipment', 'gaddafiDiscardLoot'],
-        prompt: "Gaddafi's Ability: Equip looted equipment on your MERCs",
         skipIf: () => game.isFinished() ||
           !game._gaddafiLootableEquipment ||
           game._gaddafiLootableEquipment.length === 0,
@@ -517,7 +504,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           actionStep({
             name: 'designate-privacy-player',
             actions: ['designatePrivacyPlayer'],
-            prompt: 'Designate a Privacy Player for AI decisions',
             skipIf: () => !game.dictatorPlayer?.isAI,
           }),
 
@@ -560,7 +546,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'select-dictator',
                 actions: ['selectDictator'],
-                prompt: 'Choose your Dictator',
                 skipIf: () => game.dictatorPlayer?.isAI === true || game.dictatorPlayer?.dictator !== undefined,
               }),
 
@@ -568,7 +553,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-place-initial-militia',
                 actions: ['dictatorPlaceInitialMilitia'],
-                prompt: 'Place initial militia on unoccupied industries',
               }),
 
               // Step 1.5: Human Kim chooses base location (before hiring MERC)
@@ -576,7 +560,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'choose-kim-base',
                 actions: ['chooseKimBase'],
-                prompt: "Kim's Ability: Choose your base location",
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   // Skip if not Kim, or AI, or base already set
@@ -591,7 +574,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-kim-ability',
                 actions: ['dictatorSetupAbility'],
-                prompt: "Apply Kim's ability",
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   return dictator?.combatantId !== 'kim';
@@ -614,14 +596,12 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-hire-first-merc',
                 actions: ['dictatorHireFirstMerc'],
-                prompt: 'Hire your first MERC',
               }),
 
               // Step 3: Apply dictator special ability (for non-Kim dictators)
               actionStep({
                 name: 'dictator-setup-ability',
                 actions: ['dictatorSetupAbility'],
-                prompt: 'Apply dictator special ability',
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   // Skip for Kim (already applied above)
@@ -652,7 +632,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'bonus-merc-squad-choice',
                   actions: ['bonusMercSetup'],
-                  prompt: "Dictator Ability: Choose squad for bonus MERC",
                 }),
               }),
 
@@ -660,7 +639,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-draw-tactics',
                 actions: ['dictatorDrawTactics'],
-                prompt: 'Draw tactics cards',
               }),
 
               // Step 5: Place extra militia (loop for human player to place multiple times)
@@ -686,7 +664,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'dictator-place-extra-militia',
                   actions: ['dictatorPlaceExtraMilitia', 'dictatorSkipExtraMilitia'],
-                  prompt: 'Place extra militia',
                 }),
               }),
 
@@ -793,7 +770,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     return firingPlayer ?? game.rebelPlayers[0];
                   },
                   actions: ['mortarAllocateHits'],
-                  prompt: 'Allocate mortar hits to targets',
                   skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
                 }),
               }),
@@ -964,7 +940,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'artillery-allocate',
                   actions: ['artilleryAllocateHits'],
-                  prompt: 'Allocate artillery damage to your units',
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
                 }),
               }),
@@ -977,7 +952,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'generalissimo-pick-merc',
                   actions: ['generalissimoPick'],
-                  prompt: 'Generalissimo: Choose a MERC to hire',
                   skipIf: () => game.isFinished() || game.pendingGeneralissimoHire == null,
                 }),
               }),
@@ -990,7 +964,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'lockdown-place-militia',
                   actions: ['lockdownPlaceMilitia'],
-                  prompt: 'Lockdown: Place militia on base or adjacent sectors',
                   skipIf: () => game.isFinished() || game.pendingLockdownMilitia == null || game.pendingLockdownMilitia.remaining <= 0,
                 }),
               }),
@@ -1075,7 +1048,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     do: actionStep({
                       name: 'dictator-mortar-allocate',
                       actions: ['mortarAllocateHits'],
-                      prompt: 'Allocate mortar hits to targets',
                       skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
                     }),
                   }),
@@ -1125,7 +1097,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'hitler-pick-target',
                 actions: ['hitlerPickInitiativeTarget'],
-                prompt: "Hitler's Ability: Choose a rebel for auto-initiative",
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hitler' ||
                   game.dictatorPlayer?.isAI === true,
@@ -1135,7 +1106,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'noriega-place-militia',
                 actions: ['noriegaPlaceMilitia'],
-                prompt: "Noriega: Choose a sector for converted militia",
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'noriega' ||
                   game.dictatorPlayer?.isAI === true ||
@@ -1147,7 +1117,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'noriega-bonus-hire',
                 actions: ['noriegaBonusHire'],
-                prompt: "Noriega: Hire a bonus MERC (controlling fewer sectors than rebels)",
                 skipIf: () => {
                   if (game.isFinished()) return true;
                   if (game.dictatorPlayer?.dictator?.combatantId !== 'noriega') return true;
@@ -1168,7 +1137,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'mao-place-militia',
                   actions: ['maoBonusMilitia'],
-                  prompt: "Mao's Ability: Distribute militia to wilderness sectors",
                   skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
                 }),
               }),
@@ -1181,7 +1149,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'mussolini-spread-militia',
                   actions: ['mussoliniSpreadMilitia'],
-                  prompt: "Mussolini: Move militia to adjacent sectors (or done)",
                   skipIf: () => game.isFinished() || game.pendingMussoliniSpread == null || game.pendingMussoliniSpread.remaining <= 0,
                 }),
               }),
@@ -1258,7 +1225,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'polpot-bonus-hire',
                 actions: ['polpotBonusHire'],
-                prompt: "Pol Pot lost combat - hire a consolation MERC",
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'polpot' ||
                   game.dictatorPlayer?.isAI === true ||
@@ -1283,7 +1249,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'pinochet-hire',
                   actions: ['pinochetBonusHire'],
-                  prompt: 'Pinochet lost a sector - hire a bonus MERC',
                   skipIf: () => game.isFinished() || game._pinochetPendingHires <= 0,
                 }),
               }),
@@ -1325,7 +1290,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'hussein-bonus-tactics',
                 actions: ['husseinBonusTactics', 'husseinBonusReinforce'],
-                prompt: "Hussein's Ability: Play a second tactics card",
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hussein' ||
                   game.dictatorPlayer?.isAI === true,
@@ -1343,7 +1307,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'hussein-artillery-allocate',
                   actions: ['artilleryAllocateHits'],
-                  prompt: 'Allocate artillery damage to your units',
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
                 }),
               }),
@@ -1356,7 +1319,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'hussein-generalissimo-pick',
                   actions: ['generalissimoPick'],
-                  prompt: 'Generalissimo: Choose a MERC to hire',
                   skipIf: () => game.isFinished() || game.pendingGeneralissimoHire == null,
                 }),
               }),
@@ -1369,7 +1331,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'hussein-lockdown-place',
                   actions: ['lockdownPlaceMilitia'],
-                  prompt: 'Lockdown: Place militia on base or adjacent sectors',
                   skipIf: () => game.isFinished() || game.pendingLockdownMilitia == null || game.pendingLockdownMilitia.remaining <= 0,
                 }),
               }),
