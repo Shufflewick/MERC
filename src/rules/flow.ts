@@ -816,6 +816,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'feedbackDiscard',
                   'squidheadDisarm',
                   'squidheadArm',
+                  'docHeal',
                   'hagnessDrawType',
                   'hagnessSelectFromDrawn',
                   'hagnessGiveEquipment',

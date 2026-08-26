@@ -260,21 +260,26 @@ describe('Landmine System', () => {
       expect(merc.health).toBe(healthBefore);
     });
 
-    it('sends disarmed mine to accessory discard pile', () => {
+    it('hands the disarmed mine to Squidhead so he can re-arm it', () => {
       placeMineInStash();
       const rebel = game.rebelPlayers[0];
 
-      placeSquidheadInSquad(rebel.primarySquad);
+      const squidhead = placeSquidheadInSquad(rebel.primarySquad);
       rebel.primarySquad.sectorId = sector.sectorId;
 
       const discardBefore = game.accessoriesDiscard?.all(Equipment).length ?? 0;
 
       checkLandMines(game, sector, [rebel.primarySquad], true);
 
-      // Mine should be in discard, not in stash
+      // Card: "Disarms enemy land mines when he enters a sector. May re-arm them
+      // for himself." The mine must survive the disarm for that to be possible.
       expect(sector.getStashContents().some(e => isLandMine(e.equipmentId))).toBe(false);
+      const carried = [squidhead.weaponSlot, squidhead.armorSlot, squidhead.accessorySlot,
+                       ...squidhead.bandolierSlots];
+      expect(carried.some(e => e && isLandMine(e.equipmentId))).toBe(true);
+
       const discardAfter = game.accessoriesDiscard?.all(Equipment).length ?? 0;
-      expect(discardAfter).toBe(discardBefore + 1);
+      expect(discardAfter).toBe(discardBefore);
     });
 
     it('works when Squidhead is in a different entering squad', () => {

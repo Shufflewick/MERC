@@ -58,16 +58,26 @@ export function checkLandMines(
   // 3. Check Squidhead counter-ability across all entering squads
   const disarmer = findDisarmer(enteringSquads);
   if (disarmer) {
-    // Disarm path: remove mine from stash, send to discard pile
+    // Card: "Disarms enemy land mines when he enters a sector. May re-arm them for
+    // himself." Keep the mine so the re-arm clause is reachable — hand it to
+    // Squidhead when he has room, otherwise leave it in the stash for him.
     const taken = sector.takeFromStash(mineIndex);
     if (taken) {
-      const discard = game.getEquipmentDiscard('Accessory');
-      if (discard) {
-        taken.putInto(discard);
+      if (disarmer.canEquip(taken)) {
+        const { replaced, displacedBandolierItems } = disarmer.equip(taken);
+        for (const item of [replaced, ...displacedBandolierItems]) {
+          if (!item) continue;
+          if (!sector.addToStash(item)) {
+            const discard = game.getEquipmentDiscard(item.equipmentType);
+            if (discard) item.putInto(discard);
+          }
+        }
+        game.message(`${disarmer.combatantName} disarms a land mine at ${sector.sectorName} and keeps it!`);
+      } else {
+        sector.addToStash(taken);
+        game.message(`${disarmer.combatantName} disarms a land mine at ${sector.sectorName} (left in the stash)`);
       }
     }
-
-    game.message(`${disarmer.combatantName} disarms a land mine at ${sector.sectorName}!`);
 
     return {
       detonated: false,

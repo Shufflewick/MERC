@@ -85,6 +85,7 @@ import {
   createFeedbackDiscardAction,
   createSquidheadDisarmAction,
   createSquidheadArmAction,
+  createDocHealAction,
   createHagnessDrawTypeAction,
   createHagnessSelectFromDrawnAction,
   createHagnessGiveEquipmentAction,
@@ -162,6 +163,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createFeedbackDiscardAction(game)); // MERC-24h: Feedback discard retrieval
   game.registerAction(createSquidheadDisarmAction(game)); // MERC-4qd: Squidhead disarm mines
   game.registerAction(createSquidheadArmAction(game)); // MERC-4qd: Squidhead arm mines
+  game.registerAction(createDocHealAction(game)); // Doc: free out-of-combat squad heal
   game.registerAction(createHagnessDrawTypeAction(game)); // MERC-jrph: Hagness draw equipment (step 1)
   game.registerAction(createHagnessSelectFromDrawnAction(game)); // MERC-jrph: Hagness pick 1 of 3 (step 2)
   game.registerAction(createHagnessGiveEquipmentAction(game)); // MERC-jrph: Hagness give equipment (step 3)

@@ -879,6 +879,73 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
 }
 
 // =============================================================================
+// Doc Heal Action
+// =============================================================================
+
+/**
+ * Doc: "Heals all MERCs in his squad as a free action outside of combat."
+ *
+ * Cost: 0 actions. The post-combat auto-heal in combat.ts stays as a
+ * convenience; this covers everything that damages a squad without a fight —
+ * land mines, Tainted Water, artillery, Pinochet's spread.
+ */
+export function createDocHealAction(game: MERCGame): ActionDefinition {
+  function findDoc(player: MERCPlayer): CombatantModel | undefined {
+    return player.team.find(m => m.combatantId === 'doc' && !m.isDead);
+  }
+
+  return Action.create('docHeal')
+    .prompt('Doc: Heal squad')
+    .condition({
+      'not in combat': () => isNotInActiveCombat(game),
+      'has a living Doc with a damaged squadmate': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
+        const player = ctx.player as MERCPlayer;
+        const doc = findDoc(player);
+        if (!doc) return false;
+        const squad = player.getSquadContaining(doc);
+        if (!squad) return false;
+        return squad.getLivingMercs().some(m => m.damage > 0);
+      },
+      'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),
+    })
+    .execute((_args, ctx) => {
+      const player = ctx.player as MERCPlayer;
+      const doc = findDoc(player);
+      if (!doc) return { success: false, message: 'Doc is not on this team.' };
+
+      const squad = player.getSquadContaining(doc);
+      if (!squad) return { success: false, message: `${doc.combatantName} is not in a squad.` };
+
+      const damaged = squad.getLivingMercs().filter(m => m.damage > 0);
+      if (damaged.length === 0) {
+        return { success: false, message: 'Nobody in the squad is wounded.' };
+      }
+
+      game.animate('doc-heal', {
+        healerName: doc.combatantName,
+        sectorId: squad.sectorId,
+      }, () => {
+        for (const merc of damaged) {
+          const healed = merc.damage;
+          merc.fullHeal();
+          game.message(`${doc.combatantName} healed ${merc.combatantName} for ${healed} damage`);
+        }
+      });
+
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
+      }
+
+      return {
+        success: true,
+        message: `${doc.combatantName} healed ${damaged.length} MERC(s)`,
+        data: { healed: damaged.map(m => m.combatantName) },
+      };
+    });
+}
+
+// =============================================================================
 // Squidhead Arm Action
 // =============================================================================
 
