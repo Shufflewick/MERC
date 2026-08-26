@@ -775,7 +775,11 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
   return Action.create('assignToSquad')
     .prompt('Assign to squad')
     .condition({
-      'not in combat': () => isNotInActiveCombat(game),
+      // Rulebook p.3: "you can break off a secondary squad at any time, including
+      // during combat... useful if you need a MERC to retreat, but you want two
+      // others to stay and fight." So this is legal at the retreat decision point.
+      'not mid-round in combat': () =>
+        isNotInActiveCombat(game) || game.activeCombat?.awaitingRetreatDecisions === true,
       'day 2 or later': () => game.currentDay >= 2,
       'has assignable combatants': (ctx) => getAssignableCombatants(ctx.player, game).length > 0,
       'ai batch gate': (ctx) => !game.shouldGateAIAction(ctx.player as MERCPlayer),

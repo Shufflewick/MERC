@@ -572,7 +572,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Plain Record (not a Map): activeCombat is captured by the
     // snapshot-authoritative restore, and a Map JSON-serializes to {} — losing
     // its entries AND its methods (.set/.has/.clear). A Record round-trips intact.
-    retreatDecisions?: Record<string, { action: 'continue' | 'retreat'; retreatSectorId?: string }>;
+    retreatDecisions?: Record<string, { action: 'continue' | 'retreat'; retreatSectorId?: string; retreatSquadName?: string }>;
   } | null = null;
 
   // MERC-t5k: Pending combat - set by move action, initiated by flow

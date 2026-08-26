@@ -6,7 +6,7 @@
  */
 
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
-import { Sector } from './elements.js';
+import { Sector, Squad } from './elements.js';
 
 // =============================================================================
 // Retreat Mechanics
@@ -79,104 +79,60 @@ export function canRetreat(
   sector: Sector,
   player: RebelPlayer | DictatorPlayer
 ): boolean {
-  // Dictator retreat check
-  if (game.isDictatorPlayer(player)) {
-    const dictatorPlayer = game.dictatorPlayer;
-    if (!dictatorPlayer) {
-      return false;
-    }
-
-    // Check if dictator card is in this sector and alive
-    // Use dictator's current sectorId, not baseSectorId (which is permanent base location)
-    const dictatorCardInSector = dictatorPlayer.baseRevealed &&
-      dictatorPlayer.dictator?.sectorId === sector.sectorId &&
-      dictatorPlayer.dictator &&
-      !dictatorPlayer.dictator.isDead;
-
-    // Check if any hired MERCs are in this sector and alive
-    const mercsInSector = game.getDictatorMercsInSector(sector);
-    const hasLivingMercsInSector = mercsInSector.length > 0;
-
-    if (!dictatorCardInSector && !hasLivingMercsInSector) {
-      return false;
-    }
-
-    const validSectors = getValidRetreatSectors(game, sector, player);
-    return validSectors.length > 0;
-  }
-
-  // Rebel retreat check (existing logic)
-  const rebelPlayer = player as RebelPlayer;
-  const hasLivingMercsInSector =
-    (rebelPlayer.primarySquad.sectorId === sector.sectorId && rebelPlayer.primarySquad.livingMercCount > 0) ||
-    (rebelPlayer.secondarySquad.sectorId === sector.sectorId && rebelPlayer.secondarySquad.livingMercCount > 0);
-
-  if (!hasLivingMercsInSector) {
+  if (getRetreatableSquads(game, sector, player).length === 0) {
     return false;
   }
 
-  const validSectors = getValidRetreatSectors(game, sector, player);
-  return validSectors.length > 0;
+  return getValidRetreatSectors(game, sector, player).length > 0;
 }
 
 /**
- * Execute retreat for a player's squad.
- * Per rules: Entire squad must retreat together. Militia cannot retreat.
- * Supports both rebel and dictator players.
+ * The squads a player could pull out of a sector.
+ *
+ * Retreat is per squad (rulebook p.3: "If one member of a squad needs to retreat
+ * from combat, then the entire squad must retreat" — the squad, not the player).
+ * The Dictator's base squad is excluded: it exists to hold the base, and he "must
+ * be part of one of the 2 squads if he wishes to leave his base" (p.5).
+ */
+export function getRetreatableSquads(
+  game: MERCGame,
+  sector: Sector,
+  player: RebelPlayer | DictatorPlayer
+): Squad[] {
+  const base = game.isDictatorPlayer(player) ? player.baseSquadOrNull : null;
+  return player.squads.filter(squad =>
+    squad.sectorId === sector.sectorId &&
+    squad.livingMercCount > 0 &&
+    (!base || squad.name !== base.name)
+  );
+}
+
+/**
+ * Execute retreat for a player.
+ * Per rules: an entire squad retreats together, and militia never retreat.
+ *
+ * `squadName` pulls out just that squad, leaving the player's other squad to
+ * fight on. Omit it to retreat every squad the player has in the sector.
  */
 export function executeRetreat(
   game: MERCGame,
   fromSector: Sector,
   toSector: Sector,
-  player: RebelPlayer | DictatorPlayer
+  player: RebelPlayer | DictatorPlayer,
+  squadName?: string
 ): void {
-  // Dictator retreat
-  if (game.isDictatorPlayer(player)) {
-    const dictatorPlayer = game.dictatorPlayer;
-    if (!dictatorPlayer) return;
+  const retreating = getRetreatableSquads(game, fromSector, player)
+    .filter(squad => !squadName || squad.name === squadName);
 
-    // Move dictator card if it's in the combat sector (message only - position via squad)
-    // Note: baseSectorId is the PERMANENT base location, dictator.sectorId is current location
-    if (dictatorPlayer.baseRevealed && dictatorPlayer.dictator?.sectorId === fromSector.sectorId) {
-      game.message(`${dictatorPlayer.dictator?.combatantName || 'Dictator'} retreats to ${toSector.sectorName}`);
-    }
+  if (retreating.length === 0) return;
 
-    // Move any hired MERCs in the sector (message only - position via squad)
-    const mercsInSector = game.getDictatorMercsInSector(fromSector);
-    for (const merc of mercsInSector) {
+  for (const squad of retreating) {
+    for (const merc of squad.getLivingMercs()) {
       game.message(`${merc.combatantName} retreats to ${toSector.sectorName}`);
     }
-
-    // Update squad sectorIds - MERCs inherit via computed getter
-    // Only move squads that are actually in the combat sector (mirrors rebel retreat pattern)
-    if (dictatorPlayer.primarySquad.sectorId === fromSector.sectorId) {
-      dictatorPlayer.primarySquad.sectorId = toSector.sectorId;
-    }
-    if (dictatorPlayer.secondarySquad.sectorId === fromSector.sectorId) {
-      dictatorPlayer.secondarySquad.sectorId = toSector.sectorId;
-    }
-    if (dictatorPlayer.baseSquad?.sectorId === fromSector.sectorId) {
-      dictatorPlayer.baseSquad.sectorId = toSector.sectorId;
-    }
-
-    // Note: Dictator militia do NOT retreat (per rules: "Militia cannot retreat")
-    return;
+    // MERCs inherit the sector from their squad via a computed getter.
+    squad.sectorId = toSector.sectorId;
   }
 
-  // Rebel retreat (existing logic)
-  const rebelPlayer = player as RebelPlayer;
-
-  // Move primary squad if it's in the combat sector
-  if (rebelPlayer.primarySquad.sectorId === fromSector.sectorId) {
-    rebelPlayer.primarySquad.sectorId = toSector.sectorId;
-    game.message(`${rebelPlayer.name}'s primary squad retreats to ${toSector.sectorName}`);
-  }
-
-  // Move secondary squad if it's in the combat sector
-  if (rebelPlayer.secondarySquad.sectorId === fromSector.sectorId) {
-    rebelPlayer.secondarySquad.sectorId = toSector.sectorId;
-    game.message(`${rebelPlayer.name}'s secondary squad retreats to ${toSector.sectorName}`);
-  }
-
-  // Note: Militia do NOT retreat (per rules: "Militia cannot retreat")
+  // Note: militia do NOT retreat (per rules: "Militia cannot retreat")
 }

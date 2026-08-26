@@ -6,7 +6,7 @@
  * MERC-t5k: Player target selection during combat
  */
 
-import { Action, type ActionDefinition } from 'boardsmith';
+import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatAttacker, type Combatant } from '../combat.js';
@@ -15,6 +15,10 @@ import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
 import { applyMortarDamage } from './rebel-equipment.js';
 import { applyEpinephrineSave, handleMercDeath } from '../merc-death.js';
+import { getRetreatableSquads } from '../combat-retreat.js';
+
+/** Sentinel choice meaning "pull every squad I have here out of the fight". */
+const ALL_SQUADS = 'all';
 
 /**
  * Continue fighting in active combat
@@ -119,6 +123,21 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
       },
       boardRef: (element) => ({ id: (element as unknown as Sector).id }),
     })
+    // Retreat is per squad: a player with both squads in the fight may pull one
+    // out and leave the other fighting (rulebook p.3, "Squads").
+    .chooseFrom('retreatingSquad', {
+      prompt: 'Which squad retreats?',
+      choices: (ctx: ActionContext) => {
+        if (!game.activeCombat) return [ALL_SQUADS];
+        const combatSector = game.getSector(game.activeCombat.sectorId);
+        if (!combatSector) return [ALL_SQUADS];
+        const player = ctx.player as RebelPlayer | DictatorPlayer;
+        const squads = getRetreatableSquads(game, combatSector, player);
+        if (squads.length < 2) return [ALL_SQUADS];
+        return [ALL_SQUADS, ...squads.map(s => s.name!)];
+      },
+      display: (value: string) => value === ALL_SQUADS ? 'All my squads' : value,
+    })
     .execute((args, ctx) => {
       const retreatSector = args.retreatSector as Sector;
       if (!retreatSector) {
@@ -126,6 +145,8 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
       }
 
       const player = ctx.player as RebelPlayer | DictatorPlayer;
+      const squadChoice = args.retreatingSquad as string | undefined;
+      const retreatSquadName = !squadChoice || squadChoice === ALL_SQUADS ? undefined : squadChoice;
 
       if (game.activeCombat?.awaitingRetreatDecisions) {
         if (!game.activeCombat.retreatDecisions) {
@@ -134,6 +155,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
         game.activeCombat.retreatDecisions[`${ctx.player.seat}`] = {
           action: 'retreat',
           retreatSectorId: retreatSector.sectorId,
+          retreatSquadName,
         };
         return {
           success: true,
@@ -142,7 +164,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
         };
       }
 
-      const outcome = executeCombatRetreat(game, retreatSector, player);
+      executeCombatRetreat(game, retreatSector, player, retreatSquadName);
 
       return {
         success: true,

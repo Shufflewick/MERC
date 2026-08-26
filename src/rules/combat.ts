@@ -3384,7 +3384,8 @@ export function executeCombat(
 export function executeCombatRetreat(
   game: MERCGame,
   retreatSector: Sector,
-  retreatingPlayer: RebelPlayer | DictatorPlayer
+  retreatingPlayer: RebelPlayer | DictatorPlayer,
+  retreatSquadName?: string
 ): CombatOutcome {
   if (!game.activeCombat) {
     throw new Error('No active combat to retreat from');
@@ -3396,7 +3397,7 @@ export function executeCombatRetreat(
   }
 
   // Execute the retreat for the player who clicked retreat
-  executeRetreat(game, combatSector, retreatSector, retreatingPlayer);
+  executeRetreat(game, combatSector, retreatSector, retreatingPlayer, retreatSquadName);
 
   // For combat results, we need the attacking rebel player
   // (the one who initiated combat - used for casualty cleanup)

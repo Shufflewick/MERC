@@ -312,7 +312,9 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
         simultaneousActionStep({
           name: 'continue-or-retreat',
           players: () => getCombatDecisionParticipants(game),
-          actions: ['combatContinue', 'combatRetreat'],
+          // assignToSquad is offered here so a player can break off a squad
+          // before deciding who retreats (rulebook p.3, "Squads").
+          actions: ['combatContinue', 'combatRetreat', 'assignToSquad'],
           playerDone: (_ctx, player) => {
             return game.activeCombat?.retreatDecisions?.[`${player.seat}`] !== undefined;
           },
@@ -353,7 +355,12 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
               : null;
             if (!combatSector || !retreatSector) continue;
             if (!canRetreat(game, combatSector, player as RebelPlayer | DictatorPlayer)) continue;
-            executeCombatRetreat(game, retreatSector, player as RebelPlayer | DictatorPlayer);
+            executeCombatRetreat(
+              game,
+              retreatSector,
+              player as RebelPlayer | DictatorPlayer,
+              decision.retreatSquadName
+            );
           }
 
           if (game.activeCombat && !game.activeCombat.combatComplete) {
