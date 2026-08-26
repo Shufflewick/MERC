@@ -14,6 +14,7 @@ import { queuePendingCombat } from './combat.js';
 import { selectAIBaseLocation, selectNewMercLocation } from './ai-helpers.js';
 import { equipNewHire } from './actions/helpers.js';
 import { checkLandMines } from './landmine.js';
+import { killMercOutsideCombat } from './merc-death.js';
 
 // =============================================================================
 // Types
@@ -1027,10 +1028,11 @@ function taintedWater(game: MERCGame): TacticsEffectResult {
 
     // Damage all rebel MERCs (ignores armor)
     for (const rebel of game.rebelPlayers) {
-      for (const merc of rebel.team) {
-        merc.damage += 1; // Direct damage, bypassing armor
+      for (const merc of [...rebel.team]) {
+        merc.takeDamage(1); // Direct damage, bypassing armor
         mercsDamaged++;
         game.message(`${merc.combatantName} poisoned by tainted water (1 damage)`);
+        killMercOutsideCombat(game, merc, `${merc.combatantName} dies of tainted water!`);
       }
     }
 

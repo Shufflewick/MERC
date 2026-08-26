@@ -1394,7 +1394,7 @@ describe('MERC Ability Integration Tests', () => {
       walter.updateAbilityBonuses([]);
     });
 
-    it('Vulture ignores initiative penalties from equipment via getEffectiveInitiative', () => {
+    it('Vulture ignores initiative penalties from equipment', () => {
       const vulture = game.mercDeck.all(CombatantModel).filter(c => c.isMerc).find(m => m.combatantId === 'vulture');
       if (!vulture) {
         console.log('Vulture not in deck, skipping test');
@@ -1413,7 +1413,7 @@ describe('MERC Ability Integration Tests', () => {
       vulture.equip(heavyWeapon);
       vulture.updateAbilityBonuses([]);
 
-      expect(vulture.getEffectiveInitiative()).toBe(baseInit);
+      expect(vulture.initiative).toBe(baseInit);
       expect(weaponPenalty).toBeLessThan(0);
     });
 

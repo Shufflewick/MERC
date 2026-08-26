@@ -2,6 +2,7 @@ import type { MERCGame } from './game.js';
 import type { Sector, Squad, CombatantModel } from './elements.js';
 import { isLandMine, getMineDamage } from './equipment-effects.js';
 import { handlesLandMines } from './merc-abilities.js';
+import { killMercOutsideCombat } from './merc-death.js';
 
 export interface LandmineResult {
   detonated: boolean;
@@ -104,6 +105,7 @@ export function checkLandMines(
     // Apply damage to entering player's mercs
     for (const merc of targetMercs) {
       merc.takeDamage(damage);
+      killMercOutsideCombat(game, merc, `${merc.combatantName} is killed by the land mine!`);
     }
 
     // Apply damage to dictator card if applicable

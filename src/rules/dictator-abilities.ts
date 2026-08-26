@@ -21,6 +21,7 @@ import { queuePendingCombat } from './combat.js';
 import { equipNewHire } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 import { executeTacticsEffect } from './tactics-effects.js';
+import { killMercOutsideCombat } from './merc-death.js';
 
 // =============================================================================
 // Dictator Ability Types
@@ -1037,19 +1038,7 @@ export function applyPinochetDamageSpread(game: MERCGame): void {
       merc.takeDamage(dmg);
       totalApplied += dmg;
 
-      if (merc.isDead) {
-        // Discard all equipment (same pattern as combat.ts death handling)
-        const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
-        for (const eqType of equipmentTypes) {
-          const equipment = merc.unequip(eqType);
-          if (equipment) {
-            const discard = game.getEquipmentDiscard(eqType);
-            if (discard) equipment.putInto(discard);
-          }
-        }
-        merc.putInto(game.mercDiscard);
-        game.message(`${merc.combatantName} killed by Pinochet's damage spread!`);
-      }
+      killMercOutsideCombat(game, merc, `${merc.combatantName} killed by Pinochet's damage spread!`);
     } else if (target.type === 'militia' && target.sector && target.playerId) {
       target.sector.removeRebelMilitia(target.playerId, dmg);
       totalApplied += dmg;

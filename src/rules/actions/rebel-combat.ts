@@ -14,6 +14,7 @@ import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-eff
 import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
 import { applyMortarDamage } from './rebel-equipment.js';
+import { applyEpinephrineSave, handleMercDeath } from '../merc-death.js';
 
 /**
  * Continue fighting in active combat
@@ -1611,30 +1612,10 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
         return { success: false, message: 'Dying MERC not found' };
       }
 
-      // Find and use the epinephrine from the saver
-      let epiShot: Equipment | undefined;
-      if (saverMerc.accessorySlot && isEpinephrine(saverMerc.accessorySlot.equipmentId)) {
-        epiShot = saverMerc.unequip('Accessory');
-      } else {
-        const epiIndex = saverMerc.bandolierSlots.findIndex((e: Equipment) => isEpinephrine(e.equipmentId));
-        if (epiIndex >= 0) {
-          epiShot = saverMerc.unequipBandolierSlot(epiIndex);
-        }
-      }
-
-      if (!epiShot) {
+      if (!applyEpinephrineSave(game, dyingMerc, saverMerc)) {
         game.activeCombat!.pendingEpinephrine = undefined;
         return { success: false, message: 'Epinephrine not found on selected MERC' };
       }
-
-      // Discard the epinephrine
-      const discard = game.getEquipmentDiscard('Accessory');
-      if (discard) epiShot.putInto(discard);
-
-      // Save the dying MERC - set health to 1
-      dyingMerc.damage = dyingMerc.maxHealth - 1;
-
-      game.message(`${saverMerc.combatantName} uses Epinephrine Shot to save ${dyingMerc.combatantName}!`);
 
       // Clear pending state
       game.activeCombat!.pendingEpinephrine = undefined;
@@ -1679,24 +1660,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
         return { success: false, message: 'Dying MERC not found' };
       }
 
-      // MERC dies - discard their equipment
-      for (const slotName of ['Weapon', 'Armor', 'Accessory'] as const) {
-        const equip = dyingMerc.unequip(slotName);
-        if (equip) {
-          const discardPile = game.getEquipmentDiscard(slotName);
-          if (discardPile) equip.putInto(discardPile);
-        }
-      }
-      // Discard bandolier items
-      while (dyingMerc.bandolierSlots.length > 0) {
-        const equip = dyingMerc.unequipBandolierSlot(0);
-        if (equip) {
-          const discardPile = game.getEquipmentDiscard('Accessory');
-          if (discardPile) equip.putInto(discardPile);
-        }
-      }
-
-      game.message(`${dyingMerc.combatantName} has died!`);
+      handleMercDeath(game, dyingMerc, `${dyingMerc.combatantName} has died!`);
 
       // Clear pending state
       game.activeCombat!.pendingEpinephrine = undefined;

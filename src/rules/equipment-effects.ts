@@ -196,11 +196,10 @@ export const EQUIPMENT_EFFECTS: Record<string, EquipmentEffect> = {
   },
 
   // --- SMAW ---
+  // Reusable: unlike Grenade/Frag/Mortar the card carries no "Discard after 1 attack" text.
   'smaw': {
     id: 'smaw',
     weaponCategory: 'smaw',
-    consumable: true,
-    discardAfterAttack: true,
   },
 
   // --- Explosives (Grenades/Mortars) ---

@@ -381,7 +381,7 @@ describe('Vulture Ability Tests', () => {
       basic.equip(equipWithPenalty);
 
       // For regular MERC, effective initiative should include penalty
-      const effectiveInit = basic.getEffectiveInitiative();
+      const effectiveInit = basic.initiative;
       expect(effectiveInit).toBe(baseInit + penalty); // penalty is negative
     });
 
@@ -405,7 +405,7 @@ describe('Vulture Ability Tests', () => {
       vulture.equip(equipWithPenalty);
 
       // Vulture should ignore negative initiative
-      const effectiveInit = vulture.getEffectiveInitiative();
+      const effectiveInit = vulture.initiative;
       expect(effectiveInit).toBe(baseInit); // Should NOT include penalty
     });
 
@@ -429,7 +429,7 @@ describe('Vulture Ability Tests', () => {
       vulture.equip(equipWithBonus);
 
       // Vulture SHOULD get positive bonuses
-      const effectiveInit = vulture.getEffectiveInitiative();
+      const effectiveInit = vulture.initiative;
       expect(effectiveInit).toBe(baseInit + bonus);
     });
 
@@ -463,7 +463,7 @@ describe('Vulture Ability Tests', () => {
       vulture.equip(equipWithPenalty);
 
       // Vulture: base + bonus + 0 (penalty ignored)
-      const effectiveInit = vulture.getEffectiveInitiative();
+      const effectiveInit = vulture.initiative;
       expect(effectiveInit).toBe(baseInit + bonus);
     });
   });

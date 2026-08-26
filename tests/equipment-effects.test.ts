@@ -455,5 +455,17 @@ describe('Equipment Effects Registry', () => {
       );
       expect(explosives.length).toBe(3); // grenade, fragmentation-grenade, mortar
     });
+
+    it('discards only the cards printed "Discard after 1 attack"', () => {
+      const oneShot = Object.keys(EQUIPMENT_EFFECTS).filter(id =>
+        EQUIPMENT_EFFECTS[id].discardAfterAttack === true
+      );
+      expect(oneShot.sort()).toEqual(['fragmentation-grenade', 'grenade', 'mortar']);
+    });
+
+    it('keeps the SMAW after it fires (the card has no discard text)', () => {
+      expect(EQUIPMENT_EFFECTS['smaw'].discardAfterAttack).toBeUndefined();
+      expect(EQUIPMENT_EFFECTS['smaw'].consumable).toBeUndefined();
+    });
   });
 });

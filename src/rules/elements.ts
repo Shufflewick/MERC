@@ -526,7 +526,7 @@ export abstract class CombatantBase extends BaseCard {
     this.effectiveTraining = t;
 
     // Initiative
-    this.effectiveInitiative = this.getEffectiveInitiative();
+    this.effectiveInitiative = this.initiative;
 
     // Combat
     let c = this.baseCombat;
@@ -700,23 +700,12 @@ export abstract class CombatantBase extends BaseCard {
   }
 
   // Stat getters with full bonus support
-  get initiative(): number {
-    let value = this.baseInitiative;
-    value += this.getEquipValue(this.weaponSlot, this.weaponSlotData, 'initiative');
-    value += this.getEquipValue(this.armorSlot, this.armorSlotData, 'initiative');
-    value += this.getEquipValue(this.accessorySlot, this.accessorySlotData, 'initiative');
-    for (let idx = 0; idx < this.bandolierSlotsData.length; idx++) {
-      value += this.getEquipValue(this.bandolierSlots[idx], this.bandolierSlotsData[idx], 'initiative');
-    }
-    // Unified ability bonus from activeStatModifiers
-    value += this.getAbilityBonus('initiative');
-    return value;
-  }
-
   /**
-   * Get effective initiative for combat, accounting for Vulture's ability.
+   * Initiative as used everywhere: combat ordering, the UI, and AI evaluation.
+   * Vulture ignores negative equipment initiative, so that exemption lives here
+   * rather than in a parallel getter that only the card display would read.
    */
-  getEffectiveInitiative(): number {
+  get initiative(): number {
     let value = this.baseInitiative;
     const ignoresPenalties = ignoresInitiativePenalties(this.combatantId);
 

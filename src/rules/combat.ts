@@ -16,12 +16,9 @@
 
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 import { Sector, Militia, CombatantModel, Equipment } from './elements.js';
-import { isEpinephrine } from './equipment-effects.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
   sortTargetsByAIPriority,
-  shouldUseEpinephrine,
-  hasEpinephrineShot,
 } from './ai-helpers.js';
 import {
   getMercAbility,
@@ -63,6 +60,12 @@ import type { Combatant, CombatResult, CombatRound, CombatOutcome } from './comb
 // Re-export retreat functions from combat-retreat.ts for backwards compatibility
 export { getValidRetreatSectors, canRetreat, executeRetreat } from './combat-retreat.js';
 import { getValidRetreatSectors, canRetreat as canRetreatFromModule, executeRetreat } from './combat-retreat.js';
+import {
+  getEpinephrineSavers,
+  applyEpinephrineSave,
+  handleMercDeath,
+  discardMercEquipment,
+} from './merc-death.js';
 
 // =============================================================================
 // Combat Animation Events - Uses BoardSmith v2.4 Animation Event System
@@ -867,61 +870,11 @@ function applyMilitiaBatchDamage(
     }
 
     if (target.health <= 0) {
-      let savedByEpinephrine = false;
-
-      // Check for AI auto-epinephrine save
-      if (target.sourceElement?.isMerc) {
-        const merc = target.sourceElement;
-        if (target.isDictatorSide && game.dictatorPlayer?.isAI) {
-          const squadMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
-          const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
-          if (mercWithEpi) {
-            let epiShot: Equipment | undefined;
-            if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
-              epiShot = mercWithEpi.unequip('Accessory');
-            } else {
-              const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-              if (epiIndex >= 0) epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
-            }
-            if (epiShot) {
-              const discard = game.getEquipmentDiscard('Accessory');
-              if (discard) epiShot.putInto(discard);
-              target.health = 1;
-              merc.damage = merc.maxHealth - 1;
-              savedByEpinephrine = true;
-              game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
-            }
-          }
-        } else if (!target.isDictatorSide) {
-          for (const rebel of game.rebelPlayers) {
-            if (rebel.isAI) {
-              const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
-              if (allMercs.some(m => m.id === merc.id)) {
-                const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
-                const mercWithEpi = hasEpinephrineShot(squadMercs);
-                if (mercWithEpi) {
-                  let epiShot: Equipment | undefined;
-                  if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
-                    epiShot = mercWithEpi.unequip('Accessory');
-                  } else {
-                    const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-                    if (epiIndex >= 0) epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
-                  }
-                  if (epiShot) {
-                    const discard = game.getEquipmentDiscard('Accessory');
-                    if (discard) epiShot.putInto(discard);
-                    target.health = 1;
-                    merc.damage = merc.maxHealth - 1;
-                    savedByEpinephrine = true;
-                    game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
-                  }
-                }
-                break;
-              }
-            }
-          }
-        }
-      }
+      // Militia batch damage has no pause point, so an available shot is spent
+      // automatically for whoever holds it.
+      const savedByEpinephrine = target.sourceElement?.isMerc
+        ? autoSaveWithEpinephrine(game, target)
+        : false;
 
       if (!savedByEpinephrine) {
         game.animate('combat-death', {
@@ -932,29 +885,11 @@ function applyMilitiaBatchDamage(
         });
         emitMapCombatantDeathForTarget(game, target);
         casualties.push(target);
-        game.message(`Militia kills ${target.name}!`);
 
-        // Handle MERC death — discard equipment
         if (target.sourceElement?.isMerc) {
-          const merc = target.sourceElement;
-          for (const slotName of ['Weapon', 'Armor', 'Accessory'] as const) {
-            const equip = merc.unequip(slotName);
-            if (equip) {
-              const discardPile = game.getEquipmentDiscard(slotName);
-              if (discardPile) equip.putInto(discardPile);
-
-              // Gaddafi loot: stage equipment from rebel MERC deaths
-              if (game.dictatorPlayer?.dictator?.combatantId === 'gadafi'
-                  && game.activeCombat
-                  && !merc.isDictator) {
-                if (!game._gaddafiLootableEquipment) game._gaddafiLootableEquipment = [];
-                game._gaddafiLootableEquipment.push({
-                  equipmentId: equip.id,
-                  sectorId: game.activeCombat.sectorId,
-                });
-              }
-            }
-          }
+          handleMercDeath(game, target.sourceElement, `Militia kills ${target.name}!`);
+        } else {
+          game.message(`Militia kills ${target.name}!`);
         }
       }
     } else if (expectedHealthDamage > 0) {
@@ -1544,6 +1479,23 @@ function applyDamage(target: Combatant, damage: number, game: MERCGame, armorPie
   target.health -= healthDamage;
 
   return healthDamage;
+}
+
+/**
+ * Spend an available Epinephrine Shot on a combatant that just hit 0 health,
+ * syncing the combat mirror back to 1 health. Used by the damage paths that have
+ * no pause point for a human to choose a saver.
+ */
+function autoSaveWithEpinephrine(game: MERCGame, target: Combatant): boolean {
+  const merc = target.sourceElement;
+  if (!merc?.isMerc) return false;
+
+  const savers = getEpinephrineSavers(game, merc);
+  const preferred = savers.find(m => m.id === merc.id) ?? savers[0];
+  if (!preferred || !applyEpinephrineSave(game, merc, preferred)) return false;
+
+  target.health = 1;
+  return true;
 }
 
 /**
@@ -2608,153 +2560,41 @@ function executeCombatRound(
           // MERC-4ib: Handle MERC death immediately (so UI shows correct state during combat)
           if (target.sourceElement?.isMerc) {
             const merc = target.sourceElement;
-            // Check for epinephrine save BEFORE marking as dead
-            let savedByEpinephrine = false;
+            const savers = getEpinephrineSavers(game, merc);
 
-            if (target.isDictatorSide) {
-              // Dictator side - check for epinephrine in squad
-              const squadMercs = game.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) || [];
-              const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
-              if (mercWithEpi) {
-                // For human dictator, pause and let them choose
-                if (!game.dictatorPlayer?.isAI && game.activeCombat) {
-                  // Build list of savers
-                  const savers: Array<{ combatantId: number; combatantName: string }> = [];
-                  for (const m of squadMercs) {
-                    if (m.id !== merc.id && !m.isDead) {
-                      const hasEpi = (m.accessorySlot && isEpinephrine(m.accessorySlot.equipmentId)) ||
-                                     m.bandolierSlots.some(e => isEpinephrine(e.equipmentId));
-                      if (hasEpi) {
-                        savers.push({ combatantId: m.id, combatantName: m.combatantName });
-                      }
-                    }
-                  }
-                  if (savers.length > 0) {
-                    game.activeCombat.pendingEpinephrine = {
-                      dyingCombatantId: merc.id,
-                      dyingCombatantName: merc.combatantName,
-                      dyingCombatantSide: 'dictator',
-                      availableSavers: savers,
-                    };
-                    // Don't discard equipment yet - will be done after player choice
-                    return {
-                      round: { roundNumber, results, casualties },
-                      complete: false,
-                      initiativeOrder,
-                      pausedForEpinephrine: true,
-                    };
-                  }
-                }
-                // AI dictator auto-uses epinephrine per rules 4.9
-                // Find the epinephrine (check accessory slot first, then bandolier)
-                let epiShot: Equipment | undefined;
-                if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
-                  epiShot = mercWithEpi.unequip('Accessory');
-                } else {
-                  const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-                  if (epiIndex >= 0) {
-                    epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
-                  }
-                }
-                if (epiShot) {
-                  const discard = game.getEquipmentDiscard('Accessory');
-                  if (discard) epiShot.putInto(discard);
-                  target.health = 1;
-                  merc.damage = merc.maxHealth - 1;
-                  savedByEpinephrine = true;
-                  game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
-                  // Remove from casualties since they survived
-                  casualties.pop();
-                }
-              }
-            } else if (!target.isDictatorSide) {
-              // Rebel side - check for epinephrine in the same squad
-              // Note: Use getMercs() not team, because the merc is now "dead" (health=0)
-              // and team filters out dead mercs
-              for (const rebel of game.rebelPlayers) {
-                const primaryMercs = rebel.primarySquad.getMercs();
-                const secondaryMercs = rebel.secondarySquad.getMercs();
-                const allMercs = [...primaryMercs, ...secondaryMercs];
+            // A human owner picks which shot is spent; the AI spends the first available.
+            const owner = target.isDictatorSide
+              ? game.dictatorPlayer
+              : game.rebelPlayers.find(r =>
+                  [...r.primarySquad.getMercs(), ...r.secondarySquad.getMercs()]
+                    .some(m => m.id === merc.id));
 
-                if (allMercs.some(m => m.id === merc.id)) {
-                  // Get living squadmates who might have epinephrine
-                  const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
-                  const mercWithEpi = hasEpinephrineShot(squadMercs);
-                  if (mercWithEpi) {
-                    // For human rebel player, pause for choice
-                    if (!rebel.isAI && game.activeCombat) {
-                      // Build list of all squadmates who have epinephrine
-                      const savers: Array<{ combatantId: number; combatantName: string }> = [];
-                      for (const m of squadMercs) {
-                        const hasEpi = (m.accessorySlot && isEpinephrine(m.accessorySlot.equipmentId)) ||
-                                       m.bandolierSlots.some(e => isEpinephrine(e.equipmentId));
-                        if (hasEpi) {
-                          savers.push({ combatantId: m.id, combatantName: m.combatantName });
-                        }
-                      }
-                      if (savers.length > 0) {
-                        game.activeCombat.pendingEpinephrine = {
-                          dyingCombatantId: merc.id,
-                          dyingCombatantName: merc.combatantName,
-                          dyingCombatantSide: 'rebel',
-                          availableSavers: savers,
-                        };
-                        // Don't discard equipment yet - will be done after player choice
-                        return {
-                          round: { roundNumber, results, casualties },
-                          complete: false,
-                          initiativeOrder,
-                          pausedForEpinephrine: true,
-                        };
-                      }
-                    }
-                    // AI rebel auto-uses epinephrine per rules 4.9
-                    let epiShot: Equipment | undefined;
-                    if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
-                      epiShot = mercWithEpi.unequip('Accessory');
-                    } else {
-                      const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-                      if (epiIndex >= 0) {
-                        epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
-                      }
-                    }
-                    if (epiShot) {
-                      const discard = game.getEquipmentDiscard('Accessory');
-                      if (discard) epiShot.putInto(discard);
-                      target.health = 1;
-                      merc.damage = merc.maxHealth - 1;
-                      savedByEpinephrine = true;
-                      game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
-                      // Remove from casualties since they survived
-                      casualties.pop();
-                    }
-                  }
-                  break;
-                }
-              }
+            if (savers.length > 0 && owner && !owner.isAI && game.activeCombat) {
+              game.activeCombat.pendingEpinephrine = {
+                dyingCombatantId: merc.id,
+                dyingCombatantName: merc.combatantName,
+                dyingCombatantSide: target.isDictatorSide ? 'dictator' : 'rebel',
+                availableSavers: savers.map(m => ({
+                  combatantId: m.id,
+                  combatantName: m.combatantName,
+                })),
+              };
+              // Don't discard equipment yet - will be done after player choice
+              return {
+                round: { roundNumber, results, casualties },
+                complete: false,
+                initiativeOrder,
+                pausedForEpinephrine: true,
+              };
             }
 
-            // If not saved, discard equipment (isDead is computed from health)
-            if (!savedByEpinephrine) {
-              // Discard all equipment
-              for (const slotName of ['Weapon', 'Armor', 'Accessory'] as const) {
-                const equip = merc.unequip(slotName);
-                if (equip) {
-                  const discardPile = game.getEquipmentDiscard(slotName);
-                  if (discardPile) equip.putInto(discardPile);
-
-                  // Gaddafi loot: stage equipment from rebel MERC deaths
-                  if (game.dictatorPlayer?.dictator?.combatantId === 'gadafi'
-                      && game.activeCombat
-                      && !merc.isDictator) {
-                    if (!game._gaddafiLootableEquipment) game._gaddafiLootableEquipment = [];
-                    game._gaddafiLootableEquipment.push({
-                      equipmentId: equip.id,
-                      sectorId: game.activeCombat.sectorId,
-                    });
-                  }
-                }
-              }
+            const preferred = savers.find(m => m.id === merc.id) ?? savers[0];
+            if (preferred && applyEpinephrineSave(game, merc, preferred)) {
+              target.health = 1;
+              // Remove from casualties since they survived
+              casualties.pop();
+            } else {
+              handleMercDeath(game, merc, `${merc.combatantName} has been killed in combat!`);
             }
           }
 
@@ -2913,103 +2753,12 @@ function applyCombatResults(
       // MERC-4ib: Handle MERC death - discard card and equipment
       // (This is a fallback - deaths should already be handled during combat)
       if (combatant.health <= 0) {
-        // MERC-594: Check if epinephrine can save this MERC
-        let savedByEpinephrine = false;
-
-        if (combatant.isDictatorSide && game.dictatorPlayer?.isAI) {
-          // AI dictator auto-uses epinephrine per rules 4.9
-          const squadMercs = game.dictatorPlayer.hiredMercs.filter(m => !m.isDead);
-          const mercWithEpi = shouldUseEpinephrine(merc, squadMercs);
-          if (mercWithEpi) {
-            // Find the epinephrine (check accessory slot first, then bandolier)
-            let epiShot: Equipment | undefined;
-            if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
-              epiShot = mercWithEpi.unequip('Accessory');
-            } else {
-              const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-              if (epiIndex >= 0) {
-                epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
-              }
-            }
-            if (epiShot) {
-              const discard = game.getEquipmentDiscard('Accessory');
-              if (discard) epiShot.putInto(discard);
-
-              // Restore MERC to 1 health
-              combatant.health = 1;
-              merc.damage = merc.maxHealth - 1;
-              savedByEpinephrine = true;
-              game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
-            }
-          }
-        } else if (!combatant.isDictatorSide) {
-          // Rebel side - check for epinephrine in the same squad
-          // Note: Use getMercs() not team, because the merc may be "dead" (health=0)
-          // and team filters out dead mercs
-          for (const rebel of game.rebelPlayers) {
-            const primaryMercs = rebel.primarySquad.getMercs();
-            const secondaryMercs = rebel.secondarySquad.getMercs();
-            const allMercs = [...primaryMercs, ...secondaryMercs];
-
-            if (allMercs.some(m => m.id === merc.id)) {
-              // Get living squadmates who might have epinephrine
-              const squadMercs = allMercs.filter(m => !m.isDead && m.id !== merc.id);
-              const mercWithEpi = hasEpinephrineShot(squadMercs);
-              if (mercWithEpi) {
-                // Find the epinephrine (check accessory slot first, then bandolier)
-                let epiShot: Equipment | undefined;
-                if (mercWithEpi.accessorySlot && isEpinephrine(mercWithEpi.accessorySlot.equipmentId)) {
-                  epiShot = mercWithEpi.unequip('Accessory');
-                } else {
-                  const epiIndex = mercWithEpi.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-                  if (epiIndex >= 0) {
-                    epiShot = mercWithEpi.unequipBandolierSlot(epiIndex);
-                  }
-                }
-                if (epiShot) {
-                  const discard = game.getEquipmentDiscard('Accessory');
-                  if (discard) epiShot.putInto(discard);
-
-                  // Restore MERC to 1 health
-                  combatant.health = 1;
-                  merc.damage = merc.maxHealth - 1;
-                  savedByEpinephrine = true;
-                  game.message(`${mercWithEpi.combatantName} uses Epinephrine Shot to save ${merc.combatantName}!`);
-                }
-              }
-              break;
-            }
-          }
-        }
-
-        if (!savedByEpinephrine) {
-          // isDead is computed from health, no need to set it
-
-          // Discard all equipment
-          const equipmentTypes: Array<'Weapon' | 'Armor' | 'Accessory'> = ['Weapon', 'Armor', 'Accessory'];
-          for (const eqType of equipmentTypes) {
-            const equipment = merc.unequip(eqType);
-            if (equipment) {
-              const discard = game.getEquipmentDiscard(eqType);
-              if (discard) equipment.putInto(discard);
-
-              // Gaddafi loot: stage equipment from rebel MERC deaths
-              if (game.dictatorPlayer?.dictator?.combatantId === 'gadafi'
-                  && game.activeCombat
-                  && !merc.isDictator) {
-                if (!game._gaddafiLootableEquipment) game._gaddafiLootableEquipment = [];
-                game._gaddafiLootableEquipment.push({
-                  equipmentId: equipment.id,
-                  sectorId: game.activeCombat.sectorId,
-                });
-              }
-            }
-          }
-
-          // MERC-rwdv: putInto automatically removes from current container
-          // sectorId becomes undefined via computed getter when in discard
-          merc.putInto(game.mercDiscard);
-          game.message(`${merc.combatantName} has been killed in combat!`);
+        // Fallback for deaths the round loop did not already process; there is no
+        // pause point here, so an available shot is spent automatically.
+        if (autoSaveWithEpinephrine(game, combatant)) {
+          merc.damage = merc.maxHealth - 1;
+        } else {
+          handleMercDeath(game, merc, `${merc.combatantName} has been killed in combat!`);
         }
       }
     } else if (combatant.sourceElement?.isDictator) {
