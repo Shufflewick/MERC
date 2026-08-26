@@ -312,7 +312,7 @@ function isBasic(combatant: Combatant): boolean {
  * Uses registry to get hit threshold (e.g., Lucid hits on 3+)
  * MERC-7zax: Dictator militia hit on 3+ when Better Weapons is active
  */
-function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MERCGame): number {
+export function countHitsForCombatant(rolls: number[], combatant: Combatant, game?: MERCGame): number {
   const combatantId = combatant.sourceElement?.isMerc
     ? combatant.sourceElement.combatantId
     : undefined;
