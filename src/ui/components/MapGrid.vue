@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue';
-import { useAnimationEvents } from 'boardsmith/ui';
+import { useAnimationEvents, useFlyingElements, FlyingCardsOverlay } from 'boardsmith/ui';
+import { getPlayerColor } from '../colors';
+import { assetUrl } from '../composables/useAssetUrl';
 import SectorTile from './SectorTile.vue';
 import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
 import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
 import CombatantDeathAnimation from './CombatantDeathAnimation.vue';
-import CombatantMoveAnimation from './CombatantMoveAnimation.vue';
 import EquipmentDropAnimation from './EquipmentDropAnimation.vue';
 import MortarStrikeAnimation from './MortarStrikeAnimation.vue';
 import LandmineDetonationAnimation from './LandmineDetonationAnimation.vue';
@@ -82,9 +83,8 @@ interface CombatantAnimation {
   sectorId: string;
 }
 
-// Combatant move animation queue entry
+// One combatant move flight
 interface CombatantMoveAnimationData {
-  id: string;
   combatantId: string;
   combatantName: string;
   image?: string;
@@ -303,22 +303,25 @@ interface DeathAnimationData {
 let deathIdCounter = 0;
 const pendingDeaths = ref<DeathAnimationData[]>([]);
 
-// Active combatant move animations
-const activeMoveAnimations = ref<CombatantMoveAnimationData[]>([]);
+// Combatant move flights are the framework's: a ghost portrait that re-reads
+// its destination every frame, so it lands correctly even if the map reflows.
+const { fly: flyCombatant, flyingElements } = useFlyingElements({ duration: 400 });
+
+// Combatant IDs currently in flight, so SectorTile hides the real token.
+const flyingCombatantIds = ref<Set<string>>(new Set());
 
 // Active equipment drop animations
 const activeEquipmentAnimations = ref<EquipmentAnimationData[]>([]);
 
 const entryResolvers = new Map<string, () => void>();
 const deathResolvers = new Map<string, () => void>();
-const moveResolvers = new Map<string, () => void>();
 const equipmentResolvers = new Map<string, () => void>();
 
 // Set of combatant IDs currently animating (for hiding in SectorTile)
 const animatingCombatantIds = computed(() => {
   const ids = new Set<string>();
   for (const a of activeCombatantAnimations.value) ids.add(a.combatantId);
-  for (const a of activeMoveAnimations.value) ids.add(a.combatantId);
+  for (const id of flyingCombatantIds.value) ids.add(id);
   return ids;
 });
 
@@ -378,27 +381,44 @@ function handleDeathAnimationComplete(deathId: string) {
   }
 }
 
-function queueMoveAnimation(data: Omit<CombatantMoveAnimationData, 'id'>): Promise<void> {
-  if (!data.fromSectorId || !data.toSectorId) return Promise.resolve();
-  return new Promise((resolve) => {
-    nextTick(() => {
-      const id = getAnimationId('move');
-      moveResolvers.set(id, resolve);
-      activeMoveAnimations.value.push({
-        id,
-        ...data,
-      });
-    });
-  });
+/**
+ * Where a combatant token sits inside a sector tile: the bottom-left corner,
+ * where the merc row renders. Returned as a zero-size rect because
+ * useFlyingElements centres the ghost on the rect it is given.
+ */
+function combatantAnchorRect(sectorId: string): DOMRect | null {
+  const sectorEl = document.querySelector(`[data-sector-id="${sectorId}"]`);
+  if (!sectorEl) return null;
+  const rect = sectorEl.getBoundingClientRect();
+  return new DOMRect(rect.left + 30, rect.bottom - 30, 0, 0);
 }
 
-// Handle combatant move animation complete
-function handleMoveAnimationComplete(animationId: string) {
-  activeMoveAnimations.value = activeMoveAnimations.value.filter(a => a.id !== animationId);
-  const resolve = moveResolvers.get(animationId);
-  if (resolve) {
-    moveResolvers.delete(animationId);
-    resolve();
+const COMBATANT_PORTRAIT_SIZE = { width: 42, height: 42 };
+
+async function queueMoveAnimation(data: CombatantMoveAnimationData): Promise<void> {
+  if (!data.fromSectorId || !data.toSectorId) return;
+
+  await nextTick();
+  if (!combatantAnchorRect(data.fromSectorId) || !combatantAnchorRect(data.toSectorId)) return;
+
+  flyingCombatantIds.value = new Set(flyingCombatantIds.value).add(data.combatantId);
+  try {
+    await flyCombatant({
+      id: getAnimationId('move'),
+      startRect: () => combatantAnchorRect(data.fromSectorId),
+      endRect: () => combatantAnchorRect(data.toSectorId),
+      elementSize: COMBATANT_PORTRAIT_SIZE,
+      elementData: {
+        kind: 'combatant-portrait',
+        combatantName: data.combatantName,
+        image: data.image,
+        borderColor: data.playerColor ? getPlayerColor(data.playerColor) : '#666',
+      },
+    });
+  } finally {
+    const next = new Set(flyingCombatantIds.value);
+    next.delete(data.combatantId);
+    flyingCombatantIds.value = next;
   }
 }
 
@@ -448,7 +468,7 @@ if (animationEvents) {
   }, { skip: 'drop' });
 
   animationEvents.registerHandler('map-combatant-move', async (event) => {
-    const data = event.data as { moves?: Omit<CombatantMoveAnimationData, 'id'>[] } | undefined;
+    const data = event.data as { moves?: CombatantMoveAnimationData[] } | undefined;
     const moves = data?.moves ?? [];
     if (moves.length === 0) return;
     const promises = moves.map((move) => queueMoveAnimation(move));
@@ -656,18 +676,20 @@ function handleSectorClick(sectorId: string) {
       @complete="handleDeathAnimationComplete(death.id)"
     />
 
-    <!-- Combatant Move Animations -->
-    <CombatantMoveAnimation
-      v-for="anim in activeMoveAnimations"
-      :key="anim.id"
-      :combatant-id="anim.combatantId"
-      :combatant-name="anim.combatantName"
-      :image="anim.image"
-      :player-color="anim.playerColor"
-      :from-sector-id="anim.fromSectorId"
-      :to-sector-id="anim.toSectorId"
-      @complete="handleMoveAnimationComplete(anim.id)"
-    />
+    <!-- Combatant move flights (framework overlay, MERC portrait rendering) -->
+    <FlyingCardsOverlay :flying-cards="flyingElements">
+      <template #card="{ card }">
+        <div
+          class="flying-combatant-portrait"
+          :style="{ borderColor: String(card.cardData.borderColor ?? '#666') }"
+        >
+          <img
+            :src="assetUrl(String(card.cardData.image ?? ''))"
+            :alt="String(card.cardData.combatantName ?? '')"
+          />
+        </div>
+      </template>
+    </FlyingCardsOverlay>
 
     <!-- Equipment Drop Animations -->
     <EquipmentDropAnimation
@@ -705,6 +727,23 @@ function handleSectorClick(sectorId: string) {
 </template>
 
 <style scoped>
+/* The flying ghost is rendered by FlyingCardsOverlay through our slot. */
+.flying-combatant-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid;
+  overflow: hidden;
+  background: #333;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.flying-combatant-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .map-grid {
   display: grid;
   gap: 8px;
