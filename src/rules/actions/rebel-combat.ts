@@ -9,7 +9,7 @@
 import { Action, type ActionDefinition } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
-import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, type Combatant } from '../combat.js';
+import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatAttacker, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { buildArtilleryTargets } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
@@ -261,14 +261,12 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Combat sector not found' };
       }
 
-      // Find attacking player - fallback to first rebel if lookup fails
-      // (can happen when dictator initiates combat by moving into rebel sector)
-      const player = game.rebelPlayers.find(
-        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-      ) ?? game.rebelPlayers[0];
-
+      const player = resolveActiveCombatAttacker(game);
       if (!player) {
-        return { success: false, message: 'No rebel players found' };
+        return {
+          success: false,
+          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+        };
       }
 
       const outcome = executeCombat(game, sector, player);
@@ -380,13 +378,12 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
         return { success: false, message: 'Combat sector not found' };
       }
 
-      // Find attacking player - fallback to first rebel if lookup fails
-      const player = game.rebelPlayers.find(
-        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-      ) ?? game.rebelPlayers[0];
-
+      const player = resolveActiveCombatAttacker(game);
       if (!player) {
-        return { success: false, message: 'No rebel players found' };
+        return {
+          success: false,
+          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+        };
       }
 
       const outcome = executeCombat(game, sector, player);
@@ -637,13 +634,12 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return { success: false, message: 'Combat sector not found' };
       }
 
-      // Find attacking player from activeCombat state (executeCombat uses stored state when resuming)
-      const player = game.rebelPlayers.find(
-        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-      ) ?? game.rebelPlayers[0];
-
+      const player = resolveActiveCombatAttacker(game);
       if (!player) {
-        return { success: false, message: 'No rebel players found' };
+        return {
+          success: false,
+          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+        };
       }
 
       const outcome = executeCombat(game, sector, player);
@@ -784,13 +780,12 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
         return { success: false, message: 'Combat sector not found' };
       }
 
-      // Find attacking player - fallback to first rebel if lookup fails
-      const player = game.rebelPlayers.find(
-        p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-      ) ?? game.rebelPlayers[0];
-
+      const player = resolveActiveCombatAttacker(game);
       if (!player) {
-        return { success: false, message: 'No rebel players found' };
+        return {
+          success: false,
+          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+        };
       }
 
       const outcome = executeCombat(game, sector, player);

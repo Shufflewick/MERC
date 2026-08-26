@@ -67,6 +67,7 @@ import {
 
 import {
   createHireMercAction,
+  createRehireMercAction,
   createExploreAction,
   createCollectEquipmentAction,
   createTakeFromStashAction,
@@ -144,6 +145,7 @@ import {
 export function registerAllActions(game: MERCGame): void {
   // Rebel actions
   game.registerAction(createHireMercAction(game));
+  game.registerAction(createRehireMercAction(game));
   game.registerAction(createPlaceLandingAction(game));
   game.registerAction(createMoveAction(game));
   game.registerAction(createCoordinatedAttackAction(game)); // MERC-wrq: Same-player coordinated attack

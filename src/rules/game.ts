@@ -1634,74 +1634,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       return true;
     }
 
-    // Check if all dictator units are eliminated (rebels win)
-    if (this.allDictatorUnitsEliminated()) {
-      return true;
-    }
-
-    // Check if all rebel units are eliminated (dictator wins)
-    if (this.allRebelUnitsEliminated()) {
-      return true;
-    }
-
     // Day limit reached - game ends after Day 6
     if (this.isDayLimitReached()) {
       return true;
     }
 
     return false;
-  }
-
-  /**
-   * Check if all dictator units have been eliminated.
-   * This includes all militia across all sectors and all hired MERCs.
-   * Only valid after Day 1 is complete (Day 2+).
-   */
-  allDictatorUnitsEliminated(): boolean {
-    // Only check from Day 2 onwards - Day 1 is setup, units can't be eliminated yet
-    if (this.currentDay < 2) return false;
-
-    // Check for any militia on any sector
-    const totalMilitia = this.gameMap.getAllSectors()
-      .reduce((sum, s) => sum + s.dictatorMilitia, 0);
-    if (totalMilitia > 0) return false;
-
-    // Check for any living hired MERCs
-    const livingMercs = this.dictatorPlayer?.hiredMercs.filter(m => !m.isDead) ?? [];
-    if (livingMercs.length > 0) return false;
-
-    // All dictator units eliminated
-    return true;
-  }
-
-  /**
-   * Check if all rebel units have been eliminated.
-   * This includes all MERCs and militia for all rebel players.
-   * Only valid after Day 1 is complete (Day 2+).
-   */
-  allRebelUnitsEliminated(): boolean {
-    // Only check from Day 2 onwards - Day 1 is setup, units can't be eliminated yet
-    if (this.currentDay < 2) return false;
-
-    // No rebel players means nothing to check
-    if (this.rebelPlayers.length === 0) return false;
-
-    for (const rebel of this.rebelPlayers) {
-      // Check if this rebel has living MERCs
-      if (rebel.teamSize > 0) return false;
-
-      // Check if this rebel has militia anywhere
-      const hasAnyMilitia = this.gameMap.getAllSectors()
-        .some(s => s.getRebelMilitia(`${rebel.seat}`) > 0);
-      if (hasAnyMilitia) return false;
-
-      // Note: We intentionally do NOT check canHireMerc here.
-      // If rebels have no living units (MERCs or militia), they lose immediately.
-      // The ability to potentially hire doesn't save them from elimination.
-    }
-
-    // All rebel units eliminated
-    return true;
   }
 
   /**
@@ -1717,10 +1655,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const baseSector = this.getSector(this.dictatorPlayer.baseSectorId);
     if (!baseSector) return false;
 
-    // Base is captured if no dictator units AND rebels have units there
-    // MERC-1e8: Must check for militia, dictator card, AND hired MERCs
+    // Base is captured if no dictator units AND rebels have units there.
+    // The Dictator only defends the base while he is standing in it — he may be
+    // away with one of his two squads (rulebook p.5), and the base falls behind him.
     const hasDictatorUnits = baseSector.dictatorMilitia > 0 ||
-      (this.dictatorPlayer.dictator && !this.dictatorPlayer.dictator.isDead) ||
+      this.isDictatorInSector(baseSector) ||
       this.getDictatorMercsInSector(baseSector).length > 0;
 
     if (hasDictatorUnits) return false;
@@ -1792,42 +1731,22 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       return [...this.rebelPlayers];
     }
 
-    // If all dictator units eliminated, rebels win
-    if (this.allDictatorUnitsEliminated()) {
-      announce('All dictator forces eliminated - Rebels win!');
+    // The game ran to its end (tactics exhausted, or the day cap with a larger
+    // deck): score sector value. Per rules (11-victory-and-game-end.md) rebels
+    // must have strictly more points; the Dictator wins ties.
+    if (this.isDayLimitReached()) {
+      announce('Day limit reached - scoring the map.');
+    }
+
+    const { rebelPoints, dictatorPoints } = this.calculateVictoryPoints();
+    announce(`Final score - Rebels: ${rebelPoints}, Dictator: ${dictatorPoints}`);
+
+    if (rebelPoints > dictatorPoints) {
+      announce('Rebels win on points!');
       return [...this.rebelPlayers];
     }
 
-    // If all rebel units eliminated, dictator wins
-    if (this.allRebelUnitsEliminated()) {
-      announce('All rebel forces eliminated - Dictator wins!');
-      return this.dictatorPlayer ? [this.dictatorPlayer] : [];
-    }
-
-    // If tactics deck empty, check victory points
-    // Per rules (11-victory-and-game-end.md): Compare total sector values
-    // Rebels win if they have MORE points than dictator; dictator wins ties
-    if (this.dictatorPlayer?.tacticsDeck?.count(TacticsCard) === 0 &&
-        this.dictatorPlayer?.tacticsHand?.count(TacticsCard) === 0) {
-      const { rebelPoints, dictatorPoints } = this.calculateVictoryPoints();
-      announce(`Final score - Rebels: ${rebelPoints}, Dictator: ${dictatorPoints}`);
-
-      // Rebels must have strictly more points to win; dictator wins ties
-      if (rebelPoints > dictatorPoints) {
-        announce('Rebels win on points!');
-        return [...this.rebelPlayers];
-      } else {
-        announce('Dictator wins on points!');
-        return [this.dictatorPlayer];
-      }
-    }
-
-    // Day limit reached - dictator wins
-    if (this.isDayLimitReached()) {
-      announce('Day limit reached - Dictator wins!');
-    }
-
-    // Otherwise dictator wins (day limit or other edge case)
+    announce('Dictator wins on points!');
     return this.dictatorPlayer ? [this.dictatorPlayer] : [];
   }
 

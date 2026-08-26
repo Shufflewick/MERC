@@ -40,6 +40,7 @@ export {
 // Actions
 export {
   createHireMercAction,
+  createRehireMercAction,
   createPlaceLandingAction,
   createMoveAction,
   createCoordinatedAttackAction, // MERC-wrq: Coordinated attacks (same player)

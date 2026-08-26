@@ -871,11 +871,14 @@ describe('Error Conditions', () => {
     });
 
     describe('Victory Condition Edge Cases', () => {
-      it('should not end game on Day 1 even with no units', () => {
-        game.currentDay = 1;
-        // No units placed yet - game should not be finished on Day 1
-        expect(game.allDictatorUnitsEliminated()).toBe(false);
-        expect(game.allRebelUnitsEliminated()).toBe(false);
+      it('does not end the game just because a side has no units', () => {
+        // Per the rulebook the only end conditions are tactics-deck exhaustion,
+        // base capture and the Dictator's death. A board wipe is not one of them.
+        game.currentDay = 3;
+        for (const sector of game.gameMap.getAllSectors()) {
+          sector.dictatorMilitia = 0;
+        }
+        expect(game.isFinished()).toBe(false);
       });
 
       it('should detect dictator defeat when base captured', () => {

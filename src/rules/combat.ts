@@ -1201,6 +1201,30 @@ function isVandal(combatant: Combatant): boolean {
 // =============================================================================
 
 /**
+ * The player recorded as the attacker on the active combat.
+ *
+ * Combat stores the attacker's seat and whether that seat is a rebel, so a
+ * dictator-initiated combat resolves to the dictator rather than being guessed
+ * at. Returns null when there is no active combat or the seat does not match a
+ * player, so callers can report a real error instead of continuing as someone
+ * else.
+ */
+export function resolveActiveCombatAttacker(
+  game: MERCGame
+): RebelPlayer | DictatorPlayer | null {
+  const combat = game.activeCombat;
+  if (!combat) return null;
+
+  if (combat.attackingPlayerIsRebel === false) {
+    return `${game.dictatorPlayer.seat}` === combat.attackingPlayerId
+      ? game.dictatorPlayer
+      : null;
+  }
+
+  return game.rebelPlayers.find(p => `${p.seat}` === combat.attackingPlayerId) ?? null;
+}
+
+/**
  * Queue combat to run through the flow system so UI can mount CombatPanel
  * before resolution (prevents immediate resolve inside action execution).
  */
@@ -1232,8 +1256,7 @@ export function queuePendingCombat(
  */
 export function getCombatants(
   game: MERCGame,
-  sector: Sector,
-  attackingPlayer: RebelPlayer
+  sector: Sector
 ): { rebels: Combatant[]; dictator: Combatant[] } {
   const rebels: Combatant[] = [];
   const dictator: Combatant[] = [];
@@ -2734,8 +2757,7 @@ function applyCombatResults(
   game: MERCGame,
   sector: Sector,
   rebels: Combatant[],
-  dictatorSide: Combatant[],
-  attackingPlayer: RebelPlayer
+  dictatorSide: Combatant[]
 ): void {
   // Update MERC damage and handle deaths
   // Note: Deaths are now handled immediately during combat rounds, so this mainly
@@ -2840,13 +2862,19 @@ function syncMilitiaCasualties(
 export function executeCombat(
   game: MERCGame,
   sector: Sector,
-  attackingPlayer: RebelPlayer,
+  attackingPlayer: RebelPlayer | DictatorPlayer,
   options: { maxRounds?: number; interactive?: boolean; attackingPlayerIsRebel?: boolean } = {}
 ): CombatOutcome {
   const { maxRounds = 10, interactive = true, attackingPlayerIsRebel: optionAttackingPlayerIsRebel = true } = options;
 
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
+
+  // The attacker is decided when combat starts. Resuming must not re-stamp it from
+  // whoever happened to submit the continuation action.
+  const attackingPlayerId = isResuming && game.activeCombat
+    ? game.activeCombat.attackingPlayerId
+    : `${attackingPlayer.seat}`;
 
   let rebels: Combatant[];
   let dictator: Combatant[];
@@ -2904,7 +2932,7 @@ export function executeCombat(
     // Start new combat
     game.message(`=== Combat at ${sector.sectorName} ===`);
 
-    const combatants = getCombatants(game, sector, attackingPlayer);
+    const combatants = getCombatants(game, sector);
     rebels = combatants.rebels;
     dictator = combatants.dictator;
     rounds = [];
@@ -2941,7 +2969,7 @@ export function executeCombat(
     // (pendingHitAllocation, pendingBeforeAttackHealing) without null dereference
     game.activeCombat = {
       sectorId: sector.sectorId,
-      attackingPlayerId: `${attackingPlayer.seat}`,
+      attackingPlayerId,
       attackingPlayerIsRebel,
       round: startRound,
       rebelCombatants: rebels,
@@ -3024,7 +3052,7 @@ export function executeCombat(
       // Save state for resuming
       game.activeCombat = {
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerId,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -3081,7 +3109,7 @@ export function executeCombat(
       game.activeCombat = {
         ...game.activeCombat!,
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerId,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -3125,7 +3153,7 @@ export function executeCombat(
       game.activeCombat = {
         ...game.activeCombat!,
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerId,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -3168,7 +3196,7 @@ export function executeCombat(
       game.activeCombat = {
         ...game.activeCombat!,
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerId,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -3208,7 +3236,7 @@ export function executeCombat(
       // Save state for resuming
       game.activeCombat = {
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerId,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -3303,7 +3331,7 @@ export function executeCombat(
       // Save combat state and pause for player decision
       game.activeCombat = {
         sectorId: sector.sectorId,
-        attackingPlayerId: `${attackingPlayer.seat}`,
+        attackingPlayerId,
         attackingPlayerIsRebel,
         round,
         rebelCombatants: rebels,
@@ -3336,7 +3364,7 @@ export function executeCombat(
   }
 
   // Apply results to game state
-  applyCombatResults(game, sector, rebels, dictator, attackingPlayer);
+  applyCombatResults(game, sector, rebels, dictator);
 
   const aliveRebels = rebels.filter(c => c.health > 0);
   const aliveDictator = dictator.filter(c => c.health > 0);
@@ -3365,7 +3393,7 @@ export function executeCombat(
 
   const combatEndState = {
     sectorId: sector.sectorId,
-    attackingPlayerId: `${attackingPlayer.seat}`,
+    attackingPlayerId,
     attackingPlayerIsRebel,
     round: rounds.length > 0 ? rounds.length : 1,
     rebelCombatants: rebels,
@@ -3466,7 +3494,7 @@ export function executeCombatRetreat(
   // One side is empty — combat is over
   // Apply combat results (casualties, etc.)
   if (attackingPlayer) {
-    applyCombatResults(game, combatSector, rebels, dictator, attackingPlayer);
+    applyCombatResults(game, combatSector, rebels, dictator);
   }
 
   game.message(`=== Combat Complete (Retreated) ===`);
@@ -3537,7 +3565,7 @@ export function calculateCombatOdds(
   sector: Sector,
   player: RebelPlayer
 ): { rebelStrength: number; dictatorStrength: number; advantage: number } {
-  const { rebels, dictator } = getCombatants(game, sector, player);
+  const { rebels, dictator } = getCombatants(game, sector);
 
   const rebelStrength = rebels.reduce((sum, c) => sum + c.combat * c.health, 0);
   const dictatorStrength = dictator.reduce((sum, c) => sum + c.combat * c.health, 0);

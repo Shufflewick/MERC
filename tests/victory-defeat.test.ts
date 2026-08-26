@@ -151,151 +151,118 @@ describe('Victory/Defeat Conditions', () => {
     });
   });
 
-  describe('Rebel Defeat', () => {
-    it('should detect all rebel units eliminated on Day 2+', () => {
+  describe('Base capture with the Dictator away', () => {
+    it('captures the base when the Dictator has left it with a squad', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'rebel-defeat-test',
+        seed: 'base-capture-dictator-away',
+      });
+
+      const game = testGame.game;
+      const dictator = game.dictatorPlayer;
+      const rebel = game.rebelPlayers[0];
+      const sectors = game.gameMap.getAllSectors();
+      const baseSector = sectors[0];
+      const awaySector = sectors[1];
+
+      if (!dictator.dictator) {
+        console.log('Skipping: dictator card not populated');
+        return;
+      }
+
+      dictator.baseRevealed = true;
+      dictator.baseSectorId = baseSector.sectorId;
+      baseSector.dictatorMilitia = 0;
+
+      // Dictator marches out with his primary squad (rulebook p.5).
+      dictator.dictator.inPlay = true;
+      dictator.dictator.damage = 0;
+      dictator.primarySquad.sectorId = awaySector.sectorId;
+      dictator.dictator.putInto(dictator.primarySquad);
+
+      // Rebels walk into the undefended base.
+      rebel.primarySquad.sectorId = baseSector.sectorId;
+
+      expect(game.isDictatorInSector(baseSector)).toBe(false);
+      expect(game.isBaseCaptured()).toBe(true);
+      expect(game.getWinners()).toContain(rebel);
+    });
+  });
+
+  describe('Day limit scoring', () => {
+    it('scores the map instead of handing the Dictator the win', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'day-limit-scoring',
       });
 
       const game = testGame.game;
       const rebel = game.rebelPlayers[0];
 
-      // Set to Day 2+ (elimination only counts after setup)
-      game.currentDay = 2;
+      // Cards still in the deck (Hussein or an enlarged deck), day cap reached.
+      game.currentDay = 7;
+      expect(game.isDayLimitReached()).toBe(true);
+      expect(game.isFinished()).toBe(true);
 
-      // Ensure dictator has militia so they don't also lose
+      // Give the rebels every sector so they clearly lead on sector value.
+      for (const sector of game.gameMap.getAllSectors()) {
+        sector.dictatorMilitia = 0;
+        sector.rebelMilitia[`${rebel.seat}`] = 5;
+      }
+
+      const { rebelPoints, dictatorPoints } = game.calculateVictoryPoints();
+      expect(rebelPoints).toBeGreaterThan(dictatorPoints);
+      expect(game.getWinners()).toContain(rebel);
+    });
+  });
+
+  describe('Board wipes do not end the game', () => {
+    it('keeps playing when a rebel has lost every MERC and militia', () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'rebel-wipe-test',
+      });
+
+      const game = testGame.game;
+      const rebel = game.rebelPlayers[0];
+
+      game.currentDay = 2;
       game.gameMap.getAllSectors()[0].dictatorMilitia = 2;
 
-      // Ensure rebel has no units
-      // Clear any mercs from squads
-      for (const merc of rebel.primarySquad.getMercs()) {
-        merc.damage = merc.maxHealth; // Kill the merc
-      }
-      for (const merc of rebel.secondarySquad.getMercs()) {
+      for (const merc of [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()]) {
         merc.damage = merc.maxHealth;
       }
-
-      // Clear any militia - directly set the rebelMilitia record
       for (const sector of game.gameMap.getAllSectors()) {
         sector.rebelMilitia[`${rebel.seat}`] = 0;
       }
 
-      expect(game.allRebelUnitsEliminated()).toBe(true);
-      expect(game.isFinished()).toBe(true);
-
-      const winners = game.getWinners();
-      expect(winners).toContain(game.dictatorPlayer);
-      expect(winners).not.toContain(rebel);
-    });
-
-    it('should NOT detect rebel elimination on Day 1', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'day1-no-defeat-test',
-      });
-
-      const game = testGame.game;
-
-      // Day 1 - setup phase
-      game.currentDay = 1;
-
-      // Even with no units, shouldn't count as eliminated on Day 1
-      expect(game.allRebelUnitsEliminated()).toBe(false);
+      // Rulebook p.6: a wiped rebel hires again on their next turn.
       expect(game.isFinished()).toBe(false);
     });
 
-    it('should NOT detect elimination if rebel has living MERCs', () => {
+    it('keeps playing when the Dictator has lost every unit', () => {
       const testGame = createTestGame(MERCGame, {
         playerCount: 2,
         playerNames: ['Rebel1', 'Dictator'],
-        seed: 'rebel-has-mercs-test',
-      });
-
-      const game = testGame.game;
-      const rebel = game.rebelPlayers[0];
-
-      game.currentDay = 2;
-
-      // Add a living merc
-      const merc = game.drawMerc();
-      if (merc) {
-        merc.damage = 0; // Ensure alive
-        merc.putInto(rebel.primarySquad);
-      }
-
-      expect(game.allRebelUnitsEliminated()).toBe(false);
-    });
-
-    it('should NOT detect elimination if rebel has militia', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'rebel-has-militia-test',
-      });
-
-      const game = testGame.game;
-      const rebel = game.rebelPlayers[0];
-      const sector = game.gameMap.getAllSectors()[0];
-
-      game.currentDay = 2;
-
-      // No mercs but has militia - directly set the rebelMilitia record
-      sector.rebelMilitia[`${rebel.seat}`] = 1;
-
-      expect(game.allRebelUnitsEliminated()).toBe(false);
-    });
-  });
-
-  describe('Dictator Unit Elimination', () => {
-    it('should detect all dictator units eliminated on Day 2+', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'dictator-elimination-test',
+        seed: 'dictator-wipe-test',
       });
 
       const game = testGame.game;
       const dictator = game.dictatorPlayer;
 
       game.currentDay = 2;
-
-      // Clear all dictator militia
       for (const sector of game.gameMap.getAllSectors()) {
         sector.dictatorMilitia = 0;
       }
-
-      // Kill any hired mercs
-      for (const merc of dictator.allMercs) {
+      for (const merc of dictator.hiredMercs) {
         merc.damage = merc.maxHealth;
       }
 
-      expect(game.allDictatorUnitsEliminated()).toBe(true);
-      expect(game.isFinished()).toBe(true);
-
-      const winners = game.getWinners();
-      expect(winners.length).toBeGreaterThan(0);
-      expect(winners[0].isRebel()).toBe(true);
-    });
-
-    it('should NOT detect dictator elimination on Day 1', () => {
-      const testGame = createTestGame(MERCGame, {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'dictator-day1-test',
-      });
-
-      const game = testGame.game;
-      game.currentDay = 1;
-
-      // Clear all militia (shouldn't matter on Day 1)
-      for (const sector of game.gameMap.getAllSectors()) {
-        sector.dictatorMilitia = 0;
-      }
-
-      expect(game.allDictatorUnitsEliminated()).toBe(false);
+      // The Dictator can reinforce and play militia tactics on his next turn.
+      expect(game.isFinished()).toBe(false);
     });
   });
 

@@ -23,11 +23,11 @@ function actionStep(config: MERCActionStepConfig) {
   const { prompt: _prompt, ...rest } = config;
   return boardsmithActionStep(rest);
 }
-import { TacticsCard, Sector } from './elements.js';
+import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
-import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat } from './combat.js';
+import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatAttacker } from './combat.js';
 import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
 import { getGlobalCachedValue, setGlobalCachedValue, equipNewHire } from './actions/helpers.js';
@@ -359,9 +359,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
             const remainingHumans = getCombatDecisionParticipants(game);
             if (continueChosen || remainingHumans.length === 0) {
               const sector = game.getSector(game.activeCombat.sectorId);
-              const attackingPlayer = game.rebelPlayers.find(
-                p => `${p.seat}` === game.activeCombat!.attackingPlayerId
-              );
+              const attackingPlayer = resolveActiveCombatAttacker(game);
               if (sector && attackingPlayer) {
                 executeCombat(game, sector, attackingPlayer);
               }
@@ -433,6 +431,18 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
 }
 
 /** Check if a rebel has completed Day 1 setup (landed + hired MERCs) */
+/**
+ * A rebel's daily turn is over when none of their MERCs has actions left — and,
+ * for a rebel whose team was wiped out, once the free replacement hire is no
+ * longer available (rulebook p.6, "Death").
+ */
+function rebelTurnIsOver(game: MERCGame, rebel: RebelPlayer): boolean {
+  if (rebel.teamSize === 0) {
+    return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0;
+  }
+  return !rebel.team.some(m => m.actionsRemaining > 0);
+}
+
 function isDay1Complete(game: MERCGame, player: Player): boolean {
   if (!game.isRebelPlayer(player)) return true;
   const rebel = player as RebelPlayer;
@@ -798,6 +808,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'collectEquipment',
                   'train',
                   'hireMerc',
+                  'rehireMerc',
                   'reEquip',
                   'reEquipContinue',
                   'dropEquipment',
@@ -814,15 +825,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'assignToSquad',
                   'endTurn',
                 ],
+                // A wiped-out rebel still gets a turn: the rules let them hire a
+                // replacement MERC for free (p.6, "Death"), which needs no acting MERC.
                 skipPlayer: (_ctx, player) => {
                   if (game.isFinished()) return true;
-                  const rebel = player as RebelPlayer;
-                  return !rebel.team.some(m => m.actionsRemaining > 0);
+                  return rebelTurnIsOver(game, player as RebelPlayer);
                 },
-                playerDone: (_ctx, player) => {
-                  const rebel = player as RebelPlayer;
-                  return !rebel.team.some(m => m.actionsRemaining > 0);
-                },
+                playerDone: (_ctx, player) => rebelTurnIsOver(game, player as RebelPlayer),
                 allDone: () => {
                   if (game.isFinished()) return true;
                   // Break out for combat resolution
@@ -831,7 +840,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   if (game.coordinatedAttack !== null) return true;
                   if (game.pendingMortarAttack != null) return true;
                   // All rebels done
-                  return game.rebelPlayers.every(p => !p.team.some(m => m.actionsRemaining > 0));
+                  return game.rebelPlayers.every(p => rebelTurnIsOver(game, p));
                 },
               }),
             ),

@@ -282,6 +282,97 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
     });
 }
 
+const REHIRE_DRAWN_MERCS_KEY = 'rehireDrawnMercs';
+
+/**
+ * Rebuild a wiped-out team.
+ *
+ * Rulebook p.3: "Your team always has at least one MERC as long as there are
+ * still MERCs in the MERC deck to be hired. The first MERC in your team costs
+ * you nothing." p.6: "If all your MERCs die you can hire new MERCs on your next
+ * turn." A rebel with no MERCs has nobody to spend the normal hire action's two
+ * actions, so this free action stands in for it — draw 3, take 1, no cost.
+ */
+export function createRehireMercAction(game: MERCGame): ActionDefinition {
+  return Action.create('rehireMerc')
+    .prompt('Hire a replacement MERC (free)')
+    .condition({
+      'not in combat': () => isNotInActiveCombat(game),
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      // Day 1 is setup: rebels are still assembling their first team there.
+      'past day one': () => game.currentDay > 1,
+      'team is wiped out': (ctx) => {
+        if (!game.isRebelPlayer(ctx.player)) return false;
+        return asRebelPlayer(ctx.player).teamSize === 0;
+      },
+      'MERC deck has cards': () => game.mercDeck.count(CombatantModel) > 0,
+    })
+    .chooseFrom('selectedMerc', {
+      prompt: 'Choose your replacement MERC',
+      choices: (ctx: ActionContext) => {
+        const player = asRebelPlayer(ctx.player);
+        const playerId = `${player.seat}`;
+
+        let ids = getCachedValue<number[]>(game, REHIRE_DRAWN_MERCS_KEY, playerId);
+        if (!ids) {
+          const drawn = drawMercsForHiring(game, 3);
+          ids = drawn.map(m => m.id);
+          setCachedValue(game, REHIRE_DRAWN_MERCS_KEY, playerId, ids);
+        }
+        return ids
+          .map(id => game.getElementById(id))
+          .filter((e): e is CombatantModel => isCombatantModel(e))
+          .map(m => capitalize(m.combatantName));
+      },
+    })
+    .chooseFrom('equipmentType', {
+      prompt: 'Choose equipment type for new hire',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .execute((args, ctx) => {
+      const player = asRebelPlayer(ctx.player);
+      const playerId = `${player.seat}`;
+      const chosenName = args.selectedMerc as string;
+      const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+
+      const ids = getCachedValue<number[]>(game, REHIRE_DRAWN_MERCS_KEY, playerId) ?? [];
+      const drawnMercs = ids
+        .map(id => game.getElementById(id))
+        .filter((e): e is CombatantModel => isCombatantModel(e));
+      clearCachedValue(game, REHIRE_DRAWN_MERCS_KEY, playerId);
+
+      const hired = drawnMercs.find(m => capitalize(m.combatantName) === chosenName);
+      for (const merc of drawnMercs) {
+        if (merc !== hired) merc.putInto(game.mercDiscard);
+      }
+
+      if (!hired) {
+        return { success: false, message: `${chosenName} was not among the drawn MERCs.` };
+      }
+
+      hired.putInto(player.primarySquad);
+      if (player.primarySquad.sectorId) {
+        emitMapCombatantEntries(game, [
+          buildMapCombatantEntry(hired, player.primarySquad.sectorId),
+        ]);
+      }
+      // The replacement arrives ready to act: he was not hired with an action.
+      hired.resetActions();
+      equipNewHire(game, hired, chosenEquipType);
+
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isAI) {
+        game.recordRebelActionForBatching(ctx.player);
+      }
+
+      game.message(`${player.name} rebuilds their team with ${capitalize(hired.combatantName)}`);
+      return {
+        success: true,
+        message: `Hired ${capitalize(hired.combatantName)}`,
+        data: { hired: hired.combatantName },
+      };
+    });
+}
+
 // =============================================================================
 // Explore Action (simplified - just exploration, no equipment selection)
 // Works for both rebel and dictator players.

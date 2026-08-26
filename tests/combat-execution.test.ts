@@ -709,7 +709,7 @@ describe('Combat Execution Tests', () => {
       const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (merc) merc.putInto(rebel.primarySquad);
 
-      const { dictator } = getCombatants(game, baseSector, rebel);
+      const { dictator } = getCombatants(game, baseSector);
       const hasDictatorCard = dictator.some(c => c.isDictator);
       expect(hasDictatorCard).toBe(true);
     });
@@ -737,7 +737,7 @@ describe('Combat Execution Tests', () => {
       // isDictatorInSector should find dictator via baseSectorId fallback
       expect(game.isDictatorInSector(baseSector)).toBe(true);
 
-      const { dictator } = getCombatants(game, baseSector, rebel);
+      const { dictator } = getCombatants(game, baseSector);
       const hasDictatorCard = dictator.some(c => c.isDictator);
       expect(hasDictatorCard).toBe(true);
     });
@@ -760,7 +760,7 @@ describe('Combat Execution Tests', () => {
 
       // Both should agree the dictator is present
       expect(hasEnemies(game, baseSector, rebel)).toBe(true);
-      const { dictator } = getCombatants(game, baseSector, rebel);
+      const { dictator } = getCombatants(game, baseSector);
       expect(dictator.some(c => c.isDictator)).toBe(true);
     });
 
