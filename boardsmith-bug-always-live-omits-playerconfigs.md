@@ -1,5 +1,26 @@
 # Bug: Always-live dev host omits role-based `playerConfigs` from the start op, breaking seat→role games (MERC dictator)
 
+> **RESOLVED UPSTREAM (verified 2026-08-26).** BoardSmith's `MultiplayerHost` now
+> builds `playerConfigs` into `startGameOptions` — `src/cli/dev-host/multiplayer-host.ts`
+> emits a per-seat `{ name, isBot, botLevel, ...playerOptions }` array sized off
+> `playerCount`, and its own comment names this exact failure chain ("the game
+> treats the bot seat as a human ... MCTS later finds 'No available moves'").
+> A regression test citing MERC by name holds it closed
+> (`src/cli/dev-host/multiplayer-host.test.ts`, "passes playerConfigs with per-seat
+> isBot to the game"), and CR-01 additionally keeps `playerOptions`/`playerIsBot`/
+> `playerConfigs` the same length when a preset changes the player count.
+>
+> **The evidence below is left exactly as filed and is PRE-RENAME.** It quotes the
+> engine as it was on the day, so `playerIsAI`, `aiSeats`, `aiLevel`, `handleAITurn`
+> and `runAITurns()` appear throughout. The automaton has since been renamed from AI
+> to BOT everywhere (ShufflewickPub #28, engine contract r16): those are now
+> `playerIsBot`, `botSeats`, `botLevel`, `handleBotTurn` and `runBotTurns()`. Read
+> the names below as history, never as current API — rewriting them would falsify
+> the report's account of what was actually observed.
+>
+> The **Secondary findings** section (zone visibility dropped by snapshot/restore)
+> was NOT part of this fix and has not been re-verified against r16.
+
 ## Summary
 
 The always-live dev host (`MultiplayerHost`) auto-seats the first arriving dev and immediately starts the game, but the `startGameOptions` it builds carry only `playerIsAI` and per-seat colors — **not** the role-based `playerConfigs` that role games depend on. In MERC the dictator seat is determined from `options.playerConfigs` (`role: true` / `isDictator`). With no `playerConfigs`, MERC cannot assign the dictator role: the dictator player is left unconfigured (`combatantName === undefined`), the human who intended to be the dictator is seated as a rebel, and the dictator seat resolves to an AI seat. When that AI dictator's turn arrives, the MCTS bot finds no legal move, throws `No available moves`, and `runAITurns()` never yields control back to the client — so the human's action panel and game area render blank.
