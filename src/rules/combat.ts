@@ -3220,13 +3220,14 @@ function pauseCombat(
     allDictatorCasualties: Combatant[];
     playerSelectedTargets: Map<string, string[]>;
     playerSelectedDogTargets: Map<string, string>;
+    stalemateRounds: number;
   }
 ): CombatOutcome {
   const {
     pause, roundResult, sector, round, rounds, rebels, dictator, dogState,
     attackingPlayerId, attackingPlayerIsRebel,
     allRebelCasualties, allDictatorCasualties,
-    playerSelectedTargets, playerSelectedDogTargets,
+    playerSelectedTargets, playerSelectedDogTargets, stalemateRounds,
   } = args;
   const save = PAUSE_SAVE[pause.kind];
 
@@ -3243,6 +3244,7 @@ function pauseCombat(
     dogs: dogState.dogs,
     selectedTargets: playerSelectedTargets,
     currentAttackerIndex: pause.attackerIndex,
+    stalemateRounds,
     awaitingRetreatDecisions: false,
     ...(save.saveDogTargets ? { selectedDogTargets: playerSelectedDogTargets } : {}),
     ...(save.keepRoundProgress ? {
@@ -3496,6 +3498,9 @@ export function executeCombat(
   // Check if resuming from paused combat
   const isResuming = game.activeCombat !== null && game.activeCombat.sectorId === sector.sectorId;
 
+  // Read before startOrResumeCombat rewrites the state it came from.
+  const carriedStalemateRounds = isResuming ? (game.activeCombat?.stalemateRounds ?? 0) : 0;
+
   // The attacker is decided when combat starts. Resuming must not re-stamp it from
   // whoever happened to submit the continuation action.
   const attackingPlayerId = isResuming && game.activeCombat
@@ -3524,7 +3529,8 @@ export function executeCombat(
   let roundCasualties = midRound.roundCasualties;
   let savedRoundInitiativeOrder = midRound.savedRoundInitiativeOrder;
 
-  let stalemateRounds = 0;
+  let stalemateRounds = carriedStalemateRounds;
+  let standoff = false;
   for (let round = startRound; round <= ABSOLUTE_ROUND_LIMIT; round++) {
     if (round === ABSOLUTE_ROUND_LIMIT) {
       throw new Error(
@@ -3573,6 +3579,7 @@ export function executeCombat(
         allDictatorCasualties,
         playerSelectedTargets,
         playerSelectedDogTargets,
+        stalemateRounds,
       });
     }
 
@@ -3616,11 +3623,19 @@ export function executeCombat(
           `Neither side can make headway at ${sector.sectorName}; the attackers withdraw.`
         );
         didRetreat = true;
-        break;
+      } else {
+        // Neither side can hurt the other, and neither has anywhere to fall back
+        // to: militia never retreat, and a squad ringed by enemy sectors has no
+        // legal retreat sector. Fighting on cannot change any of that, so the
+        // fight breaks off with both sides holding the ground they stand on.
+        // Whoever moves next can start it again on better terms.
+        standoff = true;
+        game.message(
+          `Neither side can make headway at ${sector.sectorName}, and neither can ` +
+          'withdraw. The fighting breaks off.'
+        );
       }
-      // Nobody has anywhere to withdraw to; keep fighting rather than inventing
-      // an end state, and let the absolute limit catch a true non-termination.
-      stalemateRounds = 0;
+      break;
     }
 
     // MERC-n1f: Check if retreat is possible and pause for player decision
@@ -3651,6 +3666,7 @@ export function executeCombat(
         dictatorCasualties: allDictatorCasualties,
         dogAssignments: Array.from(dogState.assignments.entries()),
         dogs: dogState.dogs,
+        stalemateRounds,
         awaitingRetreatDecisions: true,
       };
       game.animate('combat-panel', buildCombatPanelSnapshot(game));
@@ -3692,7 +3708,10 @@ export function executeCombat(
     canRetreat: false,
   };
 
-  if (outcome.rebelVictory) {
+  if (standoff) {
+    // The break-off message is already in the log; naming a victor here would
+    // contradict it.
+  } else if (outcome.rebelVictory) {
     game.message(`Rebels are victorious at ${sector.sectorName}!`);
   } else if (outcome.dictatorVictory) {
     game.message(`Dictator forces hold ${sector.sectorName}!`);

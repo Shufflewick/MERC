@@ -585,6 +585,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Locked initiative order for current round (combatant IDs in sorted order)
     // Persists across mid-round pauses so initiative isn't recalculated on resume
     roundInitiativeOrder?: string[];
+    // Consecutive rounds in which neither side landed a hit. Lives here rather
+    // than in executeCombat's local scope because combat pauses and resumes:
+    // a counter that reset on every resume could never reach the deadlock
+    // threshold in an interactive fight (issue #58).
+    stalemateRounds?: number;
     // MERC-retreat: Simultaneous retreat/continue decision tracking
     awaitingRetreatDecisions?: boolean;
     // seat -> decision. Map, like its siblings above: the engine's attribute
