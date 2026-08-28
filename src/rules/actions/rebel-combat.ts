@@ -11,7 +11,7 @@ import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.
 import { Sector, Equipment, CombatantModel } from '../elements.js';
 import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatAttacker, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
-import { buildArtilleryTargets } from '../tactics-effects.js';
+import { advanceArtilleryAllocation, artilleryHitsAllocatableBy } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
 import { applyMortarDamage } from './rebel-equipment.js';
 import { applyEpinephrineSave, handleMercDeath } from '../merc-death.js';
@@ -1346,21 +1346,23 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
     .condition({
       'has pending artillery allocation': () => game.pendingArtilleryAllocation != null,
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
-      'player has units in targeted sector': (ctx) => {
+      'player has a living unit in the targeted sector': (ctx) => {
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return false;
         const playerId = `${ctx.player.seat}`;
-        return pending.validTargets.some(t => t.ownerId === playerId);
+        return pending.validTargets.some(t => t.ownerId === playerId && t.currentHealth > 0);
       },
     })
     .chooseFrom('allocations', {
       prompt: 'Choose which of your units take the artillery hits',
-      multiSelect: () => {
+      multiSelect: (ctx) => {
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return undefined;
-        // Must allocate exactly `hits` damage (or all available health)
-        const totalHits = pending.hits - pending.allocatedHits;
-        return { min: totalHits, max: totalHits };
+        // Every hit this player can absorb, and no more: a rebel with two units
+        // left cannot be asked to place five hits, and asking would leave the
+        // allocation with no legal answer at all.
+        const takeable = artilleryHitsAllocatableBy(game, ctx.player as RebelPlayer);
+        return { min: takeable, max: takeable };
       },
       choices: (ctx) => {
         const pending = game.pendingArtilleryAllocation;
@@ -1372,6 +1374,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         // Build choices for this player's targets only
         for (const target of pending.validTargets) {
           if (target.ownerId !== playerId) continue;
+          if (target.currentHealth <= 0) continue;
 
           // Allow selecting up to currentHealth times
           for (let i = 0; i < target.currentHealth; i++) {
@@ -1457,25 +1460,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
       const allHitsAllocated = pending.allocatedHits >= pending.hits || remainingTargets.length === 0;
 
       if (allHitsAllocated) {
-        // Move to next sector or complete
-        if (pending.sectorsRemaining.length > 0) {
-          const next = pending.sectorsRemaining.shift()!;
-          const nextSector = game.getSector(next.sectorId);
-          if (nextSector) {
-            const nextTargets = buildArtilleryTargets(game, nextSector);
-            game.pendingArtilleryAllocation = {
-              sectorId: next.sectorId,
-              sectorName: next.sectorName,
-              hits: next.hits,
-              allocatedHits: 0,
-              validTargets: nextTargets,
-              sectorsRemaining: pending.sectorsRemaining,
-            };
-            game.message(`Artillery Barrage continues: ${next.hits} hits at ${next.sectorName}`);
-          }
-        } else {
-          // All sectors processed
-          game.pendingArtilleryAllocation = null;
+        if (!advanceArtilleryAllocation(game, pending.sectorsRemaining)) {
           game.message('Artillery Barrage complete');
         }
       }

@@ -42,7 +42,7 @@ export function checkLandmineOnDictatorMilitiaEntry(
 /**
  * Build list of valid targets for artillery allocation in a sector
  */
-export function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
+function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
   id: string;
   name: string;
   type: 'militia' | 'merc';
@@ -90,6 +90,103 @@ export function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
   }
 
   return targets;
+}
+
+/** One sector still waiting for its artillery hits to be allocated. */
+interface ArtilleryQueueEntry {
+  sectorId: string;
+  sectorName: string;
+  hits: number;
+}
+
+/**
+ * The rebel the flow must ask to allocate the pending artillery hits: the first
+ * one who still has a living target in the sector being shelled.
+ *
+ * Artillery resolves during the DICTATOR's turn, so the flow cannot use the
+ * turn's own player here — the dictator can never satisfy `artilleryAllocateHits`.
+ */
+function nextArtilleryAllocator(game: MERCGame): RebelPlayer | null {
+  const pending = game.pendingArtilleryAllocation;
+  if (!pending) return null;
+  return game.rebelPlayers.find(rebel =>
+    pending.validTargets.some(t => t.ownerId === `${rebel.seat}` && t.currentHealth > 0)
+  ) ?? null;
+}
+
+/**
+ * The rebel the flow is about to ask for an artillery allocation.
+ *
+ * The allocation loop only runs while a sector is pending, and a sector is only
+ * ever made pending when some rebel can allocate there, so a null here means
+ * that invariant has been broken rather than that the barrage is finished.
+ */
+export function requireArtilleryAllocator(game: MERCGame): RebelPlayer {
+  const allocator = nextArtilleryAllocator(game);
+  if (!allocator) {
+    const pending = game.pendingArtilleryAllocation;
+    throw new Error(
+      `Artillery hits are pending at ${pending?.sectorName ?? 'an unknown sector'} but no rebel ` +
+      'there has a unit left to take them. Artillery must move on to the next sector, or finish, ' +
+      'as soon as a sector runs out of targets.'
+    );
+  }
+  return allocator;
+}
+
+/**
+ * How many hits `rebel` can still absorb in the pending sector: the hits left to
+ * place, capped by the health their units in that sector actually have.
+ *
+ * Without the cap the allocation prompt asks for more hits than there are places
+ * to put them, no legal set of arguments exists, and the allocation flow cannot
+ * finish.
+ */
+export function artilleryHitsAllocatableBy(game: MERCGame, rebel: RebelPlayer): number {
+  const pending = game.pendingArtilleryAllocation;
+  if (!pending) return 0;
+  const capacity = pending.validTargets
+    .filter(t => t.ownerId === `${rebel.seat}`)
+    .reduce((sum, t) => sum + Math.max(0, t.currentHealth), 0);
+  return Math.min(pending.hits - pending.allocatedHits, capacity);
+}
+
+/**
+ * Point the pending allocation at the next queued sector that still has rebels
+ * to hit, or clear it when none is left.
+ *
+ * A sector whose rebels are already gone must never become the pending one: no
+ * rebel could allocate there, and the flow's allocation loop would spin until it
+ * tripped its safety cap (issue #57).
+ *
+ * @returns true when a sector is now pending, false when the barrage is over.
+ */
+export function advanceArtilleryAllocation(
+  game: MERCGame,
+  queue: ArtilleryQueueEntry[],
+): boolean {
+  while (queue.length > 0) {
+    const next = queue.shift()!;
+    const sector = game.getSector(next.sectorId);
+    if (!sector) continue;
+
+    const targets = buildArtilleryTargets(game, sector).filter(t => t.currentHealth > 0);
+    if (targets.length === 0) continue;
+
+    game.pendingArtilleryAllocation = {
+      sectorId: next.sectorId,
+      sectorName: next.sectorName,
+      hits: next.hits,
+      allocatedHits: 0,
+      validTargets: targets,
+      sectorsRemaining: queue,
+    };
+    game.message(`Artillery Barrage: ${next.hits} hits at ${next.sectorName}`);
+    return true;
+  }
+
+  game.pendingArtilleryAllocation = null;
+  return false;
 }
 
 /**
@@ -158,29 +255,20 @@ function artilleryBarrage(game: MERCGame): TacticsEffectResult {
     })),
   }, () => {});
 
-  // Build pending state for first sector
-  const firstSector = sectorsWithTargets[0];
-  const validTargets = buildArtilleryTargets(game, firstSector.sector);
-
-  // Queue remaining sectors
-  const remaining = sectorsWithTargets.slice(1).map(({ sector, hits }) => ({
+  const queue: ArtilleryQueueEntry[] = sectorsWithTargets.map(({ sector, hits }) => ({
     sectorId: sector.sectorId,
     sectorName: sector.sectorName,
     hits,
   }));
 
-  game.pendingArtilleryAllocation = {
-    sectorId: firstSector.sector.sectorId,
-    sectorName: firstSector.sector.sectorName,
-    hits: firstSector.hits,
-    allocatedHits: 0,
-    validTargets,
-    sectorsRemaining: remaining,
-  };
+  if (!advanceArtilleryAllocation(game, queue)) {
+    return { success: true, message: 'Artillery Barrage: All misses or no targets' };
+  }
 
+  const pending = game.pendingArtilleryAllocation!;
   return {
     success: true,
-    message: `Artillery Barrage: Allocate ${firstSector.hits} hits at ${firstSector.sector.sectorName}`,
+    message: `Artillery Barrage: Allocate ${pending.hits} hits at ${pending.sectorName}`,
     data: { sectorsHit: sectorsWithTargets.length, pending: true },
   };
 }

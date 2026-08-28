@@ -15,7 +15,7 @@ import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { doesntCountTowardLimit } from './merc-abilities.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
-import { applyConscriptsEffect, applyOilReservesEffect } from './tactics-effects.js';
+import { applyConscriptsEffect, applyOilReservesEffect, requireArtilleryAllocator } from './tactics-effects.js';
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatAttacker } from './combat.js';
 import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
@@ -940,6 +940,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 while: () => game.pendingArtilleryAllocation != null && !game.isFinished(),
                 maxIterations: 50, // Safety: max sectors * max allocations per sector
                 do: actionStep({
+                  // Artillery resolves on the dictator's turn but is allocated by
+                  // the rebels being shelled, so the step must name the rebel
+                  // rather than inherit the turn's player (issue #57).
+                  player: () => requireArtilleryAllocator(game),
                   name: 'artillery-allocate',
                   actions: ['artilleryAllocateHits'],
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
@@ -1321,6 +1325,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 while: () => game.pendingArtilleryAllocation != null && !game.isFinished(),
                 maxIterations: 50,
                 do: actionStep({
+                  // As above: the shelled rebels allocate, not the dictator.
+                  player: () => requireArtilleryAllocator(game),
                   name: 'hussein-artillery-allocate',
                   actions: ['artilleryAllocateHits'],
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
