@@ -375,7 +375,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
-        return { success: false, message: 'No MERC selected' };
+        return { success: false, error: 'No MERC selected' };
       }
 
       // Find the MERC by name
@@ -386,7 +386,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!selectedMerc) {
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       // Set MERC location from selected sector
@@ -416,7 +416,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!targetSector) {
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       // Determine which squad to use based on target sector
@@ -447,7 +447,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         }
         clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
         game.message('Castro: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       // Put MERC into chosen squad and set its location to the selected sector
@@ -525,7 +525,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       const targetSectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
       if (!targetSector) {
-        return { success: false, message: 'Invalid sector' };
+        return { success: false, error: 'Invalid sector' };
       }
 
       const placed = targetSector.addDictatorMilitia(rebelSectorCount, true);
@@ -637,7 +637,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
           }
         }
         game.pendingGeneralissimoHire = null;
-        return { success: false, message: 'No MERC selected' };
+        return { success: false, error: 'No MERC selected' };
       }
 
       // Find the MERC by name
@@ -648,7 +648,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
 
       if (!selectedMerc) {
         game.pendingGeneralissimoHire = null;
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       // Find target sector
@@ -671,7 +671,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
 
       if (!targetSector) {
         game.pendingGeneralissimoHire = null;
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       // Determine which squad to use based on target sector
@@ -700,7 +700,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
         }
         game.pendingGeneralissimoHire = null;
         game.message('Generalissimo: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       // Put MERC into chosen squad and set its location to the selected sector
@@ -772,7 +772,7 @@ export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition 
     })
     .execute((args) => {
       const pending = game.pendingSeizureFlips;
-      if (!pending) return { success: false, message: 'No pending Seizure' };
+      if (!pending) return { success: false, error: 'No pending Seizure' };
 
       const sector = args.targetSector;
       sector.explore();
@@ -831,19 +831,19 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
     })
     .execute((args, ctx) => {
       const pending = game.pendingLockdownMilitia;
-      if (!pending) return { success: false, message: 'No pending lockdown militia' };
+      if (!pending) return { success: false, error: 'No pending lockdown militia' };
 
       const sectorName = args.targetSector;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
-      if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+      if (!sector) return { success: false, error: `Invalid sector: "${sectorName}"` };
 
       const requestedAmount = parseInt(args.amount, 10);
-      if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, message: 'Invalid amount' };
+      if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, error: 'Invalid amount' };
 
       // Enforce actual sector cap: can only place up to (10 - current militia)
       const sectorRoom = 10 - sector.dictatorMilitia;
       const amount = Math.min(requestedAmount, sectorRoom, pending.remaining);
-      if (amount <= 0) return { success: false, message: `${sector.sectorName} is already at capacity (10 militia)` };
+      if (amount <= 0) return { success: false, error: `${sector.sectorName} is already at capacity (10 militia)` };
 
       // Place militia
       const placed = sector.addDictatorMilitia(amount);
@@ -908,19 +908,19 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const pending = game.pendingMaoMilitia;
-      if (!pending) return { success: false, message: 'No pending Mao militia' };
+      if (!pending) return { success: false, error: 'No pending Mao militia' };
 
       const sectorName = args.targetSector;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
-      if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+      if (!sector) return { success: false, error: `Invalid sector: "${sectorName}"` };
 
       const requestedAmount = parseInt(args.amount, 10);
-      if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, message: 'Invalid amount' };
+      if (isNaN(requestedAmount) || requestedAmount <= 0) return { success: false, error: 'Invalid amount' };
 
       // Enforce actual sector cap: can only place up to (10 - current militia)
       const sectorRoom = Sector.MAX_MILITIA_PER_SIDE - sector.dictatorMilitia;
       const amount = Math.min(requestedAmount, sectorRoom, pending.remaining);
-      if (amount <= 0) return { success: false, message: `${sector.sectorName} is already at capacity (${Sector.MAX_MILITIA_PER_SIDE} militia)` };
+      if (amount <= 0) return { success: false, error: `${sector.sectorName} is already at capacity (${Sector.MAX_MILITIA_PER_SIDE} militia)` };
 
       // Place militia
       const placed = sector.addDictatorMilitia(amount);
@@ -983,7 +983,7 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
     .execute((args) => {
       const sectorName = args.targetSector;
       const sector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
-      if (!sector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+      if (!sector) return { success: false, error: `Invalid sector: "${sectorName}"` };
 
       const rebelCount = game.rebelCount;
       if (rebelCount === 0) {
@@ -1074,23 +1074,23 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
       }
 
       const pending = game.pendingMussoliniSpread;
-      if (!pending) return { success: false, message: 'No pending spread' };
+      if (!pending) return { success: false, error: 'No pending spread' };
 
       const sourceSector = game.getSector(pending.sourceSectorId);
-      if (!sourceSector) return { success: false, message: 'Source sector not found' };
+      if (!sourceSector) return { success: false, error: 'Source sector not found' };
 
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
-      if (!targetSector) return { success: false, message: `Invalid sector: "${targetSectorName}"` };
+      if (!targetSector) return { success: false, error: `Invalid sector: "${targetSectorName}"` };
 
       const requestedAmount = parseInt(args.amount, 10);
       if (isNaN(requestedAmount) || requestedAmount <= 0) {
-        return { success: false, message: 'Invalid amount' };
+        return { success: false, error: 'Invalid amount' };
       }
 
       // Compute actual amount respecting source availability and target cap
       const targetRoom = Sector.MAX_MILITIA_PER_SIDE - targetSector.dictatorMilitia;
       const amount = Math.min(requestedAmount, targetRoom, sourceSector.dictatorMilitia, pending.remaining);
-      if (amount <= 0) return { success: false, message: 'Cannot move militia (no room or no source militia)' };
+      if (amount <= 0) return { success: false, error: 'Cannot move militia (no room or no source militia)' };
 
       sourceSector.removeDictatorMilitia(amount);
       targetSector.addDictatorMilitia(amount);
@@ -1169,7 +1169,7 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
       const targetSectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
       if (!targetSector) {
-        return { success: false, message: `Invalid sector: "${targetSectorName}"` };
+        return { success: false, error: `Invalid sector: "${targetSectorName}"` };
       }
 
       // Place militia (standard cap)
@@ -1274,14 +1274,14 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.lastAbilityCombatOutcome = null;
-        return { success: false, message: 'No MERC available' };
+        return { success: false, error: 'No MERC available' };
       }
 
       const merc = game.getElementById(mercId);
       if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.lastAbilityCombatOutcome = null;
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       const squadChoice = args.targetSquad;
@@ -1290,7 +1290,7 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.lastAbilityCombatOutcome = null;
         game.message('Pol Pot: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       const targetSquad = squadChoice === 'Primary Squad'
@@ -1414,13 +1414,13 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No MERC available' };
+        return { success: false, error: 'No MERC available' };
       }
 
       const merc = game.getElementById(mercId);
       if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       // Find target sector
@@ -1443,7 +1443,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!targetSector) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       // Determine which squad to use based on target sector
@@ -1469,7 +1469,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
         merc.putInto(game.mercDiscard);
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Hitler: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       merc.putInto(targetSquad);
@@ -1532,7 +1532,7 @@ export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDe
       });
 
       if (!targetRebel) {
-        return { success: false, message: 'Invalid rebel selection' };
+        return { success: false, error: 'Invalid rebel selection' };
       }
 
       game.hitlerInitiativeTargetSeat = targetRebel.seat;
@@ -1628,13 +1628,13 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No MERC available' };
+        return { success: false, error: 'No MERC available' };
       }
 
       const merc = game.getElementById(mercId);
       if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       // Find target sector
@@ -1657,7 +1657,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!targetSector) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       // Determine which squad to use based on target sector
@@ -1683,7 +1683,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
         merc.putInto(game.mercDiscard);
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Gaddafi: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       merc.putInto(targetSquad);
@@ -1791,13 +1791,13 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No MERC available' };
+        return { success: false, error: 'No MERC available' };
       }
 
       const merc = game.getElementById(mercId);
       if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       // Find target sector
@@ -1820,7 +1820,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!targetSector) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       // Determine which squad for primary hire
@@ -1846,7 +1846,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
         merc.putInto(game.mercDiscard);
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Stalin: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       merc.putInto(targetSquad);
@@ -2147,11 +2147,11 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
     })
     .execute((args) => {
       const pending = game.pendingNoriegaConversion;
-      if (!pending) return { success: false, message: 'No pending conversion' };
+      if (!pending) return { success: false, error: 'No pending conversion' };
 
       const sectorName = args.targetSector;
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
-      if (!targetSector) return { success: false, message: `Invalid sector: "${sectorName}"` };
+      if (!targetSector) return { success: false, error: `Invalid sector: "${sectorName}"` };
 
       targetSector.addDictatorMilitia(pending.convertedCount);
       game.message(`Noriega moved ${pending.convertedCount} converted militia to ${targetSector.sectorName}`);
@@ -2260,13 +2260,13 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No MERC available' };
+        return { success: false, error: 'No MERC available' };
       }
 
       const merc = game.getElementById(mercId);
       if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       const targetSectorChoice = args.targetSector;
@@ -2288,7 +2288,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
 
       if (!targetSector) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       const primarySquad = game.dictatorPlayer.primarySquad;
@@ -2313,7 +2313,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
         merc.putInto(game.mercDiscard);
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Noriega: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       merc.putInto(targetSquad);
@@ -2426,14 +2426,14 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         // Still decrement pending hires even if no MERC available
         game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
-        return { success: false, message: 'No MERC available' };
+        return { success: false, error: 'No MERC available' };
       }
 
       const merc = game.getElementById(mercId);
       if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
-        return { success: false, message: 'MERC not found' };
+        return { success: false, error: 'MERC not found' };
       }
 
       // Find target sector
@@ -2457,7 +2457,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       if (!targetSector) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
-        return { success: false, message: 'No valid sector found' };
+        return { success: false, error: 'No valid sector found' };
       }
 
       // Determine which squad to use based on target sector
@@ -2484,7 +2484,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
         game.message('Pinochet: All squads full, cannot hire');
-        return { success: false, message: 'All squads full' };
+        return { success: false, error: 'All squads full' };
       }
 
       merc.putInto(targetSquad);
@@ -2603,11 +2603,11 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
     .execute((args) => {
       const itemIndex = parseInt((args.equipment).split(':')[0], 10);
       if (!game._gaddafiLootableEquipment || isNaN(itemIndex)) {
-        return { success: false, message: 'Invalid equipment selection' };
+        return { success: false, error: 'Invalid equipment selection' };
       }
       const item = game._gaddafiLootableEquipment[itemIndex];
       if (!item) {
-        return { success: false, message: 'Equipment item not found in staging' };
+        return { success: false, error: 'Equipment item not found in staging' };
       }
 
       const equipment = findEquipmentInDiscards(game, item.equipmentId);
@@ -2615,12 +2615,12 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
         // Equipment no longer in discard — remove from staging
         game._gaddafiLootableEquipment.splice(itemIndex, 1);
         if (game._gaddafiLootableEquipment.length === 0) game._gaddafiLootableEquipment = null;
-        return { success: false, message: 'Equipment no longer available' };
+        return { success: false, error: 'Equipment no longer available' };
       }
 
       const recipient = args.recipient;
       if (!recipient) {
-        return { success: false, message: 'No recipient selected' };
+        return { success: false, error: 'No recipient selected' };
       }
 
       recipient.equip(equipment);

@@ -227,12 +227,12 @@ export function createReEquipAction(game: MERCGame): ActionDefinition {
       const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!unit) {
-        return { success: false, message: 'Invalid unit' };
+        return { success: false, error: 'Invalid unit' };
       }
 
       const sector = findUnitSector(unit, ctx.player, game);
       if (!sector) {
-        return { success: false, message: 'Invalid sector' };
+        return { success: false, error: 'Invalid sector' };
       }
 
       const unitName = getUnitName(unit);
@@ -408,7 +408,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
       const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!unit || !sector) {
-        return { success: false, message: 'Invalid unit or sector' };
+        return { success: false, error: 'Invalid unit or sector' };
       }
 
       const unitName = getUnitDisplayName(unit);
@@ -643,12 +643,12 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       const equipment = equipEl instanceof Equipment ? equipEl : undefined;
 
       if (!actingCombatant || !equipment) {
-        return { success: false, message: 'Could not resolve combatant or equipment' };
+        return { success: false, error: 'Could not resolve combatant or equipment' };
       }
 
       const sector = findMercSectorFromCtx(actingCombatant, ctx);
       if (!sector) {
-        return { success: false, message: 'Combatant is not in a valid sector' };
+        return { success: false, error: 'Combatant is not in a valid sector' };
       }
 
       // Unequip the equipment based on which slot it's in
@@ -681,7 +681,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
       }
 
       if (!droppedItem) {
-        return { success: false, message: 'Equipment not found' };
+        return { success: false, error: 'Equipment not found' };
       }
 
       // Add to sector stash
@@ -751,13 +751,13 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       const selectedEquipment = args.equipment;
 
       if (!selectedEquipment) {
-        return { success: false, message: 'No equipment selected' };
+        return { success: false, error: 'No equipment selected' };
       }
 
       // Remove from discard pile
       const discard = game.getEquipmentDiscard(selectedEquipment.equipmentType);
       if (!discard) {
-        return { success: false, message: 'Discard pile not found' };
+        return { success: false, error: 'Discard pile not found' };
       }
 
       // Equip to Feedback (or replace existing)
@@ -835,7 +835,7 @@ export function createSquidheadDisarmAction(game: MERCGame): ActionDefinition {
       const stash = sector.getStashContents();
       const mineIndex = stash.findIndex(e => isLandMine(e.equipmentId));
       if (mineIndex === -1) {
-        return { success: false, message: 'No land mines to disarm' };
+        return { success: false, error: 'No land mines to disarm' };
       }
 
       const mine = sector.takeFromStash(mineIndex)!;
@@ -912,14 +912,14 @@ export function createDocHealAction(game: MERCGame): ActionDefinition {
     .execute((_args, ctx) => {
       const player = ctx.player as MERCPlayer;
       const doc = findDoc(player);
-      if (!doc) return { success: false, message: 'Doc is not on this team.' };
+      if (!doc) return { success: false, error: 'Doc is not on this team.' };
 
       const squad = player.getSquadContaining(doc);
-      if (!squad) return { success: false, message: `${doc.combatantName} is not in a squad.` };
+      if (!squad) return { success: false, error: `${doc.combatantName} is not in a squad.` };
 
       const damaged = squad.getLivingMercs().filter(m => m.damage > 0);
       if (damaged.length === 0) {
-        return { success: false, message: 'Nobody in the squad is wounded.' };
+        return { success: false, error: 'Nobody in the squad is wounded.' };
       }
 
       game.animate('doc-heal', {
@@ -979,11 +979,11 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       // Get Squidhead's sector
       const squad = player.getSquadContaining(squidhead);
       if (!squad?.sectorId) {
-        return { success: false, message: 'Squidhead must be on the board' };
+        return { success: false, error: 'Squidhead must be on the board' };
       }
       const sector = game.getSector(squad.sectorId);
       if (!sector) {
-        return { success: false, message: 'Sector not found' };
+        return { success: false, error: 'Sector not found' };
       }
 
       // Find and unequip the land mine
@@ -1007,7 +1007,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       }
 
       if (!mine) {
-        return { success: false, message: 'No land mine to arm' };
+        return { success: false, error: 'No land mine to arm' };
       }
 
       sector.addToStash(mine);
@@ -1191,7 +1191,7 @@ export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
       }
 
       if (drawn.length === 0) {
-        return { success: false, message: `No ${equipmentType} cards in deck` };
+        return { success: false, error: `No ${equipmentType} cards in deck` };
       }
 
       // Store in settings — execute() mutations sync to client before next action renders
@@ -1259,20 +1259,20 @@ export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefini
 
       const drawnCache = getHagnessDrawnChoicesCache(game, playerId);
       if (!drawnCache || drawnCache.elementIds.length === 0) {
-        return { success: false, message: 'No equipment was drawn' };
+        return { success: false, error: 'No equipment was drawn' };
       }
 
       // Find the selected equipment by name
       const selectedIndex = drawnCache.equipmentData.findIndex(d => d.equipmentName === selectedName);
       if (selectedIndex === -1) {
-        return { success: false, message: 'Selected equipment not found' };
+        return { success: false, error: 'Selected equipment not found' };
       }
 
       const selectedElementId = drawnCache.elementIds[selectedIndex];
       const equipment = game.getElementById(selectedElementId) as Equipment | undefined;
       if (!equipment) {
         clearHagnessDrawnChoicesCache(game, playerId);
-        return { success: false, message: 'Equipment element not found' };
+        return { success: false, error: 'Equipment element not found' };
       }
 
       // Unchosen equipment stays in discard (drawEquipment drew them there as holding area)
@@ -1350,19 +1350,19 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
       const cache = getHagnessCache(game, playerId);
 
       if (!cache) {
-        return { success: false, message: 'No pending equipment' };
+        return { success: false, error: 'No pending equipment' };
       }
 
       const equipment = game.getElementById(cache.equipmentId) as Equipment | undefined;
       if (!equipment) {
         clearHagnessCache(game, playerId);
-        return { success: false, message: 'Equipment not found' };
+        return { success: false, error: 'Equipment not found' };
       }
 
       const hagness = player.team.find(m => m.combatantId === 'hagness' && !m.isDead);
       if (!hagness) {
         clearHagnessCache(game, playerId);
-        return { success: false, message: 'Hagness not found' };
+        return { success: false, error: 'Hagness not found' };
       }
 
       // Handle cancel - drop equipment in sector
@@ -1387,7 +1387,7 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
       const hagnessSquad = player.getSquadContaining(hagness);
       if (!hagnessSquad) {
         clearHagnessCache(game, playerId);
-        return { success: false, message: 'Hagness squad not found' };
+        return { success: false, error: 'Hagness squad not found' };
       }
 
       // Handle recipient - might be string or object
@@ -1407,7 +1407,7 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
 
       if (!recipient) {
         clearHagnessCache(game, playerId);
-        return { success: false, message: 'Recipient not found' };
+        return { success: false, error: 'Recipient not found' };
       }
 
       // Equip
@@ -1572,7 +1572,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       }
 
       if (!repairKit) {
-        return { success: false, message: 'No Repair Kit found on combatant' };
+        return { success: false, error: 'No Repair Kit found on combatant' };
       }
 
       // Find the selected equipment in discard
@@ -1582,7 +1582,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       );
 
       if (!selected) {
-        return { success: false, message: 'Equipment not found in discard' };
+        return { success: false, error: 'Equipment not found in discard' };
       }
 
       // Remove repair kit from combatant and discard it
@@ -1603,7 +1603,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       // Find the combatant's sector to put equipment in stash (works for both player types)
       const sector = findUnitSector(combatant, ctx.player, game);
       if (!sector) {
-        return { success: false, message: 'Combatant not in a valid sector' };
+        return { success: false, error: 'Combatant not in a valid sector' };
       }
 
       // Remove from discard pile and add to sector stash
@@ -1824,7 +1824,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetSectorName);
 
       if (!unit || !targetSector) {
-        return { success: false, message: 'Invalid unit or target sector' };
+        return { success: false, error: 'Invalid unit or target sector' };
       }
       const isRebel = game.isRebelPlayer(ctx.player);
 

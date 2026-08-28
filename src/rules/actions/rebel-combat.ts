@@ -37,7 +37,7 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
     })
     .execute((_, ctx) => {
       if (!game.activeCombat) {
-        return { success: false, message: 'No active combat' };
+        return { success: false, error: 'No active combat' };
       }
 
       if (game.activeCombat.awaitingRetreatDecisions) {
@@ -54,7 +54,7 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
 
       const sector = game.getSector(game.activeCombat.sectorId);
       if (!sector) {
-        return { success: false, message: 'Combat sector not found' };
+        return { success: false, error: 'Combat sector not found' };
       }
 
       // Use the attacking player from activeCombat, not ctx.player — ctx.player may
@@ -63,7 +63,7 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
         p => `${p.seat}` === game.activeCombat!.attackingPlayerId
       );
       if (!attackingPlayer) {
-        return { success: false, message: 'Attacking player not found' };
+        return { success: false, error: 'Attacking player not found' };
       }
       const outcome = executeCombat(game, sector, attackingPlayer);
 
@@ -143,7 +143,7 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const retreatSector = args.retreatSector;
       if (!retreatSector) {
-        return { success: false, message: 'No retreat sector provided' };
+        return { success: false, error: 'No retreat sector provided' };
       }
 
       const player = ctx.player as RebelPlayer | DictatorPlayer;
@@ -244,7 +244,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
     })
     .execute((args) => {
       if (!game.activeCombat || !game.activeCombat.pendingTargetSelection) {
-        return { success: false, message: 'No target selection pending' };
+        return { success: false, error: 'No target selection pending' };
       }
 
       const pending = game.activeCombat.pendingTargetSelection;
@@ -255,7 +255,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         : [args.targets];
 
       if (targetIds.length === 0) {
-        return { success: false, message: 'No targets selected' };
+        return { success: false, error: 'No targets selected' };
       }
 
       // Look up target names for the message
@@ -282,14 +282,14 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
       // Continue combat to check for more MERCs needing selection or execute round
       const sector = game.getSector(game.activeCombat.sectorId);
       if (!sector) {
-        return { success: false, message: 'Combat sector not found' };
+        return { success: false, error: 'Combat sector not found' };
       }
 
       const player = resolveActiveCombatAttacker(game);
       if (!player) {
         return {
           success: false,
-          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+          error: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
         };
       }
 
@@ -370,14 +370,14 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
     })
     .execute((args) => {
       if (!game.activeCombat || !game.activeCombat.pendingAttackDogSelection) {
-        return { success: false, message: 'No Attack Dog selection pending' };
+        return { success: false, error: 'No Attack Dog selection pending' };
       }
 
       const pending = game.activeCombat.pendingAttackDogSelection;
       const targetId = args.target;
 
       if (!targetId) {
-        return { success: false, message: 'No target selected' };
+        return { success: false, error: 'No target selected' };
       }
 
       // Look up target name for the message
@@ -399,14 +399,14 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
       // Continue combat to execute the dog assignment and round
       const sector = game.getSector(game.activeCombat.sectorId);
       if (!sector) {
-        return { success: false, message: 'Combat sector not found' };
+        return { success: false, error: 'Combat sector not found' };
       }
 
       const player = resolveActiveCombatAttacker(game);
       if (!player) {
         return {
           success: false,
-          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+          error: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
         };
       }
 
@@ -522,7 +522,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
     })
     .execute((args, _ctx) => {
       if (!game.activeCombat?.pendingHitAllocation) {
-        return { success: false, message: 'No hit allocation pending' };
+        return { success: false, error: 'No hit allocation pending' };
       }
 
       const pending = game.activeCombat.pendingHitAllocation;
@@ -567,7 +567,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
           game.message(`${pending.attackerName} allocation rejected: expected ${pending.hits} hit(s), got ${totalAllocated}`);
           return {
             success: false,
-            message: `Allocate exactly ${pending.hits} hit(s) (allocated ${totalAllocated})`,
+            error: `Allocate exactly ${pending.hits} hit(s) (allocated ${totalAllocated})`,
           };
         }
       }
@@ -601,14 +601,14 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       // Continue combat
       const sector = game.getSector(game.activeCombat.sectorId);
       if (!sector) {
-        return { success: false, message: 'Combat sector not found' };
+        return { success: false, error: 'Combat sector not found' };
       }
 
       const player = resolveActiveCombatAttacker(game);
       if (!player) {
         return {
           success: false,
-          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+          error: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
         };
       }
 
@@ -651,7 +651,7 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
     })
     .execute(() => {
       if (!game.activeCombat?.pendingHitAllocation) {
-        return { success: false, message: 'No hit allocation pending' };
+        return { success: false, error: 'No hit allocation pending' };
       }
 
       const pending = game.activeCombat.pendingHitAllocation;
@@ -735,7 +735,7 @@ export function createAdelheidToggleConversionAction(game: MERCGame): ActionDefi
     })
     .execute((args, ctx) => {
       const combat = game.activeCombat;
-      if (!combat) return { success: false, message: 'No active combat' };
+      if (!combat) return { success: false, error: 'No active combat' };
 
       const mode = args.mode;
       const ids = adelheidsFor(ctx.player as MERCPlayer).map(c => c.id);
@@ -764,14 +764,14 @@ export function createAdelheidToggleConversionAction(game: MERCGame): ActionDefi
 function resumeAfterGolemChoice(game: MERCGame, message: string) {
   const sector = game.getSector(game.activeCombat!.sectorId);
   if (!sector) {
-    return { success: false as const, message: 'Combat sector not found' };
+    return { success: false as const, error: 'Combat sector not found' };
   }
 
   const player = resolveActiveCombatAttacker(game);
   if (!player) {
     return {
       success: false as const,
-      message: `Cannot continue combat: no player holds seat ${game.activeCombat!.attackingPlayerId}.`,
+      error: `Cannot continue combat: no player holds seat ${game.activeCombat!.attackingPlayerId}.`,
     };
   }
 
@@ -799,7 +799,7 @@ export function createGolemPreCombatAttackAction(game: MERCGame): ActionDefiniti
     })
     .execute((args) => {
       const pending = game.activeCombat?.pendingGolemAttack;
-      if (!pending) return { success: false, message: 'No Golem strike pending' };
+      if (!pending) return { success: false, error: 'No Golem strike pending' };
 
       const targetId = (args.target).split('::')[1];
       if (!game.activeCombat!.selectedTargets) {
@@ -820,7 +820,7 @@ export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition
     })
     .execute(() => {
       const pending = game.activeCombat?.pendingGolemAttack;
-      if (!pending) return { success: false, message: 'No Golem strike pending' };
+      if (!pending) return { success: false, error: 'No Golem strike pending' };
 
       if (!game.activeCombat!.selectedTargets) {
         game.activeCombat!.selectedTargets = new Map();
@@ -859,7 +859,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
     })
     .execute((args) => {
       if (!game.activeCombat?.pendingWolverineSixes) {
-        return { success: false, message: 'No Wolverine allocation pending' };
+        return { success: false, error: 'No Wolverine allocation pending' };
       }
 
       const pending = game.activeCombat.pendingWolverineSixes;
@@ -885,14 +885,14 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       // Continue combat
       const sector = game.getSector(game.activeCombat.sectorId);
       if (!sector) {
-        return { success: false, message: 'Combat sector not found' };
+        return { success: false, error: 'Combat sector not found' };
       }
 
       const player = resolveActiveCombatAttacker(game);
       if (!player) {
         return {
           success: false,
-          message: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
+          error: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
         };
       }
 
@@ -951,7 +951,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
     })
     .execute((args) => {
       if (!game.activeCombat?.pendingBeforeAttackHealing) {
-        return { success: false, message: 'No pending healing decision' };
+        return { success: false, error: 'No pending healing decision' };
       }
 
       const pending = game.activeCombat.pendingBeforeAttackHealing;
@@ -963,7 +963,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         `${h.healerName} (${h.itemName})` === healerChoice
       );
       if (!healerData) {
-        return { success: false, message: 'Healer not found' };
+        return { success: false, error: 'Healer not found' };
       }
 
       // Find the selected target
@@ -971,7 +971,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         `${a.name} (${a.damage} damage)` === targetChoice
       );
       if (!targetData) {
-        return { success: false, message: 'Target not found' };
+        return { success: false, error: 'Target not found' };
       }
 
       // Find the actual combatant objects
@@ -981,13 +981,13 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
 
       const healerCombatant = allCombatants.find(c => c.id === healerData.healerId);
       if (!healerCombatant || !isCombatantModel(healerCombatant.sourceElement)) {
-        return { success: false, message: 'Healer combatant not found' };
+        return { success: false, error: 'Healer combatant not found' };
       }
       const healerMerc = healerCombatant.sourceElement;
 
       const targetCombatant = allCombatants.find(c => c.id === targetData.id);
       if (!targetCombatant || !isCombatantModel(targetCombatant.sourceElement)) {
-        return { success: false, message: 'Target combatant not found' };
+        return { success: false, error: 'Target combatant not found' };
       }
       const targetMerc = targetCombatant.sourceElement;
 
@@ -999,7 +999,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         healingItem = healerMerc.bandolierSlots.find(b => b.equipmentId === healerData.healingItemId) ?? null;
       }
       if (!healingItem) {
-        return { success: false, message: 'Healing item not found' };
+        return { success: false, error: 'Healing item not found' };
       }
 
       // Initialize healingDiceUsed map if needed
@@ -1093,7 +1093,7 @@ export function createCombatSkipBeforeAttackHealAction(game: MERCGame): ActionDe
     })
     .execute(() => {
       if (!game.activeCombat?.pendingBeforeAttackHealing) {
-        return { success: false, message: 'No pending healing decision' };
+        return { success: false, error: 'No pending healing decision' };
       }
 
       const pending = game.activeCombat.pendingBeforeAttackHealing;
@@ -1241,7 +1241,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
     })
     .execute((args) => {
       if (!game.activeCombat) {
-        return { success: false, message: 'No active combat' };
+        return { success: false, error: 'No active combat' };
       }
 
       const targetChoice = args.target;
@@ -1267,7 +1267,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
       }
 
       if (!surgeonData) {
-        return { success: false, message: 'Surgeon not found' };
+        return { success: false, error: 'Surgeon not found' };
       }
 
       const { combatant: surgeonCombatant, merc: surgeonMerc } = surgeonData;
@@ -1281,7 +1281,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
       });
 
       if (!targetCombatant) {
-        return { success: false, message: 'Target not found' };
+        return { success: false, error: 'Target not found' };
       }
 
       const targetMerc = targetCombatant.sourceElement as CombatantModel;
@@ -1394,7 +1394,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
     })
     .execute((args, ctx) => {
       if (!game.pendingArtilleryAllocation) {
-        return { success: false, message: 'No artillery allocation pending' };
+        return { success: false, error: 'No artillery allocation pending' };
       }
 
       const pending = game.pendingArtilleryAllocation;
@@ -1513,7 +1513,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
       const saverMerc = args.saverMerc;
       const pending = game.activeCombat?.pendingEpinephrine;
       if (!pending) {
-        return { success: false, message: 'No pending epinephrine choice' };
+        return { success: false, error: 'No pending epinephrine choice' };
       }
 
       // Find the dying MERC
@@ -1530,12 +1530,12 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
 
       if (!dyingMerc) {
         game.activeCombat!.pendingEpinephrine = undefined;
-        return { success: false, message: 'Dying MERC not found' };
+        return { success: false, error: 'Dying MERC not found' };
       }
 
       if (!applyEpinephrineSave(game, dyingMerc, saverMerc)) {
         game.activeCombat!.pendingEpinephrine = undefined;
-        return { success: false, message: 'Epinephrine not found on selected MERC' };
+        return { success: false, error: 'Epinephrine not found on selected MERC' };
       }
 
       // Clear pending state
@@ -1561,7 +1561,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
     .execute(() => {
       const pending = game.activeCombat?.pendingEpinephrine;
       if (!pending) {
-        return { success: false, message: 'No pending epinephrine choice' };
+        return { success: false, error: 'No pending epinephrine choice' };
       }
 
       // Find the dying MERC
@@ -1578,7 +1578,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
 
       if (!dyingMerc) {
         game.activeCombat!.pendingEpinephrine = undefined;
-        return { success: false, message: 'Dying MERC not found' };
+        return { success: false, error: 'Dying MERC not found' };
       }
 
       handleMercDeath(game, dyingMerc, `${dyingMerc.combatantName} has died!`);
@@ -1662,7 +1662,7 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
     })
     .execute((args, ctx) => {
       if (!game.pendingMortarAttack) {
-        return { success: false, message: 'No mortar attack pending' };
+        return { success: false, error: 'No mortar attack pending' };
       }
 
       const pending = game.pendingMortarAttack;
@@ -1689,7 +1689,7 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
       const targetSector = game.getSector(pending.targetSectorId);
       if (!targetSector) {
         game.pendingMortarAttack = null;
-        return { success: false, message: 'Target sector not found' };
+        return { success: false, error: 'Target sector not found' };
       }
 
       const { totalDamage, hitCombatantIds, militiaKilled } = applyMortarDamage(

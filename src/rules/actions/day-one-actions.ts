@@ -116,17 +116,17 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       const available = getMercsFromCache(game, playerId) || [];
 
       if (available.length === 0) {
-        return { success: false, message: 'No MERCs available in deck' };
+        return { success: false, error: 'No MERCs available in deck' };
       }
 
       const chosenMercName = args.merc;
       if (!chosenMercName || chosenMercName === 'No MERCs available') {
-        return { success: false, message: 'No MERCs available in deck' };
+        return { success: false, error: 'No MERCs available in deck' };
       }
 
       const merc = available.find(m => capitalize(m.combatantName) === chosenMercName);
       if (!merc) {
-        return { success: false, message: 'Invalid selection' };
+        return { success: false, error: 'Invalid selection' };
       }
 
       // Hire the selected MERC - sectorId is derived from squad membership
@@ -212,22 +212,22 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       const available = getMercsFromCache(game, playerId) || [];
 
       if (available.length === 0) {
-        return { success: false, message: 'No MERCs available in deck' };
+        return { success: false, error: 'No MERCs available in deck' };
       }
 
       const chosenMercName = args.merc;
       if (!chosenMercName || chosenMercName === 'No MERCs available' || chosenMercName === 'No compatible MERCs available') {
-        return { success: false, message: 'No compatible MERCs available' };
+        return { success: false, error: 'No compatible MERCs available' };
       }
 
       const merc = available.find(m => capitalize(m.combatantName) === chosenMercName);
       if (!merc) {
-        return { success: false, message: 'Invalid selection' };
+        return { success: false, error: 'Invalid selection' };
       }
 
       // Double-check compatibility (safety check)
       if (!canHireMercWithTeam(merc.combatantId, player.team)) {
-        return { success: false, message: `${merc.combatantName} is incompatible with your current team` };
+        return { success: false, error: `${merc.combatantName} is incompatible with your current team` };
       }
 
       // Hire the selected MERC - sectorId is derived from squad membership
@@ -340,21 +340,21 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       }
 
       if (available.length === 0) {
-        return { success: false, message: 'No MERCs available in deck' };
+        return { success: false, error: 'No MERCs available in deck' };
       }
 
       if (!chosenMercName) {
-        return { success: false, message: 'No MERC selected' };
+        return { success: false, error: 'No MERC selected' };
       }
 
       const merc = available.find(m => capitalize(m.combatantName) === chosenMercName);
       if (!merc) {
-        return { success: false, message: 'Invalid selection' };
+        return { success: false, error: 'Invalid selection' };
       }
 
       // Double-check compatibility (safety check)
       if (!canHireMercWithTeam(merc.combatantId, player.team)) {
-        return { success: false, message: `${merc.combatantName} is incompatible with your current team` };
+        return { success: false, error: `${merc.combatantName} is incompatible with your current team` };
       }
 
       // Hire the selected MERC - sectorId is derived from squad membership
@@ -459,7 +459,7 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
       const dictatorData = game.combatantData.filter(d => d.cardType === 'dictator');
       const dictator = dictatorData.find(d => d.name === chosenDictatorName);
       if (!dictator) {
-        return { success: false, message: `Unknown dictator: ${chosenDictatorName}` };
+        return { success: false, error: `Unknown dictator: ${chosenDictatorName}` };
       }
 
       const dictatorCard = setupDictator(game, dictatorData, dictator.id);
@@ -574,7 +574,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       if (!merc) {
         clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
-        return { success: false, message: 'No MERC drawn' };
+        return { success: false, error: 'No MERC drawn' };
       }
 
       // Put MERC in primary squad
@@ -644,7 +644,7 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
       const baseSector = args.baseLocation;
 
       if (!baseSector) {
-        return { success: false, message: 'Invalid base location' };
+        return { success: false, error: 'Invalid base location' };
       }
 
       game.dictatorPlayer.baseSectorId = baseSector.sectorId;
@@ -799,7 +799,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
 
       if (!targetSector) {
-        return { success: false, message: 'Invalid sector' };
+        return { success: false, error: 'Invalid sector' };
       }
 
       const startValue = targetSector.dictatorMilitia;
@@ -928,7 +928,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
         // Decrement counter even on failure to prevent infinite loop
         const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
         setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
-        return { success: false, message: 'No MERC drawn' };
+        return { success: false, error: 'No MERC drawn' };
       }
 
       const squadChoice = args.targetSquad;

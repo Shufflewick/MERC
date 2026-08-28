@@ -157,7 +157,7 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
           merc.putInto(game.mercDiscard);
         }
         clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
-        return { success: false, message: 'Not enough actions' };
+        return { success: false, error: 'Not enough actions' };
       }
 
       // MERC-yi7: Fire a MERC first if requested
@@ -347,7 +347,7 @@ export function createRehireMercAction(game: MERCGame): ActionDefinition {
       }
 
       if (!hired) {
-        return { success: false, message: `${chosenName} was not among the drawn MERCs.` };
+        return { success: false, error: `${chosenName} was not among the drawn MERCs.` };
       }
 
       hired.putInto(player.primarySquad);
@@ -463,18 +463,18 @@ export function createExploreAction(game: MERCGame): ActionDefinition {
       const actingUnit = args.actingUnit;
 
       if (!actingUnit) {
-        return { success: false, message: 'Unit not found' };
+        return { success: false, error: 'Unit not found' };
       }
 
       // Find the sector
       const sector = findUnitSector(actingUnit, ctx.player, game);
       if (!sector) {
-        return { success: false, message: 'No sector found' };
+        return { success: false, error: 'No sector found' };
       }
 
       // Spend action with validation (works for both merc and dictator combatants)
       if (actingUnit.actionsRemaining < ACTION_COSTS.EXPLORE) {
-        return { success: false, message: 'Not enough actions to explore' };
+        return { success: false, error: 'Not enough actions to explore' };
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.EXPLORE;
 
@@ -628,7 +628,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
       const equipment = args.equipment instanceof Equipment ? args.equipment : null;
 
       if (!unit || !sector) {
-        return { success: false, message: 'Invalid unit or sector' };
+        return { success: false, error: 'Invalid unit or sector' };
       }
 
       const unitName = getUnitName(unit);
@@ -787,7 +787,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
       game.lastExplorer = null;
 
       if (!explorer) {
-        return { success: false, message: 'No explorer tracked' };
+        return { success: false, error: 'No explorer tracked' };
       }
 
       if (equipmentChoice === 'Done') {
@@ -796,12 +796,12 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
 
       const targetUnit = findExplorerUnit(ctx);
       if (!targetUnit) {
-        return { success: false, message: 'Explorer unit not found' };
+        return { success: false, error: 'Explorer unit not found' };
       }
 
       const sector = game.getSector(explorer.sectorId);
       if (!sector) {
-        return { success: false, message: 'Explored sector not found' };
+        return { success: false, error: 'Explored sector not found' };
       }
 
       // Parse equipment name from choice (format: "EquipName (Type)")
@@ -809,7 +809,7 @@ export function createTakeFromStashAction(game: MERCGame): ActionDefinition {
       const equipment = sector.stash.find(e => e.equipmentName === equipName);
 
       if (!equipment) {
-        return { success: false, message: 'Equipment not found in stash' };
+        return { success: false, error: 'Equipment not found in stash' };
       }
 
       const unitName = getUnitName(targetUnit);
@@ -954,13 +954,13 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
 
       if (!actingUnit) {
         game.message('Error: Unit not found for train action');
-        return { success: false, message: 'Unit not found' };
+        return { success: false, error: 'Unit not found' };
       }
 
       const sector = findUnitSector(actingUnit, ctx.player, game);
       if (!sector) {
         game.message('Error: No sector found for train action');
-        return { success: false, message: 'No sector found' };
+        return { success: false, error: 'No sector found' };
       }
 
       // Spend action - MERC-bd4: Faustina uses training action first (only for merc combatants)
@@ -1035,7 +1035,7 @@ export function createTrainAction(game: MERCGame): ActionDefinition {
           }
         }
       } else {
-        return { success: false, message: 'Unknown player type' };
+        return { success: false, error: 'Unknown player type' };
       }
 
       return { success: true, message: `Trained ${trained} militia` };
@@ -1156,12 +1156,12 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
       }
 
       if (!actingUnit) {
-        return { success: false, message: 'Unit not found' };
+        return { success: false, error: 'Unit not found' };
       }
 
       // Spend action
       if (actingUnit.actionsRemaining < ACTION_COSTS.HOSPITAL) {
-        return { success: false, message: 'Not enough actions' };
+        return { success: false, error: 'Not enough actions' };
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.HOSPITAL;
 
@@ -1318,13 +1318,13 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
       if (!actingUnit) {
         clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
-        return { success: false, message: 'Unit not found' };
+        return { success: false, error: 'Unit not found' };
       }
 
       // Spend action
       if (actingUnit.actionsRemaining < ACTION_COSTS.ARMS_DEALER) {
         clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
-        return { success: false, message: 'Not enough actions' };
+        return { success: false, error: 'Not enough actions' };
       }
       actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
 
@@ -1400,7 +1400,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         return { success: true, message: `Bought ${equipment.equipmentName}` };
       }
 
-      return { success: false, message: 'No equipment available' };
+      return { success: false, error: 'No equipment available' };
     });
 }
 
@@ -1519,7 +1519,7 @@ export function createViewStashAction(game: MERCGame): ActionDefinition {
       const sector = game.getSector(sectorId);
 
       if (!sector) {
-        return { success: false, message: 'Sector not found' };
+        return { success: false, error: 'Sector not found' };
       }
 
       // Return the stash contents as data for the UI to display

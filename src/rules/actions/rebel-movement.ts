@@ -255,26 +255,26 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
     .execute((args, ctx) => {
       const ride = getAvailableVehicleRides(ctx.player, game)
         .find(r => describeRide(r) === args.vehicle);
-      if (!ride) return { success: false, message: 'That vehicle is no longer available.' };
+      if (!ride) return { success: false, error: 'That vehicle is no longer available.' };
 
       const destination = args.destination;
       const fromSectorId = ride.squad.sectorId;
       const sourceSector = fromSectorId ? game.getSector(fromSectorId) : undefined;
-      if (!sourceSector) return { success: false, message: 'The squad is not on the map.' };
+      if (!sourceSector) return { success: false, error: 'The squad is not on the map.' };
 
       const passengers = ride.squad.getLivingMercs();
       const militiaCount = (args.militiaCount as number) ?? 0;
       if (passengers.length + militiaCount > ride.capacity) {
         return {
           success: false,
-          message: `The ${ride.equipmentName} carries only ${ride.capacity} units.`,
+          error: `The ${ride.equipmentName} carries only ${ride.capacity} units.`,
         };
       }
 
       if (!useAction(ride.merc, ride.actionsRequired)) {
         return {
           success: false,
-          message: `${capitalize(ride.merc.combatantName)} does not have ${ride.actionsRequired} action(s) left.`,
+          error: `${capitalize(ride.merc.combatantName)} does not have ${ride.actionsRequired} action(s) left.`,
         };
       }
 
@@ -1062,19 +1062,19 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
       } else if (targetSquadLabel.includes('Base')) {
         targetType = 'base';
       } else {
-        return { success: false, message: 'Invalid target squad' };
+        return { success: false, error: 'Invalid target squad' };
       }
 
       if (game.isRebelPlayer(ctx.player)) {
         const player = asRebelPlayer(ctx.player);
         const merc = player.team.find(m => getCombatantName(m) === combatantName);
         if (!merc) {
-          return { success: false, message: 'MERC not found' };
+          return { success: false, error: 'MERC not found' };
         }
 
         const sourceSquad = player.getSquadContaining(merc);
         if (!sourceSquad) {
-          return { success: false, message: 'MERC not in any squad' };
+          return { success: false, error: 'MERC not in any squad' };
         }
 
         const destSquad = targetType === 'primary' ? player.primarySquad : player.secondarySquad;
@@ -1107,7 +1107,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
       if (game.isDictatorPlayer(ctx.player)) {
         const dictator = game.dictatorPlayer;
         if (!dictator?.primarySquad || !dictator.secondarySquad) {
-          return { success: false, message: 'Invalid squads' };
+          return { success: false, error: 'Invalid squads' };
         }
 
         const baseSquad = dictator.baseSquadOrNull;
@@ -1143,7 +1143,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         }
 
         if (!combatant || !sourceSquad) {
-          return { success: false, message: 'Combatant not found' };
+          return { success: false, error: 'Combatant not found' };
         }
 
         // Determine destination squad (now handles 'base' as a real squad)
@@ -1155,7 +1155,7 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         } else if (targetType === 'base' && baseSquad) {
           destSquad = baseSquad;
         } else {
-          return { success: false, message: 'Invalid target squad' };
+          return { success: false, error: 'Invalid target squad' };
         }
 
         // If creating new squad, set its location
@@ -1179,6 +1179,6 @@ export function createAssignToSquadAction(game: MERCGame): ActionDefinition {
         return { success: true, message: `Assigned ${getCombatantName(combatant)} to ${targetType} squad` };
       }
 
-      return { success: false, message: 'Invalid player type' };
+      return { success: false, error: 'Invalid player type' };
     });
 }
