@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
+import { tacticsDeckOf } from './helpers/dictator.js';
 import { CombatantModel, Sector, TacticsCard } from '../src/rules/elements.js';
 import { executeTacticsEffect, applyConscriptsEffect, applyOilReservesEffect } from '../src/rules/tactics-effects.js';
 import { executeCombat, getCombatants, countHitsForCombatant } from '../src/rules/combat.js';
@@ -20,7 +21,7 @@ function newGame(seed: string, rebelCount = 2) {
 
 /** Build a loose TacticsCard so an effect can be run without dealing a hand. */
 function card(game: MERCGame, tacticsId: string, name: string, revealsBase = false): TacticsCard {
-  return game.dictatorPlayer.tacticsDeck.create(TacticsCard, `test-${tacticsId}`, {
+  return tacticsDeckOf(game).create(TacticsCard, `test-${tacticsId}`, {
     tacticsId,
     tacticsName: name,
     story: '',

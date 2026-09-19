@@ -227,6 +227,7 @@ describe('MCTS Clone Divergence', () => {
               5, // Keep this diagnostic test fast and bounded
             );
             const move = await bot.play();
+            if (!move) throw new Error(`The MCTS bot offered no move for seat ${dictatorSeat}.`);
             const result = runner.performAction(move.action, dictatorSeat, move.args);
             if (result.success) {
               actionCount++;

@@ -78,6 +78,16 @@ export interface MERCOptions extends GameOptions {
   };
   // Debug: stack tactics deck with specific cards in order (first = top of deck)
   debugTacticsOrder?: string[];
+  /**
+   * The platform lobby's resolved EXCLUSIVE options, keyed by the option id in
+   * boardsmith.json, each value the 1-indexed seat that holds it. MERC declares
+   * one, `role`, which names the dictator's chair.
+   */
+  exclusiveSeats?: Record<string, number>;
+  /** Per-seat bot flags from the host, seat 1 first. */
+  playerIsBot?: boolean[];
+  /** Per-seat player-option values from the lobby, seat 1 first. */
+  playerOptions?: Array<Record<string, unknown>>;
 }
 
 // =============================================================================
@@ -855,7 +865,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     let dictatorSeat = -1;  // -1 means last player (resolved below)
 
     // Platform lobby: exclusiveSeats provides the seat number directly (1-indexed)
-    const exclusiveSeats = (options as any).exclusiveSeats;
+    const exclusiveSeats = options.exclusiveSeats;
     if (exclusiveSeats?.role != null) {
       dictatorSeat = exclusiveSeats.role;
     }

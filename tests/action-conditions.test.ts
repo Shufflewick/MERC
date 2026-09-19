@@ -4,7 +4,8 @@ import {
   assertActionAvailable,
 } from 'boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
-import { CombatantModel, Sector, Squad, Equipment } from '../src/rules/elements.js';
+import { CombatantModel, Sector, Squad, Equipment, TacticsCard } from '../src/rules/elements.js';
+import { activeCombatIn } from './helpers/combat-state.js';
 
 /**
  * Action Condition Tests
@@ -102,12 +103,7 @@ describe('Action Conditions', () => {
       game.currentDay = 2;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       // Check that move action condition returns false
       const conditionResult = checkActionCondition(game, 'move', rebel);
@@ -241,12 +237,7 @@ describe('Action Conditions', () => {
       game.currentDay = 2;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'assignToSquad', rebel);
       expect(conditionResult).toBe(false);
@@ -294,7 +285,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
       rebel.secondarySquad.sectorId = sector.sectorId;
 
-      const mercs = game.mercDeck.children.slice(0, 3) as CombatantModel[];
+      const mercs = game.mercDeck.all(CombatantModel).slice(0, 3);
       if (mercs.length >= 3) {
         // sectorId inherited from squad
         mercs[0].putInto(rebel.primarySquad);
@@ -323,7 +314,7 @@ describe('Action Conditions', () => {
       const sector = game.gameMap.getAllSectors()[0];
       rebel.primarySquad.sectorId = sector.sectorId;
 
-      const mercs = game.mercDeck.children.slice(0, 2) as CombatantModel[];
+      const mercs = game.mercDeck.all(CombatantModel).slice(0, 2);
       if (mercs.length >= 2) {
         mercs[0].putInto(rebel.primarySquad);
         mercs[1].putInto(rebel.primarySquad);
@@ -351,7 +342,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
       rebel.secondarySquad.sectorId = undefined;
 
-      const mercs = game.mercDeck.children.slice(0, 2) as CombatantModel[];
+      const mercs = game.mercDeck.all(CombatantModel).slice(0, 2);
       if (mercs.length >= 2) {
         // sectorId inherited from squad
         mercs[0].putInto(rebel.primarySquad);
@@ -380,7 +371,7 @@ describe('Action Conditions', () => {
         rebel.primarySquad.sectorId = sectors[0].sectorId;
         rebel.secondarySquad.sectorId = sectors[1].sectorId;
 
-        const mercs = game.mercDeck.children.slice(0, 2) as CombatantModel[];
+        const mercs = game.mercDeck.all(CombatantModel).slice(0, 2);
         if (mercs.length >= 2) {
           // sectorId inherited from squad
           mercs[0].putInto(rebel.primarySquad);
@@ -426,12 +417,7 @@ describe('Action Conditions', () => {
       sector.explored = false;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'explore', rebel);
       expect(conditionResult).toBe(false);
@@ -549,12 +535,7 @@ describe('Action Conditions', () => {
       game.currentDay = 2;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'train', rebel);
       expect(conditionResult).toBe(false);
@@ -631,9 +612,7 @@ describe('Action Conditions', () => {
       rebel.primarySquad.sectorId = sector.sectorId;
 
       // Find a MERC with training > 0
-      const mercs = game.mercDeck.children.filter(
-        (c): c is CombatantModel => c.isMerc && c.training > 0
-      );
+      const mercs = game.mercDeck.all(CombatantModel, c => c.isMerc && c.training > 0);
       const merc = mercs[0];
 
       if (merc) {
@@ -678,12 +657,7 @@ describe('Action Conditions', () => {
       game.currentDay = 2;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'hireMerc', rebel);
       expect(conditionResult).toBe(false);
@@ -812,12 +786,7 @@ describe('Action Conditions', () => {
       game.currentDay = 2;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: 'test',
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn('test', rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'endTurn', rebel);
       expect(conditionResult).toBe(false);
@@ -874,12 +843,7 @@ describe('Action Conditions', () => {
       game.currentDay = 1;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: 'test',
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn('test', rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'placeLanding', rebel);
       expect(conditionResult).toBe(false);
@@ -975,12 +939,7 @@ describe('Action Conditions', () => {
       game.currentDay = 1;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'hireFirstMerc', rebel);
       expect(conditionResult).toBe(false);
@@ -1103,12 +1062,7 @@ describe('Action Conditions', () => {
       game.currentDay = 2;
 
       // Simulate active combat
-      game.activeCombat = {
-        sectorId: sector.sectorId,
-        rebels: [],
-        dictator: { militia: 1, mercs: [] },
-        round: 1,
-      };
+      game.activeCombat = activeCombatIn(sector.sectorId, rebel.seat);
 
       const conditionResult = checkActionCondition(game, 'reEquip', rebel);
       expect(conditionResult).toBe(false);
@@ -1236,20 +1190,11 @@ describe('Action Conditions', () => {
       const game = testGame.game;
       const dictator = game.dictatorPlayer;
 
-      // Ensure tactics hand is empty (move all to discard)
-      if (dictator.tacticsHand) {
-        const allCards = dictator.tacticsHand.all();
-        for (const card of allCards) {
-          card.putInto(dictator.tacticsDiscard);
-        }
-      }
-      // Also empty deck for Bot check
-      if (dictator.tacticsDeck) {
-        const deckCards = dictator.tacticsDeck.all();
-        for (const card of deckCards) {
-          card.putInto(dictator.tacticsDiscard);
-        }
-      }
+      // Empty the dictator's tactics hand AND deck: the Bot reads both.
+      const discard = dictator.tacticsDiscard;
+      if (!discard) throw new Error('The dictator has no tactics discard pile to empty into.');
+      for (const card of dictator.tacticsHand?.all(TacticsCard) ?? []) card.putInto(discard);
+      for (const card of dictator.tacticsDeck?.all(TacticsCard) ?? []) card.putInto(discard);
 
       const conditionResult = checkActionCondition(game, 'playTactics', dictator);
       expect(conditionResult).toBe(false);
@@ -1281,19 +1226,11 @@ describe('Action Conditions', () => {
       const game = testGame.game;
       const dictator = game.dictatorPlayer;
 
-      // Empty tactics hand and deck
-      if (dictator.tacticsHand) {
-        const allCards = dictator.tacticsHand.all();
-        for (const card of allCards) {
-          card.putInto(dictator.tacticsDiscard);
-        }
-      }
-      if (dictator.tacticsDeck) {
-        const deckCards = dictator.tacticsDeck.all();
-        for (const card of deckCards) {
-          card.putInto(dictator.tacticsDiscard);
-        }
-      }
+      // Empty the dictator's tactics hand AND deck: the Bot reads both.
+      const discard = dictator.tacticsDiscard;
+      if (!discard) throw new Error('The dictator has no tactics discard pile to empty into.');
+      for (const card of dictator.tacticsHand?.all(TacticsCard) ?? []) card.putInto(discard);
+      for (const card of dictator.tacticsDeck?.all(TacticsCard) ?? []) card.putInto(discard);
 
       const conditionResult = checkActionCondition(game, 'reinforce', dictator);
       expect(conditionResult).toBe(false);

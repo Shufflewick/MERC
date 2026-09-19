@@ -18,7 +18,6 @@ describe('Platform dictator view', () => {
         exclusiveSeats: { role: 1 },
         playerOptions: [{ role: 'dictator' }, {}],
         playerIsBot: [false, true],
-        dictatorCharacter: 'random',
       },
     });
     runner.start();

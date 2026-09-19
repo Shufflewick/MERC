@@ -8,7 +8,6 @@ import {
   getValidTargetsForPlayer,
   hasEnemies,
   type Combatant,
-  type CombatOutcome,
 } from '../src/rules/combat.js';
 import {
   getHitThreshold,
@@ -305,31 +304,29 @@ describe('Combat Execution Tests', () => {
       game = testGame.game;
     });
 
-    it('armor should reduce damage', () => {
+    it('takeDamage applies raw damage, and worn armour does not change that', () => {
       const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
       const initialHealth = merc.health;
 
-      // Without armor, full damage
-      merc.takeDamage(2, game);
+      merc.takeDamage(2);
       expect(merc.health).toBe(initialHealth - 2);
 
-      // Reset
       merc.fullHeal();
       expect(merc.health).toBe(merc.maxHealth);
 
-      // With armor, damage reduced
-      const armor = game.armorDeck.first(Equipment);
-      if (armor) {
-        merc.equip(armor);
-        const armorValue = armor.armor || 0;
+      // Absorption is Equipment#applyArmorDamage, driven from the combat path.
+      // Equipping armour leaves takeDamage alone, and this test says so rather
+      // than reading a property Equipment does not have and calling the zero
+      // it got back a reduction.
+      const armor = game.armorDeck.first(Equipment, e => e.armorBonus > 0);
+      if (!armor) throw new Error('The armor deck holds no piece with an armour bonus to equip.');
+      merc.equip(armor);
 
-        merc.takeDamage(2, game);
-        // Damage is reduced by armor
-        const expectedDamage = Math.max(0, 2 - armorValue);
-        expect(merc.damage).toBe(expectedDamage);
-      }
+      merc.takeDamage(2);
+      expect(merc.damage).toBe(2);
+      expect(armor.armorDamage).toBe(0);
     });
   });
 
@@ -400,7 +397,7 @@ describe('Combat Execution Tests', () => {
       expect(merc.health).toBe(maxHealth);
       expect(merc.damage).toBe(0);
 
-      merc.takeDamage(2, game);
+      merc.takeDamage(2);
       expect(merc.health).toBe(maxHealth - 2);
       expect(merc.damage).toBe(2);
     });
@@ -409,7 +406,7 @@ describe('Combat Execution Tests', () => {
       const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
-      merc.takeDamage(2, game);
+      merc.takeDamage(2);
       const damagedHealth = merc.health;
 
       merc.heal(1);
@@ -421,7 +418,7 @@ describe('Combat Execution Tests', () => {
       const merc = game.mercDeck.first(CombatantModel, c => c.isMerc);
       if (!merc) return;
 
-      merc.takeDamage(2, game);
+      merc.takeDamage(2);
       merc.fullHeal();
 
       expect(merc.health).toBe(merc.maxHealth);
@@ -433,7 +430,7 @@ describe('Combat Execution Tests', () => {
       if (!merc) return;
 
       const maxHealth = merc.maxHealth;
-      merc.takeDamage(100, game);
+      merc.takeDamage(100);
 
       // Damage capped at max health
       expect(merc.damage).toBeLessThanOrEqual(maxHealth);
@@ -460,51 +457,6 @@ describe('Combat Execution Tests', () => {
       const raTargetBonus = 1;
       const baseTargets = 1;
       expect(baseTargets + raTargetBonus).toBe(2);
-    });
-  });
-
-  // =========================================================================
-  // Combat Outcome Verification
-  // =========================================================================
-  describe('Combat Outcomes', () => {
-    it('should properly track victory conditions', () => {
-      // Rebel victory: all enemy militia and MERCs dead
-      // Dictator victory: all rebel MERCs dead
-      // Draw: both sides wiped out simultaneously
-
-      const rebelVictory: CombatOutcome = {
-        rebelVictory: true,
-        dictatorVictory: false,
-        retreated: false,
-        combatPending: false,
-        round: 1,
-        events: [],
-      };
-
-      const dictatorVictory: CombatOutcome = {
-        rebelVictory: false,
-        dictatorVictory: true,
-        retreated: false,
-        combatPending: false,
-        round: 1,
-        events: [],
-      };
-
-      expect(rebelVictory.rebelVictory).toBe(true);
-      expect(dictatorVictory.dictatorVictory).toBe(true);
-    });
-
-    it('should support retreat option', () => {
-      const retreatOutcome: CombatOutcome = {
-        rebelVictory: false,
-        dictatorVictory: false,
-        retreated: true,
-        combatPending: false,
-        round: 1,
-        events: [],
-      };
-
-      expect(retreatOutcome.retreated).toBe(true);
     });
   });
 
@@ -538,7 +490,9 @@ describe('Combat Execution Tests', () => {
         id: 'runde-1',
         name: 'Runde',
         health: 3,
+        maxHealth: 3,
         armor: 0,
+        maxArmor: 0,
         combat: 2,
         targets: 1,
         initiative: 2,
@@ -558,7 +512,9 @@ describe('Combat Execution Tests', () => {
         id: 'other-1',
         name: otherMerc.combatantName,
         health: 3,
+        maxHealth: 3,
         armor: 0,
+        maxArmor: 0,
         combat: 2,
         targets: 1,
         initiative: 2,
@@ -579,7 +535,9 @@ describe('Combat Execution Tests', () => {
         id: 'militia-1',
         name: 'Militia',
         health: 1,
+        maxHealth: 1,
         armor: 0,
+        maxArmor: 0,
         combat: 1,
         targets: 1,
         initiative: 2,
@@ -623,7 +581,9 @@ describe('Combat Execution Tests', () => {
         id: 'runde-1',
         name: 'Runde',
         health: 3,
+        maxHealth: 3,
         armor: 0,
+        maxArmor: 0,
         combat: 2,
         targets: 1,
         initiative: 2,
@@ -644,7 +604,9 @@ describe('Combat Execution Tests', () => {
         id: 'militia-1',
         name: 'Militia',
         health: 1,
+        maxHealth: 1,
         armor: 0,
+        maxArmor: 0,
         combat: 1,
         targets: 1,
         initiative: 2,

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
 import { MERCGame } from '../src/rules/game.js';
+import { tacticsDeckOf } from './helpers/dictator.js';
 import { CombatantModel, Equipment, TacticsCard } from '../src/rules/elements.js';
 import {
   applyHusseinSetupAbility,
@@ -65,7 +66,7 @@ describe('Setup Abilities', () => {
     expect(game.dictatorPlayer.dictator!.combatantId).toBe('hussein');
 
     // The tactics deck starts with 5 cards (standard setup)
-    const deckBefore = game.dictatorPlayer.tacticsDeck.count(TacticsCard);
+    const deckBefore = tacticsDeckOf(game).count(TacticsCard);
     expect(deckBefore).toBe(5);
 
     // Apply Hussein's setup ability
@@ -73,7 +74,7 @@ describe('Setup Abilities', () => {
     expect(result.success).toBe(true);
 
     // Deck should now have 10 cards
-    const deckAfter = game.dictatorPlayer.tacticsDeck.count(TacticsCard);
+    const deckAfter = tacticsDeckOf(game).count(TacticsCard);
     expect(deckAfter).toBe(10);
     expect(result.data?.deckSize).toBe(10);
   });

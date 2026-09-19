@@ -212,7 +212,7 @@ describe('MERC Smoke Tests', () => {
     it('should initialize tactics deck', () => {
       const dictator = game.dictatorPlayer;
       expect(dictator.tacticsDeck).toBeDefined();
-      expect(dictator.tacticsDeck.count()).toBeGreaterThan(0);
+      expect(dictator.tacticsDeck?.count()).toBeGreaterThan(0);
     });
   });
 
@@ -250,11 +250,6 @@ describe('MERC Smoke Tests', () => {
     it('should have player color assigned', () => {
       expect(rebel.playerColor).toBeDefined();
     });
-
-    it('should have credits property', () => {
-      // Credits may start at 0 or undefined depending on setup
-      expect(rebel.credits === 0 || rebel.credits === undefined).toBe(true);
-    });
   });
 
   describe('Dictator Player State', () => {
@@ -284,11 +279,6 @@ describe('MERC Smoke Tests', () => {
 
     it('should have empty hired mercs initially', () => {
       expect(dictator.hiredMercs.length).toBe(0);
-    });
-
-    it('should have difficulty property', () => {
-      // Difficulty is set during setup
-      expect(dictator.difficulty !== undefined || dictator.difficulty === undefined).toBe(true);
     });
   });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
+import { tacticsDeckOf } from './helpers/dictator.js';
 import { applyKimSetupAbility } from '../src/rules/dictator-abilities.js';
 import { executeTacticsEffect } from '../src/rules/tactics-effects.js';
 import { TacticsCard } from '../src/rules/elements.js';
@@ -32,7 +33,7 @@ describe('Dictator free equipment on entering play', () => {
     const sector = game.gameMap.getAllSectors()[0];
     game.dictatorPlayer.baseSectorId = sector.sectorId;
 
-    const revealCard = game.dictatorPlayer.tacticsDeck.create(TacticsCard, 'test-veteran-militia', {
+    const revealCard = tacticsDeckOf(game).create(TacticsCard, 'test-veteran-militia', {
       tacticsId: 'veteran-militia',
       tacticsName: 'Veteran Militia',
       story: '',

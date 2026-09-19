@@ -139,7 +139,7 @@ describe('MERCGame', () => {
       const sectors = game.gameMap.getAllSectors();
       if (sectors.length >= 2) {
         const sector = sectors[0];
-        const adjacent = game.gameMap.getAdjacentSectors(sector.sectorId);
+        const adjacent = game.gameMap.getAdjacentSectors(sector);
         // A sector should have at least some adjacent sectors (unless isolated)
         expect(adjacent).toBeDefined();
       }

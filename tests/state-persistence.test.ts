@@ -292,8 +292,9 @@ describe('State Persistence', () => {
           fn: () => 'test', // Functions may not serialize, but can be stored
         };
         game.settings['complex'] = complex;
-        expect(game.settings['complex']).toBe(complex);
-        expect(game.settings['complex'].nested.data).toEqual([1, 2, 3]);
+        const stored = game.settings['complex'] as typeof complex;
+        expect(stored).toBe(complex);
+        expect(stored.nested.data).toEqual([1, 2, 3]);
       });
     });
   });

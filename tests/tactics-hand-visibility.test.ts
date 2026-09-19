@@ -35,7 +35,6 @@ describe('Audit F32: tactics hand / deck per-player snapshot visibility', () => 
         exclusiveSeats: { role: 1 },
         playerOptions: [{ role: 'dictator' }, {}],
         playerIsBot: [false, false],
-        dictatorCharacter: 'random',
       },
     });
     runner.start();
@@ -79,7 +78,6 @@ describe('Audit F32: tactics hand / deck per-player snapshot visibility', () => 
         exclusiveSeats: { role: 1 },
         playerOptions: [{ role: 'dictator' }, {}],
         playerIsBot: [false, false],
-        dictatorCharacter: 'random',
       },
     });
     runner.start();

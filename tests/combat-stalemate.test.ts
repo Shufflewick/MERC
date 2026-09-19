@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
+import type { SeededRandom } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Sector } from '../src/rules/elements.js';
 import { executeCombat } from '../src/rules/combat.js';
@@ -38,9 +39,21 @@ function deadlockedFight(seed: string): { game: MERCGame; sector: Sector; rebel:
   sector.addDictatorMilitia(1);
 
   // Every die shows 1. Nothing hits on a 1, so no round can ever have an effect.
-  game.random = () => 0;
+  game.random = constantRandom(0);
 
   return { game, sector, rebel };
+}
+
+/**
+ * A `SeededRandom` that always answers `value`. The engine's generator exposes
+ * its state so a snapshot can restore it, so a stand-in has to as well: this one
+ * has no state to carry, and says that rather than leaving the hooks off.
+ */
+function constantRandom(value: number): SeededRandom {
+  const random = (() => value) as SeededRandom;
+  random.getState = () => 0;
+  random.setState = () => {};
+  return random;
 }
 
 /** The game log as plain strings, whatever shape the engine records entries in. */

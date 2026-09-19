@@ -43,7 +43,7 @@ describe('Bot Dictator Integration', () => {
       const { actionCount, completed } = playUntilComplete(runner, 500);
 
       // Verify correct dictator was selected
-      expect(runner.game.dictatorPlayer.dictator.combatantId).toBe(dictator);
+      expect(runner.game.dictatorPlayer.dictator?.combatantId).toBe(dictator);
 
       // Game must progress meaningfully OR complete naturally
       if (!completed) {
@@ -58,7 +58,7 @@ describe('Bot Dictator Integration', () => {
       const { actionCount, completed } = playUntilComplete(runner, 500);
 
       // Verify correct dictator was selected
-      expect(runner.game.dictatorPlayer.dictator.combatantId).toBe(dictator);
+      expect(runner.game.dictatorPlayer.dictator?.combatantId).toBe(dictator);
 
       // Game must progress meaningfully OR complete naturally
       if (!completed) {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
+import { tacticsDiscardOf } from './helpers/dictator.js';
 import {
   CombatantModel,
   Sector,
@@ -38,7 +39,7 @@ describe('Error Conditions', () => {
   // =============================================================================
 
   describe('Type Assertion Helpers - Throwing Behavior', () => {
-    let testGame: ReturnType<typeof createTestGame>;
+    let testGame: ReturnType<typeof createTestGame<MERCGame>>;
     let game: MERCGame;
 
     beforeEach(() => {
@@ -231,7 +232,7 @@ describe('Error Conditions', () => {
   });
 
   describe('Type Guards - Non-Throwing Behavior', () => {
-    let testGame: ReturnType<typeof createTestGame>;
+    let testGame: ReturnType<typeof createTestGame<MERCGame>>;
     let game: MERCGame;
 
     beforeEach(() => {
@@ -309,7 +310,7 @@ describe('Error Conditions', () => {
   // =============================================================================
 
   describe('Helper Function Edge Cases', () => {
-    let testGame: ReturnType<typeof createTestGame>;
+    let testGame: ReturnType<typeof createTestGame<MERCGame>>;
     let game: MERCGame;
 
     beforeEach(() => {
@@ -586,7 +587,7 @@ describe('Error Conditions', () => {
   // =============================================================================
 
   describe('Game State Edge Cases', () => {
-    let testGame: ReturnType<typeof createTestGame>;
+    let testGame: ReturnType<typeof createTestGame<MERCGame>>;
     let game: MERCGame;
 
     beforeEach(() => {
@@ -677,15 +678,9 @@ describe('Error Conditions', () => {
         if (!dictator || !dictator.tacticsDeck || !dictator.tacticsHand) return;
 
         // Move all tactics cards to discard
-        const deckCards = dictator.tacticsDeck.all(TacticsCard);
-        for (const card of deckCards) {
-          card.putInto(dictator.tacticsDiscard);
-        }
-
-        const handCards = dictator.tacticsHand.all(TacticsCard);
-        for (const card of handCards) {
-          card.putInto(dictator.tacticsDiscard);
-        }
+        const discard = tacticsDiscardOf(game);
+        for (const card of dictator.tacticsDeck.all(TacticsCard)) card.putInto(discard);
+        for (const card of dictator.tacticsHand.all(TacticsCard)) card.putInto(discard);
 
         // Verify empty
         expect(dictator.tacticsDeck.count(TacticsCard)).toBe(0);

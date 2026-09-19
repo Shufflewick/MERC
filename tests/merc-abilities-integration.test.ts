@@ -253,7 +253,7 @@ describe('MERC Ability Integration Tests', () => {
         }
 
         // Simulate damage
-        preaction.takeDamage(2, game);
+        preaction.takeDamage(2);
         const healthBefore = preaction.health;
         expect(healthBefore).toBeLessThan(preaction.maxHealth);
 

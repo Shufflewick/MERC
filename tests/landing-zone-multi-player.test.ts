@@ -101,10 +101,10 @@ describe('Landing Zone Multi-Player', () => {
         const currentValid = getValidLandingSectors(game);
 
         // Should still have landing sectors available for this rebel
-        expect(currentValid.length).toBeGreaterThan(
-          0,
+        expect(
+          currentValid.length,
           `Rebel ${i + 1} of ${rebelCount} should have valid landing sectors`
-        );
+        ).toBeGreaterThan(0);
 
         // Land this rebel at the first valid sector
         const sector = currentValid[0];
