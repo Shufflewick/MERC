@@ -2,6 +2,7 @@
   "name": "MERC",
   "displayName": "MERC",
   "description": "A fun game for 2-7 players",
+  "backend": "table",
   "audience": "strategy",
   "tags": [
     "war",
