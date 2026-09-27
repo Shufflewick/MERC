@@ -75,10 +75,16 @@ describe('MERC Smoke Tests', () => {
 
       const flowState = testGame.getFlowState();
 
+      // Day 1 is a simultaneous step, so each awaited seat carries its own
+      // actions and there is no single-seat prompt (BoardSmith r98).
       expect(flowState).toBeDefined();
       expect(flowState?.awaitingInput).toBe(true);
-      expect(flowState?.availableActions).toBeDefined();
-      expect(Array.isArray(flowState?.availableActions)).toBe(true);
+      expect(flowState?.currentPlayer).toBeUndefined();
+      expect(flowState?.availableActions).toBeUndefined();
+      expect(flowState?.awaitingPlayers?.length).toBeGreaterThan(0);
+      for (const seat of flowState!.awaitingPlayers!) {
+        expect(Array.isArray(seat.availableActions)).toBe(true);
+      }
     });
 
     it('should start with rebel player turn', () => {
