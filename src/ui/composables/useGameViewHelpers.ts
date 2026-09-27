@@ -6,7 +6,7 @@
  * $type and name because className can be mangled by production bundlers.
  */
 
-import { findElement, findElements, findElementById, type GameElement } from 'boardsmith/ui';
+import { findElement, findElements, findElementById, type GameViewElement } from 'boardsmith/ui';
 
 // ============================================================================
 // Pure function exports (can be used directly without composable)
@@ -41,8 +41,8 @@ export function getAttr<T>(node: any, key: string, defaultVal: T): T {
  */
 export function findByClassNameInTree(className: string, root: any): any {
   if (!root) return null;
-  return findElement(root as GameElement, { className })
-    ?? findElement(root as GameElement, { className: `_${className}` })
+  return findElement(root as GameViewElement, { className })
+    ?? findElement(root as GameViewElement, { className: `_${className}` })
     ?? null;
 }
 
@@ -52,8 +52,8 @@ export function findByClassNameInTree(className: string, root: any): any {
 export function findAllByClassNameInTree(className: string, root: any): any[] {
   if (!root) return [];
   return [
-    ...findElements(root as GameElement, { className }),
-    ...findElements(root as GameElement, { className: `_${className}` }),
+    ...findElements(root as GameViewElement, { className }),
+    ...findElements(root as GameViewElement, { className: `_${className}` }),
   ];
 }
 
@@ -65,7 +65,7 @@ export function findAllByClassNameInTree(className: string, root: any): any[] {
  */
 export function findByNameInTree(name: string, root: any): any {
   if (!root) return null;
-  return findElement(root as GameElement, { name }) ?? null;
+  return findElement(root as GameViewElement, { name }) ?? null;
 }
 
 /**
@@ -75,7 +75,7 @@ export function findElementByIdInTree(id: number | string, root: any): any {
   if (!root) return null;
   const numericId = typeof id === 'number' ? id : parseInt(id, 10);
   if (Number.isNaN(numericId)) return null;
-  return findElementById(root as GameElement, numericId) ?? null;
+  return findElementById(root as GameViewElement, numericId) ?? null;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
-import type { SeededRandom } from 'boardsmith';
+import type { GameRandom } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Sector } from '../src/rules/elements.js';
 import { executeCombat } from '../src/rules/combat.js';
@@ -45,12 +45,12 @@ function deadlockedFight(seed: string): { game: MERCGame; sector: Sector; rebel:
 }
 
 /**
- * A `SeededRandom` that always answers `value`. The engine's generator exposes
+ * A `GameRandom` that always answers `value`. The engine's generator exposes
  * its state so a snapshot can restore it, so a stand-in has to as well: this one
  * has no state to carry, and says that rather than leaving the hooks off.
  */
-function constantRandom(value: number): SeededRandom {
-  const random = (() => value) as SeededRandom;
+function constantRandom(value: number): GameRandom {
+  const random = (() => value) as GameRandom;
   random.getState = () => 0;
   random.setState = () => {};
   return random;
