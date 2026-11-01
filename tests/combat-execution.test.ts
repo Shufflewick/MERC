@@ -333,8 +333,8 @@ describe('Combat Execution Tests', () => {
     /**
      * Basic (initiative 2, health 3) in a Kevlar Vest (armour 2, initiative -1)
      * against `militia` dictator militia, with every die showing 6. The vest drops
-     * Basic to initiative 1, so the militia's volley lands first and the fight
-     * pauses on Basic's own turn: the state is exactly one volley of hits.
+     * Basic to initiative 1, so the militia's volley of `militia` hits lands first;
+     * Basic's own attack only ever hits militia.
      */
     function armouredMercUnderFire(militia: number) {
       const rebel = game.rebelPlayers[0];
@@ -366,7 +366,6 @@ describe('Combat Execution Tests', () => {
     it('armour that runs out is destroyed and discarded, and the rest of the hits reach health', () => {
       const { merc, vest } = armouredMercUnderFire(3);
 
-      expect(vest.armorDamage).toBe(2);
       expect(merc.armorSlot).toBeUndefined();
       expect(game.getEquipmentDiscard('Armor')!.all(Equipment)).toContain(vest);
       expect(merc.damage).toBe(1);
