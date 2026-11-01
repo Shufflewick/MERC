@@ -403,7 +403,14 @@ function hexToPlayerColor(hex: string): PlayerColor {
     '#95a5a6': 'black',  // Gray/dictator color maps to black
     '#ecf0f1': 'black',  // White also maps to black for now
   };
-  return colorMap[hex.toLowerCase()] || 'red';
+  const color = colorMap[hex.toLowerCase()];
+  if (!color) {
+    throw new Error(
+      `Player colour ${hex} is not in MERC's palette (${Object.keys(colorMap).join(', ')}). ` +
+      `Give every seat a colour from boardsmith.json's colorPalette.`
+    );
+  }
+  return color;
 }
 
 // =============================================================================
