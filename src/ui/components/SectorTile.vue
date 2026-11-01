@@ -253,7 +253,7 @@ function closeMercModal() {
               :image="getMercImagePath(merc)"
               :alt="merc.combatantName || merc.combatantId"
               :player-color="merc.playerColor"
-              :size="'var(--portrait-size)'"
+              size="var(--portrait-size)"
               clickable
               @click="showMercDetails(merc, $event)"
             />
@@ -320,6 +320,8 @@ function closeMercModal() {
 <style scoped>
 .sector-tile {
   position: relative;
+  display: flex;
+  flex-direction: column;
   background-size: cover;
   background-position: center;
   border-radius: 8px;
@@ -360,11 +362,16 @@ function closeMercModal() {
 
 .tile-face {
   container: tile / inline-size;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Grows with its grid row, which the tallest compact tile on the map sets. */
 .tile-body {
   --portrait-size: 42px;
   position: relative;
+  flex-grow: 1;
   height: 50cqi; /* 2:1, as half the tile's width */
 }
 
@@ -508,10 +515,14 @@ function closeMercModal() {
 }
 
 /* Narrow tiles: the number stands alone in a badge, the marker sits beside its loot, and everything shrinks, so a 3x3 map fits a phone (#95). */
-@container tile (max-width: 239px) {
+@container tile (width < 240px) {
+  /* The rows stack in flow, so a wrapped name or a second row of badges makes the tile taller instead of overlapping. */
   .tile-body {
     --portrait-size: 30px;
-    height: max(96px, 50cqi);
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: max(100px, 50cqi);
   }
 
   .top-row {
@@ -554,7 +565,19 @@ function closeMercModal() {
   }
 
   .bottom-row {
+    position: static;
+    flex-wrap: wrap;
+    gap: 2px 4px;
     padding: 6px 8px;
+  }
+
+  /* Overlap the portraits so a full row (base, three MERCs and +N) still fits. */
+  .mercs-area {
+    gap: 0;
+  }
+
+  .mercs-area > * + * {
+    margin-left: -5px;
   }
 
   .base-icon-portrait {
@@ -562,11 +585,10 @@ function closeMercModal() {
   }
 }
 
-/* Phone and small-tablet tiles: smallest type and portraits, a little taller than 2:1 so a wrapped name keeps its own band. */
-@container tile (max-width: 170px) {
+/* Phone and small-tablet tiles: smallest type and portraits. */
+@container tile (width < 170px) {
   .tile-body {
     --portrait-size: 22px;
-    height: 100px;
   }
 
   .top-row {
@@ -606,7 +628,6 @@ function closeMercModal() {
 
   .bottom-row {
     padding: 4px 5px;
-    flex-wrap: wrap;
     gap: 2px;
   }
 
@@ -614,16 +635,8 @@ function closeMercModal() {
     gap: 2px;
   }
 
-  /* Overlap the portraits so a full row (base, three MERCs and +N) still fits. */
-  .mercs-area {
-    gap: 0;
-  }
-
-  .mercs-area > * + * {
-    margin-left: -5px;
-  }
-
   .mercs-area :deep(img),
+  .mercs-area :deep(.placeholder),
   .base-icon-portrait {
     border-width: 2px;
   }

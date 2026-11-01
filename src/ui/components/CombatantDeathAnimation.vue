@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { easeInCubic } from '../easing';
 import { getPlayerColor } from '../colors';
 import { assetUrl } from '../composables/useAssetUrl';
+import { sectorPortraitSlot } from '../portrait-slot';
 
 const props = defineProps<{
   combatantId: string;
@@ -57,19 +58,6 @@ const nameStyle = computed(() => ({
   fontSize: `${currentNameSize.value}rem`,
 }));
 
-// Get starting position by querying the DOM
-function getStartPosition(): { x: number; y: number } | null {
-  const sectorEl = document.querySelector(`[data-sector-id="${props.sectorId}"]`);
-  if (!sectorEl) return null;
-
-  const rect = sectorEl.getBoundingClientRect();
-  // Start from bottom-left area where mercs appear
-  return {
-    x: rect.left + 30,
-    y: rect.bottom - 30,
-  };
-}
-
 // Animation state
 let animationFrameId: number | null = null;
 let startTime: number | null = null;
@@ -80,15 +68,15 @@ function animate(timestamp: number) {
   const rawProgress = Math.min(elapsed / ANIMATION_DURATION, 1);
 
   // Get starting position (sector) and end position (center)
-  const start = getStartPosition();
+  const start = sectorPortraitSlot(props.sectorId);
   const startX = start?.x ?? window.innerWidth / 2;
   const startY = start?.y ?? window.innerHeight / 2;
   const endX = window.innerWidth / 2;
   const endY = window.innerHeight / 2;
 
   // Size animation values (reverse of entry)
-  const startSize = 42;
   const endSize = 500;
+  const startSize = start?.size ?? endSize; // with no sector to leave, it starts full size at the centre
   const peakSize = 520;
   const startBorder = 3;
   const endBorder = 8;
@@ -144,7 +132,7 @@ function handleImageError(event: Event) {
 // Start animation on mount
 onMounted(() => {
   // Initialize position at sector
-  const start = getStartPosition();
+  const start = sectorPortraitSlot(props.sectorId);
   currentX.value = start?.x ?? window.innerWidth / 2;
   currentY.value = start?.y ?? window.innerHeight / 2;
   isAnimating.value = true;

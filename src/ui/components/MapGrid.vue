@@ -3,6 +3,7 @@ import { computed, ref, nextTick } from 'vue';
 import { useAnimationEvents, useFlyingElements, FlyingCardsOverlay } from 'boardsmith/ui';
 import { getPlayerColor } from '../colors';
 import { assetUrl } from '../composables/useAssetUrl';
+import { sectorPortraitSlot } from '../portrait-slot';
 import SectorTile from './SectorTile.vue';
 import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
 import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
@@ -381,25 +382,18 @@ function handleDeathAnimationComplete(deathId: string) {
   }
 }
 
-/**
- * Where a combatant token sits inside a sector tile: the bottom-left corner,
- * where the merc row renders. Returned as a zero-size rect because
- * useFlyingElements centres the ghost on the rect it is given.
- */
+/** A zero-size rect on a tile's portrait slot, because useFlyingElements centres the ghost on the rect it is given. */
 function combatantAnchorRect(sectorId: string): DOMRect | null {
-  const sectorEl = document.querySelector(`[data-sector-id="${sectorId}"]`);
-  if (!sectorEl) return null;
-  const rect = sectorEl.getBoundingClientRect();
-  return new DOMRect(rect.left + 30, rect.bottom - 30, 0, 0);
+  const slot = sectorPortraitSlot(sectorId);
+  return slot && new DOMRect(slot.x, slot.y, 0, 0);
 }
-
-const COMBATANT_PORTRAIT_SIZE = { width: 42, height: 42 };
 
 async function queueMoveAnimation(data: CombatantMoveAnimationData): Promise<void> {
   if (!data.fromSectorId || !data.toSectorId) return;
 
   await nextTick();
-  if (!combatantAnchorRect(data.fromSectorId) || !combatantAnchorRect(data.toSectorId)) return;
+  const from = sectorPortraitSlot(data.fromSectorId);
+  if (!from || !sectorPortraitSlot(data.toSectorId)) return;
 
   flyingCombatantIds.value = new Set(flyingCombatantIds.value).add(data.combatantId);
   try {
@@ -407,7 +401,7 @@ async function queueMoveAnimation(data: CombatantMoveAnimationData): Promise<voi
       id: getAnimationId('move'),
       startRect: () => combatantAnchorRect(data.fromSectorId),
       endRect: () => combatantAnchorRect(data.toSectorId),
-      elementSize: COMBATANT_PORTRAIT_SIZE,
+      elementSize: { width: from.size, height: from.size },
       elementData: {
         kind: 'combatant-portrait',
         combatantName: data.combatantName,
