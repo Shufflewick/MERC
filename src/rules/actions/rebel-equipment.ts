@@ -2184,7 +2184,7 @@ export function applyMortarDamage(
           merc.takeDamage(1);
           totalDamage++;
         }
-        hitCombatantIds.push(merc.combatantId);
+        hitCombatantIds.push(getMapCombatantId(merc));
         game.message(`Mortar deals ${hitCount} damage to ${capitalize(merc.combatantName)}`);
         if (merc.isDead) {
           const killedMessage = `${capitalize(merc.combatantName)} has been killed by mortar!`;
@@ -2196,7 +2196,7 @@ export function applyMortarDamage(
           }
           if (merc.isDictator || killMercOutsideCombat(game, merc, killedMessage)) {
             deaths.push(death);
-            killedCombatantIds.push(merc.combatantId);
+            killedCombatantIds.push(getMapCombatantId(merc));
           }
         }
       }

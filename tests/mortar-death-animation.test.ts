@@ -67,7 +67,7 @@ describe('a mortar hit on a unit with 1 health left', () => {
     expect(strike?.data).toMatchObject({ hitCombatantIds: [victim.combatantId], killedCombatantIds: [victim.combatantId] });
   });
 
-  it('on the Dictator plays his map death, under his dictator token id', () => {
+  it('on the Dictator plays his map death and strike flash, under his dictator token id', () => {
     victim.putInto(game.mercDiscard);
     game.setupDictator();
     victim = game.dictatorPlayer.dictator!;
@@ -81,6 +81,8 @@ describe('a mortar hit on a unit with 1 health left', () => {
     expect(death?.data).toEqual({
       combatants: [expect.objectContaining({ combatantId: `dictator-${victim.combatantId}`, sectorId: sector.sectorId })],
     });
+    const strike = game.pendingAnimationEvents.find(e => e.type === 'mortar-strike');
+    expect(strike?.data).toMatchObject({ hitCombatantIds: [`dictator-${victim.combatantId}`], killedCombatantIds: [`dictator-${victim.combatantId}`] });
   });
 
   it('on a MERC is stopped by his own Epinephrine Shot, and no death plays', () => {
