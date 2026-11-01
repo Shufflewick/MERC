@@ -32,3 +32,15 @@ describe('Dictator player option', () => {
     },
   );
 });
+
+describe('Dictator Character game option', () => {
+  it('deals the chosen dictator to a bot dictator', () => {
+    const { game } = createTestGame(MERCGame, {
+      playerCount: 2,
+      seed: 'dictator-character',
+      dictatorCharacter: 'kim',
+      playerConfigs: [{ isBot: false }, { role: true, isBot: true }],
+    } as never);
+    expect(game.dictatorPlayer.dictator?.combatantId).toBe('kim');
+  });
+});
