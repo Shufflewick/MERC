@@ -209,10 +209,10 @@ const isSelectingEquipmentType = computed(() => {
   return false;
 });
 
-// Get the combatant whose equipment is being selected, as a list for DrawEquipmentType (empty when he has no name to show)
+// Get the combatant whose equipment is being selected
 // For generalissimoPick, this is the hired merc (from currentArgs.selectedMerc)
 // For other actions (playTactics, chooseKimBase), this is the dictator
-const equipmentSelectionCombatants = computed<MercPortrait[]>(() => {
+const equipmentSelectionCombatant = computed(() => {
   const currentAction = props.actionController.currentAction.value;
   if (currentAction === 'generalissimoPick') {
     const currentArgs = props.actionController.currentArgs?.value || {};
@@ -222,16 +222,25 @@ const equipmentSelectionCombatants = computed<MercPortrait[]>(() => {
         (d) => d.cardType === 'merc' && d.name.toLowerCase() === mercName.toLowerCase()
       );
       if (mercInfo) {
-        return [{
+        return {
           combatantId: mercInfo.id,
           combatantName: mercInfo.name,
           image: mercInfo.image || '',
-        }];
+        };
       }
     }
   }
   // Default: dictator
-  const { combatantId, combatantName, image } = props.dictator;
+  return {
+    combatantId: props.dictator?.combatantId,
+    combatantName: props.dictator?.combatantName,
+    image: props.dictator?.image,
+  };
+});
+
+// DrawEquipmentType's portrait list: the combatant above, when he has a name to show
+const equipmentSelectionPortraits = computed<MercPortrait[]>(() => {
+  const { combatantId, combatantName, image } = equipmentSelectionCombatant.value;
   return combatantName ? [{ combatantId, combatantName, image }] : [];
 });
 
@@ -632,7 +641,7 @@ const dictatorCardData = computed(() => ({
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :combatants="equipmentSelectionCombatants"
+            :combatants="equipmentSelectionPortraits"
             player-color="dictator"
             @select="selectEquipmentType"
           />

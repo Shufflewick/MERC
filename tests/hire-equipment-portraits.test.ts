@@ -113,6 +113,23 @@ describe('Who the equipment step shows (#93)', () => {
     wrapper.unmount();
   });
 
+  it('the detail modal shows the MERC it was opened for, and only then', async () => {
+    const props = {
+      isHiringMercs: true, isSelectingDictator: false, isSelectingEquipmentType: true, isCastroHiring: false, isSelectingSector: false,
+      hirableMercs: [], hasSkipOption: false,
+      equipmentTypeChoices: [{ value: 'Weapon', label: 'Weapon' }],
+      sectorChoices: [],
+      selectedMercPortraits: [portrait('Snake')],
+      hiringMercDetail: null,
+      prompt: 'Choose equipment type for new hire', playerColor: 'red',
+    };
+    const wrapper = mount(HiringPhase, { props, global: { stubs: { GameOverlay: true } } });
+    expect(wrapper.findComponent({ name: 'GameOverlay' }).props('active')).toBe(false);
+    await wrapper.setProps({ hiringMercDetail: { attributes: { combatantName: 'Snake', combatantId: 'snake' } } });
+    expect(wrapper.findComponent({ name: 'GameOverlay' }).props('active')).toBe(true);
+    wrapper.unmount();
+  });
+
   it('clicking a portrait at the sector step opens that MERC\'s detail', async () => {
     const wrapper = mount(HiringPhase, {
       props: {
