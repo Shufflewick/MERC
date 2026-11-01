@@ -53,7 +53,7 @@ describe('mid-combat snapshot / restore / resume', () => {
     // Confirm it really is a pause, not a finished combat left lying around.
     const pendingKinds = [
       before!.pendingTargetSelection, before!.pendingHitAllocation,
-      before!.pendingAttackDogSelection, before!.pendingWolverineSixes,
+      before!.pendingAttackDogSelection,
       before!.pendingEpinephrine, before!.pendingBeforeAttackHealing,
       before!.pendingGolemAttack,
     ].filter(v => v != null);

@@ -318,7 +318,6 @@ describe('Combat Event Pipeline', () => {
         const decisionFields = [
           lastSnapshot.pendingTargetSelection,
           lastSnapshot.pendingHitAllocation,
-          lastSnapshot.pendingWolverineSixes,
           lastSnapshot.pendingAttackDogSelection,
           lastSnapshot.pendingBeforeAttackHealing,
           lastSnapshot.pendingEpinephrine,
@@ -388,7 +387,6 @@ describe('Combat Event Pipeline', () => {
         const decisionFields = [
           snapshot.pendingTargetSelection,
           snapshot.pendingHitAllocation,
-          snapshot.pendingWolverineSixes,
           snapshot.pendingAttackDogSelection,
           snapshot.pendingBeforeAttackHealing,
           snapshot.pendingEpinephrine,
@@ -477,7 +475,6 @@ describe('Combat Event Pipeline', () => {
         const decisionFields = [
           lastSnapshot.pendingTargetSelection,
           lastSnapshot.pendingHitAllocation,
-          lastSnapshot.pendingWolverineSixes,
           lastSnapshot.pendingAttackDogSelection,
           lastSnapshot.pendingBeforeAttackHealing,
           lastSnapshot.pendingEpinephrine,

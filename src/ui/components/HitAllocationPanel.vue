@@ -16,6 +16,8 @@ export interface PendingHitAllocation {
     isMerc: boolean;
     currentHealth: number;
     maxHealth: number;
+    armor: number;
+    declared: boolean;
   }>;
   wolverineSixes: number;
   canReroll: boolean;
@@ -58,14 +60,22 @@ const successfulDice = computed(() => {
     .filter(d => d.isHit);
 });
 
-// Get unallocated hit count - works with or without dice data
-const unallocatedHitCount = computed(() => {
-  const totalHits = props.pendingAllocation.hits || 0;
-  if (hasDiceData.value) {
-    return successfulDice.value.filter(d => !allocatedHits.value.has(d.index)).length;
-  }
-  return totalHits - fallbackAllocations.value.length;
+const allocatedTargetIds = computed(() =>
+  hasDiceData.value ? [...allocatedHits.value.values()] : fallbackAllocations.value);
+
+function capacity(targets: PendingHitAllocation['validTargets']): number {
+  return targets.reduce((sum, t) => sum + t.armor + t.currentHealth, 0);
+}
+
+// Hits the targets cannot take are wasted, matching the server's count: only Wolverine's 6s reach undeclared targets.
+const allocatableHits = computed(() => {
+  const { hits, validTargets, wolverineSixes } = props.pendingAllocation;
+  const declared = capacity(validTargets.filter(t => t.declared));
+  const undeclared = capacity(validTargets.filter(t => !t.declared));
+  return Math.min(hits || 0, declared + Math.min(wolverineSixes, undeclared));
 });
+
+const unallocatedHitCount = computed(() => allocatableHits.value - allocatedTargetIds.value.length);
 
 // Get unallocated successful dice (for dice-based UI)
 const unallocatedHits = computed(() => {
@@ -105,11 +115,25 @@ function selectDie(dieIndex: number) {
   emit('select-die', dieIndex);
 }
 
+// Wolverine's 6s may hit enemies he did not declare; no other die may.
+const hasUndeclaredTargets = computed(() => props.pendingAllocation.validTargets.some(t => !t.declared));
+
+function isUndeclared(targetId: string): boolean {
+  return props.pendingAllocation.validTargets.some(t => t.id === targetId && !t.declared);
+}
+
 // Handle adding a hit to a target (called from parent)
 function addHitToTarget(targetId: string) {
   if (unallocatedHitCount.value <= 0) return;
+  const target = props.pendingAllocation.validTargets.find(t => t.id === targetId);
+  if (!target || allocatedTargetIds.value.filter(id => id === targetId).length >= capacity([target])) return;
   // When dice data is available, use dice-based allocation
   if (hasDiceData.value) {
+    if (isUndeclared(targetId) && (selectedDieIndex.value === null || props.pendingAllocation.diceRolls[selectedDieIndex.value] !== 6)) {
+      const six = unallocatedHits.value.find(d => d.value === 6);
+      if (!six) return;
+      selectedDieIndex.value = six.index;
+    }
     // Need a selected die to allocate
     if (selectedDieIndex.value === null) return;
 
@@ -123,8 +147,8 @@ function addHitToTarget(targetId: string) {
     selectedDieIndex.value = nextUnallocated?.index ?? null;
   } else {
     // Fallback mode: no dice data, just track allocations by count
-    const totalHits = props.pendingAllocation.hits || 0;
-    if (fallbackAllocations.value.length >= totalHits) return;
+    if (isUndeclared(targetId) &&
+        fallbackAllocations.value.filter(isUndeclared).length >= props.pendingAllocation.wolverineSixes) return;
 
     fallbackAllocations.value.push(targetId);
     emit('allocate-hit', targetId);
@@ -230,6 +254,9 @@ defineExpose({
       <template v-else>
         Click a target to allocate {{ unallocatedHitCount }} remaining hit(s)
       </template>
+    </div>
+    <div v-if="isMyTurn && hasUndeclaredTargets" class="allocation-hint">
+      {{ pendingAllocation.attackerName }}'s 6s may also hit enemies he did not target
     </div>
 
     <!-- Confirm button when all hits allocated -->

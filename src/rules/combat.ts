@@ -207,7 +207,6 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
   const currentAttackerId =
     (ac.pendingTargetSelection as any)?.attackerId ??
     (ac.pendingHitAllocation as any)?.attackerId ??
-    (ac.pendingWolverineSixes as any)?.attackerId ??
     (ac.pendingAttackDogSelection as any)?.attackerId ??
     (ac.pendingBeforeAttackHealing as any)?.attackerId ??
     (ac.pendingEpinephrine as any)?.attackerId ??
@@ -229,7 +228,6 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
     // Include the full decision data so CombatPanel needs no extra lookups
     pendingTargetSelection: ac.pendingTargetSelection ?? null,
     pendingHitAllocation: ac.pendingHitAllocation ?? null,
-    pendingWolverineSixes: ac.pendingWolverineSixes ?? null,
     pendingAttackDogSelection: ac.pendingAttackDogSelection ?? null,
     pendingBeforeAttackHealing: ac.pendingBeforeAttackHealing ?? null,
     pendingEpinephrine: ac.pendingEpinephrine ?? null,
@@ -2046,14 +2044,15 @@ function resolveMilitiaBatch(
     }
 
     // ── PATH A: Resume from stored hit allocation ──
-    const storedAlloc = game.activeCombat?.selectedTargets?.get(`allocation:${batchLeaderId}`);
+    const storedAlloc = playerSelectedTargets?.get(`allocation:${batchLeaderId}`);
     if (storedAlloc && storedAlloc.length > 0) {
       // Convert ['id1','id1','id2'] → Map { id1→2, id2→1 }
       const hitsByTarget = new Map<string, number>();
       for (const id of storedAlloc) {
         hitsByTarget.set(id, (hitsByTarget.get(id) ?? 0) + 1);
       }
-      game.activeCombat?.selectedTargets?.delete(`allocation:${batchLeaderId}`);
+      // The round's working copy is what a later pause saves, so the spent allocation must leave it.
+      playerSelectedTargets!.delete(`allocation:${batchLeaderId}`);
       const batchResults = applyMilitiaBatchDamage(batch.militia[0], batch.militia.length, enemies, hitsByTarget, game, casualties);
       results.push(...batchResults);
       return { nextIndex: batch.endIndex };
@@ -2112,6 +2111,7 @@ function resolveMilitiaBatch(
           currentHealth: t.health,
           maxHealth: t.maxHealth,
           armor: t.armor,
+          declared: true,
         })),
         wolverineSixes: 0,
         canReroll: false,
@@ -2756,6 +2756,10 @@ const { isHumanControlled, hasSelectedTargets } = control;
       game.message(`Wolverine's ${wolverineBonus6s} six(es) can hit additional targets!`);
     }
   }
+  // His 6s may go to any enemy he could have declared but did not.
+  const bonusTargets = wolverineBonus6s > 0
+    ? getEligibleTargets(attacker, enemies).filter(e => !targets.includes(e) && !e.isAttackDog)
+    : [];
 
   if (hits === 0) {
     results.push({
@@ -2774,15 +2778,17 @@ const { isHumanControlled, hasSelectedTargets } = control;
     // Valid targets for hit allocation are the DECLARED targets (not all enemies)
     // This respects the attacker's target limit (e.g., targets: 1 means only 1 declared target)
     const validTargets = targets.filter(t => t.health > 0);
+    const allocationTargets = [...validTargets, ...bonusTargets];
 
     // Smart skip logic:
     // 1. Only 1 valid target - no choice needed (all hits go to that target)
     // 2. All targets are militia - no meaningful choice (militia all have 1 HP)
-    // 3. Overkill - hits >= total declared target HP, so all declared targets will die anyway
-    const allMilitia = validTargets.every(t => t.isMilitia);
+    // 3. Overkill - hits >= total declared target HP, so all declared targets will die anyway,
+    //    unless Wolverine has undeclared targets to choose for his 6s
+    const allMilitia = allocationTargets.every(t => t.isMilitia);
     const totalTargetHP = validTargets.reduce((sum, t) => sum + t.health, 0);
-    const isOverkill = hits >= totalTargetHP;
-    const needsAllocation = validTargets.length > 1 && !allMilitia && !isOverkill;
+    const isOverkill = hits >= totalTargetHP && bonusTargets.length === 0;
+    const needsAllocation = allocationTargets.length > 1 && !allMilitia && !isOverkill;
 
     // Also check if Basic's reroll is available (not yet used)
     const combatantId = getCombatantId(attacker);
@@ -2801,13 +2807,14 @@ const { isHumanControlled, hasSelectedTargets } = control;
         diceRolls: rolls,
         hits,
         hitThreshold,
-        validTargets: validTargets.map(t => ({
+        validTargets: allocationTargets.map(t => ({
           id: t.id,
           name: t.name,
           isMerc: !t.isMilitia && !t.isDictator,
           currentHealth: t.health,
           maxHealth: t.maxHealth,
           armor: attacker.armorPiercing ? 0 : t.armor,
+          declared: validTargets.includes(t),
         })),
         wolverineSixes: wolverineBonus6s,
         canReroll: !!canUseReroll,
@@ -2821,9 +2828,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
   }
 
   // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
-  const extraTargets = enemies
-    .filter(e => e.health > 0 && !targets.includes(e) && !e.isAttackDog)
-    .slice(0, wolverineBonus6s);
+  const extraTargets = bonusTargets.slice(0, wolverineBonus6s);
   if (extraTargets.length > 0) {
     game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
   }

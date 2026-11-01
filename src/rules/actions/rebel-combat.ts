@@ -31,7 +31,6 @@ export function createCombatContinueAction(game: MERCGame): ActionDefinition {
       'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
       'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
       'no pending attack dog selection': () => game.activeCombat?.pendingAttackDogSelection === undefined,
-      'no pending wolverine sixes': () => game.activeCombat?.pendingWolverineSixes === undefined,
       'no pending epinephrine': () => game.activeCombat?.pendingEpinephrine === undefined,
       'no pending Golem strike': () => game.activeCombat?.pendingGolemAttack === undefined,
     })
@@ -94,7 +93,6 @@ export function createCombatRetreatAction(game: MERCGame): ActionDefinition {
       'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
       'no pending hit allocation': () => game.activeCombat?.pendingHitAllocation === undefined,
       'no pending attack dog selection': () => game.activeCombat?.pendingAttackDogSelection === undefined,
-      'no pending wolverine sixes': () => game.activeCombat?.pendingWolverineSixes === undefined,
       'no pending epinephrine': () => game.activeCombat?.pendingEpinephrine === undefined,
       'no pending Golem strike': () => game.activeCombat?.pendingGolemAttack === undefined,
       'current player can retreat': (ctx) => {
@@ -460,7 +458,11 @@ type PendingHitAllocation = NonNullable<NonNullable<MERCGame['activeCombat']>['p
 
 /** Hits beyond what the targets can absorb are wasted, so the prompt cannot demand them. */
 function allocatableHits(pending: PendingHitAllocation): number {
-  return Math.min(pending.hits, pending.validTargets.reduce((sum, t) => sum + t.armor + t.currentHealth, 0));
+  const capacity = (declared: boolean) => pending.validTargets
+    .filter(t => t.declared === declared)
+    .reduce((sum, t) => sum + t.armor + t.currentHealth, 0);
+  // Only Wolverine's 6s may go to undeclared targets.
+  return Math.min(pending.hits, capacity(true) + Math.min(pending.wolverineSixes, capacity(false)));
 }
 
 /**
@@ -551,6 +553,16 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         };
       }
 
+      const undeclaredHits = pending.validTargets
+        .filter(t => !t.declared)
+        .reduce((sum, t) => sum + (hitsByTarget.get(t.id) ?? 0), 0);
+      if (undeclaredHits > pending.wolverineSixes) {
+        return {
+          success: false,
+          error: `Only ${pending.wolverineSixes} hit(s) can go to targets ${pending.attackerName} did not declare, one per 6 rolled (allocated ${undeclaredHits})`,
+        };
+      }
+
       // Store the allocation for combat.ts to use
       if (!game.activeCombat.selectedTargets) {
         game.activeCombat.selectedTargets = new Map();
@@ -634,6 +646,13 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
       }
 
       const pending = game.activeCombat.pendingHitAllocation;
+      const attacker = ([...game.activeCombat.rebelCombatants, ...game.activeCombat.dictatorCombatants] as Combatant[])
+        .find(c => c.id === pending.attackerId);
+      if (!attacker) {
+        return { success: false, error: `Cannot reroll: ${pending.attackerName} is no longer in this combat.` };
+      }
+      // The pending allocation is discarded once confirmed; the combatant carries the once-per-combat use into later rounds.
+      attacker.hasUsedReroll = true;
 
       // Roll new dice using seeded random
       const diceCount = pending.diceRolls.length;
@@ -645,10 +664,6 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
       // Count new hits
       const newHits = newRolls.filter(r => r >= pending.hitThreshold).length;
 
-      // Count Wolverine 6s if applicable
-      const isWolverine = pending.attackerCombatantId === 'wolverine';
-      const newWolverineSixes = isWolverine ? newRolls.filter(r => r === 6).length : 0;
-
       game.message(`${pending.attackerName} uses reroll ability! [${newRolls.join(', ')}] - ${newHits} hit(s)`);
 
       // Update pending allocation
@@ -656,7 +671,6 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
         ...pending,
         diceRolls: newRolls,
         hits: newHits,
-        wolverineSixes: newWolverineSixes,
         hasRerolled: true,
         rollCount: pending.rollCount + 1, // Increment to trigger animation
       };
@@ -796,80 +810,6 @@ export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition
     })
     // An empty target id records "declined".
     .execute(() => resolveGolemChoice(game, '', 'holds fire'));
-}
-
-/**
- * Allocate Wolverine's bonus 6s to additional targets.
- * Called after normal hit allocation when Wolverine rolled 6s.
- */
-export function createCombatAllocateWolverineSixesAction(game: MERCGame): ActionDefinition {
-  return Action.create<MERCGame>('combatAllocateWolverineSixes')
-    .prompt("Allocate Wolverine's bonus targets")
-    .condition({
-      'has pending Wolverine sixes': () => game.activeCombat?.pendingWolverineSixes != null,
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
-    })
-    .chooseFrom('bonusTargets', {
-      prompt: "Select Wolverine's bonus targets",
-      multiSelect: () => {
-        const pending = game.activeCombat?.pendingWolverineSixes;
-        if (!pending) return { min: 0, max: 0 };
-        return { min: pending.sixCount, max: pending.sixCount };
-      },
-      choices: () => {
-        const pending = game.activeCombat?.pendingWolverineSixes;
-        if (!pending) return [];
-        return pending.bonusTargets.map(t => `${t.name}::${t.id}`);
-      },
-    })
-    .execute((args) => {
-      if (!game.activeCombat?.pendingWolverineSixes) {
-        return { success: false, error: 'No Wolverine allocation pending' };
-      }
-
-      const pending = game.activeCombat.pendingWolverineSixes;
-      const targetChoices = args.bonusTargets as string[];
-
-      // Parse target IDs
-      const targetIds = targetChoices.map(choice => choice.split('::')[1]);
-      const targetNames = targetChoices.map(choice => choice.split('::')[0]);
-
-      // Store for combat processing
-      if (!game.activeCombat.selectedTargets) {
-        game.activeCombat.selectedTargets = new Map();
-      }
-      game.activeCombat.selectedTargets.set(`wolverine:${pending.attackerId}`, targetIds);
-
-      // Clear pending
-      game.activeCombat.pendingWolverineSixes = undefined;
-
-      game.message(`${pending.attackerName}'s 6s hit: ${targetNames.join(', ')}`);
-
-      // Continue combat
-      const sector = game.getSector(game.activeCombat.sectorId);
-      if (!sector) {
-        return { success: false, error: 'Combat sector not found' };
-      }
-
-      const player = resolveActiveCombatRebel(game);
-      if (!player) {
-        return {
-          success: false,
-          error: `Cannot continue combat: no player holds seat ${game.activeCombat.attackingPlayerId}.`,
-        };
-      }
-
-      const outcome = executeCombat(game, sector, player);
-
-      return {
-        success: true,
-        message: 'Wolverine bonus hits allocated',
-        data: {
-          bonusTargets: targetNames,
-          combatPending: outcome.combatPending,
-        },
-      };
-    });
 }
 
 // =============================================================================
