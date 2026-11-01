@@ -74,7 +74,6 @@ export {
 // Day 1 - The Landing
 export {
   // Rebel Phase
-  drawMercsForHiring,
   hireSelectedMercs,
   isValidLandingSector,
   getValidLandingSectors,

@@ -4,7 +4,7 @@ import { enumerateLegalMoves } from 'boardsmith';
 import { MERCGame, type MERCPlayer } from '../src/rules/game.js';
 import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { setGlobalCachedValue } from '../src/rules/actions/helpers.js';
-import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
+import { autoResolveArgs, getCurrentAction, getPlayerAction } from './helpers/auto-play.js';
 
 /**
  * Asking which moves a player has must never change the game (issue #65).
@@ -246,3 +246,190 @@ describe('a hire with no squad room draws nothing and lets the turn go on (#65)'
   });
 });
 
+
+describe('asking for a rebel hire\'s moves changes nothing (#80)', () => {
+  function expectAskingChangesNothing(game: MERCGame, player: MERCPlayer, actionName: string): void {
+    const decks = deckCounts(game);
+    const version = game._ctx._stateVersion;
+
+    askEverything(game, player, actionName);
+
+    expect(deckCounts(game)).toEqual(decks);
+    expect(game._ctx._stateVersion).toBe(version);
+  }
+
+  it('hireFirstMerc', () => {
+    const game = startGame('castro', 'ask-changes-nothing-hireFirstMerc');
+    expectAskingChangesNothing(game, game.rebelPlayers[0], 'hireFirstMerc');
+  });
+
+  it('hireMerc', () => {
+    const game = startGame('castro', 'ask-changes-nothing-hireMerc');
+    const rebel = putRebelInCity(game);
+    expectAskingChangesNothing(game, rebel, 'hireMerc');
+  });
+
+  it('rehireMerc', () => {
+    const game = startGame('castro', 'ask-changes-nothing-rehireMerc');
+    game.currentDay = 2;
+    expectAskingChangesNothing(game, game.rebelPlayers[0], 'rehireMerc');
+  });
+});
+
+describe('a rebel hire picks from the MERCs drawn before the pick (#80)', () => {
+  const name = (merc: CombatantModel) => merc.combatantName.charAt(0).toUpperCase() + merc.combatantName.slice(1);
+
+  it('hireFirstMerc hires one of the three MERCs the flow drew', () => {
+    const game = startGame('castro', 'hire-first-from-offer');
+    const rebel = game.rebelPlayers[0];
+    rebel.primarySquad.sectorId = game.gameMap.getAllSectors()[0].sectorId;
+    const [hired, ...rest] = rebel.mercOffer.all(CombatantModel);
+    expect(rest).toHaveLength(2);
+
+    const result = game.getActionExecutor().executeAction(game.getAction('hireFirstMerc')!, rebel, {
+      merc: name(hired), equipmentType: 'Weapon',
+    });
+
+    expect(result.success).toBe(true);
+    expect(rebel.team).toEqual([hired]);
+    expect(rebel.mercOffer.all(CombatantModel)).toEqual(rest);
+  });
+
+  // The picks run without the held follow-up: combat ending the step drops it, and the hire must still finish.
+  it('hireMerc spends the actions and draws three; the pick hires into the acting MERC\'s squad', () => {
+    const game = startGame('castro', 'hire-merc-from-offer');
+    const { rebel, merc } = putRebelMercInCity(game);
+    game.discardMercOffer(rebel.mercOffer);
+    const executor = game.getActionExecutor();
+
+    const drew = executor.executeAction(game.getAction('hireMerc')!, rebel, { actingMerc: merc, fireFirst: 'none' });
+
+    expect(drew.success).toBe(true);
+    expect(merc.actionsRemaining).toBe(0);
+    expect(drew.followUp?.action).toBe('hireMercFromOffer');
+    const [hired, ...rest] = rebel.mercOffer.all(CombatantModel);
+    expect(rest).toHaveLength(2);
+
+    const picked = executor.executeAction(game.getAction('hireMercFromOffer')!, rebel, {
+      selectedMercs: [name(hired)], equipmentType: 'Armor',
+    });
+
+    expect(picked.success).toBe(true);
+    expect(rebel.primarySquad.all(CombatantModel)).toContain(hired);
+    expect(hired.actionsRemaining).toBe(0);
+    expect(rebel.mercOffer.all(CombatantModel)).toHaveLength(0);
+    for (const other of rest) expect(game.mercDiscard.all(CombatantModel)).toContain(other);
+  });
+
+  it('a bot rebel\'s hireMerc counts as its action in the bot batch', () => {
+    const runner = new GameRunner<MERCGame>({
+      GameClass: MERCGame,
+      gameType: 'merc',
+      gameOptions: {
+        playerCount: 3, playerNames: ['Rebel1', 'Rebel2', 'Dictator'], seed: 'hire-bot-batch', dictatorChoice: 'castro',
+        playerConfigs: [
+          { color: '#e74c3c', isDictator: false, isBot: true },
+          { color: '#3498db', isDictator: false, isBot: true },
+          { color: '#95a5a6', isDictator: true, isBot: false },
+        ],
+      } as never,
+    });
+    runner.start();
+    const game = runner.game;
+    const city = game.gameMap.getAllSectors().find(s => s.isCity)!;
+    const [hirer, other] = game.rebelPlayers;
+    const actingMerc = game.drawMerc()!;
+    for (const [rebel, merc] of [[hirer, actingMerc], [other, game.drawMerc()!]] as const) {
+      game.discardMercOffer(rebel.mercOffer);
+      merc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = city.sectorId;
+      merc.actionsRemaining = 2;
+    }
+    game.resetRebelBatching();
+
+    game.getActionExecutor().executeAction(game.getAction('hireMerc')!, hirer, { actingMerc, fireFirst: 'none' });
+
+    expect(game.shouldGateBotAction(hirer)).toBe(true);
+  });
+
+  it('a rebel wiped out while a paid hire is pending finishes that hire, not a free rehire', () => {
+    const game = startGame('castro', 'hire-pending-team-wiped');
+    const { rebel, merc } = putRebelMercInCity(game);
+    game.discardMercOffer(rebel.mercOffer);
+    const executor = game.getActionExecutor();
+    executor.executeAction(game.getAction('hireMerc')!, rebel, { actingMerc: merc, fireFirst: 'none' });
+    merc.putInto(game.mercDiscard);
+
+    expect(executor.isActionAvailable(game.getAction('rehireMercFromOffer')!, rebel)).toBe(false);
+    expect(executor.isActionAvailable(game.getAction('hireMercFromOffer')!, rebel)).toBe(true);
+    const [hired] = rebel.mercOffer.all(CombatantModel);
+    executor.executeAction(game.getAction('hireMercFromOffer')!, rebel, { selectedMercs: [name(hired)], equipmentType: 'Weapon' });
+
+    expect(rebel.team).toEqual([hired]);
+    expect(rebel.hireSquadRef).toBeUndefined();
+  });
+
+  it('a hire whose MERCs on offer are all incompatible can finish by hiring none', () => {
+    const runner = startRunner('castro', 'hire-holds-the-turn');
+    const game = runner.game;
+    playUntilOffered(runner, 'hireMerc');
+    const seat = getCurrentAction(game.getFlowState())!.currentPlayer;
+    const rebel = game.rebelPlayers.find(r => r.seat === seat)!;
+    runner.performAction('hireMerc', seat, autoResolveArgs(game, 'hireMerc', seat)!);
+    game.discardMercOffer(rebel.mercOffer);
+    for (const member of rebel.team) member.putInto(game.mercDiscard);
+    game.first(CombatantModel, m => m.combatantId === 'borris')!.putInto(rebel.primarySquad);
+    const squirrel = game.first(CombatantModel, m => m.combatantId === 'squirrel')!;
+    squirrel.putInto(rebel.mercOffer);
+
+    const move = enumerateLegalMoves(game, seat).find(m => m.action === 'hireMercFromOffer');
+    expect(move?.args.selectedMercs ?? []).toEqual([]);
+    expect(runner.performAction('hireMercFromOffer', seat, move!.args).success).toBe(true);
+
+    expect(rebel.team).not.toContain(squirrel);
+    expect(game.mercDiscard.all(CombatantModel)).toContain(squirrel);
+  });
+
+  it('rehireMerc draws three; the pick hires one, ready to act, and discards the rest', () => {
+    const game = startGame('castro', 'rehire-from-offer');
+    game.currentDay = 2;
+    const rebel = game.rebelPlayers[0];
+    rebel.primarySquad.sectorId = game.gameMap.getAllSectors()[0].sectorId;
+    game.discardMercOffer(rebel.mercOffer);
+    const executor = game.getActionExecutor();
+
+    const drew = executor.executeAction(game.getAction('rehireMerc')!, rebel, {});
+
+    expect(drew.success).toBe(true);
+    expect(drew.followUp?.action).toBe('rehireMercFromOffer');
+    const [hired, ...rest] = rebel.mercOffer.all(CombatantModel);
+    expect(rest).toHaveLength(2);
+
+    const picked = executor.executeAction(game.getAction('rehireMercFromOffer')!, rebel, {
+      selectedMerc: name(hired), equipmentType: 'Weapon',
+    });
+
+    expect(picked.success).toBe(true);
+    expect(rebel.team).toEqual([hired]);
+    expect(hired.actionsRemaining).toBeGreaterThan(0);
+    expect(rebel.mercOffer.all(CombatantModel)).toHaveLength(0);
+    for (const other of rest) expect(game.mercDiscard.all(CombatantModel)).toContain(other);
+  });
+
+  it('during the rebel turn, a rebel with MERCs on offer may only finish the hire', () => {
+    const runner = startRunner('castro', 'hire-holds-the-turn');
+    const game = runner.game;
+    playUntilOffered(runner, 'hireMerc');
+    const seat = getCurrentAction(game.getFlowState())!.currentPlayer;
+
+    expect(runner.performAction('hireMerc', seat, autoResolveArgs(game, 'hireMerc', seat)!).success).toBe(true);
+
+    expect(getPlayerAction(game.getFlowState(), seat)?.available ?? []).not.toContain('endTurn');
+    const moves = enumerateLegalMoves(game, seat);
+    expect(moves.length).toBeGreaterThan(0);
+    expect(new Set(moves.map(m => m.action))).toEqual(new Set(['hireMercFromOffer']));
+
+    expect(runner.performAction('hireMercFromOffer', seat, moves[0].args).success).toBe(true);
+    expect(game.rebelPlayers.find(r => r.seat === seat)!.mercOffer.all(CombatantModel)).toHaveLength(0);
+  });
+});

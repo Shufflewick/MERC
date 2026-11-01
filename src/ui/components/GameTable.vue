@@ -968,6 +968,8 @@ const hirableMercs = computed(() => {
   // Note: BoardSmith now returns choices as {value, display} objects
   return choices
     .filter((choice: any) => {
+      // A disabled choice (e.g. a MERC who will not work with the team) cannot be hired
+      if (choice.disabled) return false;
       // Use display for filtering (it's the human-readable name)
       const choiceDisplay = choice.display || choice.value || choice;
       // Filter out skip option - it's handled separately
@@ -1091,7 +1093,7 @@ const landingSectors = computed(() => {
   }).filter(Boolean);
 });
 
-// ---- Multi-select state for mid-game hireMerc (draw 3, pick 1+) ----
+// ---- Multi-select state for mid-game hireMercFromOffer (pick 0-3 of the drawn MERCs) ----
 const hireMultiSelectValues = ref<unknown[]>([]);
 
 // Is the current hiring pick a multiSelect?

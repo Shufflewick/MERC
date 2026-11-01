@@ -8,7 +8,6 @@ import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, CombatantModel } from '../elements.js';
 import {
-  drawMercsForHiring,
   isValidLandingSector,
   equipStartingEquipment,
   placeInitialMilitia,
@@ -19,7 +18,7 @@ import {
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer, selectNewMercLocation } from '../bot-helpers.js';
-import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getCachedValue, setCachedValue, clearCachedValue, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire, equipDictatorOnEntry } from './helpers.js';
+import { capitalize, isInPlayerTeam, canHireMercWithTeam, asRebelPlayer, asSector, isRebelPlayer, isCombatantModel, isMerc, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isNotInActiveCombat, equipNewHire, equipDictatorOnEntry } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries, emitMapMilitiaTrain } from '../animation-events.js';
 import { doesntCountTowardLimit } from '../merc-abilities.js';
 
@@ -27,44 +26,9 @@ import { doesntCountTowardLimit } from '../merc-abilities.js';
 // Rebel Day 1 Actions
 // =============================================================================
 
-// Settings key for drawn MERCs cache (persists across contexts unlike module-level Map)
-const DRAWN_MERCS_KEY = 'drawnMercsForHiring';
-
-/**
- * Get merc combatants from cached IDs
- * Returns undefined if no cache exists (so callers can distinguish from empty cache)
- */
-function getMercsFromCache(game: MERCGame, playerId: string): CombatantModel[] | undefined {
-  const ids = getCachedValue<number[]>(game, DRAWN_MERCS_KEY, playerId);
-  if (!ids) return undefined; // No cache - caller should draw
-  if (ids.length === 0) return []; // Cache exists but empty (all MERCs hired)
-  return ids.map(id => {
-    const el = game.getElementById(id);
-    return (isCombatantModel(el) && el.isMerc) ? el : null;
-  }).filter((m): m is CombatantModel => m !== null);
-}
-
-/**
- * Draw and cache MERCs for a player if not already cached.
- * Uses game.settings for persistence across BoardSmith contexts.
- */
-function ensureMercsDrawn(game: MERCGame, playerId: string): CombatantModel[] {
-  const cachedMercs = getMercsFromCache(game, playerId);
-  if (cachedMercs !== undefined) {
-    // Cache exists (even if empty) - return what's there
-    return cachedMercs;
-  }
-
-  // No cache - draw fresh
-  const drawn = drawMercsForHiring(game, 3);
-  setCachedValue(game, DRAWN_MERCS_KEY, playerId, drawn.map(m => m.id));
-  game.message(`Drew ${drawn.length} MERCs for hiring: ${drawn.map(m => m.combatantName).join(', ')}`);
-  return drawn;
-}
-
 /**
  * Hire first MERC on Day 1.
- * Draw 3 MERCs, player picks 1 to hire, then picks their starting equipment.
+ * Pick 1 of the 3 MERCs the flow drew, then their starting equipment.
  */
 export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('hireFirstMerc')
@@ -86,20 +50,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
     .chooseFrom('merc', {
       prompt: 'Select your FIRST MERC to hire',
       choices: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-
-        // Only draw if cache exists (populated by starting the action)
-        // This prevents drawing during action availability preview
-        const available = getMercsFromCache(game, playerId);
-        if (!available) {
-          const drawn = ensureMercsDrawn(game, playerId);
-          if (drawn.length === 0) {
-            return ['No MERCs available'];
-          }
-          return drawn.map((m) => capitalize(m.combatantName));
-        }
-
+        const available = asRebelPlayer(ctx.player).mercOffer.all(CombatantModel);
         if (available.length === 0) {
           return ['No MERCs available'];
         }
@@ -112,8 +63,7 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.seat}`;
-      const available = getMercsFromCache(game, playerId) || [];
+      const available = player.mercOffer.all(CombatantModel);
 
       if (available.length === 0) {
         return { success: false, error: 'No MERCs available in deck' };
@@ -145,10 +95,6 @@ export function createHireFirstMercAction(game: MERCGame): ActionDefinition {
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const equipment = equipStartingEquipment(game, merc, equipmentType);
 
-      // Remove from cache (keep remaining for second hire)
-      const remaining = available.filter(m => m !== merc);
-      setCachedValue(game, DRAWN_MERCS_KEY, playerId, remaining.map(m => m.id));
-
       return {
         success: true,
         message: equipment
@@ -174,18 +120,14 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       'is rebel player': (ctx) => isRebelPlayer(ctx.player),
       'has 1 MERC and 2+ remaining to hire': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
-        const player = ctx.player;
-        const playerId = `${player.seat}`;
-        const remaining = getMercsFromCache(game, playerId) || [];
-        return player.team.length === 1 && remaining.length >= 2;
+        return ctx.player.team.length === 1 && ctx.player.mercOffer.count(CombatantModel) >= 2;
       },
     })
     .chooseFrom('merc', {
       prompt: 'Select your SECOND MERC to hire',
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-        const available = getMercsFromCache(game, playerId) || [];
+        const available = player.mercOffer.all(CombatantModel);
 
         if (available.length === 0) {
           return ['No MERCs available'];
@@ -208,8 +150,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.seat}`;
-      const available = getMercsFromCache(game, playerId) || [];
+      const available = player.mercOffer.all(CombatantModel);
 
       if (available.length === 0) {
         return { success: false, error: 'No MERCs available in deck' };
@@ -246,9 +187,7 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const equipment = equipStartingEquipment(game, merc, equipmentType);
 
-      // Update cache with remaining MERCs
-      const remaining = available.filter(m => m !== merc);
-      setCachedValue(game, DRAWN_MERCS_KEY, playerId, remaining.map(m => m.id));
+      const remaining = player.mercOffer.all(CombatantModel);
 
       // Teresa doesn't count toward the team limit, so her player can hire a 3rd MERC
       const hasFreeSlotMerc = player.team.some(m => doesntCountTowardLimit(m.combatantId));
@@ -258,7 +197,6 @@ export function createHireSecondMercAction(game: MERCGame): ActionDefinition {
           other.putInto(game.mercDiscard);
           game.message(`${other.combatantName} was not selected and is discarded`);
         }
-        clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
       } else {
         game.message(`Teresa bonus: ${remaining.length} MERC(s) available for third hire!`);
       }
@@ -288,18 +226,15 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       'Teresa bonus: can hire third MERC': (ctx) => {
         if (!isRebelPlayer(ctx.player)) return false;
         const player = ctx.player;
-        const playerId = `${player.seat}`;
-        const remaining = getMercsFromCache(game, playerId) || [];
         const hasFreeSlotMerc = player.team.some(m => doesntCountTowardLimit(m.combatantId));
-        return player.team.length === 2 && hasFreeSlotMerc && remaining.length > 0;
+        return player.team.length === 2 && hasFreeSlotMerc && player.mercOffer.count(CombatantModel) > 0;
       },
     })
     .chooseFrom('merc', {
       prompt: 'Teresa doesn\'t count toward team limit! Hire your THIRD MERC or skip',
       choices: (ctx: ActionContext) => {
         const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-        const available = getMercsFromCache(game, playerId) || [];
+        const available = player.mercOffer.all(CombatantModel);
 
         // Filter out MERCs incompatible with current team
         const compatible = available.filter(m =>
@@ -324,17 +259,13 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.seat}`;
-      const available = getMercsFromCache(game, playerId) || [];
+      const available = player.mercOffer.all(CombatantModel);
       const chosenMercName = args.merc;
 
       // Handle skip option
       if (chosenMercName === 'Skip (no third hire)') {
         // Discard remaining MERCs
-        for (const other of available) {
-          other.putInto(game.mercDiscard);
-        }
-        clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
+        game.discardMercOffer(player.mercOffer);
         game.message(`${player.name} skipped third hire`);
         return { success: true, message: 'Skipped third hire' };
       }
@@ -373,8 +304,8 @@ export function createHireThirdMercAction(game: MERCGame): ActionDefinition {
       const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       const equipment = equipStartingEquipment(game, merc, equipmentType);
 
-      // Clean up cache - no more hiring available
-      clearCachedValue(game, DRAWN_MERCS_KEY, playerId);
+      // No more hiring available
+      game.discardMercOffer(player.mercOffer);
 
       return {
         success: true,

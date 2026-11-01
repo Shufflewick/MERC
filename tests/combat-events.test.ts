@@ -458,10 +458,9 @@ describe('Combat Event Pipeline', () => {
       const r = g.rebelPlayers[0];
       const s = g.gameMap.getAllSectors()[0];
 
-      // Place multiple mercs for target selection / hit allocation
-      const allMercs = g.mercDeck.all(CombatantModel).filter(c => c.isMerc);
-      for (const m of allMercs.slice(0, 3)) {
-        m.putInto(r.primarySquad);
+      // Place multiple mercs for target selection / hit allocation (named, so deck order does not matter)
+      for (const id of ['vrbansk', 'sarge', 'genesis']) {
+        g.first(CombatantModel, m => m.combatantId === id)!.putInto(r.primarySquad);
       }
       r.primarySquad.sectorId = s.sectorId;
       s.addDictatorMilitia(6);

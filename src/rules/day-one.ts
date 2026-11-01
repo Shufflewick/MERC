@@ -20,23 +20,6 @@ import { equipNewHire } from './actions/helpers.js';
 // =============================================================================
 
 /**
- * Draw multiple MERCs for initial hiring selection.
- * Rebels draw 3, then choose which to hire.
- */
-export function drawMercsForHiring(game: MERCGame, count: number = 3): CombatantModel[] {
-  const drawnMercs: CombatantModel[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const merc = game.drawMerc();
-    if (merc) {
-      drawnMercs.push(merc);
-    }
-  }
-
-  return drawnMercs;
-}
-
-/**
  * Hire selected MERCs from the drawn pool.
  * Returns unhired MERCs to the discard pile.
  */

@@ -469,6 +469,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
  * longer available (rulebook p.6, "Death").
  */
 function rebelTurnIsOver(game: MERCGame, rebel: RebelPlayer): boolean {
+  if (rebel.mercOffer.count(CombatantModel) > 0) return false;
   if (rebel.teamSize === 0) {
     return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0;
   }
@@ -531,6 +532,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // ===== REBEL PHASE =====
           execute(() => {
             game.message('--- Rebel Phase ---');
+          }),
+
+          // Rules p.2: each rebel's hire starts by drawing 3 MERCs
+          execute(() => {
+            for (const rebel of game.rebelPlayers) {
+              game.offerMercs(3, rebel.mercOffer);
+              const drawn = rebel.mercOffer.all(CombatantModel).map(m => m.combatantName);
+              game.message(`${rebel.name} drew ${drawn.length} MERCs for hiring: ${drawn.join(', ')}`);
+            }
           }),
 
           // Each rebel performs their Day 1 setup simultaneously
@@ -850,36 +860,39 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               simultaneousActionStep({
                 name: 'rebel-actions',
                 players: () => game.rebelPlayers,
-                actions: [
-                  'move',
-                  'vehicleMove',
-                  'coordinatedAttack',
-                  'declareMultiPlayerAttack',
-                  'explore',
-                  'collectEquipment',
-                  'train',
-                  'hireMerc',
-                  'rehireMerc',
-                  'reEquip',
-                  'reEquipContinue',
-                  'dropEquipment',
-                  'hospital',
-                  'feedbackDiscard',
-                  'squidheadDisarm',
-                  'squidheadArm',
-                  'docHeal',
-                  'hagnessDrawType',
-                  'hagnessSelectFromDrawn',
-                  'hagnessGiveEquipment',
-                  'armsDealer',
-                  'armsDealerEquip', // MERC-dh5: free re-equip (via followUp)
-                  'repairKit',
-                  'mortar',
-                  'assignToSquad',
-                  'viewStash',
-                  'takeFromStash',
-                  'endTurn',
-                ],
+                // A rebel with MERCs on offer finishes that hire before anything else.
+                actions: (_ctx, player) => (player as RebelPlayer).mercOffer.count(CombatantModel) > 0
+                  ? ['hireMercFromOffer', 'rehireMercFromOffer']
+                  : [
+                    'move',
+                    'vehicleMove',
+                    'coordinatedAttack',
+                    'declareMultiPlayerAttack',
+                    'explore',
+                    'collectEquipment',
+                    'train',
+                    'hireMerc',
+                    'rehireMerc',
+                    'reEquip',
+                    'reEquipContinue',
+                    'dropEquipment',
+                    'hospital',
+                    'feedbackDiscard',
+                    'squidheadDisarm',
+                    'squidheadArm',
+                    'docHeal',
+                    'hagnessDrawType',
+                    'hagnessSelectFromDrawn',
+                    'hagnessGiveEquipment',
+                    'armsDealer',
+                    'armsDealerEquip', // MERC-dh5: free re-equip (via followUp)
+                    'repairKit',
+                    'mortar',
+                    'assignToSquad',
+                    'viewStash',
+                    'takeFromStash',
+                    'endTurn',
+                  ],
                 // A wiped-out rebel still gets a turn: the rules let them hire a
                 // replacement MERC for free (p.6, "Death"), which needs no acting MERC.
                 skipPlayer: (_ctx, player) => {

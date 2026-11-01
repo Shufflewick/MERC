@@ -70,7 +70,9 @@ import {
 
 import {
   createHireMercAction,
+  createHireMercFromOfferAction,
   createRehireMercAction,
+  createRehireMercFromOfferAction,
   createExploreAction,
   createCollectEquipmentAction,
   createTakeFromStashAction,
@@ -149,7 +151,9 @@ import {
 export function registerAllActions(game: MERCGame): void {
   // Rebel actions
   game.registerAction(createHireMercAction(game));
+  game.registerAction(createHireMercFromOfferAction(game));
   game.registerAction(createRehireMercAction(game));
+  game.registerAction(createRehireMercFromOfferAction(game));
   game.registerAction(createPlaceLandingAction(game));
   game.registerAction(createMoveAction(game));
   game.registerAction(createVehicleMoveAction(game)); // Expansion A: vehicle squad transport
