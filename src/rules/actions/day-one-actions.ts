@@ -518,17 +518,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         ]);
       }
 
-      // Give equipment of chosen type
-      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-      const freeEquipment = game.drawEquipment(equipType);
-      if (freeEquipment) {
-        const { displacedBandolierItems } = merc.equip(freeEquipment);
-        for (const item of displacedBandolierItems) {
-          const discard = game.getEquipmentDiscard(item.equipmentType);
-          if (discard) item.putInto(discard);
-        }
-        game.message(`${merc.combatantName} equipped ${freeEquipment.equipmentName}`);
-      }
+      equipNewHire(game, merc, args.equipmentType as 'Weapon' | 'Armor' | 'Accessory');
 
       return { success: true, message: `Hired ${merc.combatantName}` };
     });
