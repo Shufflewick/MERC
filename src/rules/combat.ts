@@ -2756,6 +2756,10 @@ const { isHumanControlled, hasSelectedTargets } = control;
       game.message(`Wolverine's ${wolverineBonus6s} six(es) can hit additional targets!`);
     }
   }
+  // His 6s may go to any enemy he could have declared but did not.
+  const bonusTargets = wolverineBonus6s > 0
+    ? getEligibleTargets(attacker, enemies).filter(e => !targets.includes(e) && !e.isAttackDog)
+    : [];
 
   if (hits === 0) {
     results.push({
@@ -2774,10 +2778,6 @@ const { isHumanControlled, hasSelectedTargets } = control;
     // Valid targets for hit allocation are the DECLARED targets (not all enemies)
     // This respects the attacker's target limit (e.g., targets: 1 means only 1 declared target)
     const validTargets = targets.filter(t => t.health > 0);
-    // MERC-9mpr: Wolverine's 6s may also go to living enemies he did not declare.
-    const bonusTargets = wolverineBonus6s > 0
-      ? enemies.filter(e => e.health > 0 && !targets.includes(e) && !e.isAttackDog)
-      : [];
     const allocationTargets = [...validTargets, ...bonusTargets];
 
     // Smart skip logic:
@@ -2828,9 +2828,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
   }
 
   // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
-  const extraTargets = enemies
-    .filter(e => e.health > 0 && !targets.includes(e) && !e.isAttackDog)
-    .slice(0, wolverineBonus6s);
+  const extraTargets = bonusTargets.slice(0, wolverineBonus6s);
   if (extraTargets.length > 0) {
     game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
   }

@@ -503,4 +503,19 @@ describe('Wolverine\'s sixes when a human allocates the hits', () => {
 
     expect(sector.dictatorMilitia, 'both militia should be dead').toBe(0);
   });
+
+  it('offers his sixes only enemies he could have declared, so Runde stays targeted last (#91)', () => {
+    const { game, rebel, sector, apeiron } = wolverineAttacks('wolverine-human-sixes-runde');
+    const runde = game.mercDeck.first(CombatantModel, c => c.combatantId === 'runde')!;
+    runde.putInto(game.dictatorPlayer.primarySquad);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const selection = game.activeCombat!.pendingTargetSelection!;
+    const declaredMilitia = selection.validTargets.find(t => t.isMilitia)!;
+    expect(game.performAction('combatSelectTarget', rebel, { targets: [apeiron.id, declaredMilitia.id].map(String) }).success).toBe(true);
+
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Wolverine');
+    expect(pending!.validTargets.filter(t => !t.declared).map(t => t.name)).toEqual(['Militia']);
+  });
 });
