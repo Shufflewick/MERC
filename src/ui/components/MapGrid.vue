@@ -117,6 +117,7 @@ const props = defineProps<{
   mortarStrike?: {
     targetSectorId: string;
     hitCombatantIds: string[];
+    killedCombatantIds: string[];
     militiaKilled: number;
   } | null;
   landmineStrike?: {
@@ -704,6 +705,7 @@ function handleSectorClick(sectorId: string) {
       :sector-rect="mortarStrikeRect"
       :sector-id="mortarStrike.targetSectorId"
       :hit-combatant-ids="mortarStrike.hitCombatantIds"
+      :killed-combatant-ids="mortarStrike.killedCombatantIds"
       :militia-killed="mortarStrike.militiaKilled"
       @complete="handleMortarStrikeComplete"
     />

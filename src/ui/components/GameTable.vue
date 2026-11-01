@@ -529,6 +529,7 @@ const combatSnapshot = ref<Record<string, unknown> | null>(null);
 const activeMortarStrike = ref<{
   targetSectorId: string;
   hitCombatantIds: string[];
+  killedCombatantIds: string[];
   militiaKilled: number;
 } | null>(null);
 let mortarStrikeResolve: (() => void) | null = null;
@@ -694,6 +695,7 @@ if (animationEvents) {
     const data = event.data as {
       targetSectorId: string;
       hitCombatantIds: string[];
+      killedCombatantIds: string[];
       militiaKilled: number;
     };
     // Dismiss the allocation panel on all clients (the active player already
