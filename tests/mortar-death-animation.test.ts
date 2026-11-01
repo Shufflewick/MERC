@@ -4,7 +4,7 @@ import { MERCGame, type MERCPlayer } from '../src/rules/game.js';
 import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { buildMortarTargets } from '../src/rules/actions/rebel-equipment.js';
 
-describe('a mortar hit on a MERC with 1 health left', () => {
+describe('a mortar hit on a unit with 1 health left', () => {
   let game: MERCGame;
   let sector: Sector;
   let victim: CombatantModel;
@@ -41,7 +41,7 @@ describe('a mortar hit on a MERC with 1 health left', () => {
     return game.pendingAnimationEvents.map(e => e.type);
   }
 
-  it('kills him: his gear is discarded, his card goes to the MERC discard, and the map death plays after the strike', () => {
+  it('on a MERC kills him: his gear is discarded, his card goes to the MERC discard, and the map death plays after the strike', () => {
     const weapon = game.weaponsDeck.first(Equipment)!;
     victim.equip(weapon);
 
@@ -60,7 +60,23 @@ describe('a mortar hit on a MERC with 1 health left', () => {
     expect(types.indexOf('map-combatant-death')).toBeGreaterThan(types.indexOf('mortar-strike'));
   });
 
-  it('is stopped by his own Epinephrine Shot, and no death plays', () => {
+  it('on the Dictator plays his map death, under his dictator token id', () => {
+    victim.putInto(game.mercDiscard);
+    game.setupDictator();
+    victim = game.dictatorPlayer.dictator!;
+    victim.inPlay = true;
+    victim.putInto(game.dictatorPlayer.primarySquad);
+    victim.damage = victim.maxHealth - 1;
+
+    fireOneHit();
+
+    const death = game.pendingAnimationEvents.find(e => e.type === 'map-combatant-death');
+    expect(death?.data).toEqual({
+      combatants: [expect.objectContaining({ combatantId: `dictator-${victim.combatantId}`, sectorId: sector.sectorId })],
+    });
+  });
+
+  it('on a MERC is stopped by his own Epinephrine Shot, and no death plays', () => {
     const rebel = game.rebelPlayers[0];
     victim.putInto(rebel.primarySquad);
     rebel.primarySquad.sectorId = sector.sectorId;
