@@ -97,7 +97,7 @@ describe('combatAllocateHits prompt', () => {
       seed: 'allocate-overkill',
     }).game;
     const rebel = game.rebelPlayers[0];
-    const militia = (id: string) => ({ id, name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0 });
+    const militia = (id: string) => ({ id, name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: true });
     // A reroll-capable attacker pauses even on overkill: 3 hits, 2 health to take them.
     game.activeCombat = {
       ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
@@ -129,14 +129,69 @@ describe('combatAllocateHits prompt', () => {
         attackerId: 'basic', attackerName: 'Basic', attackerCombatantId: 'basic',
         diceRolls: [6, 6, 6], hits: 3, hitThreshold: 4,
         validTargets: [
-          { id: 'merc', name: 'merc', isMerc: true, currentHealth: 1, maxHealth: 3, armor: 1 },
-          { id: 'm1', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0 },
+          { id: 'merc', name: 'merc', isMerc: true, currentHealth: 1, maxHealth: 3, armor: 1, declared: true },
+          { id: 'm1', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: true },
         ],
         wolverineSixes: 0, canReroll: true, hasRerolled: false, rollCount: 1,
       },
     };
 
     const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'merc::1', 'm1::0'] });
+    expect(result.success, result.error).toBe(true);
+  });
+
+  it('lets undeclared targets take only as many hits as Wolverine rolled 6s (#91)', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'allocate-wolverine-cap',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    // One 6 and one 4: the 4 must hit the declared MERC.
+    game.activeCombat = {
+      ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
+      pendingHitAllocation: {
+        attackerId: 'wolverine', attackerName: 'Wolverine', attackerCombatantId: 'wolverine',
+        diceRolls: [6, 4], hits: 2, hitThreshold: 4,
+        validTargets: [
+          { id: 'merc', name: 'merc', isMerc: true, currentHealth: 3, maxHealth: 3, armor: 0, declared: true },
+          { id: 'm1', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: false },
+          { id: 'm2', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: false },
+        ],
+        wolverineSixes: 1, canReroll: false, hasRerolled: false, rollCount: 1,
+      },
+    };
+
+    const refused = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'm2::0'] });
+    expect(refused.success).toBe(false);
+    expect(refused.error).toBe('Only 1 hit(s) can go to targets Wolverine did not declare, one per 6 rolled (allocated 2)');
+
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'm1::0'] });
+    expect(result.success, result.error).toBe(true);
+  });
+
+  it('asks for only the hits the targets can take when the undeclared ones are limited to the 6s (#91)', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'allocate-wolverine-capacity',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    // Three hits, one a 6: the declared militia takes one, the 6 can add one more on Apeiron, the third is wasted.
+    game.activeCombat = {
+      ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
+      pendingHitAllocation: {
+        attackerId: 'wolverine', attackerName: 'Wolverine', attackerCombatantId: 'wolverine',
+        diceRolls: [6, 5, 4], hits: 3, hitThreshold: 4,
+        validTargets: [
+          { id: 'm1', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: true },
+          { id: 'merc', name: 'merc', isMerc: true, currentHealth: 3, maxHealth: 3, armor: 0, declared: false },
+        ],
+        wolverineSixes: 1, canReroll: false, hasRerolled: false, rollCount: 1,
+      },
+    };
+
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'merc::0'] });
     expect(result.success, result.error).toBe(true);
   });
 });
@@ -398,5 +453,54 @@ describe('Wolverine\'s sixes when hits are allocated automatically', () => {
 
     expect(sector.dictatorMilitia).toBe(0);
     expect(wolverine.isDead).toBe(false);
+  });
+});
+
+describe('Wolverine\'s sixes when a human allocates the hits', () => {
+  /** Human Wolverine with an Uzi (two targets) against Apeiron and two militia, on dice showing 6. */
+  function wolverineAttacks(seed: string) {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed,
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const sector = game.gameMap.getAllSectors()[0];
+    const wolverine = game.mercDeck.first(CombatantModel, c => c.combatantId === 'wolverine')!;
+    wolverine.putInto(rebel.primarySquad);
+    wolverine.equip(game.first(Equipment, e => e.equipmentId === 'uzi')!);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(2);
+    game.random = riggedDice().random;
+    return { game, rebel, sector, apeiron };
+  }
+
+  it('may spend a six on an enemy he did not declare (#91)', () => {
+    const { game, rebel, sector, apeiron } = wolverineAttacks('wolverine-human-sixes');
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const selection = game.activeCombat?.pendingTargetSelection;
+    expect(selection?.attackerName).toBe('Wolverine');
+    const declaredMilitia = selection!.validTargets.find(t => t.isMilitia)!;
+    expect(game.performAction('combatSelectTarget', rebel, { targets: [apeiron.id, declaredMilitia.id].map(String) }).success).toBe(true);
+
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Wolverine');
+    expect(pending!.validTargets.map(t => t.name).sort(), 'the undeclared militia should be offered for the sixes')
+      .toEqual(['Apeiron', 'Militia', 'Militia']);
+    const bonus = pending!.validTargets.filter(t => !t.declared);
+    expect(bonus.map(t => t.name)).toEqual(['Militia']);
+
+    // One six on the undeclared militia, one on the declared one, the rest on Apeiron.
+    const apeironId = pending!.validTargets.find(t => t.isMerc)!.id;
+    const allocations = [`${bonus[0].id}::0`, `${declaredMilitia.id}::0`];
+    for (let i = 0; i < pending!.hits - 2; i++) allocations.push(`${apeironId}::${i}`);
+    const result = game.performAction('combatAllocateHits', rebel, { allocations });
+    expect(result.success, result.error).toBe(true);
+
+    expect(sector.dictatorMilitia, 'both militia should be dead').toBe(0);
   });
 });

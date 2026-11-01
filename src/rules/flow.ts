@@ -255,19 +255,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }),
     }),
 
-    // 5. Wolverine 6s allocation loop
-    loop({
-      name: `${prefix}-wolverine-sixes`,
-      while: () => game.activeCombat?.pendingWolverineSixes != null && !game.isFinished(),
-      maxIterations: 50,
-      do: actionStep({
-        name: 'allocate-wolverine-sixes',
-        actions: ['combatAllocateWolverineSixes'],
-        skipIf: () => game.isFinished() || game.activeCombat?.pendingWolverineSixes == null,
-      }),
-    }),
-
-    // 6. Epinephrine Shot choice loop
+    // 5. Epinephrine Shot choice loop
     loop({
       name: `${prefix}-epinephrine`,
       while: () => game.activeCombat?.pendingEpinephrine != null && !game.isFinished(),
@@ -280,7 +268,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }),
     }),
 
-    // 7. Combat continue/retreat - only when no pending decisions
+    // 6. Combat continue/retreat - only when no pending decisions
     // Also skip when combatComplete (UI is animating)
     loop({
       name: `${prefix}-continue`,
@@ -291,7 +279,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                   game.activeCombat.pendingAttackDogSelection == null &&
                   game.activeCombat.pendingTargetSelection == null &&
                   game.activeCombat.pendingHitAllocation == null &&
-                  game.activeCombat.pendingWolverineSixes == null &&
                   game.activeCombat.pendingEpinephrine == null &&
                   game.activeCombat.pendingGolemAttack == null &&
                   !game.isFinished(),
@@ -306,13 +293,12 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                       game.activeCombat.pendingAttackDogSelection != null ||
                       game.activeCombat.pendingTargetSelection != null ||
                       game.activeCombat.pendingHitAllocation != null ||
-                      game.activeCombat.pendingWolverineSixes != null ||
                       game.activeCombat.pendingEpinephrine != null ||
                       game.activeCombat.pendingGolemAttack != null,
       }),
     }),
 
-    // 8. Retreat decision (simultaneous action step + execute for retreat processing)
+    // 7. Retreat decision (simultaneous action step + execute for retreat processing)
     loop({
       name: `${prefix}-retreat-decision`,
       while: () => game.activeCombat !== null &&
@@ -322,7 +308,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                   game.activeCombat.pendingAttackDogSelection == null &&
                   game.activeCombat.pendingTargetSelection == null &&
                   game.activeCombat.pendingHitAllocation == null &&
-                  game.activeCombat.pendingWolverineSixes == null &&
                   game.activeCombat.pendingEpinephrine == null &&
                   game.activeCombat.pendingGolemAttack == null &&
                   !game.isFinished(),
@@ -349,7 +334,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
                         game.activeCombat.pendingAttackDogSelection != null ||
                         game.activeCombat.pendingTargetSelection != null ||
                         game.activeCombat.pendingHitAllocation != null ||
-                        game.activeCombat.pendingWolverineSixes != null ||
                         game.activeCombat.pendingEpinephrine != null ||
                         game.activeCombat.pendingGolemAttack != null ||
                         getCombatDecisionParticipants(game).every(p =>
@@ -410,7 +394,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       ),
     }),
 
-    // 9. Gaddafi: Bot auto-loot after combat
+    // 8. Gaddafi: Bot auto-loot after combat
     execute(() => {
       if (game.dictatorPlayer?.dictator?.combatantId !== 'gadafi') return;
       if (!game._gaddafiLootableEquipment || game._gaddafiLootableEquipment.length === 0) return;
@@ -420,7 +404,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }
     }),
 
-    // 10. Gaddafi: Human equipment loot choices after combat
+    // 9. Gaddafi: Human equipment loot choices after combat
     loop({
       name: `${prefix}-gaddafi-loot`,
       while: () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi' &&
@@ -438,7 +422,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }),
     }),
 
-    // 11. Auto-clear in fully Bot games
+    // 10. Auto-clear in fully Bot games
     execute(() => {
       if (game.activeCombat?.combatComplete &&
           game.dictatorPlayer?.isBot &&
@@ -447,7 +431,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }
     }),
 
-    // 10. Animation wait loop — CombatPanel triggers clear for human games
+    // 11. Animation wait loop — CombatPanel triggers clear for human games
     loop({
       name: `${prefix}-animation-wait`,
       while: () => game.activeCombat?.combatComplete === true &&

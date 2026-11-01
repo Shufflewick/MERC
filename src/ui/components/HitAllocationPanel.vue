@@ -16,6 +16,7 @@ export interface PendingHitAllocation {
     isMerc: boolean;
     currentHealth: number;
     maxHealth: number;
+    declared: boolean;
   }>;
   wolverineSixes: number;
   canReroll: boolean;
@@ -105,11 +106,23 @@ function selectDie(dieIndex: number) {
   emit('select-die', dieIndex);
 }
 
+// Wolverine's 6s may hit enemies he did not declare; no other die may.
+const hasUndeclaredTargets = computed(() => props.pendingAllocation.validTargets.some(t => !t.declared));
+
+function isUndeclared(targetId: string): boolean {
+  return props.pendingAllocation.validTargets.some(t => t.id === targetId && !t.declared);
+}
+
 // Handle adding a hit to a target (called from parent)
 function addHitToTarget(targetId: string) {
   if (unallocatedHitCount.value <= 0) return;
   // When dice data is available, use dice-based allocation
   if (hasDiceData.value) {
+    if (isUndeclared(targetId) && (selectedDieIndex.value === null || props.pendingAllocation.diceRolls[selectedDieIndex.value] !== 6)) {
+      const six = unallocatedHits.value.find(d => d.value === 6);
+      if (!six) return;
+      selectedDieIndex.value = six.index;
+    }
     // Need a selected die to allocate
     if (selectedDieIndex.value === null) return;
 
@@ -125,6 +138,8 @@ function addHitToTarget(targetId: string) {
     // Fallback mode: no dice data, just track allocations by count
     const totalHits = props.pendingAllocation.hits || 0;
     if (fallbackAllocations.value.length >= totalHits) return;
+    if (isUndeclared(targetId) &&
+        fallbackAllocations.value.filter(isUndeclared).length >= props.pendingAllocation.wolverineSixes) return;
 
     fallbackAllocations.value.push(targetId);
     emit('allocate-hit', targetId);
@@ -230,6 +245,9 @@ defineExpose({
       <template v-else>
         Click a target to allocate {{ unallocatedHitCount }} remaining hit(s)
       </template>
+    </div>
+    <div v-if="isMyTurn && hasUndeclaredTargets" class="allocation-hint">
+      {{ pendingAllocation.attackerName }}'s 6s may also hit enemies he did not target
     </div>
 
     <!-- Confirm button when all hits allocated -->

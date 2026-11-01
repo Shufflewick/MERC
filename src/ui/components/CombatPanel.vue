@@ -409,7 +409,6 @@ const livingDictator = computed(() => {
 // Snapshot decision context computed helpers — used in script and template
 const snapshotTargetSelection = computed(() => props.combatSnapshot?.pendingTargetSelection as any);
 const snapshotHitAllocation = computed(() => props.combatSnapshot?.pendingHitAllocation as PendingHitAllocation | null);
-const snapshotWolverineSixes = computed(() => props.combatSnapshot?.pendingWolverineSixes as any);
 const snapshotAttackDogSelection = computed(() => props.combatSnapshot?.pendingAttackDogSelection as any);
 const snapshotBeforeAttackHealing = computed(() => props.combatSnapshot?.pendingBeforeAttackHealing as any);
 // Mode checks
@@ -423,10 +422,6 @@ const maxTargets = computed(() => {
 
 const isAllocating = computed(() => {
   return !!snapshotHitAllocation.value && props.isMyTurn;
-});
-
-const isAllocatingWolverineSixes = computed(() => {
-  return !!snapshotWolverineSixes.value && props.isMyTurn;
 });
 
 const isAssigningAttackDog = computed(() => {
@@ -534,9 +529,6 @@ function isValidTarget(targetId: string): boolean {
   if (isSelectingTargets.value) {
     return snapshotTargetSelection.value?.validTargets?.some((t: any) => normalizeId(t.id) === normalized) ?? false;
   }
-  if (isAllocatingWolverineSixes.value) {
-    return snapshotWolverineSixes.value?.bonusTargets?.some((t: any) => normalizeId(t.id) === normalized) ?? false;
-  }
   return snapshotHitAllocation.value?.validTargets?.some((t: any) => normalizeId(t.id) === normalized) ?? false;
 }
 
@@ -579,12 +571,6 @@ function selectTarget(targetId: string) {
       selectedTargets.value.add(normalized);
     }
     selectedTargets.value = new Set(selectedTargets.value);
-    return;
-  }
-
-  // Handle Wolverine's 6s allocation
-  // Wolverine 6s tracked via hit allocation panel -- no action needed on individual click
-  if (isAllocatingWolverineSixes.value) {
     return;
   }
 
@@ -890,17 +876,6 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- Wolverine's 6s allocation -->
-    <div v-if="snapshotWolverineSixes && !isAnimating" class="wolverine-area">
-      <div class="wolverine-info">
-        <strong>{{ snapshotWolverineSixes?.attackerName }}</strong> - Wolverine's Ability!
-        <span class="six-count">{{ snapshotWolverineSixes?.sixCount }} bonus target(s) from 6s</span>
-      </div>
-      <div class="allocation-hint">
-        Click additional targets to allocate Wolverine's bonus hits
-      </div>
-    </div>
-
     <!-- Attack Dog assignment -->
     <AttackDogAssignmentPanel
       v-if="isAssigningAttackDog && !isAnimating"
@@ -965,7 +940,7 @@ onUnmounted(() => {
 
     <!-- Combat actions -->
     <div
-      v-if="!isAllocating && !isSelectingTargets && !isAllocatingWolverineSixes && !isAssigningAttackDog && !isSelectingRetreatSector && !isHealingBeforeAttack && isMyTurn && !isAnimating"
+      v-if="!isAllocating && !isSelectingTargets && !isAssigningAttackDog && !isSelectingRetreatSector && !isHealingBeforeAttack && isMyTurn && !isAnimating"
       class="combat-actions"
     >
       <button
@@ -1239,30 +1214,6 @@ onUnmounted(() => {
 .target-name {
   color: #ff6b6b;
   font-size: 1rem;
-}
-
-.wolverine-area {
-  background: rgba(255, 152, 0, 0.1);
-  border: 2px solid #ff9800;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-  margin-top: 12px;
-}
-
-.wolverine-info {
-  color: #ff9800;
-  margin-bottom: 8px;
-}
-
-.six-count {
-  margin-left: 8px;
-  font-weight: bold;
-}
-
-.allocation-hint {
-  color: #ff9800;
-  font-size: 0.9rem;
 }
 
 .combat-actions {

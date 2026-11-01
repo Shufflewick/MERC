@@ -57,7 +57,6 @@ import {
   createCombatSkipBeforeAttackHealAction,
   createCombatAllocateHitsAction,
   createCombatBasicRerollAction,
-  createCombatAllocateWolverineSixesAction,
   createAdelheidToggleConversionAction,
   createGolemPreCombatAttackAction,
   createGolemSkipPreCombatAction,
@@ -196,7 +195,6 @@ export function registerAllActions(game: MERCGame): void {
   // MERC-dice: Combat hit allocation actions
   game.registerAction(createCombatAllocateHitsAction(game));
   game.registerAction(createCombatBasicRerollAction(game));
-  game.registerAction(createCombatAllocateWolverineSixesAction(game));
   game.registerAction(createAdelheidToggleConversionAction(game)); // Adelheid: convert or kill militia
   game.registerAction(createGolemPreCombatAttackAction(game)); // Golem: optional pre-combat strike
   game.registerAction(createGolemSkipPreCombatAction(game));

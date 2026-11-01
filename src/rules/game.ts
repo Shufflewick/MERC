@@ -546,24 +546,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         currentHealth: number;
         maxHealth: number;
         armor: number; // Armour that soaks this attacker's hits before health; 0 against armour-piercing
+        declared: boolean; // False for an enemy only Wolverine's 6s may hit
       }>;
-      wolverineSixes: number; // Count of 6s for Wolverine's ability
+      wolverineSixes: number; // Count of 6s for Wolverine's ability: the most hits undeclared targets may take
       canReroll: boolean; // Basic's ability available
       hasRerolled: boolean; // Basic already used reroll this combat
       rollCount: number; // Increment to trigger dice animation
-    };
-    // Wolverine's bonus 6s allocation (after normal allocation)
-    pendingWolverineSixes?: {
-      attackerId: string;
-      attackerName: string;
-      sixCount: number;
-      bonusTargets: Array<{
-        id: string;
-        name: string;
-        isMerc: boolean;
-        currentHealth: number;
-        maxHealth: number;
-      }>;
     };
     // Golem: "May attack any 1 target before the first round of combat."
     // Optional, so a human-controlled Golem is asked rather than auto-fired.
