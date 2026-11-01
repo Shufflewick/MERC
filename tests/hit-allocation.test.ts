@@ -414,6 +414,15 @@ describe('resuming combat after the player allocates hits', () => {
     expect(apeiron.health).toBe(1);
   });
 
+  it('lets the owner decline the shot, and the MERC dies (#92)', () => {
+    const { game, rebel, apeiron } = basicKillsApeironWithShot('epinephrine-declined');
+
+    const declined = game.performAction('combatDeclineEpinephrine', rebel, {});
+    expect(declined.success, declined.error).toBe(true);
+
+    expect(apeiron.parent).toBe(game.mercDiscard);
+  });
+
   it('lands the rest of the attack before asking for the shot, and does not replay the round (#92)', () => {
     const { game, rebel, sector, dice } = basicAttacks('epinephrine-after-whole-attack');
     const dictator = game.dictatorPlayer;
