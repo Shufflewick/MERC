@@ -32,3 +32,62 @@ describe('CombatPanel continue and retreat buttons', () => {
     expect(panel(allocating).find('.combat-continue-btn').exists()).toBe(false);
   });
 });
+
+function button(wrapper: ReturnType<typeof panel>, text: string) {
+  const match = wrapper.findAll('button').find(b => b.text() === text);
+  if (!match) throw new Error(`No "${text}" button. Buttons: ${wrapper.findAll('button').map(b => b.text()).join(', ')}`);
+  return match;
+}
+
+const golemStrike = {
+  pendingGolemAttack: {
+    golemId: 'golem', golemName: 'Golem',
+    validTargets: [
+      { id: 'm1', name: 'Militia', isMerc: false, currentHealth: 1, maxHealth: 1 },
+      { id: 'lucid', name: 'Lucid', isMerc: true, currentHealth: 2, maxHealth: 3 },
+    ],
+  },
+};
+
+describe('CombatPanel during Golem\'s pre-combat strike (#105)', () => {
+  it('offers each target and strikes the one picked', async () => {
+    const wrapper = panel(golemStrike);
+    expect(wrapper.text()).toContain('Golem may strike before combat begins');
+    expect(wrapper.find('.combat-continue-btn').exists()).toBe(false);
+
+    await button(wrapper, 'Lucid').trigger('click');
+
+    expect(wrapper.emitted('golem-strike')).toEqual([['Lucid::lucid']]);
+  });
+
+  it('lets Golem hold fire', async () => {
+    const wrapper = panel(golemStrike);
+    await button(wrapper, 'Hold fire').trigger('click');
+    expect(wrapper.emitted('golem-hold')).toEqual([[]]);
+  });
+});
+
+const dying = {
+  pendingEpinephrine: {
+    dyingCombatantId: 7, dyingCombatantName: 'Basic', dyingCombatantSide: 'rebel',
+    availableSavers: [{ combatantId: 9, combatantName: 'Lucid' }, { combatantId: 7, combatantName: 'Basic' }],
+  },
+};
+
+describe('CombatPanel during an Epinephrine Shot decision (#105)', () => {
+  it('saves the dying MERC with the chosen MERC\'s shot', async () => {
+    const wrapper = panel(dying);
+    expect(wrapper.text()).toContain('Basic is dying');
+    expect(wrapper.find('.combat-continue-btn').exists()).toBe(false);
+
+    await button(wrapper, "Use Lucid's shot").trigger('click');
+
+    expect(wrapper.emitted('use-epinephrine')).toEqual([[9]]);
+  });
+
+  it('lets the dying MERC die', async () => {
+    const wrapper = panel(dying);
+    await button(wrapper, 'Let Basic die').trigger('click');
+    expect(wrapper.emitted('decline-epinephrine')).toEqual([[]]);
+  });
+});

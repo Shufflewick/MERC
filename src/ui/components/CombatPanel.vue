@@ -61,6 +61,10 @@ const emit = defineEmits<{
   (e: 'use-surgeon-heal'): void;
   (e: 'use-before-attack-heal'): void;
   (e: 'skip-before-attack-heal'): void;
+  (e: 'golem-strike', target: string): void;
+  (e: 'golem-hold'): void;
+  (e: 'use-epinephrine', saverId: number): void;
+  (e: 'decline-epinephrine'): void;
 }>();
 
 // =============================================================================
@@ -411,6 +415,8 @@ const snapshotTargetSelection = computed(() => props.combatSnapshot?.pendingTarg
 const snapshotHitAllocation = computed(() => props.combatSnapshot?.pendingHitAllocation as PendingHitAllocation | null);
 const snapshotAttackDogSelection = computed(() => props.combatSnapshot?.pendingAttackDogSelection as any);
 const snapshotBeforeAttackHealing = computed(() => props.combatSnapshot?.pendingBeforeAttackHealing as any);
+const snapshotGolemAttack = computed(() => props.combatSnapshot?.pendingGolemAttack as any);
+const snapshotEpinephrine = computed(() => props.combatSnapshot?.pendingEpinephrine as any);
 // Mode checks
 const isSelectingTargets = computed(() => {
   return !!snapshotTargetSelection.value && props.isMyTurn;
@@ -431,6 +437,10 @@ const isAssigningAttackDog = computed(() => {
 const isHealingBeforeAttack = computed(() => {
   return !!snapshotBeforeAttackHealing.value && props.isMyTurn;
 });
+
+const isChoosingGolemStrike = computed(() => !!snapshotGolemAttack.value && props.isMyTurn);
+
+const isChoosingEpinephrine = computed(() => !!snapshotEpinephrine.value && props.isMyTurn);
 
 // Initiative tracker
 interface InitiativeSlot {
@@ -929,6 +939,42 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Golem's optional pre-combat strike -->
+    <div v-if="isChoosingGolemStrike && !isAnimating" class="choice-panel golem-choice">
+      <div class="choice-header">
+        <strong>{{ snapshotGolemAttack.golemName }}</strong> may strike before combat begins
+      </div>
+      <div class="choice-hint">Pick one enemy to attack, or hold fire</div>
+      <div class="choice-actions">
+        <button
+          v-for="target in snapshotGolemAttack.validTargets"
+          :key="target.id"
+          class="choice-btn"
+          @click="emit('golem-strike', `${target.name}::${target.id}`)"
+        >{{ target.name }}</button>
+        <button class="choice-skip-btn" @click="emit('golem-hold')">Hold fire</button>
+      </div>
+    </div>
+
+    <!-- Epinephrine Shot: save the dying MERC or let him die -->
+    <div v-if="isChoosingEpinephrine && !isAnimating" class="choice-panel epinephrine-choice">
+      <div class="choice-header">
+        <strong>{{ snapshotEpinephrine.dyingCombatantName }}</strong> is dying
+      </div>
+      <div class="choice-hint">An Epinephrine Shot brings him back with 1 health</div>
+      <div class="choice-actions">
+        <button
+          v-for="saver in snapshotEpinephrine.availableSavers"
+          :key="saver.combatantId"
+          class="choice-btn"
+          @click="emit('use-epinephrine', saver.combatantId)"
+        >Use {{ saver.combatantName }}'s shot</button>
+        <button class="choice-skip-btn" @click="emit('decline-epinephrine')">
+          Let {{ snapshotEpinephrine.dyingCombatantName }} die
+        </button>
+      </div>
+    </div>
+
     <!-- Target selection -->
     <TargetSelectionPanel
       v-if="isSelectingTargets && !isAnimating"
@@ -940,7 +986,7 @@ onUnmounted(() => {
 
     <!-- Combat actions -->
     <div
-      v-if="!isAllocating && !isSelectingTargets && !isAssigningAttackDog && !isSelectingRetreatSector && !isHealingBeforeAttack && isMyTurn && !isAnimating"
+      v-if="!isAllocating && !isSelectingTargets && !isAssigningAttackDog && !isSelectingRetreatSector && !isHealingBeforeAttack && !isChoosingGolemStrike && !isChoosingEpinephrine && isMyTurn && !isAnimating"
       class="combat-actions"
     >
       <button
@@ -1350,5 +1396,66 @@ onUnmounted(() => {
 .healing-skip-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+/* Golem's strike and Epinephrine choices share one layout; each sets its own colour */
+.choice-panel {
+  border: 2px solid var(--choice-color);
+  background: color-mix(in srgb, var(--choice-color) 12%, transparent);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.golem-choice { --choice-color: #b0bec5; }
+.epinephrine-choice { --choice-color: #ef5350; }
+
+.choice-header {
+  color: var(--choice-color);
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.choice-hint {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.choice-btn,
+.choice-skip-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.choice-btn {
+  background: color-mix(in srgb, var(--choice-color) 55%, #263238);
+}
+
+.choice-skip-btn {
+  background: linear-gradient(135deg, #666 0%, #444 100%);
+}
+
+.choice-btn:hover,
+.choice-skip-btn:hover {
+  transform: scale(1.05);
+}
+
+.choice-btn:focus-visible,
+.choice-skip-btn:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
 }
 </style>

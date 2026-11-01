@@ -852,6 +852,26 @@ async function handleSkipBeforeAttackHeal() {
   await props.actionController.start('combatSkipBeforeAttackHeal');
 }
 
+async function handleGolemStrike(target: string) {
+  if (!props.availableActions.includes('golemPreCombatAttack')) return;
+  await props.actionController.execute('golemPreCombatAttack', { target });
+}
+
+async function handleGolemHold() {
+  if (!props.availableActions.includes('golemSkipPreCombat')) return;
+  await props.actionController.execute('golemSkipPreCombat', {});
+}
+
+async function handleUseEpinephrine(saverId: number) {
+  if (!props.availableActions.includes('combatUseEpinephrine')) return;
+  await props.actionController.execute('combatUseEpinephrine', { saverMerc: saverId });
+}
+
+async function handleDeclineEpinephrine() {
+  if (!props.availableActions.includes('combatDeclineEpinephrine')) return;
+  await props.actionController.execute('combatDeclineEpinephrine', {});
+}
+
 
 // ============================================================================
 // ACTION HANDLING WATCHES
@@ -1471,6 +1491,10 @@ const clickableSectors = computed(() => {
       @use-surgeon-heal="handleUseSurgeonHeal"
       @use-before-attack-heal="handleUseBeforeAttackHeal"
       @skip-before-attack-heal="handleSkipBeforeAttackHeal"
+      @golem-strike="handleGolemStrike"
+      @golem-hold="handleGolemHold"
+      @use-epinephrine="handleUseEpinephrine"
+      @decline-epinephrine="handleDeclineEpinephrine"
     />
 
     <!-- Mortar Attack Panel - shown when mortar hit allocation is pending -->
