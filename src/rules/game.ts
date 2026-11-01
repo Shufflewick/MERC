@@ -520,6 +520,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         isMerc: boolean;
         currentHealth: number;
         maxHealth: number;
+        armor: number; // Armour that soaks this attacker's hits before health; 0 against armour-piercing
       }>;
       wolverineSixes: number; // Count of 6s for Wolverine's ability
       canReroll: boolean; // Basic's ability available

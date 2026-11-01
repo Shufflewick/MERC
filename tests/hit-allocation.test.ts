@@ -95,7 +95,7 @@ describe('combatAllocateHits prompt', () => {
       seed: 'allocate-overkill',
     }).game;
     const rebel = game.rebelPlayers[0];
-    const militia = (id: string) => ({ id, name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1 });
+    const militia = (id: string) => ({ id, name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0 });
     // A reroll-capable attacker pauses even on overkill: 3 hits, 2 health to take them.
     game.activeCombat = {
       ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
@@ -111,5 +111,30 @@ describe('combatAllocateHits prompt', () => {
     const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'm2::0'] });
     expect(result.success, result.error).toBe(true);
     expect(game.activeCombat?.pendingHitAllocation, 'the allocation was refused').toBeUndefined();
+  });
+
+  it('lets the attacker spend hits on armour, so an armoured target can still be killed', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'allocate-through-armour',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    // 3 hits: one soaks the MERC's armour, one kills it, one kills the militia.
+    game.activeCombat = {
+      ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
+      pendingHitAllocation: {
+        attackerId: 'basic', attackerName: 'Basic', attackerCombatantId: 'basic',
+        diceRolls: [6, 6, 6], hits: 3, hitThreshold: 4,
+        validTargets: [
+          { id: 'merc', name: 'merc', isMerc: true, currentHealth: 1, maxHealth: 3, armor: 1 },
+          { id: 'm1', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0 },
+        ],
+        wolverineSixes: 0, canReroll: true, hasRerolled: false, rollCount: 1,
+      },
+    };
+
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'merc::1', 'm1::0'] });
+    expect(result.success, result.error).toBe(true);
   });
 });

@@ -462,18 +462,18 @@ function isCombatDecisionPlayer(game: MERCGame, player: unknown, combatantId: st
 // MERC-dice: Combat Hit Allocation Actions
 // =============================================================================
 
+type PendingHitAllocation = NonNullable<NonNullable<MERCGame['activeCombat']>['pendingHitAllocation']>;
+
+/** Hits beyond what the targets can absorb are wasted, so the prompt cannot demand them. */
+function allocatableHits(pending: PendingHitAllocation): number {
+  return Math.min(pending.hits, pending.validTargets.reduce((sum, t) => sum + t.armor + t.currentHealth, 0));
+}
+
 /**
  * Allocate hits to targets during combat.
  * Called when player confirms their hit allocation in the CombatPanel UI.
  * Takes a map of targetId -> number of hits allocated.
  */
-type PendingHitAllocation = NonNullable<NonNullable<MERCGame['activeCombat']>['pendingHitAllocation']>;
-
-/** Hits beyond what the targets can absorb are wasted, so the prompt cannot demand them. */
-function allocatableHits(pending: PendingHitAllocation): number {
-  return Math.min(pending.hits, pending.validTargets.reduce((sum, t) => sum + t.currentHealth, 0));
-}
-
 export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('combatAllocateHits')
     .prompt('Confirm hit allocation')
@@ -507,11 +507,10 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       choices: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return [];
-        // Build choices - each target can be selected multiple times up to their health
+        // One choice per hit a target can take: its armour, then its health.
         const choices: string[] = [];
         for (const target of pending.validTargets) {
-          // Allow targeting up to their current health times
-          for (let i = 0; i < target.currentHealth; i++) {
+          for (let i = 0; i < target.armor + target.currentHealth; i++) {
             choices.push(`${target.id}::${i}`);
           }
         }
@@ -550,34 +549,14 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 
-      let totalAllocated = Array.from(hitsByTarget.values()).reduce((sum, n) => sum + n, 0);
+      const totalAllocated = Array.from(hitsByTarget.values()).reduce((sum, n) => sum + n, 0);
       const expectedHits = allocatableHits(pending);
       if (totalAllocated !== expectedHits) {
-        if (totalAllocated > expectedHits) {
-          // Guard against UI over-submitting selections: trim to expected hit count
-          const trimmed = new Map<string, number>();
-          let remaining = expectedHits;
-          for (const choice of allocChoices) {
-            if (remaining <= 0) break;
-            const choiceStr = typeof choice === 'string' ? choice :
-              (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as { value: unknown }).value) : String(choice);
-            const targetId = choiceStr.split('::')[0];
-            trimmed.set(targetId, (trimmed.get(targetId) ?? 0) + 1);
-            remaining -= 1;
-          }
-          hitsByTarget.clear();
-          for (const [targetId, count] of trimmed.entries()) {
-            hitsByTarget.set(targetId, count);
-          }
-          totalAllocated = expectedHits;
-          game.message(`${pending.attackerName} allocation trimmed: expected ${expectedHits} hit(s), got ${totalAllocated}`);
-        } else {
-          game.message(`${pending.attackerName} allocation rejected: expected ${expectedHits} hit(s), got ${totalAllocated}`);
-          return {
-            success: false,
-            error: `Allocate exactly ${expectedHits} hit(s) (allocated ${totalAllocated})`,
-          };
-        }
+        game.message(`${pending.attackerName} allocation rejected: expected ${expectedHits} hit(s), got ${totalAllocated}`);
+        return {
+          success: false,
+          error: `Allocate exactly ${expectedHits} hit(s) (allocated ${totalAllocated})`,
+        };
       }
 
       // Store the allocation for combat.ts to use
