@@ -224,7 +224,7 @@ export const gameDefinition = {
     {
       name: 'Play as Rebel',
       players: [
-        { color: '#E74C3C', isBot: false },
+        { color: '#E74C3C', role: false, isBot: false },
         { color: '#95A5A6', role: true, isBot: true, botLevel: 'medium' },
       ],
     },
@@ -232,23 +232,23 @@ export const gameDefinition = {
       name: 'Play as Dictator',
       players: [
         { color: '#95A5A6', role: true, isBot: false },
-        { color: '#E74C3C', isBot: true, botLevel: 'medium' },
+        { color: '#E74C3C', role: false, isBot: true, botLevel: 'medium' },
       ],
     },
     {
       name: '2 Rebels vs Bot Dictator',
       players: [
-        { color: '#E74C3C', isBot: false },
-        { color: '#3498DB', isBot: false },
+        { color: '#E74C3C', role: false, isBot: false },
+        { color: '#3498DB', role: false, isBot: false },
         { color: '#95A5A6', role: true, isBot: true, botLevel: 'medium' },
       ],
     },
     {
       name: '3 Rebels vs Bot Dictator',
       players: [
-        { color: '#E74C3C', isBot: false },
-        { color: '#3498DB', isBot: false },
-        { color: '#27AE60', isBot: false },
+        { color: '#E74C3C', role: false, isBot: false },
+        { color: '#3498DB', role: false, isBot: false },
+        { color: '#27AE60', role: false, isBot: false },
         { color: '#95A5A6', role: true, isBot: true, botLevel: 'hard' },
       ],
     },
