@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, nextTick } from 'vue';
+import { computed, ref, nextTick, watch, onBeforeUnmount } from 'vue';
 import { useAnimationEvents, useFlyingElements, FlyingCardsOverlay } from 'boardsmith/ui';
 import { getPlayerColor } from '../colors';
 import { assetUrl } from '../composables/useAssetUrl';
@@ -577,6 +577,25 @@ const gridDimensions = computed(() => {
   return { rows: maxRow + 1, cols: maxCol + 1 };
 });
 
+// Tiles narrower than this overlap their own labels, so a screen too narrow for the map pans it sideways (#84).
+const MIN_TILE_WIDTH = 240;
+const GRID_GAP = 8;
+const mapScrollRef = ref<HTMLElement | null>(null);
+const mapWidth = ref(0);
+// Pan only when the tiles cannot fit: a scroll box clips the overlays that draw past the map's edges.
+const mapPans = computed(() => {
+  const { cols } = gridDimensions.value;
+  return mapWidth.value > 0 && mapWidth.value < cols * MIN_TILE_WIDTH + (cols - 1) * GRID_GAP;
+});
+let mapResizeObserver: ResizeObserver | null = null;
+watch(mapScrollRef, (el) => {
+  mapResizeObserver?.disconnect();
+  if (!el) return;
+  mapResizeObserver = new ResizeObserver(() => { mapWidth.value = el.clientWidth; });
+  mapResizeObserver.observe(el);
+});
+onBeforeUnmount(() => mapResizeObserver?.disconnect());
+
 // Sort sectors by position (row, col) for grid layout
 const sortedSectors = computed(() => {
   return [...props.sectors].sort((a, b) => {
@@ -613,12 +632,12 @@ function handleSectorClick(sectorId: string) {
 </script>
 
 <template>
-  <div class="map-scroll">
+  <div ref="mapScrollRef" class="map-scroll" :style="{ overflowX: mapPans ? 'auto' : undefined }">
     <div
       ref="mapGridRef"
       class="map-grid"
       :style="{
-        gridTemplateColumns: `repeat(${gridDimensions.cols}, minmax(240px, 1fr))`,
+        gridTemplateColumns: `repeat(${gridDimensions.cols}, minmax(${MIN_TILE_WIDTH}px, 1fr))`,
         gridTemplateRows: `repeat(${gridDimensions.rows}, 1fr)`,
       }"
     >
@@ -744,14 +763,6 @@ function handleSectorClick(sectorId: string) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.map-scroll {
-  /* Tiles narrower than 240px overlap their own labels, so a narrow screen pans the map sideways (#84). */
-  overflow-x: auto;
-  /* Room inside the scroll box for a hovered tile's scale-up, without moving the map. */
-  padding: 4px;
-  margin: -4px;
 }
 
 .map-grid {
