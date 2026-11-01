@@ -39,6 +39,13 @@ describe('MapGrid fits any width (#95)', () => {
     expect(wrapper.element.classList.contains('map-grid')).toBe(true);
   });
 
+  it("marks only the dictator's base sector as the base", async () => {
+    const wrapper = await mountMap({ dictatorBaseSectorId: 's11' });
+    unmount = () => wrapper.unmount();
+    const bases = wrapper.findAllComponents({ name: 'SectorTile' }).filter(t => t.props('isDictatorBase'));
+    expect(bases.map(t => t.props('sector').sectorId)).toEqual(['s11']);
+  });
+
   it('plays no mortar strike on a sector that is not on the map', async () => {
     const wrapper = await mountMap({ mortarStrike: { targetSectorId: 'not-on-map', hitCombatantIds: [], militiaKilled: 0 } });
     unmount = () => wrapper.unmount();
