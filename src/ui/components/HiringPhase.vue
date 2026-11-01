@@ -112,17 +112,16 @@ function handleCloseDetailModal() {
     <div v-else-if="isSelectingSector && sectorChoices.length > 0" class="sector-selection">
       <div class="sector-row">
         <!-- MERC portrait (clickable to view details) -->
-        <template v-for="(portrait, index) in selectedMercPortraits" :key="portrait.combatantName">
-          <CombatantIconSmall
-            v-if="portrait.image"
-            :image="portrait.image"
-            :alt="portrait.combatantName || 'MERC'"
-            :player-color="playerColor"
-            :size="80"
-            clickable
-            @click="handleOpenDetailModal(index)"
-          />
-        </template>
+        <CombatantIconSmall
+          v-for="(portrait, index) in selectedMercPortraits"
+          :key="portrait.combatantName"
+          :image="portrait.image"
+          :alt="portrait.combatantName"
+          :player-color="playerColor"
+          :size="80"
+          clickable
+          @click="handleOpenDetailModal(index)"
+        />
         <!-- Sector cards -->
         <div class="sector-card-choices">
           <SectorCardChoice

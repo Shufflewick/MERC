@@ -555,8 +555,8 @@ export function useActionState(
   // Portrait, name and id of each MERC being hired
   const selectedMercPortraits = computed<MercPortrait[]>(() =>
     selectedMercsForEquipment.value.map((merc: any) => ({
-      combatantId: getAttr(merc, 'combatantId', '') || merc.combatantId || '',
-      combatantName: getAttr(merc, 'combatantName', '') || merc.combatantName || '',
+      combatantId: getAttr(merc, 'combatantId', ''),
+      combatantName: getAttr(merc, 'combatantName', ''),
       image: getAttr(merc, 'image', ''),
     }))
   );

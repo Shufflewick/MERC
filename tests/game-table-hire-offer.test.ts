@@ -135,6 +135,7 @@ describe('GameTable mid-game hire panel (#93)', () => {
     await flushPromises();
     expect(hiringPhase().props('isSelectingEquipmentType')).toBe(true);
     expect(portraitNames(hiringPhase().props('selectedMercPortraits'))).toEqual(['Squirrel', 'Snake']);
+    expect(hiringPhase().props('selectedMercPortraits').map((p: MercPortrait) => p.combatantId)).toEqual(['squirrel', 'snake']);
     done();
   });
 
