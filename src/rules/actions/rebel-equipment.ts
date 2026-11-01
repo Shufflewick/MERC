@@ -1202,6 +1202,7 @@ function serializeEquipmentForCard(equipment: Equipment): HagnessEquipmentData {
 export function createHagnessDrawTypeAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('hagnessDrawType')
     .prompt('Hagness: Draw equipment for squad')
+    .notUndoable() // Involves randomness (drawing equipment)
     .condition({
       'has living Hagness with actions': (ctx) => {
         if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
@@ -1783,6 +1784,7 @@ function isUnitOwnedForMortar(unit: CombatantModel, player: any, game: MERCGame)
 export function createMortarAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('mortar')
     .prompt('Fire Mortar')
+    .notUndoable() // Involves randomness (rolling dice)
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
