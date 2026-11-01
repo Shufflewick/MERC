@@ -1636,8 +1636,14 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
         return { success: false, error: 'Target sector not found' };
       }
 
-      const { totalDamage, hitCombatantIds, militiaKilled } = applyMortarDamage(
+      const { totalDamage } = applyMortarDamage(
         game, targetSector, pending.validTargets, hitsByTarget, isRebel,
+        {
+          diceRolls: pending.diceRolls,
+          hits: pending.hits,
+          hitThreshold: pending.hitThreshold,
+          attackerName: pending.attackerName,
+        },
       );
 
       // Log allocation
@@ -1648,17 +1654,6 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
         })
         .join(', ');
       game.message(`${pending.attackerName} allocates mortar hits: ${allocMsg}`);
-
-      // Emit mortar-strike animation with the allocated targets
-      game.animate('mortar-strike', {
-        targetSectorId: pending.targetSectorId,
-        hitCombatantIds,
-        militiaKilled,
-        diceRolls: pending.diceRolls,
-        hits: pending.hits,
-        hitThreshold: pending.hitThreshold,
-        attackerName: pending.attackerName,
-      });
 
       // Clear pending state
       game.pendingMortarAttack = null;
