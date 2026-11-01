@@ -81,3 +81,29 @@ describe('dictator Day 1 setup undo', () => {
     expect((await undo()).success).toBe(false);
   });
 });
+
+describe('dictator Day 1 setup taps', () => {
+  // The client auto-executes a lone no-selection action unless it is manual, so each step below must say manual.
+  const soleOffer = (session: Awaited<ReturnType<typeof tableAtDictatorSetup>>['session']) => {
+    const state = session.playerState(DICTATOR);
+    const [only] = state.availableActions;
+    expect(state.availableActions).toHaveLength(1);
+    return { name: only, manual: state.actionMetadata?.[only]?.manual };
+  };
+
+  it('has the dictator place the initial militia and apply the setup ability with a deliberate tap', async () => {
+    const { session, act } = await tableAtDictatorSetup();
+    expect(soleOffer(session)).toEqual({ name: 'dictatorPlaceInitialMilitia', manual: true });
+
+    await act(DICTATOR, 'dictatorPlaceInitialMilitia');
+    await act(DICTATOR, 'dictatorHireFirstMerc');
+    expect(soleOffer(session)).toEqual({ name: 'dictatorSetupAbility', manual: true });
+  });
+
+  it('has Kim reveal her base with a deliberate tap', async () => {
+    const { session, act } = await tableAtDictatorSetup('Kim');
+    await act(DICTATOR, 'dictatorPlaceInitialMilitia');
+    await act(DICTATOR, 'chooseKimBase');
+    expect(soleOffer(session)).toEqual({ name: 'dictatorSetupAbility', manual: true });
+  });
+});

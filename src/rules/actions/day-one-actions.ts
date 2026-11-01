@@ -412,6 +412,7 @@ export function createSelectDictatorAction(game: MERCGame): ActionDefinition {
 export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('dictatorPlaceInitialMilitia')
     .prompt('Place initial militia on unoccupied industries')
+    .manual()
     .condition({
       'is Day 1': () => game.currentDay === 1,
     })
@@ -577,11 +578,12 @@ export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
 
 /**
  * Apply dictator's special setup ability
- * This is automatic based on which dictator is selected
+ * Manual: some abilities reveal things (Kim's base), so the dictator triggers it
  */
 export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('dictatorSetupAbility')
     .prompt('Apply dictator special ability')
+    .manual()
     .condition({
       'is Day 1': () => game.currentDay === 1,
       'Kim base set if needed': () => {
