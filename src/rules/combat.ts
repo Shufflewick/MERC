@@ -2821,19 +2821,14 @@ const { isHumanControlled, hasSelectedTargets } = control;
   }
 
   // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
-  const expandedTargets = [...targets];
-  if (wolverineBonus6s > 0) {
-    const availableExtra = enemies.filter(e =>
-      e.health > 0 && !targets.includes(e) && !e.isAttackDog
-    );
-    const extraTargets = availableExtra.slice(0, wolverineBonus6s);
-    if (extraTargets.length > 0) {
-      expandedTargets.push(...extraTargets);
-      game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
-    }
+  const extraTargets = enemies
+    .filter(e => e.health > 0 && !targets.includes(e) && !e.isAttackDog)
+    .slice(0, wolverineBonus6s);
+  if (extraTargets.length > 0) {
+    game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
   }
 
-  const damage = applyAttackDamage(ctx, attacker, enemies, expandedTargets, hits, false);
+  const damage = applyAttackDamage(ctx, attacker, enemies, [...targets, ...extraTargets], hits, false);
   if ('pause' in damage) return damage.pause;
   const damageDealt = damage.damageDealt;
 

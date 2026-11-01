@@ -259,7 +259,7 @@ describe('Wolverine\'s sixes when hits are allocated automatically', () => {
     game.random = riggedDice().random;
 
     // Two dice, both 6, one declared target: each round the second six must find a living
-    // militia, skipping the ones already dead, or the survivors shoot Wolverine down.
+    // militia, skipping the dead, or the survivors shoot Wolverine down.
     executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true, interactive: false });
 
     expect(sector.dictatorMilitia).toBe(0);
