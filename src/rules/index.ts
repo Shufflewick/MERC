@@ -195,30 +195,6 @@ export const gameDefinition = {
   // MCTS hooks — without these the bot has no evaluation gradient on this board
   bot: mercBot,
 
-  // Game-level options (host configures)
-  gameOptions: {
-    dictatorCharacter: {
-      type: 'select',
-      label: 'Dictator Character',
-      description: 'Choose which dictator the rebels face',
-      default: 'random',
-      choices: [
-        { value: 'random', label: 'Random' },
-        { value: 'castro', label: 'Castro - Hire MERCs each turn' },
-        { value: 'kim', label: 'Kim - Extra militia reinforcements' },
-        { value: 'gadafi', label: 'Gaddafi - Hire MERCs + loot equipment' },
-        { value: 'hitler', label: 'Hitler - Hire MERCs + auto-initiative' },
-        { value: 'hussein', label: 'Hussein - Extra tactics cards' },
-        { value: 'mao', label: 'Mao - Starting MERCs + wilderness militia' },
-        { value: 'mussolini', label: 'Mussolini - Starting MERCs + militia spread' },
-        { value: 'noriega', label: 'Noriega - Convert rebel militia + conditional hire' },
-        { value: 'pinochet', label: 'Pinochet - Hire on sector loss + damage spread' },
-        { value: 'polpot', label: 'Pol Pot - Militia to rebel sectors + combat hire' },
-        { value: 'stalin', label: 'Stalin - Hire MERCs to both squads' },
-      ],
-    },
-  },
-
   // Quick-start presets
   presets: [
     {
