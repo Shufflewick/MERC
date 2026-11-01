@@ -321,6 +321,7 @@ describe('Combat Event Pipeline', () => {
           lastSnapshot.pendingAttackDogSelection,
           lastSnapshot.pendingBeforeAttackHealing,
           lastSnapshot.pendingEpinephrine,
+          lastSnapshot.pendingGolemAttack,
         ];
         const hasDecision = decisionFields.some(d => d !== null && d !== undefined);
         expect(hasDecision).toBe(true);
@@ -478,10 +479,38 @@ describe('Combat Event Pipeline', () => {
           lastSnapshot.pendingAttackDogSelection,
           lastSnapshot.pendingBeforeAttackHealing,
           lastSnapshot.pendingEpinephrine,
+          lastSnapshot.pendingGolemAttack,
         ];
         const hasDecision = decisionFields.some(d => d !== null && d !== undefined);
         expect(hasDecision).toBe(true);
       }
+    });
+
+    it("snapshot before Golem's pre-combat strike carries the decision", () => {
+      const testGame = createTestGame(MERCGame, {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'snapshot-before-pause',
+      });
+      const g = testGame.game;
+      const r = g.rebelPlayers[0];
+      const s = g.gameMap.getAllSectors()[0];
+
+      for (const id of ['hagness', 'snake', 'golem']) {
+        g.first(CombatantModel, m => m.combatantId === id)!.putInto(r.primarySquad);
+      }
+      r.primarySquad.sectorId = s.sectorId;
+      s.addDictatorMilitia(6);
+
+      const outcome = executeCombat(g, s, r, { interactive: true });
+
+      expect(outcome.combatPending).toBe(true);
+      const pending = g.activeCombat!.pendingGolemAttack!;
+      expect(pending.golemName).toBe('Golem');
+      const panelEvents = g.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+      const lastSnapshot = panelEvents[panelEvents.length - 1].data as Record<string, unknown>;
+      expect(lastSnapshot.pendingGolemAttack).toEqual(pending);
+      expect(lastSnapshot.currentAttackerId).toBe(pending.golemId);
     });
   });
 });
