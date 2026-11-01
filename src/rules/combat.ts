@@ -210,6 +210,7 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
     (ac.pendingAttackDogSelection as any)?.attackerId ??
     (ac.pendingBeforeAttackHealing as any)?.attackerId ??
     (ac.pendingEpinephrine as any)?.attackerId ??
+    ac.pendingGolemAttack?.golemId ??
     null;
 
   return {
@@ -231,6 +232,7 @@ function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
     pendingAttackDogSelection: ac.pendingAttackDogSelection ?? null,
     pendingBeforeAttackHealing: ac.pendingBeforeAttackHealing ?? null,
     pendingEpinephrine: ac.pendingEpinephrine ?? null,
+    pendingGolemAttack: ac.pendingGolemAttack ?? null,
   };
 }
 
