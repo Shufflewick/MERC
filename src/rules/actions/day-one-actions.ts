@@ -11,10 +11,8 @@ import {
   isValidLandingSector,
   equipStartingEquipment,
   placeInitialMilitia,
-  hireDictatorMerc,
   applyDictatorSetupAbility,
   drawTacticsHand,
-  autoPlaceExtraMilitia,
 } from '../day-one.js';
 import { setupDictator, type DictatorData } from '../setup.js';
 import { setPrivacyPlayer, selectNewMercLocation } from '../bot-helpers.js';
@@ -441,7 +439,7 @@ export function drawDictatorFirstMerc(game: MERCGame): void {
 /**
  * MERC-i4g5: Hire dictator's first MERC
  * Per rules: Dictator draws 1 random MERC (Castro can draw 3 and pick 1)
- * Human players get to choose equipment type and placement sector
+ * Human dictator chooses equipment type and placement sector; the flow hires a Bot Dictator's by Bot rules
  */
 export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinition {
   // Key for storing drawn MERC ID
@@ -460,6 +458,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
     .notUndoable() // Involves randomness (drawing equipment)
     .condition({
       'is Day 1': () => game.currentDay === 1,
+      'is human dictator player': () => !game.dictatorPlayer?.isBot,
     })
     // Show the drawn MERC name (drawn by flow execute step before this action)
     .chooseFrom('merc', {
@@ -492,14 +491,6 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       const merc = getDrawnMerc();
       clearGlobalCachedValue(game, DRAWN_MERC_KEY);
       if (!merc) return { success: false, error: 'No MERC drawn' };
-
-      // Bot path - Bot rules place and equip the MERC
-      if (game.dictatorPlayer?.isBot) {
-        hireDictatorMerc(game, merc);
-        return { success: true, message: `Hired ${merc.combatantName}` };
-      }
-
-      // Human path - use selected equipment and sector
 
       // Put MERC in primary squad
       merc.putInto(game.dictatorPlayer.primarySquad);
@@ -618,8 +609,7 @@ export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinitio
 
 /**
  * MERC-l2nb: Place extra militia
- * For Bot: Distributes evenly among controlled sectors
- * For human: Choose where to place each militia
+ * Human dictator chooses where to place each militia; the flow places a Bot Dictator's by Bot rules
  */
 export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDefinition {
   // Key for tracking remaining militia to place
@@ -628,6 +618,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
   return Action.create<MERCGame>('dictatorPlaceExtraMilitia')
     .prompt('Place extra militia')
     .condition({
+      'is human dictator player': () => !game.dictatorPlayer?.isBot,
       'is Day 1 with extra militia': () => {
         const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
         return game.currentDay === 1 && extra > 0;
@@ -673,17 +664,6 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       },
     })
     .execute((args) => {
-      // Bot path - use auto placement (places all extra militia in one call)
-      if (game.dictatorPlayer?.isBot) {
-        autoPlaceExtraMilitia(game);
-        // Set to 0 (not clear) so the loop's while condition stops after one
-        // iteration. Clearing would make it undefined, which the loop treats as
-        // "not started yet" — causing it to re-run until the maxIterations cap.
-        setGlobalCachedValue(game, REMAINING_MILITIA_KEY, 0);
-        return { success: true, message: 'Extra militia placed' };
-      }
-
-      // Human path - place specified amount at chosen sector
       const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
       let remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY) ?? total;
 

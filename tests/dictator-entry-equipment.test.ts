@@ -60,3 +60,35 @@ describe('Dictator free equipment on entering play', () => {
     expect(equippedCount(game)).toBe(1);
   });
 });
+
+describe('Playing a base-reveal tactics card', () => {
+  function revealCard(game: MERCGame): TacticsCard {
+    return tacticsDeckOf(game).create(TacticsCard, 'test-reveal', {
+      tacticsId: 'veteran-militia',
+      tacticsName: 'Veteran Militia',
+      story: '',
+      description: '',
+      revealsBase: true,
+    });
+  }
+  const choices = (game: MERCGame, selection: string, card: TacticsCard) =>
+    game.getSelectionChoices('playTactics', selection, game.dictatorPlayer, { card, baseLocation: '(skipped)' })
+      .map((c) => c.value);
+
+  it('offers a Bot Dictator no base or equipment pick, since Bot rules choose them', () => {
+    const game = dictatorGame('stalin', 'reveal-picks-bot');
+    const card = revealCard(game);
+
+    expect(choices(game, 'baseLocation', card)).toEqual(['(skipped)']);
+    expect(choices(game, 'dictatorEquipment', card)).toEqual(['(skipped)']);
+  });
+
+  it('offers a human Dictator the base and equipment picks', () => {
+    const game = dictatorGame('stalin', 'reveal-picks-human');
+    game.dictatorPlayer.isBot = false;
+    const card = revealCard(game);
+
+    expect(choices(game, 'baseLocation', card).length).toBeGreaterThan(1);
+    expect(choices(game, 'dictatorEquipment', card)).toEqual(['Weapon', 'Armor', 'Accessory']);
+  });
+});

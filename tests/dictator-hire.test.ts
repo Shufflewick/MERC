@@ -6,7 +6,7 @@ import { CombatantModel } from '../src/rules/elements.js';
 import { setGlobalCachedValue } from '../src/rules/actions/helpers.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 
-function playToDictatorFirstHire(seed: string, dictatorIsBot: boolean): GameRunner<MERCGame> {
+function playToHumanDictatorFirstHire(seed: string): GameRunner<MERCGame> {
   const runner = new GameRunner<MERCGame>({
     GameClass: MERCGame,
     gameType: 'merc',
@@ -14,8 +14,8 @@ function playToDictatorFirstHire(seed: string, dictatorIsBot: boolean): GameRunn
       playerCount: 2,
       playerNames: ['Rebel', 'Dictator'],
       seed,
-      dictatorIsBot,
-      playerConfigs: [{ color: '#e74c3c' }, { color: '#95a5a6', role: true, isBot: dictatorIsBot }],
+      dictatorIsBot: false,
+      playerConfigs: [{ color: '#e74c3c' }, { color: '#95a5a6', role: true, isBot: false }],
     } as never,
   });
   runner.start();
@@ -158,22 +158,44 @@ describe('Dictator Day 1 Hire', () => {
     expect(flowState?.availableActions).toContain('dictatorHireFirstMerc');
   });
 
-  it('offers a bot Dictator the MERC he drew, and hires that MERC', () => {
-    const runner = playToDictatorFirstHire('bot-dictator-first-hire', true);
+  it('runs a Bot Dictator\'s Day 1 hire and extra militia by Bot rules, offering no picks they would ignore', () => {
+    // Two rebels, so the Dictator has extra militia to place.
+    const runner = new GameRunner<MERCGame>({
+      GameClass: MERCGame,
+      gameType: 'merc',
+      gameOptions: {
+        playerCount: 3,
+        playerNames: ['Rebel1', 'Rebel2', 'Dictator'],
+        seed: 'bot-dictator-day-one',
+        dictatorIsBot: true,
+        playerConfigs: [{ color: '#e74c3c' }, { color: '#3498db' }, { color: '#95a5a6', role: true, isBot: true }],
+      } as never,
+    });
+    runner.start();
     const game = runner.game;
+    const extra = game.setupConfig.dictatorStrength.extra;
+    expect(extra, 'this table gives the Dictator extra militia').toBeGreaterThan(0);
+    const dictatorMilitia = () => game.gameMap.getAllSectors().reduce((sum, s) => sum + s.dictatorMilitia, 0);
 
-    const offered = game.getSelectionChoices('dictatorHireFirstMerc', 'merc', game.dictatorPlayer);
-    expect(offered).toHaveLength(1);
-    const drawn = game.first(CombatantModel, (c) => c.isMerc && c.combatantName === offered[0].value);
-    expect(drawn, `offered MERC "${offered[0].value}" is a real MERC`).toBeDefined();
+    const offered = new Set<string>();
+    let militiaBeforeExtra: number | undefined;
+    for (let next = getCurrentAction(game.getFlowState()); next && game.currentDay === 1;
+      next = getCurrentAction(game.getFlowState())) {
+      next.available.forEach((a) => offered.add(a));
+      const actionName = next.available[0];
+      if (actionName === 'dictatorDrawTactics') militiaBeforeExtra = dictatorMilitia();
+      expect(runner.performAction(actionName, next.currentPlayer, autoResolveArgs(game, actionName, next.currentPlayer)!).success).toBe(true);
+    }
 
-    const seat = game.dictatorPlayer.seat;
-    expect(runner.performAction('dictatorHireFirstMerc', seat, autoResolveArgs(game, 'dictatorHireFirstMerc', seat)!).success).toBe(true);
-    expect(game.dictatorPlayer.team.map((m) => m.combatantName)).toContain(drawn!.combatantName);
+    expect(game.currentDay, 'Day 1 finished').toBe(2);
+    expect(offered).not.toContain('dictatorHireFirstMerc');
+    expect(offered).not.toContain('dictatorPlaceExtraMilitia');
+    expect(game.dictatorPlayer.team.filter((m) => m.isMerc)).toHaveLength(1);
+    expect(dictatorMilitia() - militiaBeforeExtra!).toBe(extra);
   });
 
   it("gives a human Dictator's first MERC his hire ability: Vrbansk's bonus accessory", () => {
-    const runner = playToDictatorFirstHire('human-dictator-first-hire', false);
+    const runner = playToHumanDictatorFirstHire('human-dictator-first-hire');
     const game = runner.game;
     const vrbansk = game.first(CombatantModel, (c) => c.combatantId === 'vrbansk')!;
     // Stand Vrbansk in for whatever MERC the draw step put up for hire.

@@ -104,8 +104,8 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       prompt: 'Choose the location for your base',
       dependsOn: 'card',
       choices: (ctx: ActionContext) => {
-        // If base is already revealed, return placeholder (selection will be skipped)
-        if (game.dictatorPlayer?.baseRevealed) {
+        // Bot rules choose the base, and a revealed base needs no choice (selection will be skipped)
+        if (game.dictatorPlayer?.isBot || game.dictatorPlayer?.baseRevealed) {
           return ['(skipped)'];
         }
         // Check if we should show choices at all
@@ -131,8 +131,8 @@ export function createPlayTacticsAction(game: MERCGame): ActionDefinition {
       prompt: 'Choose starting equipment for the Dictator',
       dependsOn: 'baseLocation',
       choices: (ctx: ActionContext) => {
-        // If base is already revealed, return placeholder (selection will be skipped)
-        if (game.dictatorPlayer?.baseRevealed) return ['(skipped)'];
+        // Bot rules choose the equipment, and a revealed base needs no choice (selection will be skipped)
+        if (game.dictatorPlayer?.isBot || game.dictatorPlayer?.baseRevealed) return ['(skipped)'];
         // Check if we should show choices at all
         const card = ctx.args?.card as TacticsCard | undefined;
         if (!card || !card.revealsBase) return ['(skipped)'];

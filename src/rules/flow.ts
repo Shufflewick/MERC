@@ -12,7 +12,7 @@ import {
 } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
-import { getDay1Summary, drawTacticsHand } from './day-one.js';
+import { getDay1Summary, drawTacticsHand, hireDictatorMerc, autoPlaceExtraMilitia } from './day-one.js';
 import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect, requireArtilleryAllocator } from './tactics-effects.js';
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatRebel } from './combat.js';
@@ -597,10 +597,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 },
               }),
 
-              // Step 2: Draw MERC for dictator hiring
+              // Step 2: Draw MERC for dictator hiring; Bot rules place and equip it at once
               execute(
                 () => {
-                  drawDictatorFirstMerc(game);
+                  if (!game.dictatorPlayer?.isBot) {
+                    drawDictatorFirstMerc(game);
+                    return;
+                  }
+                  const merc = game.drawMerc();
+                  if (merc) hireDictatorMerc(game, merc);
                 },
                 // UNDO-02: the human dictator is told which MERC they drew. Undo
                 // can put the MERC back, but not un-tell them — and they could
@@ -615,6 +620,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 actions: ['dictatorHireFirstMerc'],
                 // Undo cannot cross the irreversible draw above, so the undoable run starts here.
                 turnScope: 'restart',
+                skipIf: () => game.dictatorPlayer?.isBot === true,
               }),
 
               // Step 3: Apply dictator special ability (for non-Kim dictators)
@@ -673,18 +679,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 turnScope: 'restart',
               }),
 
-              // Step 5: Place extra militia (loop for human player to place multiple times)
+              // Step 5: Place extra militia: Bot rules spread it evenly, a human places it in the loop below
+              execute(() => {
+                if (game.dictatorPlayer?.isBot) autoPlaceExtraMilitia(game);
+              }),
               loop({
                 name: 'extra-militia-loop',
                 while: () => {
                   const extra = game.setupConfig?.dictatorStrength?.extra ?? 0;
-                  if (extra === 0) return false;
-                  // For Bot, only run once
-                  if (game.dictatorPlayer?.isBot) {
-                    const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
-                    return remaining === undefined; // Run once, then stop
-                  }
-                  // For human, continue while militia remaining AND sectors have capacity
+                  if (extra === 0 || game.dictatorPlayer?.isBot) return false;
+                  // Continue while militia remaining AND sectors have capacity
                   const remaining = getGlobalCachedValue<number>(game, '_extra_militia_remaining');
                   if (remaining !== undefined && remaining <= 0) return false;
                   const hasCapacity = game.gameMap.getAllSectors().some(
