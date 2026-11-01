@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame, traceAction } from 'boardsmith/testing';
-import { ActionExecutor } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
 
 /**
@@ -15,7 +14,6 @@ describe('Dictator Day 1 Hire', () => {
     });
 
     const game = testGame.game;
-    const executor = new ActionExecutor(game);
     console.log('Dictator isBot:', game.dictatorPlayer.isBot);
 
     // Find a valid landing sector
@@ -26,11 +24,11 @@ describe('Dictator Day 1 Hire', () => {
     // Step 1: Place landing (1-indexed player)
     testGame.doAction(1, 'placeLanding', { sector: validSectors[0].id });
 
-    // Step 2: Get merc choices via action executor
+    // Step 2: Get merc choices
     const rebelPlayer = game.rebelPlayers[0];
     const hireAction = game.getAction('hireFirstMerc') as any;
     const mercSelection = hireAction.selections[0]; // 'merc' selection
-    const mercChoices = executor.getChoices(mercSelection, rebelPlayer, {});
+    const mercChoices = game.getSelectionChoices('hireFirstMerc', mercSelection.name, rebelPlayer);
     console.log('Merc choices:', mercChoices.map((c: any) => c.value || c.display || c));
 
     const firstMerc = mercChoices[0]?.value ?? mercChoices[0];
@@ -42,7 +40,7 @@ describe('Dictator Day 1 Hire', () => {
 
     const hire2Action = game.getAction('hireSecondMerc') as any;
     const merc2Selection = hire2Action.selections[0];
-    const merc2Choices = executor.getChoices(merc2Selection, rebelPlayer, {});
+    const merc2Choices = game.getSelectionChoices('hireSecondMerc', merc2Selection.name, rebelPlayer);
     console.log('Second merc choices:', merc2Choices.map((c: any) => c.value || c.display || c));
 
     const secondMerc = merc2Choices[0]?.value ?? merc2Choices[0];
@@ -68,7 +66,7 @@ describe('Dictator Day 1 Hire', () => {
 
         // Get choices for each selection
         for (const sel of dictHireAction.selections || []) {
-          const choices = executor.getChoices(sel, game.dictatorPlayer, {});
+          const choices = game.getSelectionChoices('dictatorHireFirstMerc', sel.name, game.dictatorPlayer);
           console.log(`  "${sel.name}":`, choices.map((c: any) => c.value || c.display || c));
         }
 
@@ -77,21 +75,25 @@ describe('Dictator Day 1 Hire', () => {
         const sectorSel = dictHireAction.selections?.find((s: any) => s.name === 'targetSector');
 
         if (equipSel) {
-          const equipChoices = executor.getChoices(equipSel, game.dictatorPlayer, {});
+          const equipChoices = game.getSelectionChoices('dictatorHireFirstMerc', equipSel.name, game.dictatorPlayer);
           expect(equipChoices.length).toBe(3); // Weapon, Armor, Accessory
         }
         if (sectorSel) {
-          const sectorChoices = executor.getChoices(sectorSel, game.dictatorPlayer, {});
+          const sectorChoices = game.getSelectionChoices('dictatorHireFirstMerc', sectorSel.name, game.dictatorPlayer);
           expect(sectorChoices.length).toBeGreaterThan(0);
         }
 
         // Now actually execute the action with chosen values
-        const mercChoices2 = executor.getChoices(dictHireAction.selections[0], game.dictatorPlayer, {});
+        const mercChoices2 = game.getSelectionChoices('dictatorHireFirstMerc', dictHireAction.selections[0].name, game.dictatorPlayer);
         const mercName = mercChoices2[0]?.value ?? mercChoices2[0];
+        const [targetSector] = game.getSelectionChoices('dictatorHireFirstMerc', 'targetSector', game.dictatorPlayer, {
+          merc: mercName,
+          equipmentType: 'Weapon',
+        });
         testGame.doAction(2, 'dictatorHireFirstMerc', {
           merc: mercName,
           equipmentType: 'Weapon',
-          targetSector: 'Fishing Industry',
+          targetSector: targetSector.value,
         });
 
         // Verify the merc was hired
@@ -113,7 +115,7 @@ describe('Dictator Day 1 Hire', () => {
       if (actionName === 'selectDictator') {
         const dictAction = game.getAction('selectDictator') as any;
         const dictSel = dictAction.selections[0];
-        const dictChoices = executor.getChoices(dictSel, game.dictatorPlayer, {});
+        const dictChoices = game.getSelectionChoices('selectDictator', dictSel.name, game.dictatorPlayer);
         console.log('  Dictator choices:', dictChoices.map((c: any) => c.value || c.display || c));
         const castro = dictChoices.find((c: any) => String(c.value || c).toLowerCase().includes('castro'));
         testGame.doAction(player, actionName, {

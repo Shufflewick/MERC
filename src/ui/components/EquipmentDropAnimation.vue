@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { easeOutCubic } from 'boardsmith/utils';
+import { easeOutCubic } from '../easing';
 import { assetUrl } from '../composables/useAssetUrl';
 
 const props = defineProps<{

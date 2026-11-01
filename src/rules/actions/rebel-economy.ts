@@ -598,6 +598,7 @@ export function createCollectEquipmentAction(game: MERCGame): ActionDefinition {
   }
 
   return Action.create<MERCGame>('collectEquipment')
+    .followUpArgs<{ combatantId?: number; sectorId?: number }>()
     .prompt('Take from stash')
     .condition({
       'triggered via followUp from explore': (ctx) => ctx.args?.sectorId != null,
@@ -1301,6 +1302,7 @@ export function createArmsDealerEquipAction(game: MERCGame): ActionDefinition {
   }
 
   return Action.create<MERCGame>('armsDealerEquip')
+    .followUpArgs<{ equipmentId?: number }>()
     .prompt('Free Re-Equip')
     .condition({
       'equipment just bought': (ctx) => ctx.args?.equipmentId != null &&

@@ -805,8 +805,7 @@ async function handleConfirmTargets(targetIds: string[]) {
   if (!targetIds || targetIds.length === 0) return;
   if (!props.availableActions.includes('combatSelectTarget')) return;
 
-  const targetValue = targetIds.length === 1 ? targetIds[0] : targetIds;
-  await props.actionController.execute('combatSelectTarget', { targets: targetValue });
+  await props.actionController.execute('combatSelectTarget', { targets: targetIds });
 }
 
 // Handle continue combat from CombatPanel

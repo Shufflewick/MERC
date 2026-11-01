@@ -1,6 +1,3 @@
-import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
+import { defineGameViteConfig } from 'boardsmith/vite-config';
 
-export default defineConfig({
-  plugins: [vue()],
-});
+export default defineGameViteConfig();

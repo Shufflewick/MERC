@@ -12,7 +12,7 @@
     "validate": "boardsmith validate"
   },
   "dependencies": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260927023745.tgz",
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-r285-6019ff931bea.tgz",
     "three": "^0.182.0",
     "vue": "^3.4.0"
   },
@@ -23,11 +23,13 @@
     "@vue/test-utils": "^2.5.1",
     "eslint": "^9.39.5",
     "jiti": "^2.7.0",
+    "jsdom": "^29.1.1",
     "puppeteer": "^24.34.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.0.0"
+    "vitest": "^3.2.7",
+    "vue-tsc": "^2.2.12"
   },
   "overrides": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-20260927023745.tgz"
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-r285-6019ff931bea.tgz"
   }
 }

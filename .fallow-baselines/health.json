@@ -558,7 +558,7 @@
         "count": 1
       }
     },
-    "tests/mcts-clone.test.ts": {
+    "tests/mcts-clone.sim.test.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -604,7 +604,7 @@
     "src/rules/landmine.ts:complexity",
     "tests/helpers/auto-play.ts:high impact",
     "src/ui/composables/useSquadState.ts:complexity",
-    "tests/mcts-clone.test.ts:complexity",
+    "tests/mcts-clone.sim.test.ts:complexity",
     "tests/combat-barriers.test.ts:complexity"
   ]
 }

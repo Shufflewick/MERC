@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createTestGame,
-  simulateAction,
-  assertFlowState,
   assertActionAvailable,
   toDebugString,
   traceAction,

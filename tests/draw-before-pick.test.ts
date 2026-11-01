@@ -204,9 +204,10 @@ describe('the arms dealer sells, then offers the free re-equip (#65)', () => {
     const item = game.getElementById(bought.followUp!.args!.equipmentId as number) as Equipment;
     expect(city.stash).toContain(item);
 
+    // The seat holds the follow-up; its args come from it, never from the client (BoardSmith #662).
     const equipped = executor.executeAction(game.getAction('armsDealerEquip')!, rebel, {
-      ...bought.followUp!.args, equipUnit: unitChoice,
-    });
+      equipUnit: unitChoice,
+    }, { followUp: bought.followUp });
 
     expect(equipped.success).toBe(true);
     expect(merc.weaponSlot).toBe(item);

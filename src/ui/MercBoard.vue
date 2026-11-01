@@ -41,6 +41,7 @@ const animationsRegistered = ref(false);
 
 const actionAnimations = useActionAnimations({
   gameView: gameViewRef,
+  actionController: props.actionController,
   animations: [
     ({
       action: 'assignToSquad',
@@ -142,7 +143,7 @@ const actionAnimations = useActionAnimations({
 function setupAnimations(actionController: UseActionControllerReturn, gameView: any) {
   if (animationsRegistered.value) return;
   gameViewRef.value = gameView;
-  actionController.setBeforeAutoExecute(async (actionName, args) => {
+  actionController.onBeforeAutoExecute(async (actionName, args, run) => {
     // Skip animation if this action was triggered via drag-and-drop
     if (lastActionWasDragDrop.value) {
       lastActionWasDragDrop.value = false;
@@ -156,7 +157,7 @@ function setupAnimations(actionController: UseActionControllerReturn, gameView: 
       flyingCombatantName.value = args.combatantName as string;
     }
 
-    await actionAnimations.onBeforeAutoExecute(actionName, args);
+    await actionAnimations.onBeforeAutoExecute(actionName, args, run);
 
     // Clear flyingCombatantName after animation duration + buffer (fallback)
     if (flyingCombatantName.value) {

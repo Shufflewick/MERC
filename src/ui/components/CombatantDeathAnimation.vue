@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { easeInCubic } from 'boardsmith/utils';
+import { easeInCubic } from '../easing';
 import { getPlayerColor } from '../colors';
 import { assetUrl } from '../composables/useAssetUrl';
 

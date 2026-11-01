@@ -23,16 +23,6 @@ export default [
       sourceType: 'module',
     },
   },
-  {
-    ...boardsmith.configs.recommended,
-    files: ['src/**/*.ts'],
-  },
-  {
-    // Animation components legitimately schedule work with timers and rAF;
-    // the rules layer must not, and does not.
-    files: ['src/ui/**/*.ts'],
-    rules: {
-      'boardsmith/no-timers': 'off',
-    },
-  },
+  // Its second block already turns the determinism rules (timers included) off under src/ui/.
+  ...boardsmith.configs.recommended.map((block) => ({ files: ['src/**/*.ts'], ...block })),
 ];
