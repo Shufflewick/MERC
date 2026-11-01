@@ -44,3 +44,49 @@ describe('GameTable confirming combat targets', () => {
     shell.stop();
   });
 });
+
+describe('GameTable sending Golem and Epinephrine choices from the combat panel (#105)', () => {
+  async function tableWith(availableActions: string[]) {
+    const testGame = createTestGame(MERCGame, { playerCount: 2, playerNames: ['Rebel1', 'Dictator'], seed: 'table-choices' });
+    const events = ref<{ id: number; type: string; data: Record<string, unknown> }[]>([]);
+    const shell = await tableShellContext(testGame, 1, {
+      provide: { [ANIMATION_EVENTS_KEY as symbol]: createAnimationEvents({ events: () => events.value as never }) },
+    });
+    const sent: [string, Record<string, unknown>][] = [];
+    const actionController: UseActionControllerReturn = {
+      ...shell.actionController,
+      execute: async (action, args) => { sent.push([action, args ?? {}]); return { success: true }; },
+    };
+    const wrapper = mount(GameTable, {
+      props: { gameView: testGame.getPlayerView(1), playerSeat: 1, isMyTurn: true, availableActions, actionController, setBoardPrompt: () => {} },
+      global: { provide: shell.provide },
+      shallow: true,
+    });
+    events.value = [{ id: 1, type: 'combat-panel', data: {} }];
+    await flushPromises();
+    return { wrapper, sent, stop: () => { wrapper.unmount(); shell.stop(); } };
+  }
+
+  const choices: [string, unknown[], string, Record<string, unknown>][] = [
+    ['golem-strike', ['Lucid::lucid'], 'golemPreCombatAttack', { target: 'Lucid::lucid' }],
+    ['golem-hold', [], 'golemSkipPreCombat', {}],
+    ['use-epinephrine', [9], 'combatUseEpinephrine', { saverMerc: 9 }],
+    ['decline-epinephrine', [], 'combatDeclineEpinephrine', {}],
+  ];
+
+  it.each(choices)('sends %s as its action', async (event, payload, action, args) => {
+    const table = await tableWith([action]);
+    table.wrapper.findComponent({ name: 'CombatPanel' }).vm.$emit(event, ...payload);
+    await flushPromises();
+    expect(table.sent).toEqual([[action, args]]);
+    table.stop();
+  });
+
+  it.each(choices)('sends nothing for %s once its action is closed', async (event, payload) => {
+    const table = await tableWith(['combatContinue']);
+    table.wrapper.findComponent({ name: 'CombatPanel' }).vm.$emit(event, ...payload);
+    await flushPromises();
+    expect(table.sent).toEqual([]);
+    table.stop();
+  });
+});
