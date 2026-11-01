@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
+import type { GameRandom } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
+import { CombatantModel } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
-import { allocateHits } from '../src/rules/combat.js';
+import { allocateHits, executeCombat } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
 
 function makeCombatant(id: string, health: number, armor: number): Combatant {
@@ -136,5 +138,51 @@ describe('combatAllocateHits prompt', () => {
 
     const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'merc::1', 'm1::0'] });
     expect(result.success, result.error).toBe(true);
+  });
+});
+
+describe('resuming combat after the player allocates hits', () => {
+  /** Dice that show whatever face the test sets, so a second roll would be visible. */
+  function riggedDice(): { random: GameRandom; show: (face: number) => void } {
+    let face = 6;
+    const random = (() => (face - 0.5) / 6) as GameRandom;
+    random.getState = () => '';
+    random.setState = () => {};
+    return { random, show: (f: number) => { face = f; } };
+  }
+
+  it('applies the roll the player allocated, without rolling again (#83)', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'allocate-then-resume',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const sector = game.gameMap.getAllSectors()[0];
+    // Basic pauses for allocation on any hit, because the reroll is on offer.
+    const basic = game.mercDeck.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(1);
+    const dice = riggedDice();
+    game.random = dice.random;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName, 'Basic should be allocating hits').toBe('Basic');
+    expect(pending!.diceRolls).toEqual([6, 6]);
+
+    // Any roll after the allocation would now miss.
+    dice.show(1);
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    const log = (game.messages as unknown[]).map(m =>
+      typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? '')
+    );
+    expect(log.filter(line => /^Basic (rolls|rerolls|uses reroll)/.test(line))).toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
+    expect(sector.dictatorMilitia, 'the allocated hit should kill the militia').toBe(0);
   });
 });
