@@ -12,7 +12,6 @@ import {
 } from 'boardsmith';
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
-import { doesntCountTowardLimit } from './merc-abilities.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect, requireArtilleryAllocator } from './tactics-effects.js';
@@ -22,6 +21,7 @@ import { checkLandMines } from './landmine.js';
 import { getGlobalCachedValue, setGlobalCachedValue, equipNewHire } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
+import { pendingHagnessStep, clearHagnessDraws } from './actions/rebel-equipment.js';
 
 /**
  * MERC Game Flow
@@ -462,7 +462,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
   );
 }
 
-/** Check if a rebel has completed Day 1 setup (landed + hired MERCs) */
 /**
  * A rebel's daily turn is over when none of their MERCs has actions left — and,
  * for a rebel whose team was wiped out, once the free replacement hire is no
@@ -470,23 +469,21 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
  */
 function rebelTurnIsOver(game: MERCGame, rebel: RebelPlayer): boolean {
   if (rebel.mercOffer.count(CombatantModel) > 0) return false;
+  if (pendingHagnessStep(game, rebel)) return false;
   if (rebel.teamSize === 0) {
     return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0;
   }
   return !rebel.team.some(m => m.actionsRemaining > 0);
 }
 
+/** Check if a rebel has completed Day 1 setup (landed + hired MERCs) */
 function isDay1Complete(game: MERCGame, player: Player): boolean {
   if (!game.isRebelPlayer(player)) return true;
   const rebel = player as RebelPlayer;
   // Must have landed
   if (!rebel.primarySquad.sectorId) return false;
-  // Must have at least 2 MERCs (conservative: if Teresa is on team with only 2,
-  // hireThirdMerc action may still be available. The engine auto-completes players
-  // with no available actions, so returning false here is safe.)
-  const hasFreeSlotMerc = rebel.team.some(m => doesntCountTowardLimit(m.combatantId));
-  const requiredSize = hasFreeSlotMerc ? 3 : 2;
-  return rebel.team.length >= requiredSize;
+  // The offer empties once hiring ends: discarded after the second hire, or after Teresa's optional third hire or its skip
+  return rebel.team.length >= 2 && rebel.mercOffer.count(CombatantModel) === 0;
 }
 
 export function createGameFlow(game: MERCGame): FlowDefinition {
@@ -728,6 +725,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // Advance the day
           execute(() => {
             game.advanceDay();
+            clearHagnessDraws(game);
             game.message(`Day ${game.currentDay} begins`);
           }),
 
@@ -860,10 +858,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               simultaneousActionStep({
                 name: 'rebel-actions',
                 players: () => game.rebelPlayers,
-                // A rebel with MERCs on offer finishes that hire before anything else.
-                actions: (_ctx, player) => (player as RebelPlayer).mercOffer.count(CombatantModel) > 0
-                  ? ['hireMercFromOffer', 'rehireMercFromOffer']
-                  : [
+                // A rebel with MERCs on offer finishes that hire, and Hagness's pick or give, before anything else.
+                actions: (_ctx, player) => {
+                  const rebel = player as RebelPlayer;
+                  if (rebel.mercOffer.count(CombatantModel) > 0) return ['hireMercFromOffer', 'rehireMercFromOffer'];
+                  const hagnessStep = pendingHagnessStep(game, rebel);
+                  if (hagnessStep) return [hagnessStep];
+                  return [
                     'move',
                     'vehicleMove',
                     'coordinatedAttack',
@@ -882,8 +883,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'squidheadArm',
                     'docHeal',
                     'hagnessDrawType',
-                    'hagnessSelectFromDrawn',
-                    'hagnessGiveEquipment',
                     'armsDealer',
                     'armsDealerEquip', // MERC-dh5: free re-equip (via followUp)
                     'repairKit',
@@ -892,7 +891,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'viewStash',
                     'takeFromStash',
                     'endTurn',
-                  ],
+                  ];
+                },
                 // A wiped-out rebel still gets a turn: the rules let them hire a
                 // replacement MERC for free (p.6, "Death"), which needs no acting MERC.
                 skipPlayer: (_ctx, player) => {
@@ -1045,6 +1045,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Continue while any dictator MERC has actions
                   const dictatorMercs = game.dictatorPlayer?.hiredMercs || [];
                   const dictator = game.dictatorPlayer?.dictator;
+                  if (pendingHagnessStep(game, game.dictatorPlayer)) return true;
                   const hasActionsLeft = dictatorMercs.some(m => m.actionsRemaining > 0) ||
                     (dictator?.inPlay && dictator.actionsRemaining > 0);
                   return hasActionsLeft ?? false;
@@ -1076,7 +1077,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Regular action step - only runs when not in combat
                   actionStep({
                     name: 'dictator-merc-action',
-                    actions: [
+                    // The dictator finishes Hagness's pick or give before anything else.
+                    actions: () => {
+                      const hagnessStep = pendingHagnessStep(game, game.dictatorPlayer);
+                      if (hagnessStep) return [hagnessStep];
+                      return [
                       'move',
                   'vehicleMove',
                       'explore',
@@ -1090,8 +1095,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'squidheadDisarm', // MERC-4qd: Squidhead disarm mines
                       'squidheadArm', // MERC-4qd: Squidhead arm mines
                       'hagnessDrawType', // MERC-jrph: Hagness draw equipment (step 1)
-                      'hagnessSelectFromDrawn', // MERC-jrph: Hagness pick 1 of 3 (step 2, via followUp)
-                      'hagnessGiveEquipment', // MERC-jrph: Hagness give equipment (step 2, via followUp)
                       'armsDealer',
                       'armsDealerEquip', // MERC-dh5: free re-equip (via followUp)
                       'repairKit',
@@ -1100,7 +1103,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'viewStash',
                       'takeFromStash',
                       'endTurn',
-                    ],
+                      ];
+                    },
                     skipIf: () => game.isFinished() || (game.activeCombat !== null && !game.activeCombat.combatComplete),
                   }),
 

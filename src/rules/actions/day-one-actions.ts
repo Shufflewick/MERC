@@ -641,8 +641,6 @@ export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinitio
 export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDefinition {
   // Key for tracking remaining militia to place
   const REMAINING_MILITIA_KEY = '_extra_militia_remaining';
-  // Tracks the sector chosen in the current selection so amount choices can cap by capacity
-  let selectedSectorName: string | undefined;
 
   return Action.create<MERCGame>('dictatorPlaceExtraMilitia')
     .prompt('Place extra militia')
@@ -661,30 +659,21 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
     })
     .chooseFrom('targetSector', {
       prompt: 'Choose sector to place militia',
-      choices: () => {
-        // Only show sectors that have militia AND room below the cap
-        const sectors = game.gameMap.getAllSectors()
-          .filter(s => s.dictatorMilitia > 0 && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE);
-        if (sectors.length === 0) {
-          // Fallback to any industry with room
-          return game.gameMap.getAllSectors()
-            .filter(s => s.isIndustry && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE)
-            .map(s => s.sectorName);
-        }
-        return sectors.map(s => s.sectorName);
-      },
-      onSelect: (value) => { selectedSectorName = value; },
+      choices: () => game.gameMap.getAllSectors()
+        .filter(s => s.dictatorMilitia > 0 && s.dictatorMilitia < Sector.MAX_MILITIA_PER_SIDE)
+        .map(s => s.sectorName),
     })
     .chooseFrom('amount', {
       prompt: 'How many militia to place here?',
       dependsOn: 'targetSector',
-      choices: () => {
+      choices: (ctx) => {
         const remaining = getGlobalCachedValue<number>(game, REMAINING_MILITIA_KEY);
         const total = game.setupConfig?.dictatorStrength?.extra ?? 0;
         const toPlace = remaining ?? total;
         // Cap by selected sector's available capacity
-        const sector = selectedSectorName
-          ? game.gameMap.getAllSectors().find(s => s.sectorName === selectedSectorName)
+        const sectorName = ctx.args.targetSector as string | undefined;
+        const sector = sectorName
+          ? game.gameMap.getAllSectors().find(s => s.sectorName === sectorName)
           : undefined;
         const sectorCapacity = sector
           ? Sector.MAX_MILITIA_PER_SIDE - sector.dictatorMilitia
@@ -725,9 +714,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       }
       amount = Math.min(amount, remaining);
 
-      // Extract sector name (remove militia count suffix)
-      const sectorName = targetChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
-      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetChoice);
 
       if (!targetSector) {
         return { success: false, error: 'Invalid sector' };
