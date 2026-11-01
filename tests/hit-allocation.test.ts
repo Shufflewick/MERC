@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import type { GameRandom } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
-import { CombatantModel, Equipment } from '../src/rules/elements.js';
+import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
 import { allocateHits, executeCombat } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
@@ -192,6 +192,58 @@ describe('resuming combat after the player allocates hits', () => {
 
     expect(basicRollLines(game)).toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
     expect(sector.dictatorMilitia, 'the allocated hit should kill the militia').toBe(0);
+  });
+
+  /** A dictator MERC alongside a dictator militia in Basic's sector. */
+  function apeironAndMilitia(game: MERCGame, sector: Sector): CombatantModel {
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(1);
+    return apeiron;
+  }
+
+  it('splits the hits as the player allocated them (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-split');
+    // The Uzi's extra target lets Basic declare both the MERC and the militia.
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'uzi')!);
+    const apeiron = apeironAndMilitia(game, sector);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.validTargets.map(t => t.name).sort()).toEqual(['Apeiron', 'Militia']);
+    const mercId = pending!.validTargets.find(t => t.isMerc)!.id;
+    const militiaId = pending!.validTargets.find(t => !t.isMerc)!.id;
+
+    dice.show(1);
+    // One hit each, MERC first: spending hits greedily in that order would put both on the MERC.
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${mercId}::0`, `${militiaId}::0`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(apeiron.damage).toBe(1);
+    expect(sector.dictatorMilitia).toBe(0);
+  });
+
+  it('spends a grenade used in the allocated attack (#83)', () => {
+    const { game, rebel, sector } = basicAttacks('allocate-grenade');
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'grenade')!);
+    // The grenade makes Basic act last; the vest keeps him alive until then.
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'kevlar-vest')!);
+    apeironAndMilitia(game, sector);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    const allocations = pending!.validTargets.flatMap(t =>
+      Array.from({ length: t.armor + t.currentHealth }, (_, i) => `${t.id}::${i}`));
+    const result = game.performAction('combatAllocateHits', rebel, { allocations });
+    expect(result.success, result.error).toBe(true);
+
+    expect(basic.accessorySlot, 'the grenade is used up by the attack').toBeUndefined();
   });
 
   it('ends the attack when a reroll leaves nothing to allocate (#83)', () => {
