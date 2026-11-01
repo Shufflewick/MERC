@@ -72,10 +72,8 @@ export interface MERCOptions extends GameOptions {
   dictatorPlayerSeat?: number;
   // Player configurations from lobby (colors, Bot settings)
   playerConfigs?: PlayerConfig[];
-  // Game options from lobby
-  gameOptions?: {
-    dictatorCharacter?: string;  // 'random', 'castro', 'kim'
-  };
+  /** The Dictator Character game option from boardsmith.json: 'random' or a dictator id. */
+  dictatorCharacter?: string;
   // Debug: stack tactics deck with specific cards in order (first = top of deck)
   debugTacticsOrder?: string[];
   /**
@@ -992,8 +990,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.loadTacticsData(tacticsData as TacticsData[]);
 
     // Perform initial setup (build map, select dictator, etc.)
-    // Use dictatorCharacter from gameOptions, or dictatorChoice for legacy/direct API
-    const dictatorCharacter = options.gameOptions?.dictatorCharacter;
+    // Use the dictatorCharacter game option, or dictatorChoice for the direct API
+    const dictatorCharacter = options.dictatorCharacter;
     const dictatorChoice = dictatorCharacter && dictatorCharacter !== 'random'
       ? dictatorCharacter
       : options.dictatorChoice;
