@@ -13,6 +13,7 @@ import type { Game, GameElement } from 'boardsmith';
 import { MERCGame, type MERCPlayer } from './game.js';
 import { CombatantModel, Equipment, EquipmentDeck, TacticsCard } from './elements.js';
 import { tacticsCardAttributes } from './setup.js';
+import { capitalize } from './actions/helpers.js';
 
 /** The seat the bot is playing, or null when the game isn't a MERC game. */
 function seatPlayer(game: Game, playerIndex: number): { game: MERCGame; player: MERCPlayer } | null {
@@ -106,12 +107,22 @@ const PLAYOUT_WEIGHTS: Record<string, number> = {
 const DEFAULT_PLAYOUT_WEIGHT = 2;
 
 /**
- * Free moves that can be made again and again without changing the board the
- * objectives score: reassigning a MERC undoes itself, viewing a stash changes
- * nothing. When ending the turn looks bad, the search plays them to keep the
- * turn forever instead (#90).
+ * Whether the search may play this move. Free moves the search could repeat
+ * forever keep the turn whenever ending it looks bad (#90), so it leaves out
+ * viewing a stash, which changes nothing, and every squad reassignment but
+ * breaking a MERC off into a new squad with others left behind: without the
+ * merges and lone-squad relabels that could undo it, a split can only happen
+ * until all squads are in use.
  */
-const UNSEARCHED_ACTIONS = new Set(['assignToSquad', 'viewStash']);
+function searchable(game: MERCGame, seat: number, move: BotMove): boolean {
+  if (move.action === 'viewStash') return false;
+  if (move.action !== 'assignToSquad') return true;
+  const { combatantName, targetSquad } = move.args as { combatantName: string; targetSquad: string };
+  if (!targetSquad.startsWith('Create')) return false;
+  const source = (game.getPlayer(seat) as MERCPlayer).squads.find((squad) =>
+    squad.all(CombatantModel).some((c) => capitalize(c.combatantName) === combatantName));
+  return source !== undefined && source.all(CombatantModel).length > 1;
+}
 
 /**
  * Give each face-down card the attributes of a card drawn at random from
@@ -180,8 +191,8 @@ function partition<T>(items: T[], test: (item: T) => boolean): [T[], T[]] {
 export const mercBot: BotStrategy = {
   determinize: mercDeterminize,
 
-  candidateMoves: (_game: Game, _seat: number, listMoves: () => BotMove[]): BotMove[] =>
-    listMoves().filter((move) => !UNSEARCHED_ACTIONS.has(move.action)),
+  candidateMoves: (game: Game, seat: number, listMoves: () => BotMove[]): BotMove[] =>
+    listMoves().filter((move) => searchable(game as MERCGame, seat, move)),
 
   objectives: (game: Game, _playerIndex: number): Record<string, Objective> => ({
     // The printed win condition: more sector value than the other side.
