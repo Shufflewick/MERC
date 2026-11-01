@@ -1325,6 +1325,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
       for (const eq of discard.all(Equipment)) {
         // Equipping calls showToAll(), which would otherwise reveal the card through the hidden deck
         eq.clearVisibility();
+        eq.repair();
         eq.putInto(deck);
       }
       deck.shuffle();

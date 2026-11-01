@@ -1014,7 +1014,7 @@ export class Equipment extends BaseCard {
   // Damage state - damaged equipment cannot be stashed
   isDamaged: boolean = false;
 
-  // Persistent armor damage tracking — damage counters persist until discarded
+  // Damage stays on the card in the discard so a Repair Kit has something to repair; drawEquipment clears it on reshuffle
   armorDamage: number = 0;
 
   // Expansion marker (for special game modes)

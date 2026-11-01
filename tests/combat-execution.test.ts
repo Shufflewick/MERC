@@ -370,6 +370,17 @@ describe('Combat Execution Tests', () => {
       expect(game.getEquipmentDiscard('Armor')!.all(Equipment)).toContain(vest);
       expect(merc.damage).toBe(1);
     });
+
+    it('destroyed armour reshuffled from the discard comes back as a fresh card', () => {
+      const { vest } = armouredMercUnderFire(3);
+      const stash = game.gameMap.getAllSectors()[1];
+      for (const equip of game.armorDeck.all(Equipment)) stash.addToStash(equip);
+
+      game.drawEquipment('Armor');
+
+      expect(vest.isDamaged).toBe(false);
+      expect(vest.armorRemaining).toBe(2);
+    });
   });
 
   // =========================================================================
