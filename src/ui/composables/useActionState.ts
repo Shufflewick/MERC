@@ -494,27 +494,9 @@ export function useActionState(
 
     // During multi-step actions, currentArgs contains the filled values: one name (merc, selectedMerc) or a list (selectedMercs).
     const currentArgs = props.actionController.currentArgs?.value || {};
-    let combatantNames = [currentArgs['merc'], currentArgs['selectedMerc'], currentArgs['selectedMercs']]
+    const combatantNames = [currentArgs['merc'], currentArgs['selectedMerc'], currentArgs['selectedMercs']]
       .flat()
       .filter((name): name is string => typeof name === 'string');
-
-    // Fallback for dictator hiring: get from cached combatantId and look up in combatantData
-    if (combatantNames.length === 0) {
-      const settings = props.gameView?.settings ||
-                       props.state?.state?.settings;
-      // Use combatantId (string) to look up in combatantData directly
-      // (numeric element ID can't find MERC because it's in mercDiscard which isn't serialized)
-      const drawnMercCombatantId = settings?.dictatorFirstMercCombatantId;
-      if (drawnMercCombatantId) {
-        const combatantData = settings?.combatantData || [];
-        const mercInfo = combatantData.find((d: any) =>
-          d.cardType === 'merc' && d.id === drawnMercCombatantId
-        );
-        if (mercInfo) {
-          combatantNames = [mercInfo.name];
-        }
-      }
-    }
 
     return combatantNames.map(findHiringMerc).filter(Boolean);
   });

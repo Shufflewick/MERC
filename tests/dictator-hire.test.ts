@@ -178,7 +178,6 @@ describe('Dictator Day 1 Hire', () => {
     const vrbansk = game.first(CombatantModel, (c) => c.combatantId === 'vrbansk')!;
     // Stand Vrbansk in for whatever MERC the draw step put up for hire.
     setGlobalCachedValue(game, 'dictatorFirstMercId', vrbansk.id);
-    setGlobalCachedValue(game, 'dictatorFirstMercCombatantId', vrbansk.combatantId);
 
     const seat = game.dictatorPlayer.seat;
     const [targetSector] = game.getSelectionChoices('dictatorHireFirstMerc', 'targetSector', game.dictatorPlayer, { merc: 'Vrbansk', equipmentType: 'Weapon' });
