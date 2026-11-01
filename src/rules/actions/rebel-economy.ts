@@ -1189,10 +1189,14 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
  * MERC-dh5: Chains to armsDealerEquip for the free re-equip per rules
  * Works for both mercs and dictator combatants.
  */
+// Settings key for the item each player just bought, so only it gets the free re-equip
+const ARMS_DEALER_BOUGHT_KEY = 'armsDealerBought';
+
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
 
   return Action.create<MERCGame>('armsDealer')
     .prompt('Visit arms dealer')
+    .notUndoable() // Involves randomness (drawing equipment)
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel or dictator player': (ctx) => game.isRebelPlayer(ctx.player) || game.isDictatorPlayer(ctx.player),
@@ -1262,6 +1266,8 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         game.message(`${actingUnitName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);
       }
 
+      setCachedValue(game, ARMS_DEALER_BOUGHT_KEY, `${(ctx.player as MERCPlayer).seat}`, equipment.id);
+
       return {
         success: true,
         message: `Bought ${equipment.equipmentName}`,
@@ -1297,7 +1303,8 @@ export function createArmsDealerEquipAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('armsDealerEquip')
     .prompt('Free Re-Equip')
     .condition({
-      'triggered via followUp from armsDealer': (ctx) => ctx.args?.equipmentId != null,
+      'equipment just bought': (ctx) => ctx.args?.equipmentId != null &&
+        ctx.args.equipmentId === getCachedValue<number>(game, ARMS_DEALER_BOUGHT_KEY, `${(ctx.player as MERCPlayer).seat}`),
     })
     .chooseFrom('equipUnit', {
       prompt: 'Free Re-Equip: Which unit should equip this item? (or skip)',
@@ -1335,6 +1342,7 @@ export function createArmsDealerEquipAction(game: MERCGame): ActionDefinition {
       if (!equipment || !sector) {
         return { success: false, error: 'The bought equipment or the city sector could not be found.' };
       }
+      clearCachedValue(game, ARMS_DEALER_BOUGHT_KEY, `${(ctx.player as MERCPlayer).seat}`);
 
       const targetUnit = args.equipUnit === 'skip' ? null : findArmsDealerUnit(game, args.equipUnit);
       if (!targetUnit) {

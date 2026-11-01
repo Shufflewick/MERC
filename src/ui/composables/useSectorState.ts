@@ -187,6 +187,7 @@ export function useSectorState(
       'explore',
       'collectEquipment',
       'armsDealer',
+      'armsDealerEquip',
       'hospital',
       'train',
       'reEquip',

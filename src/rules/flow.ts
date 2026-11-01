@@ -507,7 +507,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
   const polpotHireDue = () => !game.isFinished() &&
     game.dictatorPlayer?.dictator?.combatantId === 'polpot' &&
     game.dictatorPlayer?.isBot !== true &&
-    game.lastAbilityCombatOutcome?.rebelVictory === true;
+    game.lastAbilityCombatOutcome?.rebelVictory === true &&
+    dictatorHasSquadRoom();
 
   return {
     root: sequence(
@@ -651,7 +652,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 10,
                 do: sequence(
                   // The dictator now sees this MERC, so undo must not reach back and redraw.
-                  execute(() => game.offerMercs(1), { irreversible: true }),
+                  execute(() => {
+                    game.offerMercs(1);
+                    // No MERC left anywhere to draw: end the bonus placement
+                    if (game.mercOffer.count(CombatantModel) === 0) setGlobalCachedValue(game, '_bonus_mercs_remaining', 0);
+                  }, { irreversible: true }),
                   actionStep({
                     name: 'bonus-merc-squad-choice',
                     actions: ['bonusMercSetup'],
@@ -1134,11 +1139,11 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
 
               // Human per-turn hires pick from MERCs drawn here, never inside a pick (#65)
               execute(() => {
-                if (game.isFinished() || game.dictatorPlayer?.isBot) return;
+                // With no squad room nothing is offered, so the hire is not available and the step passes
+                if (game.isFinished() || game.dictatorPlayer?.isBot || !dictatorHasSquadRoom()) return;
                 const dictatorId = game.dictatorPlayer?.dictator?.combatantId;
                 if (dictatorId === 'castro') game.offerMercs(3);
-                if (dictatorId === 'gadafi' || dictatorId === 'stalin') game.offerMercs(1);
-                if (dictatorId === 'hitler' && dictatorHasSquadRoom()) game.offerMercs(1);
+                if (dictatorId === 'gadafi' || dictatorId === 'stalin' || dictatorId === 'hitler') game.offerMercs(1);
               }, { irreversible: true }),
 
               // Human dictator ability choice (skipped for Bot)
@@ -1297,7 +1302,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 20,
                 do: sequence(
                   execute(() => {
-                    if (!game.isFinished() && game._pinochetPendingHires > 0 && dictatorHasSquadRoom()) game.offerMercs(1);
+                    if (game.isFinished() || game._pinochetPendingHires <= 0) return;
+                    // No squad room: the pending hires are lost, or the loop would never end
+                    if (!dictatorHasSquadRoom()) {
+                      game._pinochetPendingHires = 0;
+                      return;
+                    }
+                    game.offerMercs(1);
                   }, { irreversible: true }),
                   actionStep({
                     name: 'pinochet-hire',

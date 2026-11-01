@@ -39,11 +39,15 @@ function startGame(dictator: string, seed: string): MERCGame {
 
 /** Play first legal moves, ending turns early, until `actionName` is offered. */
 function playUntilOffered(runner: GameRunner<MERCGame>, actionName: string): void {
+  playUntil(runner, actionName, available => available.includes(actionName));
+}
+
+function playUntil(runner: GameRunner<MERCGame>, actionName: string, done: (available: string[]) => boolean): void {
   const game = runner.game;
   for (let moves = 0; moves < 100; moves++) {
     const current = getCurrentAction(game.getFlowState());
     if (!current) throw new Error(`The flow stopped before offering ${actionName}.`);
-    if (current.available.includes(actionName)) return;
+    if (done(current.available)) return;
     const order = current.available.includes('endTurn') ? ['endTurn', ...current.available] : current.available;
     const played = order.some(name => {
       const args = autoResolveArgs(game, name, current.currentPlayer);
@@ -207,6 +211,37 @@ describe('the arms dealer sells, then offers the free re-equip (#65)', () => {
     expect(equipped.success).toBe(true);
     expect(merc.weaponSlot).toBe(item);
     expect(city.stash).not.toContain(item);
+  });
+
+  it('the free re-equip refuses any item other than the one just bought', () => {
+    const game = startGame('castro', 'arms-dealer-other-item');
+    const { rebel, merc } = putRebelMercInCity(game);
+    const executor = game.getActionExecutor();
+    const unitChoice = `${merc.id}:${merc.combatantName}:false`;
+    executor.executeAction(game.getAction('armsDealer')!, rebel, { actingUnit: unitChoice, equipmentType: 'Weapon' });
+    const notBought = game.weaponsDeck.first(Equipment)!;
+
+    const result = executor.executeAction(game.getAction('armsDealerEquip')!, rebel, {
+      equipmentId: notBought.id, equipUnit: unitChoice,
+    });
+
+    expect(result.success).toBe(false);
+    expect(merc.weaponSlot).not.toBe(notBought);
+  });
+});
+
+describe('a hire with no squad room draws nothing and lets the turn go on (#65)', () => {
+  it('Castro with both squads full skips the hire', () => {
+    const runner = startRunner('castro', 'castro-full-squads');
+    const game = runner.game;
+    playUntilOffered(runner, 'endTurn');
+    for (const squad of [game.dictatorPlayer.primarySquad, game.dictatorPlayer.secondarySquad]) {
+      while (!squad.isFull) game.drawMerc()!.putInto(squad);
+    }
+
+    playUntil(runner, 'the rebel turn after the dictator', () => game.currentDay === 3);
+
+    expect(game.mercOffer.all(CombatantModel)).toHaveLength(0);
   });
 });
 
