@@ -172,6 +172,7 @@ function getGolemDecisionPlayer(game: MERCGame, fallback: Player): Player {
   return game.rebelPlayers.find(r => r.team.some(m => m.id === merc.id)) ?? fallback;
 }
 
+// Every decision step here sits inside a combat whose dice everyone sees, so each starts a new undo run with turnScope 'restart'.
 function combatResolutionFlow(game: MERCGame, prefix: string) {
   return sequence(
     // 1. Before-attack healing - "On your initiative, before your attack, discard dice to heal"
@@ -181,6 +182,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 50,
       do: actionStep({
         name: 'before-attack-heal',
+        turnScope: 'restart',
         player: (ctx) => {
           const pending = game.activeCombat?.pendingBeforeAttackHealing;
           if (!pending) return ctx.player!;
@@ -198,6 +200,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 50,
       do: actionStep({
         name: 'assign-attack-dog',
+        turnScope: 'restart',
         player: (ctx) => {
           const pending = game.activeCombat?.pendingAttackDogSelection;
           if (!pending) return ctx.player!;
@@ -215,6 +218,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 50,
       do: actionStep({
         name: 'select-targets',
+        turnScope: 'restart',
         player: (ctx) => {
           const pending = game.activeCombat?.pendingTargetSelection;
           if (!pending) return ctx.player!;
@@ -232,6 +236,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 50,
       do: actionStep({
         name: 'allocate-hits',
+        turnScope: 'restart',
         player: (ctx) => {
           const pending = game.activeCombat?.pendingHitAllocation;
           if (!pending) return ctx.player!;
@@ -249,6 +254,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 10,
       do: actionStep({
         name: 'golem-pre-combat',
+        turnScope: 'restart',
         player: (ctx) => getGolemDecisionPlayer(game, ctx.player!),
         actions: ['golemPreCombatAttack', 'golemSkipPreCombat'],
         skipIf: () => game.isFinished() || game.activeCombat?.pendingGolemAttack == null,
@@ -262,6 +268,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 10,
       do: actionStep({
         name: 'use-epinephrine',
+        turnScope: 'restart',
         player: (ctx) => getEpinephrineDecisionPlayer(game, ctx.player!),
         actions: ['combatUseEpinephrine', 'combatDeclineEpinephrine'],
         skipIf: () => game.isFinished() || game.activeCombat?.pendingEpinephrine == null,
@@ -285,6 +292,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 50,
       do: actionStep({
         name: 'combat-continue',
+        turnScope: 'restart',
         actions: ['combatContinue', 'adelheidToggleConversion'],
         skipIf: () => game.isFinished() || game.activeCombat === null ||
                       game.activeCombat.combatComplete ||
@@ -415,6 +423,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       maxIterations: 20,
       do: actionStep({
         name: 'gaddafi-loot-equipment',
+        turnScope: 'restart',
         actions: ['gaddafiLootEquipment', 'gaddafiDiscardLoot'],
         skipIf: () => game.isFinished() ||
           !game._gaddafiLootableEquipment ||
@@ -801,6 +810,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 10,
                 do: actionStep({
                   name: 'rebel-mortar-allocate',
+                  // The mortar's dice are out, so undo must not reach back over them.
+                  turnScope: 'restart',
                   player: () => {
                     const pending = game.pendingMortarAttack;
                     if (!pending) return game.rebelPlayers[0];
@@ -973,6 +984,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Step 1: Play a tactics card or reinforce
               actionStep({
                 name: 'dictator-play-tactics',
+                // A new turn: the dictator may have just acted in the rebels' combat.
+                turnScope: 'restart',
                 actions: ['playTactics', 'reinforce'],
                 skipIf: () => game.isFinished(),
               }),
@@ -989,6 +1002,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // rather than inherit the turn's player (issue #57).
                   player: () => requireArtilleryAllocator(game),
                   name: 'artillery-allocate',
+                  // The tactics card and its dice are out, so undo must not reach back over them.
+                  turnScope: 'restart',
                   actions: ['artilleryAllocateHits'],
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
                 }),
@@ -1001,6 +1016,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 5,
                 do: actionStep({
                   name: 'generalissimo-pick-merc',
+                  // The tactics card is revealed, so undo must not reach back over it.
+                  turnScope: 'restart',
                   actions: ['generalissimoPick'],
                   skipIf: () => game.isFinished() || game.pendingGeneralissimoHire == null,
                 }),
@@ -1013,6 +1030,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 20,
                 do: actionStep({
                   name: 'seizure-flip-sector',
+                  // The tactics card is revealed, so undo must not reach back over it.
+                  turnScope: 'restart',
                   actions: ['seizureFlipSector'],
                   skipIf: () => game.isFinished() || game.pendingSeizureFlips == null || game.pendingSeizureFlips.remaining <= 0,
                 }),
@@ -1025,6 +1044,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50, // Safety: could be many placements
                 do: actionStep({
                   name: 'lockdown-place-militia',
+                  // The tactics card is revealed, so undo must not reach back over it.
+                  turnScope: 'restart',
                   actions: ['lockdownPlaceMilitia'],
                   skipIf: () => game.isFinished() || game.pendingLockdownMilitia == null || game.pendingLockdownMilitia.remaining <= 0,
                 }),
@@ -1118,6 +1139,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     maxIterations: 10,
                     do: actionStep({
                       name: 'dictator-mortar-allocate',
+                      // The mortar's dice are out, so undo must not reach back over them.
+                      turnScope: 'restart',
                       actions: ['mortarAllocateHits'],
                       skipIf: () => game.isFinished() || game.pendingMortarAttack == null,
                     }),
@@ -1169,13 +1192,43 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for Bot)
               actionStep({
                 name: 'dictator-ability',
+                // Combat dice and the irreversible offer above sit behind this step, so undo starts afresh.
+                turnScope: 'restart',
                 actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'noriegaConvertMilitia'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isBot === true,
+              }),
+
+              // Mao militia distribution loop (human only, subsequent placements after first)
+              loop({
+                name: 'mao-militia-distribution',
+                while: () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'mao-place-militia',
+                  // Placing militia hides and rolls nothing (combat is only queued), so undo reaches back over the run.
+                  turnScope: 'continue',
+                  actions: ['maoBonusMilitia'],
+                }),
+              }),
+
+              // Mussolini spread loop (human only - spread militia from source to adjacent)
+              loop({
+                name: 'mussolini-spread',
+                while: () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'mussolini-spread-militia',
+                  // Spreading militia hides and rolls nothing (combat is only queued), so undo reaches back over the run.
+                  turnScope: 'continue',
+                  actions: ['mussoliniSpreadMilitia'],
+                }),
               }),
 
               // Hitler initiative target pick (human only, after hire)
               actionStep({
                 name: 'hitler-pick-target',
+                // The hire before it drew hidden equipment, so undo must not reach back over it.
+                turnScope: 'restart',
                 actions: ['hitlerPickInitiativeTarget'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hitler' ||
@@ -1185,6 +1238,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Noriega: Choose sector for converted militia (human only)
               actionStep({
                 name: 'noriega-place-militia',
+                // The conversion before it hides and rolls nothing, so undo reaches back over it.
+                turnScope: 'continue',
                 actions: ['noriegaPlaceMilitia'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'noriega' ||
@@ -1199,32 +1254,10 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }, { irreversible: true }),
               actionStep({
                 name: 'noriega-bonus-hire',
+                // Undo cannot cross the irreversible offer above, so the undoable run starts here.
+                turnScope: 'restart',
                 actions: ['noriegaBonusHire'],
                 skipIf: () => !noriegaHireDue(),
-              }),
-
-              // Mao militia distribution loop (human only, subsequent placements after first)
-              loop({
-                name: 'mao-militia-distribution',
-                while: () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0 && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'mao-place-militia',
-                  actions: ['maoBonusMilitia'],
-                  skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
-                }),
-              }),
-
-              // Mussolini spread loop (human only - spread militia from source to adjacent)
-              loop({
-                name: 'mussolini-spread',
-                while: () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0 && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'mussolini-spread-militia',
-                  actions: ['mussoliniSpreadMilitia'],
-                  skipIf: () => game.isFinished() || game.pendingMussoliniSpread == null || game.pendingMussoliniSpread.remaining <= 0,
-                }),
               }),
 
               // MERC-combat-flow: Process any pending combat triggered by dictator abilities
@@ -1301,6 +1334,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }, { irreversible: true }),
               actionStep({
                 name: 'polpot-bonus-hire',
+                // Undo cannot cross the irreversible offer above, so the undoable run starts here.
+                turnScope: 'restart',
                 actions: ['polpotBonusHire'],
                 skipIf: () => !polpotHireDue(),
               }),
@@ -1332,6 +1367,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   }, { irreversible: true }),
                   actionStep({
                     name: 'pinochet-hire',
+                    // Undo cannot cross the irreversible offer above, so the undoable run starts here.
+                    turnScope: 'restart',
                     actions: ['pinochetBonusHire'],
                     skipIf: () => game.isFinished() || game._pinochetPendingHires <= 0,
                   }),
@@ -1374,6 +1411,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Hussein second tactics play (human only)
               actionStep({
                 name: 'hussein-bonus-tactics',
+                // Undo cannot cross the irreversible draw above, so the undoable run starts here.
+                turnScope: 'restart',
                 actions: ['husseinBonusTactics', 'husseinBonusReinforce'],
                 skipIf: () => game.isFinished() ||
                   game.dictatorPlayer?.dictator?.combatantId !== 'hussein' ||
@@ -1393,6 +1432,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // As above: the shelled rebels allocate, not the dictator.
                   player: () => requireArtilleryAllocator(game),
                   name: 'hussein-artillery-allocate',
+                  // The tactics card and its dice are out, so undo must not reach back over them.
+                  turnScope: 'restart',
                   actions: ['artilleryAllocateHits'],
                   skipIf: () => game.isFinished() || game.pendingArtilleryAllocation == null,
                 }),
@@ -1405,6 +1446,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 5,
                 do: actionStep({
                   name: 'hussein-generalissimo-pick',
+                  // The tactics card is revealed, so undo must not reach back over it.
+                  turnScope: 'restart',
                   actions: ['generalissimoPick'],
                   skipIf: () => game.isFinished() || game.pendingGeneralissimoHire == null,
                 }),
@@ -1417,6 +1460,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 maxIterations: 50,
                 do: actionStep({
                   name: 'hussein-lockdown-place',
+                  // The tactics card is revealed, so undo must not reach back over it.
+                  turnScope: 'restart',
                   actions: ['lockdownPlaceMilitia'],
                   skipIf: () => game.isFinished() || game.pendingLockdownMilitia == null || game.pendingLockdownMilitia.remaining <= 0,
                 }),
