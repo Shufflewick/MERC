@@ -2822,7 +2822,10 @@ const { isHumanControlled, hasSelectedTargets } = control;
     game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
   }
 
-  const damageDealt = applyAttackDamage(ctx, attacker, enemies, [...targets, ...extraTargets], hits, false);
+  // Hits spill down the declared targets first, so capping the total keeps all but his 6s off the extra targets.
+  const declaredCapacity = targets.reduce((sum, t) => sum + (attacker.armorPiercing ? 0 : t.armor) + t.health, 0);
+  const usableHits = Math.min(hits, declaredCapacity + wolverineBonus6s);
+  const damageDealt = applyAttackDamage(ctx, attacker, enemies, [...targets, ...extraTargets], usableHits, false);
 
   discardSpentEquipment(game, attacker);
 

@@ -570,6 +570,40 @@ describe('Wolverine\'s sixes when hits are allocated automatically', () => {
     expect(sector.dictatorMilitia).toBe(0);
     expect(wolverine.isDead).toBe(false);
   });
+
+  it('spend only his sixes on enemies he did not declare (#104)', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'wolverine-bot-sixes-cap',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const dictator = game.dictatorPlayer;
+    const sector = game.gameMap.getAllSectors()[0];
+    const wolverine = game.mercDeck.first(CombatantModel, c => c.combatantId === 'wolverine')!;
+    wolverine.putInto(rebel.primarySquad);
+    wolverine.equip(game.first(Equipment, e => e.equipmentId === '45-caliber-handgun')!);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    // Apeiron, down to 1 health behind 1 armor, is the weakest enemy, so the Bot declares him.
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(dictator.primarySquad);
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'flak-vest')!);
+    apeiron.damage = 2;
+    const feedback = game.mercDeck.first(CombatantModel, c => c.combatantId === 'feedback')!;
+    feedback.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    // Wolverine acts first and rolls [6, 5, 4, 4]; every later die misses.
+    const faces = [6, 5, 4, 4];
+    const random = (() => ((faces.shift() ?? 1) - 0.5) / 6) as GameRandom;
+    random.getState = () => '';
+    random.setState = () => {};
+    game.random = random;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true, interactive: false });
+
+    expect(apeiron.isDead, 'two hits go through the declared Apeiron\'s armor and health').toBe(true);
+    expect(feedback.damage, 'Feedback takes only the six').toBe(1);
+  });
 });
 
 describe('Wolverine\'s sixes when a human allocates the hits', () => {
