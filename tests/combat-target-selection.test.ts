@@ -39,4 +39,13 @@ describe('combatSelectTarget for a MERC with one target', () => {
     expect(result.success).toBe(true);
     expect(game.activeCombat?.pendingTargetSelection?.attackerId).not.toBe(pending!.attackerId);
   });
+
+  it('refuses a second target', () => {
+    const { game, rebel } = pausedOnSingleTargetPick();
+    const [first, second] = game.activeCombat!.pendingTargetSelection!.validTargets;
+
+    const result = game.performAction('combatSelectTarget', rebel, { targets: [first.id, second.id] });
+
+    expect(result.success).toBe(false);
+  });
 });
