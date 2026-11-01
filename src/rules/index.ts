@@ -183,7 +183,6 @@ export {
 
 // Game definition for BoardSmith
 import { MERCGame } from './game.js';
-import { createColorOption } from 'boardsmith/session';
 import { mercBot } from './bot.js';
 
 export const gameDefinition = {
@@ -222,7 +221,6 @@ export const gameDefinition = {
 
   // Per-player options (each player configures their own)
   playerOptions: {
-    color: createColorOption(),
     isDictator: {
       type: 'exclusive',
       label: 'Dictator',
