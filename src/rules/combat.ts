@@ -2691,9 +2691,11 @@ const { isHumanControlled, hasSelectedTargets } = control;
   }
 
   // Resuming after the player allocated hits: the roll was made before the pause, so apply it rather than rolling again.
-  const playerHitAllocation = game.activeCombat?.selectedTargets?.get(`allocation:${attacker.id}`);
-  if (playerHitAllocation && playerHitAllocation.length > 0) {
-    game.activeCombat?.selectedTargets?.delete(`allocation:${attacker.id}`);
+  // An empty allocation is a roll with nothing to allocate (a reroll that missed); it still ends the attack.
+  const playerHitAllocation = playerSelectedTargets?.get(`allocation:${attacker.id}`);
+  if (playerHitAllocation) {
+    // The round's working copy is what a later pause saves, so the spent allocation must leave it.
+    playerSelectedTargets!.delete(`allocation:${attacker.id}`);
     // One entry per allocated hit, repeated for several hits on one target.
     const allocatedTargets = playerHitAllocation
       .map(targetId => enemies.find(e => e.id === targetId))

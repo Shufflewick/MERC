@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import type { GameRandom } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
-import { CombatantModel } from '../src/rules/elements.js';
+import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
 import { allocateHits, executeCombat } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
@@ -151,21 +151,32 @@ describe('resuming combat after the player allocates hits', () => {
     return { random, show: (f: number) => { face = f; } };
   }
 
-  it('applies the roll the player allocated, without rolling again (#83)', () => {
+  /** Human Basic in a sector, on dice showing 6. Basic pauses for allocation on any hit, because the reroll is on offer. */
+  function basicAttacks(seed: string) {
     const game = createTestGame(MERCGame, {
       playerCount: 2,
       playerNames: ['Rebel1', 'Dictator'],
-      seed: 'allocate-then-resume',
+      seed,
     }).game;
     const rebel = game.rebelPlayers[0];
     const sector = game.gameMap.getAllSectors()[0];
-    // Basic pauses for allocation on any hit, because the reroll is on offer.
     const basic = game.mercDeck.first(CombatantModel, c => c.combatantId === 'basic')!;
     basic.putInto(rebel.primarySquad);
     rebel.primarySquad.sectorId = sector.sectorId;
-    sector.addDictatorMilitia(1);
     const dice = riggedDice();
     game.random = dice.random;
+    return { game, rebel, sector, dice };
+  }
+
+  function basicRollLines(game: MERCGame): string[] {
+    return (game.messages as unknown[])
+      .map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''))
+      .filter(line => /^Basic (rolls|rerolls|uses reroll)/.test(line));
+  }
+
+  it('applies the roll the player allocated, without rolling again (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-then-resume');
+    sector.addDictatorMilitia(1);
 
     executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
     const pending = game.activeCombat?.pendingHitAllocation;
@@ -179,10 +190,55 @@ describe('resuming combat after the player allocates hits', () => {
     });
     expect(result.success, result.error).toBe(true);
 
-    const log = (game.messages as unknown[]).map(m =>
-      typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? '')
-    );
-    expect(log.filter(line => /^Basic (rolls|rerolls|uses reroll)/.test(line))).toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
+    expect(basicRollLines(game)).toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
     expect(sector.dictatorMilitia, 'the allocated hit should kill the militia').toBe(0);
+  });
+
+  it('ends the attack when a reroll leaves nothing to allocate (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('reroll-to-nothing');
+    sector.addDictatorMilitia(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    expect(game.activeCombat?.pendingHitAllocation?.attackerName).toBe('Basic');
+
+    // The reroll misses, and so would anything after it.
+    dice.show(1);
+    expect(game.performAction('combatBasicReroll', rebel, {}).success).toBe(true);
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+    expect(result.success, result.error).toBe(true);
+
+    expect(basicRollLines(game)).toEqual([
+      'Basic rolls [6, 6] - 2 hit(s)',
+      'Basic uses reroll ability! [1, 1] - 0 hit(s)',
+    ]);
+    expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked to allocate again').toBeUndefined();
+    expect(sector.dictatorMilitia).toBe(1);
+  });
+
+  it('does not keep a spent allocation in the state saved at the next pause (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-then-epinephrine');
+    // Basic on the dictator's side, so the rebel MERC it kills can be offered the shot.
+    const dictator = game.dictatorPlayer;
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    // A rebel MERC on its last health point, carrying the shot that pauses combat when it dies.
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(rebel.primarySquad);
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+    apeiron.damage = apeiron.maxHealth - 1;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    dice.show(1);
+    const result = game.performAction('combatAllocateHits', dictator, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(game.activeCombat?.pendingEpinephrine, 'the kill should pause for the shot').toBeDefined();
+    const saved = [...(game.activeCombat!.selectedTargets?.keys() ?? [])];
+    expect(saved.filter(key => key.startsWith('allocation:'))).toEqual([]);
   });
 });
