@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
 import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
 import { assetUrl } from '../composables/useAssetUrl';
+import type { MercPortrait } from '../composables/useActionState';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantCard from './CombatantCard.vue';
 import CombatantIcon from './CombatantIcon.vue';
@@ -208,10 +209,10 @@ const isSelectingEquipmentType = computed(() => {
   return false;
 });
 
-// Get the combatant whose equipment is being selected
+// Get the combatant whose equipment is being selected, as a list for DrawEquipmentType (empty when he has no name to show)
 // For generalissimoPick, this is the hired merc (from currentArgs.selectedMerc)
 // For other actions (playTactics, chooseKimBase), this is the dictator
-const equipmentSelectionCombatant = computed(() => {
+const equipmentSelectionCombatants = computed<MercPortrait[]>(() => {
   const currentAction = props.actionController.currentAction.value;
   if (currentAction === 'generalissimoPick') {
     const currentArgs = props.actionController.currentArgs?.value || {};
@@ -221,20 +222,17 @@ const equipmentSelectionCombatant = computed(() => {
         (d) => d.cardType === 'merc' && d.name.toLowerCase() === mercName.toLowerCase()
       );
       if (mercInfo) {
-        return {
+        return [{
           combatantId: mercInfo.id,
           combatantName: mercInfo.name,
           image: mercInfo.image || '',
-        };
+        }];
       }
     }
   }
   // Default: dictator
-  return {
-    combatantId: props.dictator?.combatantId,
-    combatantName: props.dictator?.combatantName,
-    image: props.dictator?.image,
-  };
+  const { combatantId, combatantName, image } = props.dictator;
+  return combatantName ? [{ combatantId, combatantName, image }] : [];
 });
 
 // Get equipment type choices
@@ -634,9 +632,7 @@ const dictatorCardData = computed(() => ({
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :combatant-id="equipmentSelectionCombatant.combatantId"
-            :combatant-name="equipmentSelectionCombatant.combatantName"
-            :image="equipmentSelectionCombatant.image"
+            :combatants="equipmentSelectionCombatants"
             player-color="dictator"
             @select="selectEquipmentType"
           />

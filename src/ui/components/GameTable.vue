@@ -202,10 +202,8 @@ const {
   retreatSectorChoices,
   sectorChoices,
   landingZoneMetadata,
-  selectedMercForEquipment,
-  selectedMercImagePath,
-  selectedMercName,
-  selectedMercId,
+  selectedMercsForEquipment,
+  selectedMercPortraits,
   equipmentTypeChoices,
   hagnessEquipmentTypeChoices,
   hagnessDrawnChoices,
@@ -213,7 +211,7 @@ const {
   hagnessSquadMates,
   deferredChoicesLoading,
   fetchedDeferredChoices,
-  showHiringMercModal,
+  hiringMercDetail,
   assignToSquadDelayedHide,
   findMercByName,
   getSectorImageFallback,
@@ -1097,8 +1095,9 @@ const landingSectors = computed(() => {
   }).filter(Boolean);
 });
 
-// ---- Multi-select state for mid-game hireMercFromOffer (pick 0-3 of the drawn MERCs) ----
-const hireMultiSelectValues = ref<unknown[]>([]);
+// ---- Mid-game hireMercFromOffer (pick 0-3 of the drawn MERCs) ----
+// The selection lives in the controller's multiSelectDraft, so the action bar shows the same picks.
+const hireMultiSelectValues = computed(() => props.actionController.multiSelectDraft.value?.values ?? []);
 
 // Is the current hiring pick a multiSelect?
 const isHireMultiSelect = computed(() => {
@@ -1124,7 +1123,8 @@ const hireMultiSelectCountDisplay = computed(() => {
 
 // Check if a merc is currently selected in multiSelect
 function isHireMultiSelected(choiceValue: unknown): boolean {
-  return hireMultiSelectValues.value.includes(choiceValue);
+  const pick = props.actionController.currentPick.value;
+  return !!pick && props.actionController.isMultiSelectSelected(pick.name, choiceValue);
 }
 
 // Handle clicking a MERC to hire - supports both single and multiSelect
@@ -1135,43 +1135,15 @@ async function selectMercToHire(merc: any) {
   const choiceValue = merc._choiceValue;
   if (!choiceValue) return;
 
-  // MultiSelect: toggle selection, don't fill yet
+  // MultiSelect: toggle selection (the controller auto-confirms when min === max is reached)
   if (selection.multiSelect) {
-    const idx = hireMultiSelectValues.value.indexOf(choiceValue);
-    if (idx >= 0) {
-      hireMultiSelectValues.value.splice(idx, 1);
-    } else {
-      const max = selection.multiSelect.max;
-      if (max === undefined || hireMultiSelectValues.value.length < max) {
-        hireMultiSelectValues.value.push(choiceValue);
-        // Auto-confirm when min === max and exact count reached
-        if (selection.multiSelect.min === selection.multiSelect.max &&
-            hireMultiSelectValues.value.length === selection.multiSelect.min) {
-          confirmHireMultiSelect();
-        }
-      }
-    }
+    await props.actionController.toggleMultiSelect(selection.name, choiceValue);
     return;
   }
 
   // Single select: fill immediately
   await props.actionController.fill(selection.name, choiceValue);
 }
-
-// Confirm multiSelect choices and fill the selection with the array
-async function confirmHireMultiSelect() {
-  const selection = props.actionController.currentPick.value;
-  if (!selection) return;
-  const values = [...hireMultiSelectValues.value];
-  hireMultiSelectValues.value = [];
-  await props.actionController.fill(selection.name, values);
-}
-
-// Clear multiSelect state when the action changes or pick changes
-watch(
-  [() => props.actionController.currentAction.value, () => props.actionController.currentPick.value?.name],
-  () => { hireMultiSelectValues.value = []; }
-);
 
 // Handle selecting equipment type
 async function selectEquipmentType(equipType: string) {
@@ -1225,15 +1197,13 @@ async function selectSector(sector: { value: string; label: string }) {
 }
 
 // Open MERC detail modal during hiring
-function openHiringMercDetail() {
-  if (selectedMercForEquipment.value) {
-    showHiringMercModal.value = true;
-  }
+function openHiringMercDetail(index: number) {
+  hiringMercDetail.value = selectedMercsForEquipment.value[index];
 }
 
 // Close MERC detail modal
 function closeHiringMercModal() {
-  showHiringMercModal.value = false;
+  hiringMercDetail.value = null;
 }
 
 // Handle reassign from squad badge click - starts action and scrolls to panel
@@ -1548,11 +1518,8 @@ const clickableSectors = computed(() => {
       :has-skip-option="hasSkipOption"
       :equipment-type-choices="equipmentTypeChoices"
       :sector-choices="sectorChoices"
-      :selected-merc-for-equipment="selectedMercForEquipment"
-      :selected-merc-image-path="selectedMercImagePath"
-      :selected-merc-name="selectedMercName"
-      :selected-merc-id="selectedMercId"
-      :show-hiring-merc-modal="showHiringMercModal"
+      :selected-merc-portraits="selectedMercPortraits"
+      :hiring-merc-detail="hiringMercDetail"
       :is-multi-select="isHireMultiSelect"
       :is-multi-select-ready="isHireMultiSelectReady"
       :multi-select-count-display="hireMultiSelectCountDisplay"
@@ -1563,7 +1530,7 @@ const clickableSectors = computed(() => {
       @select-equipment-type="selectEquipmentType"
       @select-sector="selectSector"
       @skip-hire="skipThirdHire"
-      @confirm-multi-select="confirmHireMultiSelect"
+      @confirm-multi-select="actionController.confirmMultiSelect()"
       @open-detail-modal="openHiringMercDetail"
       @close-detail-modal="closeHiringMercModal"
     />

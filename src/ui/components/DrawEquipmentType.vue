@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { UI_COLORS } from '../colors';
 import CombatantIcon from './CombatantIcon.vue';
+import type { MercPortrait } from '../composables/useActionState';
 
 interface EquipmentChoice {
   value: string;
@@ -10,19 +11,17 @@ interface EquipmentChoice {
 const props = defineProps<{
   choices: EquipmentChoice[];
   prompt?: string;
-  combatantId?: string; // Combatant ID for portrait
-  combatantName?: string; // Combatant name
-  image?: string; // Combatant image path
+  combatants?: MercPortrait[]; // Who receives the equipment, shown beside the buttons
   playerColor?: string; // Player color for border
 }>();
 
 const emit = defineEmits<{
   (e: 'select', value: string): void;
-  (e: 'clickMerc'): void;
+  (e: 'clickMerc', index: number): void;
 }>();
 
-function handleMercClick() {
-  emit('clickMerc');
+function handleMercClick(index: number) {
+  emit('clickMerc', index);
 }
 
 function getIcon(label: string): string {
@@ -42,14 +41,15 @@ function handleClick(value: string) {
     <div class="equipment-row">
       <!-- MERC/Dictator portrait with name (clickable to view details) -->
       <CombatantIcon
-        v-if="combatantName"
-        :combatant-id="combatantId"
-        :combatant-name="combatantName"
-        :image="image"
+        v-for="(combatant, index) in combatants"
+        :key="combatant.combatantName"
+        :combatant-id="combatant.combatantId"
+        :combatant-name="combatant.combatantName"
+        :image="combatant.image"
         :player-color="playerColor"
         size="large"
         clickable
-        @click="handleMercClick"
+        @click="handleMercClick(index)"
       />
       <!-- Equipment type buttons -->
       <button

@@ -56,10 +56,8 @@ export interface ActionStateReturn {
   retreatSectorChoices: ComputedRef<RetreatSectorChoice[]>;
   sectorChoices: ComputedRef<SectorChoice[]>;
   landingZoneMetadata: ComputedRef<any>;
-  selectedMercForEquipment: ComputedRef<any>;
-  selectedMercImagePath: ComputedRef<string>;
-  selectedMercName: ComputedRef<string>;
-  selectedMercId: ComputedRef<string>;
+  selectedMercsForEquipment: ComputedRef<any[]>;
+  selectedMercPortraits: ComputedRef<MercPortrait[]>;
   equipmentTypeChoices: ComputedRef<Array<{ value: string; label: string }>>;
 
   // Hagness state
@@ -71,7 +69,7 @@ export interface ActionStateReturn {
   // Loading/UI state
   deferredChoicesLoading: Ref<boolean>;
   fetchedDeferredChoices: Record<string, any[]>;
-  showHiringMercModal: Ref<boolean>;
+  hiringMercDetail: Ref<any | null>;
   assignToSquadDelayedHide: Ref<boolean>;
 
   // Utility functions
@@ -92,6 +90,13 @@ export interface RetreatSectorChoice {
   armorLoot: number;
   accessoryLoot: number;
   dictatorMilitia: number;
+}
+
+/** A MERC being hired, as the equipment and sector steps show him. */
+export interface MercPortrait {
+  combatantId?: string;
+  combatantName: string;
+  image?: string;
 }
 
 /**
@@ -144,7 +149,7 @@ export function useActionState(
 
   const deferredChoicesLoading = ref(false);
   const fetchedDeferredChoices = reactive<Record<string, any[]>>({});
-  const showHiringMercModal = ref(false);
+  const hiringMercDetail = ref<any | null>(null);
   const assignToSquadDelayedHide = ref(false);
 
   // ============================================================================
@@ -247,7 +252,7 @@ export function useActionState(
   // Simplified: check availableActions OR currentAction (no selection state check)
   const isHiringMercs = computed(() => {
     const currentAction = props.actionController.currentAction.value;
-    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'hireMercFromOffer', 'dictatorHireFirstMerc', 'castroBonusHire', 'gadafiBonusHire', 'stalinBonusHire', 'selectDictator'];
+    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'hireMercFromOffer', 'rehireMercFromOffer', 'dictatorHireFirstMerc', 'castroBonusHire', 'gadafiBonusHire', 'stalinBonusHire', 'selectDictator'];
 
     // Check if any hiring action is available
     const hasHiringAction = props.availableActions.some(a => hiringActions.includes(a));
@@ -482,17 +487,19 @@ export function useActionState(
     return null;
   }
 
-  // Get the MERC currently being hired (for showing portrait and name during hiring flow)
-  const selectedMercForEquipment = computed(() => {
+  // Get the MERCs currently being hired (for showing portraits and names during hiring flow)
+  const selectedMercsForEquipment = computed(() => {
     // Only active during hiring flow (equipment or sector selection)
-    if (!isSelectingEquipmentType.value && !isSelectingSector.value) return null;
+    if (!isSelectingEquipmentType.value && !isSelectingSector.value) return [];
 
-    // During multi-step actions, currentArgs contains the filled values.
+    // During multi-step actions, currentArgs contains the filled values: one name (merc, selectedMerc) or a list (selectedMercs).
     const currentArgs = props.actionController.currentArgs?.value || {};
-    let combatantName = currentArgs['merc'] as string | undefined;
+    let combatantNames = [currentArgs['merc'], currentArgs['selectedMerc'], currentArgs['selectedMercs']]
+      .flat()
+      .filter((name): name is string => typeof name === 'string');
 
     // Fallback for dictator hiring: get from cached combatantId and look up in combatantData
-    if (!combatantName) {
+    if (combatantNames.length === 0) {
       const settings = props.gameView?.settings ||
                        props.state?.state?.settings;
       // Use combatantId (string) to look up in combatantData directly
@@ -504,12 +511,15 @@ export function useActionState(
           d.cardType === 'merc' && d.id === drawnMercCombatantId
         );
         if (mercInfo) {
-          combatantName = mercInfo.name;
+          combatantNames = [mercInfo.name];
         }
       }
     }
-    if (!combatantName) return null;
 
+    return combatantNames.map(findHiringMerc).filter(Boolean);
+  });
+
+  function findHiringMerc(combatantName: string) {
     // First try to find the MERC in the game tree
     let merc = findMercByName(combatantName);
 
@@ -540,28 +550,16 @@ export function useActionState(
     }
 
     return merc;
-  });
+  }
 
-  // Get the image path for the selected MERC
-  const selectedMercImagePath = computed(() => {
-    const merc = selectedMercForEquipment.value;
-    if (!merc) return '';
-    return getAttr(merc, 'image', '');
-  });
-
-  // Get the name for the selected MERC
-  const selectedMercName = computed(() => {
-    const merc = selectedMercForEquipment.value;
-    if (!merc) return '';
-    return getAttr(merc, 'combatantName', '') || (merc as any).combatantName || '';
-  });
-
-  // Get the combatantId for the selected MERC
-  const selectedMercId = computed(() => {
-    const merc = selectedMercForEquipment.value;
-    if (!merc) return '';
-    return getAttr(merc, 'combatantId', '') || (merc as any).combatantId || '';
-  });
+  // Portrait, name and id of each MERC being hired
+  const selectedMercPortraits = computed<MercPortrait[]>(() =>
+    selectedMercsForEquipment.value.map((merc: any) => ({
+      combatantId: getAttr(merc, 'combatantId', '') || merc.combatantId || '',
+      combatantName: getAttr(merc, 'combatantName', '') || merc.combatantName || '',
+      image: getAttr(merc, 'image', ''),
+    }))
+  );
 
   // ============================================================================
   // HAGNESS-SPECIFIC STATE
@@ -710,10 +708,8 @@ export function useActionState(
     retreatSectorChoices,
     sectorChoices,
     landingZoneMetadata,
-    selectedMercForEquipment,
-    selectedMercImagePath,
-    selectedMercName,
-    selectedMercId,
+    selectedMercsForEquipment,
+    selectedMercPortraits,
     equipmentTypeChoices,
 
     // Hagness state
@@ -725,7 +721,7 @@ export function useActionState(
     // Loading/UI state
     deferredChoicesLoading,
     fetchedDeferredChoices,
-    showHiringMercModal,
+    hiringMercDetail,
     assignToSquadDelayedHide,
 
     // Utility functions
