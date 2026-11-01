@@ -460,6 +460,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 
   return Action.create<MERCGame>('dictatorHireFirstMerc')
     .prompt('Hire your first MERC')
+    .notUndoable() // Involves randomness (drawing equipment)
     .condition({
       'is Day 1': () => game.currentDay === 1,
     })
@@ -549,6 +550,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
 export function createChooseKimBaseAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('chooseKimBase')
     .prompt("Kim's Ability: Choose your base location")
+    .notUndoable() // Involves randomness (drawing equipment)
     .condition({
       'is Day 1': () => game.currentDay === 1,
       'is Kim': () => game.dictatorPlayer?.dictator?.combatantId === 'kim',
