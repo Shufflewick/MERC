@@ -620,6 +620,19 @@ describe('Error Conditions', () => {
         expect(deckCount + discardCount).toBeGreaterThan(0);
       });
 
+      it('never reshuffles a drawn MERC its caller has not placed yet (#76)', () => {
+        const [last, ...rest] = game.mercDeck.all(CombatantModel);
+        for (const merc of rest) merc.putInto(game.mercDiscard);
+
+        const held = game.drawMerc()!;
+        expect(held.id).toBe(last.id);
+        const next = game.drawMerc()!;
+
+        expect(next.id).not.toBe(held.id);
+        expect(game.mercDeck.all(CombatantModel).map(m => m.id)).not.toContain(held.id);
+        expect(game.mercDiscard.all(CombatantModel).map(m => m.id)).not.toContain(held.id);
+      });
+
       it('should return undefined when MERC deck and discard are both empty', () => {
         // This is an edge case - normally impossible in real gameplay
         // Move all MERCs somewhere they can't be reshuffled from
@@ -667,6 +680,19 @@ describe('Error Conditions', () => {
         const visibleInDeck = game.weaponsDeck.all(Equipment).filter(e => e.isVisibleTo(rebel));
         expect(game.weaponsDeck.count(Equipment)).toBeGreaterThan(0);
         expect(visibleInDeck.map(e => e.equipmentId)).toEqual([]);
+      });
+
+      it('never reshuffles a drawn card its caller has not placed yet (#76)', () => {
+        const [last, ...rest] = game.weaponsDeck.all(Equipment);
+        for (const equip of rest) equip.putInto(game.weaponsDiscard);
+
+        const held = game.drawEquipment('Weapon')!;
+        expect(held.id).toBe(last.id);
+        const next = game.drawEquipment('Weapon')!;
+
+        expect(next.id).not.toBe(held.id);
+        expect(game.weaponsDeck.all(Equipment).map(e => e.id)).not.toContain(held.id);
+        expect(game.weaponsDiscard.all(Equipment).map(e => e.id)).not.toContain(held.id);
       });
 
       it('should return undefined when equipment deck and discard are both empty', () => {

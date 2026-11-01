@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
-import { enumerateLegalMoves } from 'boardsmith';
+import { enumerateLegalMoves, Space } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
 import { handleMercDeath } from '../src/rules/merc-death.js';
-import { CombatantModel, Sector } from '../src/rules/elements.js';
+import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 
 /**
@@ -163,6 +163,39 @@ describe("Hagness's draw, pick and give (#74)", () => {
 
     // A step that ends for another seat's combat drops the follow-up, leaving only the action's own condition
     expect(game.getAvailableActions(rebel).map(a => a.name)).toContain('hagnessGiveEquipment');
+  });
+
+  const drawnIds = (game: MERCGame, seat: number): number[] =>
+    (game.settings as Record<string, { elementIds: number[] }>)[`hagnessDrawnChoices:${seat}`].elementIds;
+  const ids = (space: Space) => space.all(Equipment).map(e => e.id);
+
+  it('draws three different cards when the deck runs out mid-draw, and the unpicked two go to the discard (#76)', () => {
+    const { runner, game, rebel } = rebelWithHagnessOnDayTwo();
+    for (const weapon of game.weaponsDeck.all(Equipment).slice(1)) weapon.putInto(game.weaponsDiscard);
+
+    expect(runner.performAction('hagnessDrawType', rebel.seat, { equipmentType: 'Weapon' }).success).toBe(true);
+    const drawn = drawnIds(game, rebel.seat);
+    expect(new Set(drawn).size).toBe(3);
+    expect(ids(game.weaponsDeck).filter(id => drawn.includes(id))).toEqual([]);
+    expect(ids(game.weaponsDiscard).filter(id => drawn.includes(id))).toEqual([]);
+
+    const [pick] = enumerateLegalMoves(game, rebel.seat).filter(m => m.action === 'hagnessSelectFromDrawn');
+    expect(runner.performAction('hagnessSelectFromDrawn', rebel.seat, pick.args).success).toBe(true);
+    expect(ids(game.weaponsDiscard).filter(id => drawn.includes(id))).toHaveLength(2);
+  });
+
+  it('a draw abandoned when Hagness dies puts its cards in the discard', () => {
+    const { runner, game, rebel } = rebelWithHagnessOnDayTwo();
+    const hagness = game.first(CombatantModel, m => m.combatantId === 'hagness')!;
+    expect(runner.performAction('hagnessDrawType', rebel.seat, { equipmentType: 'Weapon' }).success).toBe(true);
+    const drawn = drawnIds(game, rebel.seat);
+
+    hagness.damage = hagness.maxHealth;
+    handleMercDeath(game, hagness, 'Hagness has been killed in combat!');
+    game.refreshAwaitingActions();
+    playUntilRebelTurnOnDay(runner, rebel.seat, 3);
+
+    expect(ids(game.weaponsDiscard).filter(id => drawn.includes(id))).toHaveLength(3);
   });
 
   it('a Hagness who dies with a pick pending leaves nothing to finish when she is hired again', () => {

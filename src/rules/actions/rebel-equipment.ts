@@ -1100,6 +1100,8 @@ function setHagnessCache(game: MERCGame, playerId: string, cache: HagnessEquipme
  */
 function clearHagnessCache(game: MERCGame, playerId: string): void {
   const cacheKey = getHagnessCacheKey(playerId);
+  const cache = getHagnessCache(game, playerId);
+  if (cache) discardIfStillDrawn(game, cache.equipmentId);
   delete (game.settings as Record<string, unknown>)[cacheKey];
   delete game.hagnessDrawnEquipmentData[playerId];
 }
@@ -1123,7 +1125,19 @@ function setHagnessDrawnChoicesCache(game: MERCGame, playerId: string, cache: Ha
 
 function clearHagnessDrawnChoicesCache(game: MERCGame, playerId: string): void {
   const key = getHagnessDrawnChoicesCacheKey(playerId);
+  const picked = getHagnessCache(game, playerId)?.equipmentId;
+  for (const id of getHagnessDrawnChoicesCache(game, playerId)?.elementIds ?? []) {
+    if (id !== picked) discardIfStillDrawn(game, id);
+  }
   delete (game.settings as Record<string, unknown>)[key];
+}
+
+/** Clearing a Hagness draw discards any card it still holds, so an unpicked or abandoned card is never lost. */
+function discardIfStillDrawn(game: MERCGame, id: number): void {
+  const equipment = game.getElementById(id);
+  if (equipment instanceof Equipment && equipment.parent === game.drawnCards) {
+    equipment.putInto(game.getEquipmentDiscard(equipment.equipmentType)!);
+  }
 }
 
 /**
@@ -1294,8 +1308,6 @@ export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefini
         clearHagnessDrawnChoicesCache(game, playerId);
         return { success: false, error: 'Equipment element not found' };
       }
-
-      // Unchosen equipment stays in discard (drawEquipment drew them there as holding area)
 
       // Store the chosen equipment in the single-item cache for the give step
       const giveCache: HagnessEquipmentCache = {
