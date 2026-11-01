@@ -362,6 +362,22 @@ describe('resuming combat after the player allocates hits', () => {
     expect(sector.dictatorMilitia).toBe(1);
   });
 
+  it('does not pause a human MERC without a reroll to allocate a miss among several targets (#106)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('miss-without-reroll');
+    // Swap Basic for a MERC with no reroll; the Uzi lets him declare both the MERC and the militia.
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(game.mercDeck);
+    const lucid = game.mercDeck.first(CombatantModel, c => c.combatantId === 'lucid')!;
+    lucid.putInto(rebel.primarySquad);
+    lucid.equip(game.first(Equipment, e => e.equipmentId === 'uzi')!);
+    apeironAndMilitia(game, sector);
+    dice.show(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    expect(game.activeCombat?.pendingHitAllocation?.attackerName).not.toBe('Lucid');
+  });
+
   it('spends a grenade on a missed attack, whether the reroll was offered or not (#106)', () => {
     for (const isBot of [true, false]) {
       const { game, rebel, sector, dice } = basicAttacks(`grenade-miss-${isBot}`);
