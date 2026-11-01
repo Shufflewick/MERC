@@ -141,16 +141,16 @@ describe('combatAllocateHits prompt', () => {
   });
 });
 
-describe('resuming combat after the player allocates hits', () => {
-  /** Dice that show whatever face the test sets, so a second roll would be visible. */
-  function riggedDice(): { random: GameRandom; show: (face: number) => void } {
-    let face = 6;
-    const random = (() => (face - 0.5) / 6) as GameRandom;
-    random.getState = () => '';
-    random.setState = () => {};
-    return { random, show: (f: number) => { face = f; } };
-  }
+/** Dice that show whatever face the test sets, so a second roll would be visible. */
+function riggedDice(): { random: GameRandom; show: (face: number) => void } {
+  let face = 6;
+  const random = (() => (face - 0.5) / 6) as GameRandom;
+  random.getState = () => '';
+  random.setState = () => {};
+  return { random, show: (f: number) => { face = f; } };
+}
 
+describe('resuming combat after the player allocates hits', () => {
   /** Human Basic in a sector, on dice showing 6. Basic pauses for allocation on any hit, because the reroll is on offer. */
   function basicAttacks(seed: string) {
     const game = createTestGame(MERCGame, {
@@ -240,5 +240,29 @@ describe('resuming combat after the player allocates hits', () => {
     expect(game.activeCombat?.pendingEpinephrine, 'the kill should pause for the shot').toBeDefined();
     const saved = [...(game.activeCombat!.selectedTargets?.keys() ?? [])];
     expect(saved.filter(key => key.startsWith('allocation:'))).toEqual([]);
+  });
+});
+
+describe('Wolverine\'s sixes when hits are allocated automatically', () => {
+  it('spend each six on a living enemy he did not declare', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'wolverine-sixes',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const sector = game.gameMap.getAllSectors()[0];
+    const wolverine = game.mercDeck.first(CombatantModel, c => c.combatantId === 'wolverine')!;
+    wolverine.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(4);
+    game.random = riggedDice().random;
+
+    // Two dice, both 6, one declared target: each round the second six must find a living
+    // militia, skipping the ones already dead, or the survivors shoot Wolverine down.
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true, interactive: false });
+
+    expect(sector.dictatorMilitia).toBe(0);
+    expect(wolverine.isDead).toBe(false);
   });
 });
