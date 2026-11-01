@@ -74,4 +74,12 @@ describe('MercBoard assignToSquad flight', () => {
 
     expect(getAnimationTrace()).toEqual([]);
   });
+
+  it('shows the MERC card again when the action is refused', async () => {
+    const { controller, autoExecute } = controllerThatRunsHooks();
+    const wrapper = mountBoard(controller);
+    await autoExecute('assignToSquad', args, 1, false);
+
+    expect(wrapper.findComponent({ name: 'GameTable' }).props('flyingCombatantName')).toBeNull();
+  });
 });

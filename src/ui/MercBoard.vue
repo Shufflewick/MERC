@@ -170,6 +170,10 @@ function setupAnimations(actionController: UseActionControllerReturn, gameView: 
       quickReassignInProgress.value = false;
     }
   });
+  // A refused or cancelled action moved nothing, so its card must not stay hidden.
+  actionController.onAfterAutoExecute((result) => {
+    if (!result.success) flyingCombatantName.value = null;
+  });
   animationsRegistered.value = true;
 }
 
