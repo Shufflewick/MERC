@@ -1441,7 +1441,7 @@ onUnmounted(() => {
 }
 
 .choice-btn {
-  background: color-mix(in srgb, var(--choice-color) 55%, #263238);
+  background: color-mix(in srgb, var(--choice-color) 40%, #263238);
 }
 
 .choice-skip-btn {
