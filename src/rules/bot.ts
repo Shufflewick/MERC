@@ -106,6 +106,14 @@ const PLAYOUT_WEIGHTS: Record<string, number> = {
 const DEFAULT_PLAYOUT_WEIGHT = 2;
 
 /**
+ * Free moves that can be made again and again without changing the board the
+ * objectives score: reassigning a MERC undoes itself, viewing a stash changes
+ * nothing. When ending the turn looks bad, the search plays them to keep the
+ * turn forever instead (#90).
+ */
+const UNSEARCHED_ACTIONS = new Set(['assignToSquad', 'viewStash']);
+
+/**
  * Give each face-down card the attributes of a card drawn at random from
  * `pool`, the cards of its kind the seat has not seen.
  */
@@ -171,6 +179,9 @@ function partition<T>(items: T[], test: (item: T) => boolean): [T[], T[]] {
 
 export const mercBot: BotStrategy = {
   determinize: mercDeterminize,
+
+  candidateMoves: (_game: Game, _seat: number, listMoves: () => BotMove[]): BotMove[] =>
+    listMoves().filter((move) => !UNSEARCHED_ACTIONS.has(move.action)),
 
   objectives: (game: Game, _playerIndex: number): Record<string, Objective> => ({
     // The printed win condition: more sector value than the other side.
