@@ -1353,6 +1353,7 @@ export function processGaddafiLoot(game: MERCGame): void {
     }
 
     // equip() handles moving equipment from its current container (discard pile) to the MERC's slot
+    equipment.repair();
     recipient.equip(equipment);
     game.message(`Gaddafi loots ${equipment.equipmentName} onto ${recipient.combatantName}`);
   }

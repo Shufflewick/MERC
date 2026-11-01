@@ -2363,6 +2363,7 @@ export function createGaddafiLootEquipmentAction(game: MERCGame): ActionDefiniti
         return { success: false, error: 'No recipient selected' };
       }
 
+      equipment.repair();
       recipient.equip(equipment);
       game.message(`Gaddafi loots ${equipment.equipmentName} onto ${recipient.combatantName}`);
 
