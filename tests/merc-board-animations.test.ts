@@ -5,6 +5,7 @@ import { defineComponent, h } from 'vue';
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import { enableAnimationTestMode, disableAnimationTestMode, getAnimationTrace, clearAnimationTrace } from 'boardsmith/testing';
 import MercBoard from '../src/ui/MercBoard.vue';
+import { boardProps, gameView } from './helpers/board-props';
 
 type Hook = (actionName: string, args: Record<string, unknown>, run: number) => void | Promise<void>;
 type Listener = (result: { success: boolean }, run: number) => void | Promise<void>;
@@ -26,15 +27,7 @@ function controllerThatRunsHooks() {
 
 function mountBoard(actionController: UseActionControllerReturn) {
   return mount(MercBoard, {
-    props: {
-      state: {},
-      gameView: { id: 1, children: [] },
-      playerSeat: 1,
-      isMyTurn: true,
-      availableActions: [],
-      actionController,
-      setBoardPrompt: () => {},
-    },
+    props: boardProps(actionController),
     global: { stubs: { GameTable: true } },
   });
 }
@@ -58,7 +51,7 @@ describe('MercBoard assignToSquad flight', () => {
     const { controller, autoExecute } = controllerThatRunsHooks();
     const wrapper = mountBoard(controller);
     await autoExecute('assignToSquad', args, 1, true);
-    await wrapper.setProps({ gameView: { id: 1, children: [{ id: 2 }] } });
+    await wrapper.setProps({ gameView: gameView([2]) });
     await flushPromises();
 
     expect(getAnimationTrace()).toContainEqual(
@@ -70,7 +63,7 @@ describe('MercBoard assignToSquad flight', () => {
     const { controller, autoExecute } = controllerThatRunsHooks();
     const wrapper = mountBoard(controller);
     await autoExecute('assignToSquad', args, 1, false);
-    await wrapper.setProps({ gameView: { id: 1, children: [{ id: 2 }] } });
+    await wrapper.setProps({ gameView: gameView([2]) });
     await flushPromises();
 
     expect(getAnimationTrace()).toEqual([]);
@@ -123,15 +116,7 @@ describe('MercBoard assignToSquad flying card', () => {
     autoExecute = harness.autoExecute;
     wrapper = mount(MercBoard, {
       attachTo: '#board',
-      props: {
-        state: {},
-        gameView: { id: 1, children: [] },
-        playerSeat: 1,
-        isMyTurn: true,
-        availableActions: [],
-        actionController: harness.controller,
-        setBoardPrompt: () => {},
-      },
+      props: boardProps(harness.controller),
       global: { stubs: { GameTable: SquadStub } },
     });
     await flushPromises();
@@ -144,7 +129,7 @@ describe('MercBoard assignToSquad flying card', () => {
 
   async function assign(run: number) {
     await autoExecute('assignToSquad', { combatantName: 'Haarg', targetSquad: 'Secondary Squad' }, run, true);
-    await wrapper.setProps({ gameView: { id: 1, children: [{ id: run + 1 }] } });
+    await wrapper.setProps({ gameView: gameView([run + 1]) });
     await flushPromises();
   }
 

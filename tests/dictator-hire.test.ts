@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame, traceAction } from 'boardsmith/testing';
+import { GameRunner } from 'boardsmith/runtime';
 import { MERCGame } from '../src/rules/game.js';
+import { CombatantModel } from '../src/rules/elements.js';
+import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 
 /**
  * Test: Human dictator should get equipment + sector choices when hiring first MERC on Day 1
@@ -130,5 +133,35 @@ describe('Dictator Day 1 Hire', () => {
     flowState = testGame.getFlowState();
     console.log('FINAL:', flowState?.currentPlayer, flowState?.availableActions);
     expect(flowState?.availableActions).toContain('dictatorHireFirstMerc');
+  });
+
+  it('offers a bot Dictator the MERC he drew, and hires that MERC', () => {
+    const runner = new GameRunner<MERCGame>({
+      GameClass: MERCGame,
+      gameType: 'merc',
+      gameOptions: {
+        playerCount: 2,
+        playerNames: ['Rebel', 'DictatorBot'],
+        seed: 'bot-dictator-first-hire',
+        dictatorIsBot: true,
+        playerConfigs: [{ color: '#e74c3c' }, { color: '#95a5a6', role: true, isBot: true }],
+      } as never,
+    });
+    runner.start();
+    const game = runner.game;
+    for (let next = getCurrentAction(game.getFlowState()); next && !next.available.includes('dictatorHireFirstMerc');
+      next = getCurrentAction(game.getFlowState())) {
+      const actionName = next.available[0];
+      expect(runner.performAction(actionName, next.currentPlayer, autoResolveArgs(game, actionName, next.currentPlayer)!).success).toBe(true);
+    }
+
+    const offered = game.getSelectionChoices('dictatorHireFirstMerc', 'merc', game.dictatorPlayer);
+    expect(offered).toHaveLength(1);
+    const drawn = game.first(CombatantModel, (c) => c.isMerc && c.combatantName === offered[0].value);
+    expect(drawn, `offered MERC "${offered[0].value}" is a real MERC`).toBeDefined();
+
+    const seat = game.dictatorPlayer.seat;
+    expect(runner.performAction('dictatorHireFirstMerc', seat, autoResolveArgs(game, 'dictatorHireFirstMerc', seat)!).success).toBe(true);
+    expect(game.dictatorPlayer.team.map((m) => m.combatantName)).toContain(drawn!.combatantName);
   });
 });

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useDragDrop, type UseActionControllerReturn } from 'boardsmith/ui';
-import 'boardsmith/ui/animation/drag-drop.css';
+import type { UseActionControllerReturn } from 'boardsmith/ui';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import { lastActionWasDragDrop } from '../drag-drop-state';
 
@@ -38,8 +37,7 @@ const props = defineProps<{
 // DRAG AND DROP
 // ============================================================================
 
-const { drag, drop, isOver } = useDragDrop();
-
+// A plain HTML drag, not useDragDrop: the drop fills choice picks, which carry no board targets for BoardSmith to derive.
 // Track which combatant is being dragged (for drop handling)
 const draggedCombatantName = ref<string | null>(null);
 
@@ -200,31 +198,20 @@ function isCombatantSelected(merc: MercData): boolean {
 // DRAG AND DROP HANDLERS
 // ============================================================================
 
-// Get drag props for a combatant
-function getDragProps(merc: MercData) {
+function handleDragStart(event: DragEvent, merc: MercData) {
+  if (!isSelectingCombatant.value) return;
   const combatantName = getCombatantName(merc);
-  return drag(
-    { name: combatantName },
-    {
-      when: isSelectingCombatant.value,
-      onDragStart: () => {
-        draggedCombatantName.value = combatantName;
-      },
-      onDragEnd: () => {
-        // Defer clearing so drop handler can access the value first
-        setTimeout(() => {
-          draggedCombatantName.value = null;
-        }, 0);
-      },
-    }
-  );
+  // Firefox starts no drag without data.
+  event.dataTransfer!.setData('text/plain', combatantName);
+  event.dataTransfer!.effectAllowed = 'move';
+  draggedCombatantName.value = combatantName;
 }
 
-// Get drop props for a squad - we handle drop manually, just use classes
-function getDropProps(squad: SquadData) {
-  const result = drop({ name: squad.squadId });
-  // Return only classes, we'll handle drop events ourselves
-  return { classes: result.classes };
+function handleDragEnd() {
+  // Defer clearing so drop handler can access the value first
+  setTimeout(() => {
+    draggedCombatantName.value = null;
+  }, 0);
 }
 
 // Handle dragover to allow drop
@@ -310,7 +297,6 @@ async function handleDrop(targetSquad: SquadData) {
         class="squad-panel"
         data-squad="Primary"
         :class="[
-          getDropProps(primarySquad).classes,
           {
             'valid-target': isSelectingTarget && isValidTarget(primarySquad),
             'source-squad': selectedCombatantSquad?.squadId === primarySquad.squadId,
@@ -334,11 +320,13 @@ async function handleDrop(targetSquad: SquadData) {
             :key="getCombatantKey(merc)"
             :data-combatant="getCombatantName(merc)"
             class="combatant-item"
-            :class="[
-              getDragProps(merc).classes,
-              { 'selected': isCombatantSelected(merc) }
-            ]"
-            v-bind="getDragProps(merc).props"
+            :class="{
+              'selected': isCombatantSelected(merc),
+              'dragging': draggedCombatantName === getCombatantName(merc),
+            }"
+            :draggable="isSelectingCombatant"
+            @dragstart="handleDragStart($event, merc)"
+            @dragend="handleDragEnd"
             @click.stop="handleCombatantClick(merc)"
           >
             <CombatantIconSmall
@@ -360,7 +348,6 @@ async function handleDrop(targetSquad: SquadData) {
         class="squad-panel"
         data-squad="Secondary"
         :class="[
-          getDropProps(secondarySquad).classes,
           {
             'valid-target': isSelectingTarget && isValidTarget(secondarySquad),
             'source-squad': selectedCombatantSquad?.squadId === secondarySquad.squadId,
@@ -384,11 +371,13 @@ async function handleDrop(targetSquad: SquadData) {
             :key="getCombatantKey(merc)"
             :data-combatant="getCombatantName(merc)"
             class="combatant-item"
-            :class="[
-              getDragProps(merc).classes,
-              { 'selected': isCombatantSelected(merc) }
-            ]"
-            v-bind="getDragProps(merc).props"
+            :class="{
+              'selected': isCombatantSelected(merc),
+              'dragging': draggedCombatantName === getCombatantName(merc),
+            }"
+            :draggable="isSelectingCombatant"
+            @dragstart="handleDragStart($event, merc)"
+            @dragend="handleDragEnd"
             @click.stop="handleCombatantClick(merc)"
           >
             <CombatantIconSmall
@@ -410,7 +399,6 @@ async function handleDrop(targetSquad: SquadData) {
         class="squad-panel"
         data-squad="Base"
         :class="[
-          getDropProps(baseSquad).classes,
           {
             'valid-target': isSelectingTarget && isValidTarget(baseSquad),
             'source-squad': selectedCombatantSquad?.squadId === baseSquad.squadId,
@@ -434,11 +422,13 @@ async function handleDrop(targetSquad: SquadData) {
             :key="getCombatantKey(merc)"
             :data-combatant="getCombatantName(merc)"
             class="combatant-item"
-            :class="[
-              getDragProps(merc).classes,
-              { 'selected': isCombatantSelected(merc) }
-            ]"
-            v-bind="getDragProps(merc).props"
+            :class="{
+              'selected': isCombatantSelected(merc),
+              'dragging': draggedCombatantName === getCombatantName(merc),
+            }"
+            :draggable="isSelectingCombatant"
+            @dragstart="handleDragStart($event, merc)"
+            @dragend="handleDragEnd"
             @click.stop="handleCombatantClick(merc)"
           >
             <CombatantIconSmall
@@ -465,16 +455,7 @@ async function handleDrop(targetSquad: SquadData) {
 </template>
 
 <style scoped>
-/* BoardSmith drag-drop CSS variable overrides */
 .assign-to-squad {
-  --bsg-dragging-opacity: 0.5;
-  --bsg-droptarget: rgba(212, 168, 75, 0.15);
-  --bsg-droptarget-border: rgba(212, 168, 75, 0.6);
-  --bsg-droptarget-hover: rgba(212, 168, 75, 0.3);
-  --bsg-droptarget-hover-border: #d4a84b;
-  --bsg-droptarget-hover-shadow: 0 0 12px rgba(212, 168, 75, 0.5);
-  --bsg-droptarget-hover-scale: 1.02;
-
   background: rgba(30, 35, 30, 0.95);
   border: 2px solid #5a6a5a;
   border-radius: 12px;
@@ -595,15 +576,15 @@ async function handleDrop(targetSquad: SquadData) {
 }
 
 /* Draggable combatant styles */
-.combatant-item.bs-draggable {
+.combatant-item[draggable="true"] {
   cursor: grab;
 }
 
-.combatant-item.bs-draggable:active {
+.combatant-item[draggable="true"]:active {
   cursor: grabbing;
 }
 
-.combatant-item.bs-dragging {
+.combatant-item.dragging {
   opacity: 0.5;
   transform: scale(0.95);
 }

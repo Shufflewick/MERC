@@ -276,43 +276,36 @@ export function placeInitialMilitia(game: MERCGame): number {
 }
 
 /**
- * Hire the dictator's first MERC.
- * The dictator draws 1 random MERC (no choice).
+ * Hire the dictator's first MERC, the one he drew, by Bot rules.
  * The MERC is placed at a sector the Dictator controls.
  * All hired MERCs get 1 free equipment.
  */
-export function hireDictatorMerc(game: MERCGame): CombatantModel | undefined {
-  const merc = game.drawMerc();
+export function hireDictatorMerc(game: MERCGame, merc: CombatantModel): void {
+  // Put the hired MERC into the dictator's primary squad
+  merc.putInto(game.dictatorPlayer.primarySquad);
 
-  if (merc) {
-    // Put the hired MERC into the dictator's primary squad
-    merc.putInto(game.dictatorPlayer.primarySquad);
-
-    // MERC-2ay: Place at sector closest to weakest rebel per Bot rules 4.3.2
-    const targetSector = selectNewMercLocation(game);
-    if (targetSector) {
-      // Set squad's sectorId - merc inherits via computed getter
-      game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
-      game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
-      game.message(`Dictator hired ${merc.combatantName} (stationed at ${targetSector.sectorName})`);
-      emitMapCombatantEntries(game, [
-        buildMapCombatantEntry(merc, targetSector.sectorId),
-      ]);
-    } else {
-      // No location available yet
-      game.message(`Dictator hired ${merc.combatantName}`);
-    }
-
-    // All hired MERCs get 1 free equipment - prioritize weapon
-    // Uses shared helper for Apeiron/Vrbansk ability handling
-    let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
-    if (merc.weaponSlot) {
-      equipType = merc.armorSlot ? 'Accessory' : 'Armor';
-    }
-    equipNewHire(game, merc, equipType);
+  // MERC-2ay: Place at sector closest to weakest rebel per Bot rules 4.3.2
+  const targetSector = selectNewMercLocation(game);
+  if (targetSector) {
+    // Set squad's sectorId - merc inherits via computed getter
+    game.dictatorPlayer.primarySquad.sectorId = targetSector.sectorId;
+    game.dictatorPlayer.stationedSectorId = targetSector.sectorId;
+    game.message(`Dictator hired ${merc.combatantName} (stationed at ${targetSector.sectorName})`);
+    emitMapCombatantEntries(game, [
+      buildMapCombatantEntry(merc, targetSector.sectorId),
+    ]);
+  } else {
+    // No location available yet
+    game.message(`Dictator hired ${merc.combatantName}`);
   }
 
-  return merc;
+  // All hired MERCs get 1 free equipment - prioritize weapon
+  // Uses shared helper for Apeiron/Vrbansk ability handling
+  let equipType: 'Weapon' | 'Armor' | 'Accessory' = 'Weapon';
+  if (merc.weaponSlot) {
+    equipType = merc.armorSlot ? 'Accessory' : 'Armor';
+  }
+  equipNewHire(game, merc, equipType);
 }
 
 /**
@@ -465,7 +458,8 @@ export function executeDictatorDay1(game: MERCGame): void {
   placeInitialMilitia(game);
 
   // Step 2: Hire dictator's first MERC
-  hireDictatorMerc(game);
+  const merc = game.drawMerc();
+  if (merc) hireDictatorMerc(game, merc);
 
   // Step 3: Check dictator special ability
   applyDictatorSetupAbility(game);
