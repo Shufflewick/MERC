@@ -341,6 +341,42 @@ describe('resuming combat after the player allocates hits', () => {
   });
 });
 
+describe('resuming combat after a militia batch allocates hits', () => {
+  it('does not keep the spent allocation in the state saved at the next pause (#91)', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'militia-allocate-then-pause',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const dictator = game.dictatorPlayer;
+    const sector = game.gameMap.getAllSectors()[0];
+    game.random = riggedDice().random;
+    // Teresa acts last (initiative 0) and has no ability that changes the order.
+    game.mercDeck.first(CombatantModel, c => c.combatantId === 'teresa')!.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    sector.addRebelMilitia(`${rebel.seat}`, 3);
+    game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    // The dictator's militia kills a rebel militia, leaving two to split their hits over Apeiron and the militia.
+    const militiaTarget = game.activeCombat!.pendingTargetSelection!.validTargets.find(t => t.isMilitia)!;
+    expect(game.performAction('combatSelectTarget', dictator, { targets: [militiaTarget.id] }).success).toBe(true);
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Militia x2');
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: pending!.validTargets.map(t => `${t.id}::0`),
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(game.activeCombat?.pendingTargetSelection?.attackerName, 'Apeiron should pause to pick a target').toBe('Apeiron');
+    const saved = [...(game.activeCombat!.selectedTargets?.keys() ?? [])];
+    expect(saved.filter(key => key.startsWith('allocation:'))).toEqual([]);
+  });
+});
+
 describe('Wolverine\'s sixes when hits are allocated automatically', () => {
   it('spend each six on a living enemy he did not declare', () => {
     const game = createTestGame(MERCGame, {

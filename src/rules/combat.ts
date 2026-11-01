@@ -2046,14 +2046,15 @@ function resolveMilitiaBatch(
     }
 
     // ── PATH A: Resume from stored hit allocation ──
-    const storedAlloc = game.activeCombat?.selectedTargets?.get(`allocation:${batchLeaderId}`);
+    const storedAlloc = playerSelectedTargets?.get(`allocation:${batchLeaderId}`);
     if (storedAlloc && storedAlloc.length > 0) {
       // Convert ['id1','id1','id2'] → Map { id1→2, id2→1 }
       const hitsByTarget = new Map<string, number>();
       for (const id of storedAlloc) {
         hitsByTarget.set(id, (hitsByTarget.get(id) ?? 0) + 1);
       }
-      game.activeCombat?.selectedTargets?.delete(`allocation:${batchLeaderId}`);
+      // The round's working copy is what a later pause saves, so the spent allocation must leave it.
+      playerSelectedTargets!.delete(`allocation:${batchLeaderId}`);
       const batchResults = applyMilitiaBatchDamage(batch.militia[0], batch.militia.length, enemies, hitsByTarget, game, casualties);
       results.push(...batchResults);
       return { nextIndex: batch.endIndex };
