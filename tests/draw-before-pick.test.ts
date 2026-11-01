@@ -321,6 +321,37 @@ describe('a rebel hire picks from the MERCs drawn before the pick (#80)', () => 
     for (const other of rest) expect(game.mercDiscard.all(CombatantModel)).toContain(other);
   });
 
+  it('a bot rebel\'s hireMerc counts as its action in the bot batch', () => {
+    const runner = new GameRunner<MERCGame>({
+      GameClass: MERCGame,
+      gameType: 'merc',
+      gameOptions: {
+        playerCount: 3, playerNames: ['Rebel1', 'Rebel2', 'Dictator'], seed: 'hire-bot-batch', dictatorChoice: 'castro',
+        playerConfigs: [
+          { color: '#e74c3c', isDictator: false, isBot: true },
+          { color: '#3498db', isDictator: false, isBot: true },
+          { color: '#95a5a6', isDictator: true, isBot: false },
+        ],
+      } as never,
+    });
+    runner.start();
+    const game = runner.game;
+    const city = game.gameMap.getAllSectors().find(s => s.isCity)!;
+    const [hirer, other] = game.rebelPlayers;
+    const actingMerc = game.drawMerc()!;
+    for (const [rebel, merc] of [[hirer, actingMerc], [other, game.drawMerc()!]] as const) {
+      game.discardMercOffer(rebel.mercOffer);
+      merc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = city.sectorId;
+      merc.actionsRemaining = 2;
+    }
+    game.resetRebelBatching();
+
+    game.getActionExecutor().executeAction(game.getAction('hireMerc')!, hirer, { actingMerc, fireFirst: 'none' });
+
+    expect(game.shouldGateBotAction(hirer)).toBe(true);
+  });
+
   it('a rebel wiped out while a paid hire is pending finishes that hire, not a free rehire', () => {
     const game = startGame('castro', 'hire-pending-team-wiped');
     const { rebel, merc } = putRebelMercInCity(game);
