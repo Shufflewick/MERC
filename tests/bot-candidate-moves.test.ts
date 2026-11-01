@@ -4,11 +4,11 @@ import { mercBot } from '../src/rules/bot.js';
 import { castroGameAtDayTwo } from './helpers/day-two.js';
 
 /**
- * Squad moves the bot searches (#90): it may break a MERC off into a new
- * squad, but never merge squads back, which would let it undo the split and
- * keep the turn forever.
+ * Free moves the bot searches (#90): it may break a MERC off into a new squad,
+ * but never merge squads back or view a stash, which would let it keep the
+ * turn forever.
  */
-describe('bot squad moves (#90)', () => {
+describe('bot free moves (#90)', () => {
   const searched = (runner: ReturnType<typeof castroGameAtDayTwo>, seat: number) =>
     mercBot.candidateMoves!(runner.game, seat, () => enumerateLegalMoves(runner.game, seat))
       .filter((move) => move.action === 'assignToSquad')
@@ -34,5 +34,15 @@ describe('bot squad moves (#90)', () => {
     const relabel = { action: 'assignToSquad', args: { combatantName: 'Tack', targetSquad: 'Create Secondary Squad' } };
 
     expect(mercBot.candidateMoves!(runner.game, 2, () => [relabel])).toEqual([]);
+  });
+
+  it('does not let the bot view a stash, which changes nothing', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
+    expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
+    expect(runner.performAction('collectEquipment', 2, {}).success).toBe(true);
+    expect(enumerateLegalMoves(runner.game, 2).some((move) => move.action === 'viewStash')).toBe(true);
+
+    expect(mercBot.candidateMoves!(runner.game, 2, () => enumerateLegalMoves(runner.game, 2)).some((move) => move.action === 'viewStash')).toBe(false);
   });
 });
