@@ -2681,7 +2681,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
   }
 
   // Resuming after the player allocated hits: the roll was made before the pause, so apply it rather than rolling again.
-  // An empty allocation is a roll with nothing to allocate (a reroll that missed); it still ends the attack.
+  // An empty allocation is a roll with nothing to allocate (a miss, rerolled or not); it still ends the attack.
   const playerHitAllocation = playerSelectedTargets?.get(`allocation:${attacker.id}`);
   if (playerHitAllocation) {
     // The round's working copy is what a later pause saves, so the spent allocation must leave it.
@@ -2809,6 +2809,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
   }
 
   if (hits === 0) {
+    discardSpentEquipment(game, attacker);
     results.push({
       attacker,
       rolls,

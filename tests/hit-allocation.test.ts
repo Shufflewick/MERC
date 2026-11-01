@@ -354,6 +354,32 @@ describe('resuming combat after the player allocates hits', () => {
     expect(pending?.attackerName, 'Basic should pause with the reroll on offer').toBe('Basic');
     expect(pending!.canReroll).toBe(true);
     expect(basicRollLines(game)).toEqual(['Basic rolls [1, 1] - 0 hit(s)']);
+
+    // Declining the reroll ends the attack on the miss.
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+    expect(result.success, result.error).toBe(true);
+    expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked again').toBeUndefined();
+    expect(sector.dictatorMilitia).toBe(1);
+  });
+
+  it('spends a grenade on a missed attack, whether the reroll was offered or not (#106)', () => {
+    for (const isBot of [true, false]) {
+      const { game, rebel, sector, dice } = basicAttacks(`grenade-miss-${isBot}`);
+      rebel.isBot = isBot;
+      const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+      basic.equip(game.first(Equipment, e => e.equipmentId === 'grenade')!);
+      sector.addDictatorMilitia(1);
+      dice.show(1);
+
+      executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+      if (!isBot) {
+        const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+        expect(result.success, result.error).toBe(true);
+      }
+
+      // The card reads "Discard after 1 attack", and a miss is still an attack.
+      expect(basic.accessorySlot, `the grenade is used up (Bot: ${isBot})`).toBeUndefined();
+    }
   });
 
   it('still rerolls a Bot Basic\'s missed roll automatically (#106)', () => {
