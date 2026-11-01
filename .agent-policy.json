@@ -1,0 +1,19 @@
+{
+  "verify": [
+    { "name": "typecheck", "run": "npx boardsmith typecheck" },
+    {
+      "name": "related-tests",
+      "run": "npx vitest run --changed {changeBase}",
+      "reporter": "vitest",
+      "related": true
+    }
+  ],
+  "untested": ["**/*.md"],
+  "slice": {
+    "count": 60,
+    "run": "npx vitest run --shard={slice} --passWithNoTests --reporter=default --reporter=json --outputFile.json={reportFile}",
+    "reporter": "vitest",
+    "rerun": "npx vitest run {files}"
+  },
+  "merge": { "push": "origin" }
+}
