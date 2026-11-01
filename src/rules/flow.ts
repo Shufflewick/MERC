@@ -581,6 +581,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-place-initial-militia',
                 actions: ['dictatorPlaceInitialMilitia'],
+                turnScope: 'continue',
               }),
 
               // Step 1.5: Human Kim chooses base location (before hiring MERC)
@@ -588,6 +589,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'choose-kim-base',
                 actions: ['chooseKimBase'],
+                turnScope: 'continue',
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   // Skip if not Kim, or Bot, or base already set
@@ -602,6 +604,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-kim-ability',
                 actions: ['dictatorSetupAbility'],
+                turnScope: 'continue',
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   return dictator?.combatantId !== 'kim';
@@ -624,12 +627,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-hire-first-merc',
                 actions: ['dictatorHireFirstMerc'],
+                // Undo cannot cross the irreversible draw above, so the undoable run starts here.
+                turnScope: 'restart',
               }),
 
               // Step 3: Apply dictator special ability (for non-Kim dictators)
               actionStep({
                 name: 'dictator-setup-ability',
                 actions: ['dictatorSetupAbility'],
+                turnScope: 'continue',
                 skipIf: () => {
                   const dictator = game.dictatorPlayer?.dictator;
                   // Skip for Kim (already applied above)
@@ -667,6 +673,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   actionStep({
                     name: 'bonus-merc-squad-choice',
                     actions: ['bonusMercSetup'],
+                    // Undo cannot cross the irreversible offer above, so the undoable run starts here.
+                    turnScope: 'restart',
                   }),
                 ),
               }),
@@ -675,6 +683,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               actionStep({
                 name: 'dictator-draw-tactics',
                 actions: ['dictatorDrawTactics'],
+                // The hand drawn here is hidden, so undo after it must not reach the hire choices before it.
+                turnScope: 'restart',
               }),
 
               // Step 5: Place extra militia (loop for human player to place multiple times)
@@ -700,6 +710,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: actionStep({
                   name: 'dictator-place-extra-militia',
                   actions: ['dictatorPlaceExtraMilitia', 'dictatorSkipExtraMilitia'],
+                  turnScope: 'continue',
                 }),
               }),
 
