@@ -1,4 +1,4 @@
-import { Game, Player, Space, type GameOptions } from 'boardsmith';
+import { Game, GameElement, Player, Space, type GameOptions } from 'boardsmith';
 import {
   CombatantModel,
   Equipment,
@@ -145,6 +145,14 @@ interface TacticsData {
   story: string;
   description: string;
   revealsBase?: boolean;
+}
+
+/** A card's game attributes, copied so later play cannot change them and no engine internals come along. */
+function ownAttributes(card: GameElement): Record<string, unknown> {
+  const skip = (card.constructor as typeof GameElement).unserializableAttributes;
+  return Object.fromEntries(
+    Object.entries(card).filter(([key]) => !key.startsWith('_') && !skip.includes(key)).map(([key, value]) => [key, structuredClone(value)]),
+  );
 }
 
 // =============================================================================
@@ -641,6 +649,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   private _rebelActionCounts: Map<number, number> = new Map();
   private _rebelBatchRound: number = 0;
 
+  /** Each MERC and equipment card as setup made it, by element name: what a bot's search supposes a face-down one holds (#82). */
+  readonly _freshCards = new Map<string, Record<string, unknown>>();
+
   // Pending artillery allocation - rebels choose how to allocate hits during dictator's turn
   pendingArtilleryAllocation: {
     sectorId: string;        // Which sector is being attacked
@@ -1105,6 +1116,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         });
         // Initialize computed stats (no equipment yet, so just base stats)
         combatant.updateComputedStats();
+        this._freshCards.set(combatant.name!, ownAttributes(combatant));
       }
     }
   }
@@ -1122,7 +1134,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
       for (let i = 0; i < equip.quantity; i++) {
         const suffix = equip.quantity > 1 ? `-${i + 1}` : '';
-        deck.create(Equipment, `equip-${equip.id}${suffix}`, {
+        const card = deck.create(Equipment, `equip-${equip.id}${suffix}`, {
           equipmentId: equip.id,
           equipmentName: equip.name,
           equipmentType: equip.type,
@@ -1137,6 +1149,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
           negatesArmor: equip.negatesArmor,
           expansion: equip.expansion,
         });
+        this._freshCards.set(card.name!, ownAttributes(card));
       }
     }
   }

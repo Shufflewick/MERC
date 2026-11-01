@@ -8,10 +8,11 @@
  * something a MERC player would recognise.
  */
 
-import type { BotStrategy, BotMove, Objective } from 'boardsmith/bot';
-import type { Game } from 'boardsmith';
+import type { BotStrategy, BotMove, DeterminizeSampler, Objective } from 'boardsmith/bot';
+import type { Game, GameElement } from 'boardsmith';
 import { MERCGame, type MERCPlayer } from './game.js';
-import { TacticsCard } from './elements.js';
+import { CombatantModel, Equipment, EquipmentDeck, TacticsCard } from './elements.js';
+import { tacticsCardAttributes } from './setup.js';
 
 /** The seat the bot is playing, or null when the game isn't a MERC game. */
 function seatPlayer(game: Game, playerIndex: number): { game: MERCGame; player: MERCPlayer } | null {
@@ -104,7 +105,73 @@ const PLAYOUT_WEIGHTS: Record<string, number> = {
 
 const DEFAULT_PLAYOUT_WEIGHT = 2;
 
+/**
+ * Give each face-down card the attributes of a card drawn at random from
+ * `pool`, the cards of its kind the seat has not seen.
+ */
+function deal(cards: GameElement[], pool: Record<string, unknown>[], rng: () => number, seat: number, kind: string): void {
+  if (pool.length < cards.length) {
+    throw new Error(
+      `Cannot suppose a world for seat ${seat}: it holds ${cards.length} face-down ${kind} cards but only ` +
+        `${pool.length} are unaccounted for, so its view and the card list disagree.`,
+    );
+  }
+  for (const card of cards) {
+    const [template] = pool.splice(Math.floor(rng() * pool.length), 1);
+    for (const key of card.redactedAttributes) {
+      if (!(key in template)) {
+        throw new Error(`Cannot suppose a ${kind} card for seat ${seat}: a fresh card has no "${key}" to copy.`);
+      }
+      (card as unknown as Record<string, unknown>)[key] = template[key];
+    }
+  }
+}
+
+/**
+ * The bot searches a copy of the game made from its seat's view, where every
+ * face-down card has no attributes, and MERC's rules read those cards when
+ * they draw them. This fills each one with a card the seat has not seen (#82).
+ */
+export const mercDeterminize: DeterminizeSampler = (sandbox, seat, rng) => {
+  const game = sandbox as MERCGame;
+  const fresh = [...game._freshCards];
+
+  const [hiddenMercs, seenMercs] = partition(game.all(CombatantModel), (m) => m.isAttributeRedacted('combatantId'));
+  const seenMercNames = new Set(seenMercs.map((m) => m.name));
+  deal(hiddenMercs, fresh.filter(([name, card]) => card.cardType === 'merc' && !seenMercNames.has(name)).map(([, card]) => card), rng, seat, 'MERC');
+
+  const [hiddenEquipment, seenEquipment] = partition(game.all(Equipment), (e) => e.isAttributeRedacted('equipmentId'));
+  const seenEquipmentNames = new Set(seenEquipment.map((e) => e.name));
+  for (const deck of game.all(EquipmentDeck)) {
+    const pool = fresh.filter(([name, card]) => card.equipmentType === deck.equipmentType && !seenEquipmentNames.has(name)).map(([, card]) => card);
+    deal(hiddenEquipment.filter((e) => e.parent === deck), pool, rng, seat, deck.equipmentType);
+  }
+  const strayEquipment = hiddenEquipment.find((e) => !(e.parent instanceof EquipmentDeck));
+  if (strayEquipment) {
+    throw new Error(`Cannot suppose a world for seat ${seat}: a face-down equipment card sits in "${strayEquipment.parent?.name}", outside the equipment decks.`);
+  }
+
+  // Which tactics setup dealt is hidden too, so the pool is every tactics card in the data.
+  const [hiddenTactics, seenTactics] = partition(game.all(TacticsCard), (t) => t.isAttributeRedacted('tacticsId'));
+  const tacticsPool = game.tacticsData.flatMap((t) => Array.from({ length: t.quantity }, () => t));
+  for (const card of seenTactics) {
+    const at = tacticsPool.findIndex((t) => t.id === card.tacticsId);
+    if (at === -1) {
+      throw new Error(`Cannot suppose a world for seat ${seat}: it sees more "${card.tacticsId}" tactics cards than the tactics data holds.`);
+    }
+    tacticsPool.splice(at, 1);
+  }
+  // faceUp is Card's default: nothing in MERC flips a tactics card.
+  deal(hiddenTactics, tacticsPool.map((t) => ({ faceUp: true, ...tacticsCardAttributes(t) })), rng, seat, 'tactics');
+};
+
+function partition<T>(items: T[], test: (item: T) => boolean): [T[], T[]] {
+  return [items.filter(test), items.filter((item) => !test(item))];
+}
+
 export const mercBot: BotStrategy = {
+  determinize: mercDeterminize,
+
   objectives: (game: Game, _playerIndex: number): Record<string, Objective> => ({
     // The printed win condition: more sector value than the other side.
     sectorControl: objective(1.0, (g, p) => sectorValueShare(g, p)),
