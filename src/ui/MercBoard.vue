@@ -10,24 +10,12 @@
  */
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useActionAnimations, FlyingCardsOverlay } from 'boardsmith/ui';
-import type { UseActionControllerReturn } from 'boardsmith/ui';
+import type { TableBoardProps, UseActionControllerReturn } from 'boardsmith/ui';
 import GameTable from './components/GameTable.vue';
 import { lastActionWasDragDrop, quickReassignInProgress } from './drag-drop-state';
 import { headerCombatantData, closeHeaderCombatantModal } from './combatant-modal-state';
 
-/**
- * The board prop set GameShell passes to every registry UI. Identical for every
- * game — there is no longer a separate slot-props shape that can drift from it.
- */
-const props = defineProps<{
-  state: any;
-  gameView: any;
-  playerSeat: number;
-  isMyTurn: boolean;
-  availableActions: any;
-  actionController: UseActionControllerReturn;
-  setBoardPrompt: (prompt: string | null) => void;
-}>();
+const props = defineProps<TableBoardProps>();
 
 
 

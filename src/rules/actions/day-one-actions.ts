@@ -425,11 +425,8 @@ export function createDictatorPlaceInitialMilitiaAction(game: MERCGame): ActionD
  * Draw the dictator's first MERC and cache it for the hire action.
  * Called from flow execute() step to ensure drawing happens at exactly the right time —
  * after dictator selection and militia placement, before the hire action.
- * Skipped for Bot dictators (they draw in the execute handler via hireDictatorMerc).
  */
 export function drawDictatorFirstMerc(game: MERCGame): void {
-  if (game.dictatorPlayer?.isBot) return;
-
   const DRAWN_MERC_KEY = 'dictatorFirstMercId';
   if (getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) return; // Already drawn
 
@@ -469,7 +466,7 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       prompt: 'Hiring MERC',
       choices: () => {
         const merc = getDrawnMerc();
-        return merc ? [merc.combatantName] : ['Unknown'];
+        return merc ? [merc.combatantName] : [];
       },
     })
     .chooseFrom('equipmentType', {
@@ -492,22 +489,18 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
       },
     })
     .execute((args) => {
-      // Bot path - use auto hire
+      const merc = getDrawnMerc();
+      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
+      clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
+      if (!merc) return { success: false, error: 'No MERC drawn' };
+
+      // Bot path - Bot rules place and equip the MERC
       if (game.dictatorPlayer?.isBot) {
-        hireDictatorMerc(game);
-        return { success: true, message: 'Dictator MERC hired' };
+        hireDictatorMerc(game, merc);
+        return { success: true, message: `Hired ${merc.combatantName}` };
       }
 
       // Human path - use selected equipment and sector
-      const combatantId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const mercEl = combatantId ? game.getElementById(combatantId) : null;
-      const merc = (isCombatantModel(mercEl) && mercEl.isMerc) ? mercEl : null;
-
-      if (!merc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
-        return { success: false, error: 'No MERC drawn' };
-      }
 
       // Put MERC in primary squad
       merc.putInto(game.dictatorPlayer.primarySquad);
@@ -525,20 +518,8 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
         ]);
       }
 
-      // Give equipment of chosen type
-      const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-      const freeEquipment = game.drawEquipment(equipType);
-      if (freeEquipment) {
-        const { displacedBandolierItems } = merc.equip(freeEquipment);
-        for (const item of displacedBandolierItems) {
-          const discard = game.getEquipmentDiscard(item.equipmentType);
-          if (discard) item.putInto(discard);
-        }
-        game.message(`${merc.combatantName} equipped ${freeEquipment.equipmentName}`);
-      }
+      equipNewHire(game, merc, args.equipmentType as 'Weapon' | 'Armor' | 'Accessory');
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-      clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
       return { success: true, message: `Hired ${merc.combatantName}` };
     });
 }

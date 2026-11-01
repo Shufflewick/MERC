@@ -611,7 +611,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 },
               }),
 
-              // Step 2: Draw MERC for dictator hiring (human only — Bot draws in execute handler)
+              // Step 2: Draw MERC for dictator hiring
               execute(
                 () => {
                   drawDictatorFirstMerc(game);

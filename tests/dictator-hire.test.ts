@@ -1,6 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame, traceAction } from 'boardsmith/testing';
+import { GameRunner } from 'boardsmith/runtime';
 import { MERCGame } from '../src/rules/game.js';
+import { CombatantModel } from '../src/rules/elements.js';
+import { setGlobalCachedValue } from '../src/rules/actions/helpers.js';
+import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
+
+function playToDictatorFirstHire(seed: string, dictatorIsBot: boolean): GameRunner<MERCGame> {
+  const runner = new GameRunner<MERCGame>({
+    GameClass: MERCGame,
+    gameType: 'merc',
+    gameOptions: {
+      playerCount: 2,
+      playerNames: ['Rebel', 'Dictator'],
+      seed,
+      dictatorIsBot,
+      playerConfigs: [{ color: '#e74c3c' }, { color: '#95a5a6', role: true, isBot: dictatorIsBot }],
+    } as never,
+  });
+  runner.start();
+  const game = runner.game;
+  for (let next = getCurrentAction(game.getFlowState()); next && !next.available.includes('dictatorHireFirstMerc');
+    next = getCurrentAction(game.getFlowState())) {
+    const actionName = next.available[0];
+    expect(runner.performAction(actionName, next.currentPlayer, autoResolveArgs(game, actionName, next.currentPlayer)!).success).toBe(true);
+  }
+  return runner;
+}
 
 /**
  * Test: Human dictator should get equipment + sector choices when hiring first MERC on Day 1
@@ -130,5 +156,36 @@ describe('Dictator Day 1 Hire', () => {
     flowState = testGame.getFlowState();
     console.log('FINAL:', flowState?.currentPlayer, flowState?.availableActions);
     expect(flowState?.availableActions).toContain('dictatorHireFirstMerc');
+  });
+
+  it('offers a bot Dictator the MERC he drew, and hires that MERC', () => {
+    const runner = playToDictatorFirstHire('bot-dictator-first-hire', true);
+    const game = runner.game;
+
+    const offered = game.getSelectionChoices('dictatorHireFirstMerc', 'merc', game.dictatorPlayer);
+    expect(offered).toHaveLength(1);
+    const drawn = game.first(CombatantModel, (c) => c.isMerc && c.combatantName === offered[0].value);
+    expect(drawn, `offered MERC "${offered[0].value}" is a real MERC`).toBeDefined();
+
+    const seat = game.dictatorPlayer.seat;
+    expect(runner.performAction('dictatorHireFirstMerc', seat, autoResolveArgs(game, 'dictatorHireFirstMerc', seat)!).success).toBe(true);
+    expect(game.dictatorPlayer.team.map((m) => m.combatantName)).toContain(drawn!.combatantName);
+  });
+
+  it("gives a human Dictator's first MERC his hire ability: Vrbansk's bonus accessory", () => {
+    const runner = playToDictatorFirstHire('human-dictator-first-hire', false);
+    const game = runner.game;
+    const vrbansk = game.first(CombatantModel, (c) => c.combatantId === 'vrbansk')!;
+    // Stand Vrbansk in for whatever MERC the draw step put up for hire.
+    setGlobalCachedValue(game, 'dictatorFirstMercId', vrbansk.id);
+    setGlobalCachedValue(game, 'dictatorFirstMercCombatantId', vrbansk.combatantId);
+
+    const seat = game.dictatorPlayer.seat;
+    const [targetSector] = game.getSelectionChoices('dictatorHireFirstMerc', 'targetSector', game.dictatorPlayer, { merc: 'Vrbansk', equipmentType: 'Weapon' });
+    const result = runner.performAction('dictatorHireFirstMerc', seat, { merc: 'Vrbansk', equipmentType: 'Weapon', targetSector: targetSector.value });
+    expect(result.success, result.error).toBe(true);
+
+    expect(vrbansk.weaponSlot).toBeDefined();
+    expect(vrbansk.accessorySlot, 'Vrbansk gets a bonus accessory on hire').toBeDefined();
   });
 });
