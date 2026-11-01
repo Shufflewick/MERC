@@ -634,6 +634,13 @@ export function createCombatBasicRerollAction(game: MERCGame): ActionDefinition 
       }
 
       const pending = game.activeCombat.pendingHitAllocation;
+      const attacker = ([...game.activeCombat.rebelCombatants, ...game.activeCombat.dictatorCombatants] as Combatant[])
+        .find(c => c.id === pending.attackerId);
+      if (!attacker) {
+        return { success: false, error: `Cannot reroll: ${pending.attackerName} is no longer in this combat.` };
+      }
+      // The pending allocation is discarded once confirmed; the combatant carries the once-per-combat use into later rounds.
+      attacker.hasUsedReroll = true;
 
       // Roll new dice using seeded random
       const diceCount = pending.diceRolls.length;

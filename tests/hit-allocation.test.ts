@@ -287,6 +287,32 @@ describe('resuming combat after the player allocates hits', () => {
     expect(sector.dictatorMilitia).toBe(1);
   });
 
+  it('offers Basic\'s reroll only once per combat (#91)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('reroll-once-per-combat');
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    expect(game.activeCombat?.pendingHitAllocation?.canReroll).toBe(true);
+    expect(game.performAction('combatBasicReroll', rebel, {}).success).toBe(true);
+    const target = game.activeCombat!.pendingHitAllocation!.validTargets[0];
+    // Two hits wound Apeiron and his reply misses, so the fight goes to a second round.
+    dice.show(1);
+    const allocated = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${target.id}::0`, `${target.id}::1`],
+    });
+    expect(allocated.success, allocated.error).toBe(true);
+    expect(game.activeCombat?.awaitingRetreatDecisions, 'round 1 should end at the retreat decision').toBe(true);
+
+    dice.show(6);
+    // The flow starts the next round once the player chooses to continue.
+    executeCombat(game, sector, rebel);
+
+    expect(basicRollLines(game).filter(line => line.startsWith('Basic rolls'))).toHaveLength(2);
+    expect(game.activeCombat?.pendingHitAllocation?.canReroll ?? false, 'the reroll was already used').toBe(false);
+  });
+
   it('does not keep a spent allocation in the state saved at the next pause (#83)', () => {
     const { game, rebel, sector, dice } = basicAttacks('allocate-then-epinephrine');
     // Basic on the dictator's side, so the rebel MERC it kills can be offered the shot.
