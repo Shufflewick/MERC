@@ -36,13 +36,14 @@ describe('bot free moves (#90)', () => {
     expect(mercBot.candidateMoves!(runner.game, 2, () => [relabel])).toEqual([]);
   });
 
-  it('does not let the bot view a stash, which changes nothing', () => {
+  it('searches every move but viewing a stash, which changes nothing', () => {
     const runner = castroGameAtDayTwo(1, 2);
     const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
     expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
     expect(runner.performAction('collectEquipment', 2, {}).success).toBe(true);
     expect(enumerateLegalMoves(runner.game, 2).some((move) => move.action === 'viewStash')).toBe(true);
 
-    expect(mercBot.candidateMoves!(runner.game, 2, () => enumerateLegalMoves(runner.game, 2)).some((move) => move.action === 'viewStash')).toBe(false);
+    const moves = enumerateLegalMoves(runner.game, 2);
+    expect(mercBot.candidateMoves!(runner.game, 2, () => moves)).toEqual(moves.filter((move) => move.action !== 'viewStash'));
   });
 });

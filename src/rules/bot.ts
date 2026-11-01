@@ -115,8 +115,7 @@ const DEFAULT_PLAYOUT_WEIGHT = 2;
  * until all squads are in use.
  */
 function searchable(game: MERCGame, seat: number, move: BotMove): boolean {
-  if (move.action === 'viewStash') return false;
-  if (move.action !== 'assignToSquad') return true;
+  if (move.action !== 'assignToSquad') return move.action !== 'viewStash';
   const { combatantName, targetSquad } = move.args as { combatantName: string; targetSquad: string };
   if (!targetSquad.startsWith('Create')) return false;
   const source = (game.getPlayer(seat) as MERCPlayer).squads.find((squad) =>
