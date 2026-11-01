@@ -342,6 +342,35 @@ describe('resuming combat after the player allocates hits', () => {
     expect(sector.dictatorMilitia).toBe(1);
   });
 
+  it('offers a human Basic the reroll on a roll with no hits, instead of spending it for him (#106)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('reroll-offered-on-miss');
+    sector.addDictatorMilitia(1);
+    dice.show(1);
+
+    // The dictator started this fight by placing the militia.
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName, 'Basic should pause with the reroll on offer').toBe('Basic');
+    expect(pending!.canReroll).toBe(true);
+    expect(basicRollLines(game)).toEqual(['Basic rolls [1, 1] - 0 hit(s)']);
+  });
+
+  it('still rerolls a Bot Basic\'s missed roll automatically (#106)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('bot-rerolls-miss');
+    rebel.isBot = true;
+    sector.addDictatorMilitia(1);
+    dice.show(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    expect(basicRollLines(game).slice(0, 3)).toEqual([
+      'Basic rolls [1, 1] - 0 hit(s)',
+      'Basic uses reroll ability!',
+      'Basic rerolls [1, 1] - 0 hit(s)',
+    ]);
+  });
+
   it('offers Basic\'s reroll only once per combat (#91)', () => {
     const { game, rebel, sector, dice } = basicAttacks('reroll-once-per-combat');
     const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;

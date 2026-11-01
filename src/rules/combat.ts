@@ -2724,8 +2724,11 @@ const { isHumanControlled, hasSelectedTargets } = control;
   const hitThreshold = attackerCombatantId ? getHitThreshold(attackerCombatantId) : CombatConstants.HIT_THRESHOLD;
   emitCombatRoll(game, attacker, targets, rolls, hits, hitThreshold);
 
+  // A player who will see the dice decides on the reroll; the Bot rule decides for everyone else.
+  const playerSeesRoll = interactive && isHumanControlled && !attacker.isMilitia;
+
   // MERC-5l3: Basic may reroll all dice once per combat (uses registry)
-  if (shouldUseReroll(attacker, rolls, hits)) {
+  if (!playerSeesRoll && shouldUseReroll(attacker, rolls, hits)) {
     game.message(`${attacker.name} uses reroll ability!`);
     attacker.hasUsedReroll = true;
     rolls = rollDice(effectiveDice, game);
@@ -2750,20 +2753,9 @@ const { isHumanControlled, hasSelectedTargets } = control;
     ? getEligibleTargets(attacker, enemies).filter(e => !targets.includes(e) && !e.isAttackDog)
     : [];
 
-  if (hits === 0) {
-    results.push({
-      attacker,
-      rolls,
-      hits: 0,
-      targets: [],
-      damageDealt: new Map(),
-    });
-    return null;
-  }
-
   // MERC-dice: Check if player needs to allocate hits
   // Pause for allocation if: human-controlled MERC (either side), multiple DECLARED targets, meaningful choice
-  if (interactive && isHumanControlled && !attacker.isMilitia) {
+  if (playerSeesRoll) {
     // Valid targets for hit allocation are the DECLARED targets (not all enemies)
     // This respects the attacker's target limit (e.g., targets: 1 means only 1 declared target)
     const validTargets = targets.filter(t => t.health > 0);
@@ -2777,7 +2769,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
     const allMilitia = allocationTargets.every(t => t.isMilitia);
     const totalTargetHP = validTargets.reduce((sum, t) => sum + t.health, 0);
     const isOverkill = hits >= totalTargetHP && bonusTargets.length === 0;
-    const needsAllocation = allocationTargets.length > 1 && !allMilitia && !isOverkill;
+    const needsAllocation = hits > 0 && allocationTargets.length > 1 && !allMilitia && !isOverkill;
 
     // Also check if Basic's reroll is available (not yet used)
     const combatantId = getCombatantId(attacker);
@@ -2814,6 +2806,17 @@ const { isHumanControlled, hasSelectedTargets } = control;
       // Return pause for hit allocation
       return pauseRound(ctx, { kind: 'hitAllocation', attackerIndex: i });
     }
+  }
+
+  if (hits === 0) {
+    results.push({
+      attacker,
+      rolls,
+      hits: 0,
+      targets: [],
+      damageDealt: new Map(),
+    });
+    return null;
   }
 
   // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
