@@ -368,8 +368,9 @@ describe('resuming combat after the player allocates hits', () => {
     expect(game.activeCombat?.pendingHitAllocation?.canReroll ?? false, 'the reroll was already used').toBe(false);
   });
 
-  it('does not keep a spent allocation in the state saved at the next pause (#83)', () => {
-    const { game, rebel, sector, dice } = basicAttacks('allocate-then-epinephrine');
+  /** Dictator-side Basic kills a rebel Apeiron on 1 health who carries a shot; combat pauses for it. */
+  function basicKillsApeironWithShot(seed: string) {
+    const { game, rebel, sector, dice } = basicAttacks(seed);
     // Basic on the dictator's side, so the rebel MERC it kills can be offered the shot.
     const dictator = game.dictatorPlayer;
     const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
@@ -389,10 +390,125 @@ describe('resuming combat after the player allocates hits', () => {
       allocations: [`${pending!.validTargets[0].id}::0`],
     });
     expect(result.success, result.error).toBe(true);
+    return { game, rebel, sector, dice, apeiron };
+  }
+
+  it('does not keep a spent allocation in the state saved at the next pause (#83)', () => {
+    const { game } = basicKillsApeironWithShot('allocate-then-epinephrine');
 
     expect(game.activeCombat?.pendingEpinephrine, 'the kill should pause for the shot').toBeDefined();
     const saved = [...(game.activeCombat!.selectedTargets?.keys() ?? [])];
     expect(saved.filter(key => key.startsWith('allocation:'))).toEqual([]);
+  });
+
+  it('keeps a MERC saved by a human\'s Epinephrine Shot alive when combat resumes (#92)', () => {
+    const { game, rebel, sector, apeiron } = basicKillsApeironWithShot('epinephrine-save-sticks');
+
+    const saved = game.performAction('combatUseEpinephrine', rebel, { saverMerc: apeiron });
+    expect(saved.success, saved.error).toBe(true);
+    executeCombat(game, sector, rebel);
+
+    const lines = (game.messages as unknown[]).map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''));
+    expect(lines).not.toContain('Apeiron has been killed in combat!');
+    expect(apeiron.isDead).toBe(false);
+    expect(apeiron.health).toBe(1);
+  });
+
+  it('lets the owner decline the shot, and the MERC dies (#92)', () => {
+    const { game, rebel, apeiron } = basicKillsApeironWithShot('epinephrine-declined');
+
+    const declined = game.performAction('combatDeclineEpinephrine', rebel, {});
+    expect(declined.success, declined.error).toBe(true);
+
+    expect(apeiron.parent).toBe(game.mercDiscard);
+  });
+
+  it('lands the rest of the attack before asking for the shot, and does not replay the round (#92)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('epinephrine-after-whole-attack');
+    const dictator = game.dictatorPlayer;
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    // The Uzi's extra target lets Basic declare both the MERC and the militia.
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'uzi')!);
+    const apeiron = game.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(rebel.primarySquad);
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+    apeiron.damage = apeiron.maxHealth - 1;
+    sector.addRebelMilitia(`${rebel.seat}`, 1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    const mercId = pending!.validTargets.find(t => t.isMerc)!.id;
+    const militiaId = pending!.validTargets.find(t => !t.isMerc)!.id;
+    dice.show(1);
+    // MERC first, so the kill that asks for the shot comes before the militia's hit.
+    const allocated = game.performAction('combatAllocateHits', dictator, {
+      allocations: [`${mercId}::0`, `${militiaId}::0`],
+    });
+    expect(allocated.success, allocated.error).toBe(true);
+
+    expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName).toBe('Apeiron');
+    expect(sector.getRebelMilitia(`${rebel.seat}`), 'the militia\'s hit lands before the pause').toBe(0);
+
+    expect(game.performAction('combatUseEpinephrine', rebel, { saverMerc: apeiron }).success).toBe(true);
+    executeCombat(game, sector, rebel);
+
+    expect(basicRollLines(game), 'Basic already attacked this round').toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
+    expect(apeiron.health).toBe(1);
+  });
+
+  it('lets a human dictator save his MERC with an Epinephrine Shot in combat (#92)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('dictator-epinephrine');
+    const dictator = game.dictatorPlayer;
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+    apeiron.damage = apeiron.maxHealth - 1;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    dice.show(1);
+    const allocated = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(allocated.success, allocated.error).toBe(true);
+
+    expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName, 'the dictator is offered the shot').toBe('Apeiron');
+    const saved = game.performAction('combatUseEpinephrine', dictator, { saverMerc: apeiron });
+    expect(saved.success, saved.error).toBe(true);
+    executeCombat(game, sector, rebel);
+
+    expect(apeiron.isDead).toBe(false);
+    expect(apeiron.health).toBe(1);
+  });
+
+  it('does not hand the rebels the base while the dictator decides on his last MERC\'s shot (#92)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('dictator-epinephrine-at-base');
+    const dictator = game.dictatorPlayer;
+    // The base is revealed and the Dictator is away, so this MERC is all that holds it.
+    dictator.baseRevealed = true;
+    dictator.baseSectorId = sector.sectorId;
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+    apeiron.damage = apeiron.maxHealth - 1;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    dice.show(1);
+    const allocated = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(allocated.success, allocated.error).toBe(true);
+
+    expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName).toBe('Apeiron');
+    expect(game.isFinished(), 'the base falls only if the dictator lets Apeiron die').toBe(false);
   });
 });
 

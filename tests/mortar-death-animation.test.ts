@@ -89,4 +89,13 @@ describe('a mortar hit on a unit with 1 health left', () => {
     expect(types).toContain('mortar-strike');
     expect(types).not.toContain('map-combatant-death');
   });
+
+  it('on a dictator MERC is stopped by his own Epinephrine Shot (#92)', () => {
+    victim.equip(game.accessoriesDeck.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+
+    fireOneHit();
+
+    expect(victim.isDead).toBe(false);
+    expect(victim.accessorySlot).toBeUndefined();
+  });
 });

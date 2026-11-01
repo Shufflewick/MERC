@@ -35,19 +35,10 @@ export function carriesEpinephrine(merc: CombatantModel): boolean {
  * is included: he is at 0 health but the shot is still in his pocket.
  */
 export function getEpinephrineSavers(game: MERCGame, dying: CombatantModel): CombatantModel[] {
-  const squadmates: CombatantModel[] = [];
-
-  if (game.dictatorPlayer?.hiredMercs.some(m => m.id === dying.id)) {
-    squadmates.push(...game.dictatorPlayer.hiredMercs);
-  } else {
-    for (const rebel of game.rebelPlayers) {
-      const squadMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
-      if (squadMercs.some(m => m.id === dying.id)) {
-        squadmates.push(...squadMercs);
-        break;
-      }
-    }
-  }
+  // Every MERC the dying MERC's owner has, dead ones included, so he is found at 0 health.
+  const squadmates = game.players
+    .map(player => player.squads.flatMap(squad => squad.getMercs()))
+    .find(mercs => mercs.some(m => m.id === dying.id)) ?? [];
 
   return squadmates
     .filter(m => m.id === dying.id || !m.isDead)

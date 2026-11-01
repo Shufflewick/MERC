@@ -61,4 +61,19 @@ describe('out-of-combat MERC death', () => {
     expect(merc.parent).not.toBe(game.mercDiscard);
     expect(epi!.parent).toBe(game.accessoriesDiscard);
   });
+
+  it('lets a dictator MERC spend his own Epinephrine Shot to survive (#92)', () => {
+    const game = newGame('epi-dictator-self-save');
+    const merc = game.mercDeck.first(CombatantModel, m => m.isMerc)!;
+    merc.putInto(game.dictatorPlayer.primarySquad);
+    const epi = findEquipment(game, 'epinephrine-shot')!;
+    merc.equip(epi);
+
+    merc.takeDamage(merc.maxHealth);
+    const died = killMercOutsideCombat(game, merc, 'test death');
+
+    expect(died).toBe(false);
+    expect(merc.health).toBe(1);
+    expect(epi.parent).toBe(game.accessoriesDiscard);
+  });
 });
