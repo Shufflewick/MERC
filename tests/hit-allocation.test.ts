@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
+import type { GameRandom } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
+import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
-import { allocateHits } from '../src/rules/combat.js';
+import { allocateHits, executeCombat } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
 
 function makeCombatant(id: string, health: number, armor: number): Combatant {
@@ -136,5 +138,203 @@ describe('combatAllocateHits prompt', () => {
 
     const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'merc::1', 'm1::0'] });
     expect(result.success, result.error).toBe(true);
+  });
+});
+
+/** Dice that show whatever face the test sets, so a second roll would be visible. */
+function riggedDice(): { random: GameRandom; show: (face: number) => void } {
+  let face = 6;
+  const random = (() => (face - 0.5) / 6) as GameRandom;
+  random.getState = () => '';
+  random.setState = () => {};
+  return { random, show: (f: number) => { face = f; } };
+}
+
+describe('resuming combat after the player allocates hits', () => {
+  /** Human Basic in a sector, on dice showing 6. Basic pauses for allocation on any hit, because the reroll is on offer. */
+  function basicAttacks(seed: string) {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed,
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const sector = game.gameMap.getAllSectors()[0];
+    const basic = game.mercDeck.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    const dice = riggedDice();
+    game.random = dice.random;
+    return { game, rebel, sector, dice };
+  }
+
+  function basicRollLines(game: MERCGame): string[] {
+    return (game.messages as unknown[])
+      .map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''))
+      .filter(line => /^Basic (rolls|rerolls|uses reroll)/.test(line));
+  }
+
+  it('applies the roll the player allocated, without rolling again (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-then-resume');
+    sector.addDictatorMilitia(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName, 'Basic should be allocating hits').toBe('Basic');
+    expect(pending!.diceRolls).toEqual([6, 6]);
+
+    // Any roll after the allocation would now miss.
+    dice.show(1);
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(basicRollLines(game)).toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
+    expect(sector.dictatorMilitia, 'the allocated hit should kill the militia').toBe(0);
+  });
+
+  /** A dictator MERC alongside a dictator militia in Basic's sector. */
+  function apeironAndMilitia(game: MERCGame, sector: Sector): CombatantModel {
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(1);
+    return apeiron;
+  }
+
+  it('splits the hits as the player allocated them (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-split');
+    // The Uzi's extra target lets Basic declare both the MERC and the militia.
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'uzi')!);
+    const apeiron = apeironAndMilitia(game, sector);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.validTargets.map(t => t.name).sort()).toEqual(['Apeiron', 'Militia']);
+    const mercId = pending!.validTargets.find(t => t.isMerc)!.id;
+    const militiaId = pending!.validTargets.find(t => !t.isMerc)!.id;
+
+    dice.show(1);
+    // One hit each, MERC first: spending hits greedily in that order would put both on the MERC.
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${mercId}::0`, `${militiaId}::0`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(apeiron.damage).toBe(1);
+    expect(sector.dictatorMilitia).toBe(0);
+  });
+
+  it('spends a grenade used in the allocated attack (#83)', () => {
+    const { game, rebel, sector } = basicAttacks('allocate-grenade');
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'grenade')!);
+    // The grenade makes Basic act last; the vest keeps him alive until then.
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'kevlar-vest')!);
+    apeironAndMilitia(game, sector);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    const allocations = pending!.validTargets.flatMap(t =>
+      Array.from({ length: t.armor + t.currentHealth }, (_, i) => `${t.id}::${i}`));
+    const result = game.performAction('combatAllocateHits', rebel, { allocations });
+    expect(result.success, result.error).toBe(true);
+
+    expect(basic.accessorySlot, 'the grenade is used up by the attack').toBeUndefined();
+  });
+
+  it('counts a wounding allocated attack as progress, so the stalemate count stays at zero (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-wound');
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const target = game.activeCombat!.pendingHitAllocation!.validTargets[0];
+    dice.show(1);
+    // Two hits on a 3-health MERC: a wound, no kill, and Apeiron's reply misses.
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${target.id}::0`, `${target.id}::1`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(apeiron.damage).toBe(2);
+    expect(game.activeCombat?.awaitingRetreatDecisions, 'the round should end at the retreat decision').toBe(true);
+    expect(game.activeCombat?.stalemateRounds).toBe(0);
+  });
+
+  it('ends the attack when a reroll leaves nothing to allocate (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('reroll-to-nothing');
+    sector.addDictatorMilitia(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    expect(game.activeCombat?.pendingHitAllocation?.attackerName).toBe('Basic');
+
+    // The reroll misses, and so would anything after it.
+    dice.show(1);
+    expect(game.performAction('combatBasicReroll', rebel, {}).success).toBe(true);
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+    expect(result.success, result.error).toBe(true);
+
+    expect(basicRollLines(game)).toEqual([
+      'Basic rolls [6, 6] - 2 hit(s)',
+      'Basic uses reroll ability! [1, 1] - 0 hit(s)',
+    ]);
+    expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked to allocate again').toBeUndefined();
+    expect(sector.dictatorMilitia).toBe(1);
+  });
+
+  it('does not keep a spent allocation in the state saved at the next pause (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-then-epinephrine');
+    // Basic on the dictator's side, so the rebel MERC it kills can be offered the shot.
+    const dictator = game.dictatorPlayer;
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    // A rebel MERC on its last health point, carrying the shot that pauses combat when it dies.
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(rebel.primarySquad);
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+    apeiron.damage = apeiron.maxHealth - 1;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    dice.show(1);
+    const result = game.performAction('combatAllocateHits', dictator, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(game.activeCombat?.pendingEpinephrine, 'the kill should pause for the shot').toBeDefined();
+    const saved = [...(game.activeCombat!.selectedTargets?.keys() ?? [])];
+    expect(saved.filter(key => key.startsWith('allocation:'))).toEqual([]);
+  });
+});
+
+describe('Wolverine\'s sixes when hits are allocated automatically', () => {
+  it('spend each six on a living enemy he did not declare', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'wolverine-sixes',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const sector = game.gameMap.getAllSectors()[0];
+    const wolverine = game.mercDeck.first(CombatantModel, c => c.combatantId === 'wolverine')!;
+    wolverine.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    sector.addDictatorMilitia(4);
+    game.random = riggedDice().random;
+
+    // Two dice, both 6, one declared target: each round the second six must find a living
+    // militia, skipping the dead, or the survivors shoot Wolverine down.
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true, interactive: false });
+
+    expect(sector.dictatorMilitia).toBe(0);
+    expect(wolverine.isDead).toBe(false);
   });
 });

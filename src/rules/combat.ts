@@ -2690,6 +2690,29 @@ const { isHumanControlled, hasSelectedTargets } = control;
     return null;
   }
 
+  // Resuming after the player allocated hits: the roll was made before the pause, so apply it rather than rolling again.
+  // An empty allocation is a roll with nothing to allocate (a reroll that missed); it still ends the attack.
+  const playerHitAllocation = playerSelectedTargets?.get(`allocation:${attacker.id}`);
+  if (playerHitAllocation) {
+    // The round's working copy is what a later pause saves, so the spent allocation must leave it.
+    playerSelectedTargets!.delete(`allocation:${attacker.id}`);
+    // One entry per allocated hit, repeated for several hits on one target.
+    const allocatedTargets = playerHitAllocation
+      .map(targetId => enemies.find(e => e.id === targetId))
+      .filter((t): t is Combatant => t !== undefined);
+    const damage = applyAttackDamage(ctx, attacker, enemies, allocatedTargets, allocatedTargets.length, true);
+    if ('pause' in damage) return damage.pause;
+    discardSpentEquipment(game, attacker);
+    results.push({
+      attacker,
+      rolls: [],
+      hits: allocatedTargets.length,
+      targets,
+      damageDealt: damage.damageDealt,
+    });
+    return null;
+  }
+
   const targetNames = targets.map(t => t.name).join(', ');
   game.message(`${attacker.name} declares targets: ${targetNames}`);
 
@@ -2747,8 +2770,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
 
   // MERC-dice: Check if player needs to allocate hits
   // Pause for allocation if: human-controlled MERC (either side), multiple DECLARED targets, meaningful choice
-  const hasHitAllocation = game.activeCombat?.selectedTargets?.has(`allocation:${attacker.id}`);
-  if (interactive && isHumanControlled && !attacker.isMilitia && !hasHitAllocation) {
+  if (interactive && isHumanControlled && !attacker.isMilitia) {
     // Valid targets for hit allocation are the DECLARED targets (not all enemies)
     // This respects the attacker's target limit (e.g., targets: 1 means only 1 declared target)
     const validTargets = targets.filter(t => t.health > 0);
@@ -2798,37 +2820,15 @@ const { isHumanControlled, hasSelectedTargets } = control;
     }
   }
 
-  // MERC-dice: Check if player allocated hits manually
-  const playerHitAllocation = game.activeCombat?.selectedTargets?.get(`allocation:${attacker.id}`);
-  let expandedTargets: Combatant[];
-  const playerAllocated = !!(playerHitAllocation && playerHitAllocation.length > 0);
-
-  if (playerHitAllocation && playerHitAllocation.length > 0) {
-    // Use player's allocation - convert targetIds to Combatant objects
-    // The allocation is an array of targetIds (can have duplicates for multiple hits)
-    expandedTargets = [];
-    for (const targetId of playerHitAllocation) {
-      const target = enemies.find(e => e.id === targetId);
-      if (target) expandedTargets.push(target);
-    }
-    // Clear the allocation so it's not reused
-    game.activeCombat?.selectedTargets?.delete(`allocation:${attacker.id}`);
-  } else {
-    // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
-    expandedTargets = [...targets];
-    if (wolverineBonus6s > 0) {
-      const availableExtra = enemies.filter(e =>
-        e.health > 0 && !targets.includes(e) && !e.isAttackDog
-      );
-      const extraTargets = availableExtra.slice(0, wolverineBonus6s);
-      if (extraTargets.length > 0) {
-        expandedTargets.push(...extraTargets);
-        game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
-      }
-    }
+  // MERC-9mpr: Add additional targets for Wolverine's 6s (Bot allocation)
+  const extraTargets = enemies
+    .filter(e => e.health > 0 && !targets.includes(e) && !e.isAttackDog)
+    .slice(0, wolverineBonus6s);
+  if (extraTargets.length > 0) {
+    game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
   }
 
-  const damage = applyAttackDamage(ctx, attacker, enemies, expandedTargets, hits, playerAllocated);
+  const damage = applyAttackDamage(ctx, attacker, enemies, [...targets, ...extraTargets], hits, false);
   if ('pause' in damage) return damage.pause;
   const damageDealt = damage.damageDealt;
 
