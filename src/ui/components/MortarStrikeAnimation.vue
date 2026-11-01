@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
+import { sectorPortraitSlot } from '../portrait-slot';
 
 const props = defineProps<{
   sectorRect: { x: number; y: number; width: number; height: number };
   sectorId: string;
   hitCombatantIds: string[];
+  killedCombatantIds: string[];
   militiaKilled: number;
 }>();
 
@@ -38,6 +40,12 @@ function computeFlashPositions() {
   const positions: FlashPosition[] = [];
 
   for (const id of props.hitCombatantIds) {
+    // A killed target's token is already gone, so it flashes where its death animation will leave from.
+    if (props.killedCombatantIds.includes(id)) {
+      const slot = sectorPortraitSlot(props.sectorId);
+      if (slot) positions.push({ x: slot.x - gridRect.left, y: slot.y - gridRect.top, size: slot.size * 1.6 });
+      continue;
+    }
     const el = mapGrid.querySelector(`[data-combatant-id="${id}"]`);
     if (!el) continue;
 

@@ -1883,6 +1883,7 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
         game.animate('mortar-strike', {
           targetSectorId: targetSector.sectorId,
           hitCombatantIds: [] as string[],
+          killedCombatantIds: [] as string[],
           militiaKilled: 0,
           diceRolls,
           hits: 0,
@@ -2154,6 +2155,7 @@ export function applyMortarDamage(
 ): { totalDamage: number } {
   let totalDamage = 0;
   const hitCombatantIds: string[] = [];
+  const killedCombatantIds: string[] = [];
   let militiaKilled = 0;
   const deaths: MapCombatantEventData[] = [];
 
@@ -2182,7 +2184,7 @@ export function applyMortarDamage(
           merc.takeDamage(1);
           totalDamage++;
         }
-        hitCombatantIds.push(merc.combatantId);
+        hitCombatantIds.push(getMapCombatantId(merc));
         game.message(`Mortar deals ${hitCount} damage to ${capitalize(merc.combatantName)}`);
         if (merc.isDead) {
           const killedMessage = `${capitalize(merc.combatantName)} has been killed by mortar!`;
@@ -2191,9 +2193,10 @@ export function applyMortarDamage(
           if (merc.isDictator) {
             game.message(killedMessage);
             game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+          }
+          if (merc.isDictator || killMercOutsideCombat(game, merc, killedMessage)) {
             deaths.push(death);
-          } else if (killMercOutsideCombat(game, merc, killedMessage)) {
-            deaths.push(death);
+            killedCombatantIds.push(getMapCombatantId(merc));
           }
         }
       }
@@ -2203,6 +2206,7 @@ export function applyMortarDamage(
   game.animate('mortar-strike', {
     targetSectorId: targetSector.sectorId,
     hitCombatantIds,
+    killedCombatantIds,
     militiaKilled,
     ...strike,
   });
