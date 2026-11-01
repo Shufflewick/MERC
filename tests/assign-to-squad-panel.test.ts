@@ -22,9 +22,16 @@ function assignToSquadController() {
   return { controller, fills, currentPick };
 }
 
-// jsdom has no DataTransfer; a drag event only needs somewhere to put its data.
+// jsdom has no DataTransfer; this one keeps what the drag puts on it.
 function dataTransfer() {
-  return { setData: () => {}, setDragImage: () => {}, effectAllowed: 'all', dropEffect: 'none' };
+  const data: Record<string, string> = {};
+  return {
+    data,
+    setData: (type: string, value: string) => { data[type] = value; },
+    setDragImage: () => {},
+    effectAllowed: 'all',
+    dropEffect: 'none',
+  };
 }
 
 function mountPanel(controller: UseActionControllerReturn) {
@@ -48,9 +55,12 @@ describe('AssignToSquadPanel drag', () => {
     const { wrapper, board } = mountPanel(controller);
     const valkyrie = wrapper.find('.combatant-item[data-combatant="Valkyrie"]');
 
-    await valkyrie.trigger('dragstart', { dataTransfer: dataTransfer() });
+    const transfer = dataTransfer();
+    await valkyrie.trigger('dragstart', { dataTransfer: transfer });
     // A BoardSmith drag derives targets from the open pick; this pick's choices carry no board refs.
     expect(board.isDragging).toBe(false);
+    expect(transfer.data['text/plain']).toBe('Valkyrie');
+    expect(transfer.effectAllowed).toBe('move');
 
     await wrapper.find('.squad-panel[data-squad="Secondary"]').trigger('drop');
     await flushPromises();
