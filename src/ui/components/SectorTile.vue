@@ -204,75 +204,80 @@ function closeMercModal() {
     @mouseenter="showTooltip = true"
     @mouseleave="showTooltip = false"
   >
-    <!-- Dark overlay for readability -->
-    <div class="overlay"></div>
+    <!-- The size container sits beside the MERC overlay: containment would trap its fixed backdrop inside the tile. -->
+    <div class="tile-face">
+      <div class="tile-body">
+        <!-- Dark overlay for readability -->
+        <div class="overlay"></div>
 
-    <!-- Top row: Name and Value -->
-    <div class="top-row">
-      <span class="sector-name">{{ displayName }}</span>
-      <div class="sector-badges">
-        <span class="sector-value">Value: {{ sector.value }}</span>
-      </div>
-    </div>
-
-    <!-- Center: Unexplored or loot -->
-    <div class="center-area">
-      <template v-if="!sector.explored && !hideQuestionMark">
-        <div class="unexplored">
-          <span class="question-mark">?</span>
-          <div v-if="hasLoot" class="loot-icons">
-            <span v-if="sector.weaponLoot > 0" class="loot-badge" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
-            <span v-if="sector.armorLoot > 0" class="loot-badge" title="Armor">🛡️{{ sector.armorLoot }}</span>
-            <span v-if="sector.accessoryLoot > 0" class="loot-badge" title="Accessories">💍{{ sector.accessoryLoot }}</span>
+        <!-- Top row: Name and Value -->
+        <div class="top-row">
+          <span class="sector-name">{{ displayName }}</span>
+          <div class="sector-badges">
+            <span class="sector-value"><span class="value-label">Value: </span>{{ sector.value }}</span>
           </div>
-          <span v-else class="unexplored-text">Unexplored</span>
         </div>
-      </template>
-    </div>
 
-    <!-- Bottom row: MERCs and Militia -->
-    <div class="bottom-row">
-      <!-- MERC portraits (clickable) -->
-      <div class="mercs-area">
-        <!-- Dictator base icon (merc-sized) -->
-        <div
-          v-if="isDictatorBase"
-          class="base-icon-portrait"
-          title="Dictator's Base"
-          :style="baseIconStyle"
-        >
-          🏠
+        <!-- Center: Unexplored or loot -->
+        <div class="center-area">
+          <template v-if="!sector.explored && !hideQuestionMark">
+            <div class="unexplored">
+              <span class="question-mark">?</span>
+              <div v-if="hasLoot" class="loot-icons">
+                <span v-if="sector.weaponLoot > 0" class="loot-badge" title="Weapons">⚔️{{ sector.weaponLoot }}</span>
+                <span v-if="sector.armorLoot > 0" class="loot-badge" title="Armor">🛡️{{ sector.armorLoot }}</span>
+                <span v-if="sector.accessoryLoot > 0" class="loot-badge" title="Accessories">💍{{ sector.accessoryLoot }}</span>
+              </div>
+              <span v-else class="unexplored-text">Unexplored</span>
+            </div>
+          </template>
         </div>
-        <CombatantIconSmall
-          v-for="(merc, index) in visibleMercs.slice(0, isDictatorBase ? 3 : 4)"
-          :key="getMercKey(merc, index)"
-          :combatant-id="merc.combatantId"
-          :image="getMercImagePath(merc)"
-          :alt="merc.combatantName || merc.combatantId"
-          :player-color="merc.playerColor"
-          :size="42"
-          clickable
-          @click="showMercDetails(merc, $event)"
-        />
-        <div v-if="visibleMercs.length > (isDictatorBase ? 3 : 4)" class="more-mercs">
-          +{{ visibleMercs.length - (isDictatorBase ? 3 : 4) }}
-        </div>
-      </div>
 
-      <!-- Militia indicators -->
-      <div class="militia-area">
-        <MilitiaIndicator
-          v-if="sector.dictatorMilitia > 0"
-          :count="sector.dictatorMilitia"
-          :is-dictator="true"
-          :player-color="dictatorColor"
-        />
-        <MilitiaIndicator
-          v-for="entry in rebelMilitiaEntries"
-          :key="entry.playerId"
-          :count="entry.count"
-          :player-color="entry.color"
-        />
+        <!-- Bottom row: MERCs and Militia -->
+        <div class="bottom-row">
+          <!-- MERC portraits (clickable) -->
+          <div class="mercs-area">
+            <!-- Dictator base icon (merc-sized) -->
+            <div
+              v-if="isDictatorBase"
+              class="base-icon-portrait"
+              title="Dictator's Base"
+              :style="baseIconStyle"
+            >
+              🏠
+            </div>
+            <CombatantIconSmall
+              v-for="(merc, index) in visibleMercs.slice(0, isDictatorBase ? 3 : 4)"
+              :key="getMercKey(merc, index)"
+              :combatant-id="merc.combatantId"
+              :image="getMercImagePath(merc)"
+              :alt="merc.combatantName || merc.combatantId"
+              :player-color="merc.playerColor"
+              :size="'var(--portrait-size)'"
+              clickable
+              @click="showMercDetails(merc, $event)"
+            />
+            <div v-if="visibleMercs.length > (isDictatorBase ? 3 : 4)" class="more-mercs">
+              +{{ visibleMercs.length - (isDictatorBase ? 3 : 4) }}
+            </div>
+          </div>
+
+          <!-- Militia indicators -->
+          <div class="militia-area">
+            <MilitiaIndicator
+              v-if="sector.dictatorMilitia > 0"
+              :count="sector.dictatorMilitia"
+              :is-dictator="true"
+              :player-color="dictatorColor"
+            />
+            <MilitiaIndicator
+              v-for="entry in rebelMilitiaEntries"
+              :key="entry.playerId"
+              :count="entry.count"
+              :player-color="entry.color"
+            />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -315,7 +320,6 @@ function closeMercModal() {
 <style scoped>
 .sector-tile {
   position: relative;
-  aspect-ratio: 2 / 1;
   background-size: cover;
   background-position: center;
   border-radius: 8px;
@@ -354,6 +358,16 @@ function closeMercModal() {
   }
 }
 
+.tile-face {
+  container: tile / inline-size;
+}
+
+.tile-body {
+  --portrait-size: 42px;
+  position: relative;
+  height: 50cqi; /* 2:1, as half the tile's width */
+}
+
 .overlay {
   position: absolute;
   inset: 0;
@@ -375,6 +389,8 @@ function closeMercModal() {
 .top-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
   padding: 8px 10px;
 }
 
@@ -398,8 +414,8 @@ function closeMercModal() {
 }
 
 .base-icon-portrait {
-  width: 42px;
-  height: 42px;
+  width: var(--portrait-size);
+  height: var(--portrait-size);
   border-radius: 50%;
   border: 2px solid; /* Color set via inline style */
   background: rgba(50, 30, 10, 0.9);
@@ -475,8 +491,8 @@ function closeMercModal() {
 }
 
 .more-mercs {
-  width: 42px;
-  height: 42px;
+  width: var(--portrait-size);
+  height: var(--portrait-size);
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.7);
   color: white;
@@ -489,6 +505,138 @@ function closeMercModal() {
 .militia-area {
   display: flex;
   gap: 4px;
+}
+
+/* Narrow tiles: the number stands alone in a badge, the marker sits beside its loot, and everything shrinks, so a 3x3 map fits a phone (#95). */
+@container tile (max-width: 239px) {
+  .tile-body {
+    --portrait-size: 30px;
+    height: max(96px, 50cqi);
+  }
+
+  .top-row {
+    padding: 6px 8px;
+  }
+
+  .sector-name {
+    font-size: 0.75rem;
+    line-height: 1.15;
+  }
+
+  .value-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .sector-value {
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+    padding: 0 5px;
+  }
+
+  .center-area {
+    padding: 2px;
+  }
+
+  .unexplored {
+    flex-direction: row;
+  }
+
+  .question-mark {
+    width: 28px;
+    height: 28px;
+    font-size: 1.3rem;
+  }
+
+  .bottom-row {
+    padding: 6px 8px;
+  }
+
+  .base-icon-portrait {
+    font-size: 1rem;
+  }
+}
+
+/* Phone and small-tablet tiles: smallest type and portraits, a little taller than 2:1 so a wrapped name keeps its own band. */
+@container tile (max-width: 170px) {
+  .tile-body {
+    --portrait-size: 22px;
+    height: 100px;
+  }
+
+  .top-row {
+    padding: 4px 5px;
+    gap: 3px;
+  }
+
+  .sector-name {
+    font-size: 0.62rem;
+  }
+
+  .sector-value {
+    font-size: 0.6rem;
+    padding: 0 4px;
+  }
+
+  .unexplored {
+    gap: 3px;
+  }
+
+  .question-mark {
+    width: 22px;
+    height: 22px;
+    font-size: 0.95rem;
+    border-width: 1.5px;
+  }
+
+  .unexplored-text,
+  .loot-badge {
+    font-size: 0.6rem;
+  }
+
+  .loot-icons {
+    padding: 1px 5px;
+    gap: 2px;
+  }
+
+  .bottom-row {
+    padding: 4px 5px;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  .militia-area {
+    gap: 2px;
+  }
+
+  /* Overlap the portraits so a full row (base, three MERCs and +N) still fits. */
+  .mercs-area {
+    gap: 0;
+  }
+
+  .mercs-area > * + * {
+    margin-left: -5px;
+  }
+
+  .mercs-area :deep(img),
+  .base-icon-portrait {
+    border-width: 2px;
+  }
+
+  .base-icon-portrait,
+  .more-mercs {
+    font-size: 0.65rem;
+  }
+
+  .militia-area :deep(.militia-indicator) {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+  }
 }
 
 /* Tooltip */

@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{
   image?: string;
   alt?: string;
   playerColor?: string;
-  size?: number;
+  size?: number | string; // pixels, or any CSS length
   clickable?: boolean;
 }>(), {
   size: 40,
@@ -37,10 +37,10 @@ const borderColor = computed(() => {
   return getPlayerColor(props.playerColor);
 });
 
-const sizeStyle = computed(() => ({
-  width: `${props.size}px`,
-  height: `${props.size}px`,
-}));
+const sizeStyle = computed(() => {
+  const size = typeof props.size === 'number' ? `${props.size}px` : props.size;
+  return { width: size, height: size };
+});
 
 function handleImageError(event: Event) {
   const img = event.target as HTMLImageElement;
