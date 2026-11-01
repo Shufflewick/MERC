@@ -1727,9 +1727,12 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Base is captured if no dictator units AND rebels have units there.
     // The Dictator only defends the base while he is standing in it — he may be
     // away with one of his two squads (rulebook p.5), and the base falls behind him.
+    // A MERC waiting on the dictator's Epinephrine decision is dying, not dead.
     const hasDictatorUnits = baseSector.dictatorMilitia > 0 ||
       this.isDictatorInSector(baseSector) ||
-      this.getDictatorMercsInSector(baseSector).length > 0;
+      this.getDictatorMercsInSector(baseSector).length > 0 ||
+      (this.activeCombat?.sectorId === baseSector.sectorId &&
+        this.activeCombat.pendingEpinephrine?.dyingCombatantSide === 'dictator');
 
     if (hasDictatorUnits) return false;
 

@@ -476,6 +476,31 @@ describe('resuming combat after the player allocates hits', () => {
     expect(apeiron.isDead).toBe(false);
     expect(apeiron.health).toBe(1);
   });
+
+  it('does not hand the rebels the base while the dictator decides on his last MERC\'s shot (#92)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('dictator-epinephrine-at-base');
+    const dictator = game.dictatorPlayer;
+    // The base is revealed and the Dictator is away, so this MERC is all that holds it.
+    dictator.baseRevealed = true;
+    dictator.baseSectorId = sector.sectorId;
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    apeiron.equip(game.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+    apeiron.damage = apeiron.maxHealth - 1;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName).toBe('Basic');
+    dice.show(1);
+    const allocated = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${pending!.validTargets[0].id}::0`],
+    });
+    expect(allocated.success, allocated.error).toBe(true);
+
+    expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName).toBe('Apeiron');
+    expect(game.isFinished(), 'the base falls only if the dictator lets Apeiron die').toBe(false);
+  });
 });
 
 describe('resuming combat after a militia batch allocates hits', () => {
