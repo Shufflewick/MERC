@@ -1127,6 +1127,17 @@ function clearHagnessDrawnChoicesCache(game: MERCGame, playerId: string): void {
 }
 
 /**
+ * The step of a living Hagness's draw-pick-give the player must finish before anything else, if one is pending.
+ */
+export function pendingHagnessStep(game: MERCGame, player: MERCPlayer): 'hagnessSelectFromDrawn' | 'hagnessGiveEquipment' | undefined {
+  if (!player.team.some(m => m.combatantId === 'hagness' && !m.isDead)) return undefined;
+  const playerId = `${player.seat}`;
+  if (getHagnessDrawnChoicesCache(game, playerId)) return 'hagnessSelectFromDrawn';
+  if (getHagnessCache(game, playerId)) return 'hagnessGiveEquipment';
+  return undefined;
+}
+
+/**
  * Serialize equipment data for UI display.
  */
 function serializeEquipmentForCard(equipment: Equipment): HagnessEquipmentData {
@@ -1235,12 +1246,8 @@ export function createHagnessSelectFromDrawnAction(game: MERCGame): ActionDefini
   return Action.create<MERCGame>('hagnessSelectFromDrawn')
     .prompt('Choose equipment to keep')
     .condition({
-      'has drawn choices cached': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
-        const player = ctx.player as MERCPlayer;
-        const playerId = `${player.seat}`;
-        return getHagnessDrawnChoicesCache(game, playerId) != null;
-      },
+      'Hagness has drawn equipment to pick from': (ctx) =>
+        pendingHagnessStep(game, ctx.player as MERCPlayer) === 'hagnessSelectFromDrawn',
     })
     .chooseFrom('selectedEquipment', {
       prompt: 'Choose 1 of 3 drawn equipment',
@@ -1319,12 +1326,8 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
   return Action.create<MERCGame>('hagnessGiveEquipment')
     .prompt('Give equipment to squad member')
     .condition({
-      'has pending equipment': (ctx) => {
-        if (!game.isRebelPlayer(ctx.player) && !game.isDictatorPlayer(ctx.player)) return false;
-        const player = ctx.player as MERCPlayer;
-        const playerId = `${player.seat}`;
-        return getHagnessCache(game, playerId) != null;
-      },
+      'Hagness has picked equipment to give': (ctx) =>
+        pendingHagnessStep(game, ctx.player as MERCPlayer) === 'hagnessGiveEquipment',
       'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('recipient', {
