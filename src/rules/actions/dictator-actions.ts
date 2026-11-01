@@ -18,7 +18,7 @@ import {
   mercNeedsHealing,
   getBotHealingPriority,
 } from '../bot-helpers.js';
-import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, getGlobalCachedValue, setGlobalCachedValue, clearGlobalCachedValue, isCombatantModel, isMerc, equipNewHire, equipDictatorOnEntry } from './helpers.js';
+import { ACTION_COSTS, capitalize, asTacticsCard, asSector, asCombatantModel, isCombatantModel, isMerc, equipNewHire, equipDictatorOnEntry } from './helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from '../animation-events.js';
 import { isHealingItem, getHealAmount, hasRangedAttack, getHealingEffect } from '../equipment-effects.js';
 import { findEquipmentInDiscards } from '../dictator-abilities.js';
@@ -292,9 +292,6 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
  * Human players choose which MERC to hire and where to place them.
  */
 export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
-  // Settings keys to persist state across choices
-  const DRAWN_MERCS_KEY = '_castro_drawn_mercs';
-
   return Action.create<MERCGame>('castroBonusHire')
     .prompt("Castro's Ability: Hire a MERC")
     .condition({
@@ -302,33 +299,10 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       'is Castro': () => game.dictatorPlayer?.dictator?.combatantId === 'castro',
       'is human player': () => !game.dictatorPlayer?.isBot,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'Choose a MERC to hire',
-      choices: () => {
-        // Draw 3 MERCs if not already drawn
-        if (!getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY)) {
-          const drawnMercs: CombatantModel[] = [];
-          for (let i = 0; i < 3; i++) {
-            const merc = game.drawMerc();
-            if (merc) drawnMercs.push(merc);
-          }
-          // Store merc IDs
-          setGlobalCachedValue(game, DRAWN_MERCS_KEY, drawnMercs.map(m => m.id));
-        }
-
-        const combatantElementIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
-        const mercs = combatantElementIds
-          .map(id => game.getElementById(id))
-          .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc)
-          .sort((a, b) => b.baseCombat - a.baseCombat);
-
-        if (mercs.length === 0) {
-          return ['No MERCs available'];
-        }
-
-        // Return just capitalized names (UI finds MERC data via findMercByName)
-        return mercs.map(m => capitalize(m.combatantName));
-      },
+      elements: () => [...game.mercOffer.all(CombatantModel)].sort((a, b) => b.baseCombat - a.baseCombat),
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
@@ -369,25 +343,8 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         return sectors.map(s => s.sectorName);
       },
     })
-    .execute((args, ctx) => {
-      const combatantElementIds = getGlobalCachedValue<number[]>(game, DRAWN_MERCS_KEY) ?? [];
-      const selectedMercName = args.selectedMerc;
-
-      if (!selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
-        return { success: false, error: 'No MERC selected' };
-      }
-
-      // Find the MERC by name
-      const mercs = combatantElementIds
-        .map(id => game.getElementById(id))
-        .filter((el): el is CombatantModel => isCombatantModel(el) && el.isMerc);
-      const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);
-
-      if (!selectedMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
-        return { success: false, error: 'MERC not found' };
-      }
+    .execute((args) => {
+      const selectedMerc = args.selectedMerc;
 
       // Set MERC location from selected sector
       const targetSectorChoice = args.targetSector;
@@ -415,7 +372,6 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       if (!targetSector) {
-        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
         return { success: false, error: 'No valid sector found' };
       }
 
@@ -442,10 +398,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Primary full - adding to secondary squad`);
       } else {
         // Both squads full — discard all
-        for (const merc of mercs) {
-          merc.putInto(game.mercDiscard);
-        }
-        clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
+        game.discardMercOffer();
         game.message('Castro: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
       }
@@ -468,14 +421,7 @@ export function createCastroBonusHireAction(game: MERCGame): ActionDefinition {
       equipNewHire(game, selectedMerc, equipType);
 
       // Discard the other MERCs
-      for (const merc of mercs) {
-        if (merc !== selectedMerc) {
-          merc.putInto(game.mercDiscard);
-        }
-      }
-
-      // Clean up
-      clearGlobalCachedValue(game, DRAWN_MERCS_KEY);
+      game.discardMercOffer();
 
       game.message(`Castro hired ${selectedMerc.combatantName}`);
       return { success: true, message: `Hired ${selectedMerc.combatantName}` };
@@ -1213,7 +1159,6 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
  * Human dictator chooses which squad to place the hired MERC in.
  */
 export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
-  const DRAWN_MERC_KEY = '_polpot_drawn_merc';
 
   return Action.create<MERCGame>('polpotBonusHire')
     .prompt("Pol Pot: Hire a MERC (combat loss consolation)")
@@ -1223,29 +1168,11 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
       'is human player': () => !game.dictatorPlayer?.isBot,
       'rebel won combat': () => game.lastAbilityCombatOutcome?.rebelVictory === true,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'MERC drawn for hire (combat loss consolation)',
-      choices: () => {
-        // Draw 1 MERC if not already drawn
-        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-          const merc = game.drawMerc();
-          if (merc) {
-            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-          }
-        }
-
-        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-        if (!mercId) {
-          return ['No MERCs available'];
-        }
-
-        const merc = game.getElementById(mercId);
-        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-          return ['No MERCs available'];
-        }
-
-        return [capitalize(merc.combatantName)];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('targetSquad', {
       prompt: 'Choose squad for the hired MERC',
@@ -1268,26 +1195,11 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
     .execute((args) => {
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc;
-
-      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        game.lastAbilityCombatOutcome = null;
-        return { success: false, error: 'No MERC available' };
-      }
-
-      const merc = game.getElementById(mercId);
-      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        game.lastAbilityCombatOutcome = null;
-        return { success: false, error: 'MERC not found' };
-      }
+      const merc = args.selectedMerc;
 
       const squadChoice = args.targetSquad;
       if (squadChoice === 'All squads full') {
         merc.putInto(game.mercDiscard);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.lastAbilityCombatOutcome = null;
         game.message('Pol Pot: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
@@ -1319,7 +1231,6 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
       game.lastAbilityCombatOutcome = null;
 
       game.message(`Pol Pot hired ${merc.combatantName} as consolation for combat loss`);
@@ -1337,7 +1248,6 @@ export function createPolpotBonusHireAction(game: MERCGame): ActionDefinition {
  * Follows the Gaddafi bonus hire pattern.
  */
 export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
-  const DRAWN_MERC_KEY = '_hitler_drawn_merc';
 
   return Action.create<MERCGame>('hitlerBonusHire')
     .prompt("Hitler's Ability: Hire a MERC")
@@ -1348,29 +1258,11 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
       'game not finished': () => !game.isFinished(),
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'MERC drawn for hire',
-      choices: () => {
-        // Draw 1 MERC if not already drawn
-        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-          const merc = game.drawMerc();
-          if (merc) {
-            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-          }
-        }
-
-        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-        if (!mercId) {
-          return ['No MERCs available'];
-        }
-
-        const merc = game.getElementById(mercId);
-        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-          return ['No MERCs available'];
-        }
-
-        return [capitalize(merc.combatantName)];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
@@ -1409,19 +1301,7 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc;
-
-      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'No MERC available' };
-      }
-
-      const merc = game.getElementById(mercId);
-      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'MERC not found' };
-      }
+      const merc = args.selectedMerc;
 
       // Find target sector
       const targetSectorChoice = args.targetSector;
@@ -1442,7 +1322,6 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       if (!targetSector) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         return { success: false, error: 'No valid sector found' };
       }
 
@@ -1467,7 +1346,6 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Primary full - adding to secondary squad`);
       } else {
         merc.putInto(game.mercDiscard);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Hitler: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
       }
@@ -1485,7 +1363,6 @@ export function createHitlerBonusHireAction(game: MERCGame): ActionDefinition {
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
 
       game.message(`Hitler hired ${merc.combatantName}`);
       return { success: true, message: `Hired ${merc.combatantName}` };
@@ -1553,7 +1430,6 @@ export function createHitlerPickInitiativeTargetAction(game: MERCGame): ActionDe
  * Human players see the drawn MERC, choose equipment type and deployment sector.
  */
 export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
-  const DRAWN_MERC_KEY = '_gadafi_drawn_merc';
 
   return Action.create<MERCGame>('gadafiBonusHire')
     .prompt("Gaddafi's Ability: Hire a MERC")
@@ -1562,29 +1438,11 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
       'is Gaddafi': () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi',
       'is human player': () => !game.dictatorPlayer?.isBot,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'MERC drawn for hire',
-      choices: () => {
-        // Draw 1 MERC if not already drawn
-        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-          const merc = game.drawMerc();
-          if (merc) {
-            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-          }
-        }
-
-        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-        if (!mercId) {
-          return ['No MERCs available'];
-        }
-
-        const merc = game.getElementById(mercId);
-        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-          return ['No MERCs available'];
-        }
-
-        return [capitalize(merc.combatantName)];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
@@ -1623,19 +1481,7 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc;
-
-      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'No MERC available' };
-      }
-
-      const merc = game.getElementById(mercId);
-      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'MERC not found' };
-      }
+      const merc = args.selectedMerc;
 
       // Find target sector
       const targetSectorChoice = args.targetSector;
@@ -1656,7 +1502,6 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       if (!targetSector) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         return { success: false, error: 'No valid sector found' };
       }
 
@@ -1681,7 +1526,6 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Primary full - adding to secondary squad`);
       } else {
         merc.putInto(game.mercDiscard);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Gaddafi: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
       }
@@ -1699,7 +1543,6 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
 
       game.message(`Gaddafi hired ${merc.combatantName}`);
       return { success: true, message: `Hired ${merc.combatantName}` };
@@ -1718,7 +1561,6 @@ export function createGadafiBonusHireAction(game: MERCGame): ActionDefinition {
  * The secondary hire (when base is revealed) is auto-placed in execute.
  */
 export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
-  const DRAWN_MERC_KEY = '_stalin_drawn_merc_primary';
 
   return Action.create<MERCGame>('stalinBonusHire')
     .prompt("Stalin's Ability: Hire MERCs")
@@ -1727,29 +1569,11 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       'is Stalin': () => game.dictatorPlayer?.dictator?.combatantId === 'stalin',
       'is human player': () => !game.dictatorPlayer?.isBot,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'MERC drawn for primary squad',
-      choices: () => {
-        // Draw 1 MERC if not already drawn
-        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-          const merc = game.drawMerc();
-          if (merc) {
-            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-          }
-        }
-
-        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-        if (!mercId) {
-          return ['No MERCs available'];
-        }
-
-        const merc = game.getElementById(mercId);
-        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-          return ['No MERCs available'];
-        }
-
-        return [capitalize(merc.combatantName)];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
@@ -1786,19 +1610,7 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc;
-
-      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'No MERC available' };
-      }
-
-      const merc = game.getElementById(mercId);
-      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'MERC not found' };
-      }
+      const merc = args.selectedMerc;
 
       // Find target sector
       const targetSectorChoice = args.targetSector;
@@ -1819,7 +1631,6 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       if (!targetSector) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         return { success: false, error: 'No valid sector found' };
       }
 
@@ -1844,7 +1655,6 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Primary full - adding to secondary squad`);
       } else {
         merc.putInto(game.mercDiscard);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Stalin: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
       }
@@ -1862,7 +1672,6 @@ export function createStalinBonusHireAction(game: MERCGame): ActionDefinition {
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
 
       game.message(`Stalin hired ${merc.combatantName} to primary squad`);
 
@@ -2178,7 +1987,6 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
  * Follows the Gaddafi hire pattern exactly.
  */
 export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
-  const DRAWN_MERC_KEY = '_noriega_drawn_merc';
 
   return Action.create<MERCGame>('noriegaBonusHire')
     .prompt("Noriega: Hire a MERC (controlling fewer sectors)")
@@ -2196,29 +2004,11 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
       },
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'MERC drawn for hire',
-      choices: () => {
-        // Draw 1 MERC if not already drawn
-        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-          const merc = game.drawMerc();
-          if (merc) {
-            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-          }
-        }
-
-        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-        if (!mercId) {
-          return ['No MERCs available'];
-        }
-
-        const merc = game.getElementById(mercId);
-        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-          return ['No MERCs available'];
-        }
-
-        return [capitalize(merc.combatantName)];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
@@ -2255,19 +2045,7 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc;
-
-      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'No MERC available' };
-      }
-
-      const merc = game.getElementById(mercId);
-      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        return { success: false, error: 'MERC not found' };
-      }
+      const merc = args.selectedMerc;
 
       const targetSectorChoice = args.targetSector;
       const sectorName = targetSectorChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
@@ -2287,7 +2065,6 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
       }
 
       if (!targetSector) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         return { success: false, error: 'No valid sector found' };
       }
 
@@ -2311,7 +2088,6 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
         game.message(`Primary full - adding to secondary squad`);
       } else {
         merc.putInto(game.mercDiscard);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game.message('Noriega: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
       }
@@ -2329,7 +2105,6 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
 
       game.message(`Noriega hired ${merc.combatantName} (controlling fewer sectors than rebels)`);
       return { success: true, message: `Hired ${merc.combatantName}` };
@@ -2346,7 +2121,6 @@ export function createNoriegaBonusHireAction(game: MERCGame): ActionDefinition {
  * Follows the Gaddafi/Pol Pot hire pattern.
  */
 export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition {
-  const DRAWN_MERC_KEY = '_pinochet_drawn_merc';
 
   return Action.create<MERCGame>('pinochetBonusHire')
     .prompt("Pinochet: Hire a MERC (sector loss)")
@@ -2358,29 +2132,11 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       'has pending hires': () => game._pinochetPendingHires > 0,
       'has squad room': () => !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull,
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'MERC drawn for hire (sector loss)',
-      choices: () => {
-        // Draw 1 MERC if not already drawn
-        if (!getGlobalCachedValue<number>(game, DRAWN_MERC_KEY)) {
-          const merc = game.drawMerc();
-          if (merc) {
-            setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-          }
-        }
-
-        const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-        if (!mercId) {
-          return ['No MERCs available'];
-        }
-
-        const merc = game.getElementById(mercId);
-        if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-          return ['No MERCs available'];
-        }
-
-        return [capitalize(merc.combatantName)];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => capitalize(merc.combatantName),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
@@ -2419,22 +2175,7 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       },
     })
     .execute((args) => {
-      const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-      const selectedMercName = args.selectedMerc;
-
-      if (!mercId || !selectedMercName || selectedMercName === 'No MERCs available') {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        // Still decrement pending hires even if no MERC available
-        game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
-        return { success: false, error: 'No MERC available' };
-      }
-
-      const merc = game.getElementById(mercId);
-      if (!merc || !isCombatantModel(merc) || !merc.isMerc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
-        return { success: false, error: 'MERC not found' };
-      }
+      const merc = args.selectedMerc;
 
       // Find target sector
       const targetSectorChoice = args.targetSector;
@@ -2455,7 +2196,6 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       }
 
       if (!targetSector) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
         return { success: false, error: 'No valid sector found' };
       }
@@ -2481,7 +2221,6 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
         game.message(`Primary full - adding to secondary squad`);
       } else {
         merc.putInto(game.mercDiscard);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);
         game.message('Pinochet: All squads full, cannot hire');
         return { success: false, error: 'All squads full' };
@@ -2500,7 +2239,6 @@ export function createPinochetBonusHireAction(game: MERCGame): ActionDefinition 
       const equipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
       equipNewHire(game, merc, equipType);
 
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
 
       // Decrement pending hires counter
       game._pinochetPendingHires = Math.max(0, game._pinochetPendingHires - 1);

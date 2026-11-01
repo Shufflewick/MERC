@@ -582,6 +582,7 @@ const isInActionFlow = computed(() => {
   const sectorRelevantActions = [
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'reEquipContinue', // Chained from reEquip
+    'armsDealerEquip', // Chained from armsDealer
     'dropEquipment', 'takeFromStash', 'move', 'squidheadDisarm', 'squidheadArm',
     'mortar', 'coordinatedAttack',
     'hireMerc', // Mid-game hire (actingMerc/fireFirst steps show here, then HiringPhase takes over)
