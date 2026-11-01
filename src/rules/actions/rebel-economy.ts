@@ -296,6 +296,8 @@ export function createRehireMercFromOfferAction(game: MERCGame): ActionDefinitio
     .condition({
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
       'team is wiped out': (ctx) => game.isRebelPlayer(ctx.player) && ctx.player.teamSize === 0,
+      // An offer from a paid hire (team wiped before the pick) is that hire's to finish
+      'no paid hire pending': (ctx) => game.isRebelPlayer(ctx.player) && ctx.player.hireSquadRef == null,
       'MERCs on offer': (ctx) => game.isRebelPlayer(ctx.player) && ctx.player.mercOffer.count(CombatantModel) > 0,
     })
     .chooseFrom('selectedMerc', {

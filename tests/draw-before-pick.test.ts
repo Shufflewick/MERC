@@ -321,6 +321,23 @@ describe('a rebel hire picks from the MERCs drawn before the pick (#80)', () => 
     for (const other of rest) expect(game.mercDiscard.all(CombatantModel)).toContain(other);
   });
 
+  it('a rebel wiped out while a paid hire is pending finishes that hire, not a free rehire', () => {
+    const game = startGame('castro', 'hire-pending-team-wiped');
+    const { rebel, merc } = putRebelMercInCity(game);
+    game.discardMercOffer(rebel.mercOffer);
+    const executor = game.getActionExecutor();
+    executor.executeAction(game.getAction('hireMerc')!, rebel, { actingMerc: merc, fireFirst: 'none' });
+    merc.putInto(game.mercDiscard);
+
+    expect(executor.isActionAvailable(game.getAction('rehireMercFromOffer')!, rebel)).toBe(false);
+    expect(executor.isActionAvailable(game.getAction('hireMercFromOffer')!, rebel)).toBe(true);
+    const [hired] = rebel.mercOffer.all(CombatantModel);
+    executor.executeAction(game.getAction('hireMercFromOffer')!, rebel, { selectedMercs: [name(hired)], equipmentType: 'Weapon' });
+
+    expect(rebel.team).toEqual([hired]);
+    expect(rebel.hireSquadRef).toBeUndefined();
+  });
+
   it('a hire whose MERCs on offer are all incompatible can finish by hiring none', () => {
     const runner = startRunner('castro', 'hire-holds-the-turn');
     const game = runner.game;
