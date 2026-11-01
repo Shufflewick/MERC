@@ -9,7 +9,7 @@
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
-import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatAttacker, type Combatant } from '../combat.js';
+import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatRebel, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { advanceArtilleryAllocation, artilleryHitsAllocatableBy } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
@@ -285,7 +285,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         return { success: false, error: 'Combat sector not found' };
       }
 
-      const player = resolveActiveCombatAttacker(game);
+      const player = resolveActiveCombatRebel(game);
       if (!player) {
         return {
           success: false,
@@ -402,7 +402,7 @@ export function createCombatAssignAttackDogAction(game: MERCGame): ActionDefinit
         return { success: false, error: 'Combat sector not found' };
       }
 
-      const player = resolveActiveCombatAttacker(game);
+      const player = resolveActiveCombatRebel(game);
       if (!player) {
         return {
           success: false,
@@ -462,6 +462,13 @@ function isCombatDecisionPlayer(game: MERCGame, player: unknown, combatantId: st
 // MERC-dice: Combat Hit Allocation Actions
 // =============================================================================
 
+type PendingHitAllocation = NonNullable<NonNullable<MERCGame['activeCombat']>['pendingHitAllocation']>;
+
+/** Hits beyond what the targets can absorb are wasted, so the prompt cannot demand them. */
+function allocatableHits(pending: PendingHitAllocation): number {
+  return Math.min(pending.hits, pending.validTargets.reduce((sum, t) => sum + t.armor + t.currentHealth, 0));
+}
+
 /**
  * Allocate hits to targets during combat.
  * Called when player confirms their hit allocation in the CombatPanel UI.
@@ -494,17 +501,16 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       multiSelect: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return undefined;
-        // Allow selecting up to `hits` targets (can hit same target multiple times)
-        return { min: pending.hits, max: pending.hits };
+        const allocatable = allocatableHits(pending);
+        return { min: allocatable, max: allocatable };
       },
       choices: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return [];
-        // Build choices - each target can be selected multiple times up to their health
+        // One choice per hit a target can take: its armour, then its health.
         const choices: string[] = [];
         for (const target of pending.validTargets) {
-          // Allow targeting up to their current health times
-          for (let i = 0; i < target.currentHealth; i++) {
+          for (let i = 0; i < target.armor + target.currentHealth; i++) {
             choices.push(`${target.id}::${i}`);
           }
         }
@@ -543,33 +549,14 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 
-      let totalAllocated = Array.from(hitsByTarget.values()).reduce((sum, n) => sum + n, 0);
-      if (totalAllocated !== pending.hits) {
-        if (totalAllocated > pending.hits) {
-          // Guard against UI over-submitting selections: trim to expected hit count
-          const trimmed = new Map<string, number>();
-          let remaining = pending.hits;
-          for (const choice of allocChoices) {
-            if (remaining <= 0) break;
-            const choiceStr = typeof choice === 'string' ? choice :
-              (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as { value: unknown }).value) : String(choice);
-            const targetId = choiceStr.split('::')[0];
-            trimmed.set(targetId, (trimmed.get(targetId) ?? 0) + 1);
-            remaining -= 1;
-          }
-          hitsByTarget.clear();
-          for (const [targetId, count] of trimmed.entries()) {
-            hitsByTarget.set(targetId, count);
-          }
-          totalAllocated = pending.hits;
-          game.message(`${pending.attackerName} allocation trimmed: expected ${pending.hits} hit(s), got ${totalAllocated}`);
-        } else {
-          game.message(`${pending.attackerName} allocation rejected: expected ${pending.hits} hit(s), got ${totalAllocated}`);
-          return {
-            success: false,
-            error: `Allocate exactly ${pending.hits} hit(s) (allocated ${totalAllocated})`,
-          };
-        }
+      const totalAllocated = Array.from(hitsByTarget.values()).reduce((sum, n) => sum + n, 0);
+      const expectedHits = allocatableHits(pending);
+      if (totalAllocated !== expectedHits) {
+        game.message(`${pending.attackerName} allocation rejected: expected ${expectedHits} hit(s), got ${totalAllocated}`);
+        return {
+          success: false,
+          error: `Allocate exactly ${expectedHits} hit(s) (allocated ${totalAllocated})`,
+        };
       }
 
       // Store the allocation for combat.ts to use
@@ -604,7 +591,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return { success: false, error: 'Combat sector not found' };
       }
 
-      const player = resolveActiveCombatAttacker(game);
+      const player = resolveActiveCombatRebel(game);
       if (!player) {
         return {
           success: false,
@@ -761,13 +748,16 @@ export function createAdelheidToggleConversionAction(game: MERCGame): ActionDefi
  *
  * Two actions, because the ability is optional: pick a target, or decline.
  */
-function resumeAfterGolemChoice(game: MERCGame, message: string) {
+function resolveGolemChoice(game: MERCGame, targetId: string, message: string) {
+  const pending = game.activeCombat?.pendingGolemAttack;
+  if (!pending) return { success: false as const, error: 'No Golem strike pending' };
+
   const sector = game.getSector(game.activeCombat!.sectorId);
   if (!sector) {
     return { success: false as const, error: 'Combat sector not found' };
   }
 
-  const player = resolveActiveCombatAttacker(game);
+  const player = resolveActiveCombatRebel(game);
   if (!player) {
     return {
       success: false as const,
@@ -775,10 +765,16 @@ function resumeAfterGolemChoice(game: MERCGame, message: string) {
     };
   }
 
+  if (!game.activeCombat!.selectedTargets) {
+    game.activeCombat!.selectedTargets = new Map();
+  }
+  game.activeCombat!.selectedTargets.set(`golem:${pending.golemId}`, [targetId]);
+  game.activeCombat!.pendingGolemAttack = undefined;
+
   const outcome = executeCombat(game, sector, player);
   return {
     success: true as const,
-    message,
+    message: `${pending.golemName} ${message}`,
     data: { combatPending: outcome.combatPending },
   };
 }
@@ -797,19 +793,7 @@ export function createGolemPreCombatAttackAction(game: MERCGame): ActionDefiniti
         return pending.validTargets.map(t => `${t.name}::${t.id}`);
       },
     })
-    .execute((args) => {
-      const pending = game.activeCombat?.pendingGolemAttack;
-      if (!pending) return { success: false, error: 'No Golem strike pending' };
-
-      const targetId = (args.target).split('::')[1];
-      if (!game.activeCombat!.selectedTargets) {
-        game.activeCombat!.selectedTargets = new Map();
-      }
-      game.activeCombat!.selectedTargets.set(`golem:${pending.golemId}`, [targetId]);
-      game.activeCombat!.pendingGolemAttack = undefined;
-
-      return resumeAfterGolemChoice(game, `${pending.golemName} strikes`);
-    });
+    .execute((args) => resolveGolemChoice(game, (args.target).split('::')[1], 'strikes'));
 }
 
 export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition {
@@ -818,19 +802,8 @@ export function createGolemSkipPreCombatAction(game: MERCGame): ActionDefinition
     .condition({
       'has pending Golem strike': () => game.activeCombat?.pendingGolemAttack != null,
     })
-    .execute(() => {
-      const pending = game.activeCombat?.pendingGolemAttack;
-      if (!pending) return { success: false, error: 'No Golem strike pending' };
-
-      if (!game.activeCombat!.selectedTargets) {
-        game.activeCombat!.selectedTargets = new Map();
-      }
-      // An empty target id records "declined".
-      game.activeCombat!.selectedTargets.set(`golem:${pending.golemId}`, ['']);
-      game.activeCombat!.pendingGolemAttack = undefined;
-
-      return resumeAfterGolemChoice(game, `${pending.golemName} holds fire`);
-    });
+    // An empty target id records "declined".
+    .execute(() => resolveGolemChoice(game, '', 'holds fire'));
 }
 
 /**
@@ -888,7 +861,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
         return { success: false, error: 'Combat sector not found' };
       }
 
-      const player = resolveActiveCombatAttacker(game);
+      const player = resolveActiveCombatRebel(game);
       if (!player) {
         return {
           success: false,

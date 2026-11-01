@@ -474,7 +474,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Tracks active combat that's paused for player decision (retreat/continue)
   activeCombat: {
     sectorId: string;
-    attackingPlayerId: string;
+    attackingPlayerId: string; // The rebel's seat, even when the dictator started the combat
     attackingPlayerIsRebel?: boolean; // True if rebel initiated combat, false if dictator
     round: number;
     rebelCombatants: Combatant[];
@@ -520,6 +520,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         isMerc: boolean;
         currentHealth: number;
         maxHealth: number;
+        armor: number; // Armour that soaks this attacker's hits before health; 0 against armour-piercing
       }>;
       wolverineSixes: number; // Count of 6s for Wolverine's ability
       canReroll: boolean; // Basic's ability available

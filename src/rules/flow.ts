@@ -16,7 +16,7 @@ import { doesntCountTowardLimit } from './merc-abilities.js';
 import { getDay1Summary, drawTacticsHand } from './day-one.js';
 import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect, requireArtilleryAllocator } from './tactics-effects.js';
-import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatAttacker } from './combat.js';
+import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatRebel } from './combat.js';
 import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
 import { getGlobalCachedValue, setGlobalCachedValue, equipNewHire } from './actions/helpers.js';
@@ -392,7 +392,7 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
             const remainingHumans = getCombatDecisionParticipants(game);
             if (continueChosen || remainingHumans.length === 0) {
               const sector = game.getSector(game.activeCombat.sectorId);
-              const attackingPlayer = resolveActiveCombatAttacker(game);
+              const attackingPlayer = resolveActiveCombatRebel(game);
               if (sector && attackingPlayer) {
                 executeCombat(game, sector, attackingPlayer);
               }

@@ -1273,26 +1273,15 @@ const STALEMATE_ROUNDS = 10;
 const ABSOLUTE_ROUND_LIMIT = 500;
 
 /**
- * The player recorded as the attacker on the active combat.
+ * The rebel player fighting the active combat, whichever side started it.
  *
- * Combat stores the attacker's seat and whether that seat is a rebel, so a
- * dictator-initiated combat resolves to the dictator rather than being guessed
- * at. Returns null when there is no active combat or the seat does not match a
- * player, so callers can report a real error instead of continuing as someone
+ * Returns null when there is no active combat or the seat does not match a
+ * rebel, so callers can report a real error instead of continuing as someone
  * else.
  */
-export function resolveActiveCombatAttacker(
-  game: MERCGame
-): RebelPlayer | DictatorPlayer | null {
+export function resolveActiveCombatRebel(game: MERCGame): RebelPlayer | null {
   const combat = game.activeCombat;
   if (!combat) return null;
-
-  if (combat.attackingPlayerIsRebel === false) {
-    return `${game.dictatorPlayer.seat}` === combat.attackingPlayerId
-      ? game.dictatorPlayer
-      : null;
-  }
-
   return game.rebelPlayers.find(p => `${p.seat}` === combat.attackingPlayerId) ?? null;
 }
 
@@ -2122,6 +2111,7 @@ function resolveMilitiaBatch(
           isMerc: !t.isMilitia && !t.isDictator,
           currentHealth: t.health,
           maxHealth: t.maxHealth,
+          armor: t.armor,
         })),
         wolverineSixes: 0,
         canReroll: false,
@@ -2795,6 +2785,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
           isMerc: !t.isMilitia && !t.isDictator,
           currentHealth: t.health,
           maxHealth: t.maxHealth,
+          armor: attacker.armorPiercing ? 0 : t.armor,
         })),
         wolverineSixes: wolverineBonus6s,
         canReroll: !!canUseReroll,
