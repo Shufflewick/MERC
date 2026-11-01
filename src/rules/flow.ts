@@ -172,7 +172,7 @@ function getGolemDecisionPlayer(game: MERCGame, fallback: Player): Player {
   return game.rebelPlayers.find(r => r.team.some(m => m.id === merc.id)) ?? fallback;
 }
 
-// Every decision step here follows dice everyone saw, so each starts a new undo run with turnScope 'restart'.
+// Every decision step here sits inside a combat whose dice everyone sees, so each starts a new undo run with turnScope 'restart'.
 function combatResolutionFlow(game: MERCGame, prefix: string) {
   return sequence(
     // 1. Before-attack healing - "On your initiative, before your attack, discard dice to heal"
@@ -1192,10 +1192,38 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Human dictator ability choice (skipped for Bot)
               actionStep({
                 name: 'dictator-ability',
-                // The MERC actions behind this step can hold combat, mortar dice or a Hagness draw, so undo starts afresh.
+                // Combat dice and the irreversible offer above sit behind this step, so undo starts afresh.
                 turnScope: 'restart',
                 actions: ['castroBonusHire', 'kimBonusMilitia', 'maoBonusMilitia', 'mussoliniBonusMilitia', 'polpotBonusMilitia', 'gadafiBonusHire', 'stalinBonusHire', 'hitlerBonusHire', 'noriegaConvertMilitia'],
                 skipIf: () => game.isFinished() || game.dictatorPlayer?.isBot === true,
+              }),
+
+              // Mao militia distribution loop (human only, subsequent placements after first)
+              loop({
+                name: 'mao-militia-distribution',
+                while: () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'mao-place-militia',
+                  // Placing militia hides and rolls nothing (combat is only queued), so undo reaches back over the run.
+                  turnScope: 'continue',
+                  actions: ['maoBonusMilitia'],
+                  skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
+                }),
+              }),
+
+              // Mussolini spread loop (human only - spread militia from source to adjacent)
+              loop({
+                name: 'mussolini-spread',
+                while: () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0 && !game.isFinished(),
+                maxIterations: 50,
+                do: actionStep({
+                  name: 'mussolini-spread-militia',
+                  // Spreading militia hides and rolls nothing (combat is only queued), so undo reaches back over the run.
+                  turnScope: 'continue',
+                  actions: ['mussoliniSpreadMilitia'],
+                  skipIf: () => game.isFinished() || game.pendingMussoliniSpread == null || game.pendingMussoliniSpread.remaining <= 0,
+                }),
               }),
 
               // Hitler initiative target pick (human only, after hire)
@@ -1232,34 +1260,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 turnScope: 'restart',
                 actions: ['noriegaBonusHire'],
                 skipIf: () => !noriegaHireDue(),
-              }),
-
-              // Mao militia distribution loop (human only, subsequent placements after first)
-              loop({
-                name: 'mao-militia-distribution',
-                while: () => game.pendingMaoMilitia != null && game.pendingMaoMilitia.remaining > 0 && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'mao-place-militia',
-                  // Undo cannot cross the irreversible Noriega offer above, so the undoable run starts here.
-                  turnScope: 'restart',
-                  actions: ['maoBonusMilitia'],
-                  skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
-                }),
-              }),
-
-              // Mussolini spread loop (human only - spread militia from source to adjacent)
-              loop({
-                name: 'mussolini-spread',
-                while: () => game.pendingMussoliniSpread != null && game.pendingMussoliniSpread.remaining > 0 && !game.isFinished(),
-                maxIterations: 50,
-                do: actionStep({
-                  name: 'mussolini-spread-militia',
-                  // Undo cannot cross the irreversible Noriega offer above, so the undoable run starts here.
-                  turnScope: 'restart',
-                  actions: ['mussoliniSpreadMilitia'],
-                  skipIf: () => game.isFinished() || game.pendingMussoliniSpread == null || game.pendingMussoliniSpread.remaining <= 0,
-                }),
               }),
 
               // MERC-combat-flow: Process any pending combat triggered by dictator abilities

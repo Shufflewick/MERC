@@ -120,35 +120,52 @@ describe('undo across hidden draws and dice', () => {
   });
 });
 
-describe('Noriega militia undo', () => {
-  it('undoes the converted militia placement back to the conversion, which hides and rolls nothing', async () => {
-    const DICTATOR = 2;
-    const session = createHeadlessSession(gameDefinition, {
-      playerCount: 2,
-      seed: 'i109-noriega-a',
-    });
-    await session.start();
-    let state = 1;
-    const pick = (n: number) => { state = (state * 1103515245 + 12345) & 0x7fffffff; return state % n; };
-    let lastSeat: number | undefined;
-    for (;;) {
-      const game = session.readGame();
-      const current = getCurrentAction(game.getFlowState());
-      expect(current, 'the game stopped before Noriega placed converted militia').not.toBeNull();
-      if (current!.available.includes('noriegaPlaceMilitia') && lastSeat === DICTATOR) break;
-      const moves = enumerateLegalMoves(game, current!.currentPlayer, { maxPerAction: 3 });
-      const move = current!.available.includes('selectDictator')
-        ? { action: 'selectDictator', args: { dictatorChoice: 'Noriega' } }
-        : moves[pick(moves.length)];
-      const wire = buildActionArgs(move.action, move.args, game, current!.currentPlayer, { format: 'wire' });
-      const result = await session.send(current!.currentPlayer,
-        { type: 'action', actionName: move.action, player: current!.currentPlayer, args: wire });
-      expect(result.success, result.error).toBe(true);
-      lastSeat = current!.currentPlayer;
-    }
+/** A two-seat table in seeded random play, with `dictator` chosen, until the dictator is offered `offers` straight after taking `after`. */
+async function dictatorReprompted(dictator: string, seed: string, after: string, offers: string) {
+  const DICTATOR = 2;
+  const session = createHeadlessSession(gameDefinition, { playerCount: 2, seed });
+  await session.start();
+  let state = 1;
+  const pick = (n: number) => { state = (state * 1103515245 + 12345) & 0x7fffffff; return state % n; };
+  let last: string | undefined;
+  for (;;) {
+    const game = session.readGame();
+    const current = getCurrentAction(game.getFlowState());
+    expect(current, `the game stopped before ${dictator} was offered ${offers} after ${after}`).not.toBeNull();
+    if (current!.available.includes(offers) && last === after) break;
+    const moves = enumerateLegalMoves(game, current!.currentPlayer, { maxPerAction: 3 });
+    const move = current!.available.includes('selectDictator')
+      ? { action: 'selectDictator', args: { dictatorChoice: dictator } }
+      : moves[pick(moves.length)];
+    const wire = buildActionArgs(move.action, move.args, game, current!.currentPlayer, { format: 'wire' });
+    const result = await session.send(current!.currentPlayer,
+      { type: 'action', actionName: move.action, player: current!.currentPlayer, args: wire });
+    expect(result.success, result.error).toBe(true);
+    last = move.action;
+  }
+  return { session, undo: () => session.send(DICTATOR, { type: 'undo', player: DICTATOR }) };
+}
 
-    const result = await session.send(DICTATOR, { type: 'undo', player: DICTATOR });
+describe('dictator ability undo', () => {
+  it("undoes Noriega's converted militia placement back to the conversion, which hides and rolls nothing", async () => {
+    const { session, undo } = await dictatorReprompted('Noriega', 'i109-noriega-a', 'noriegaConvertMilitia', 'noriegaPlaceMilitia');
+    const result = await undo();
     expect(result.success, result.error).toBe(true);
     expect(session.readGame().getFlowState()?.availableActions).toContain('noriegaConvertMilitia');
+  });
+
+  it("undoes Mao's militia placement, which hides and rolls nothing", async () => {
+    const { session, undo } = await dictatorReprompted('Mao', 'i109-mao-a', 'maoBonusMilitia', 'maoBonusMilitia');
+    const before = session.readGame().pendingMaoMilitia?.remaining;
+    const result = await undo();
+    expect(result.success, result.error).toBe(true);
+    expect(session.readGame().pendingMaoMilitia?.remaining).toBeGreaterThan(before!);
+  });
+
+  it("undoes Mussolini's militia spread back to his placement, which hides and rolls nothing", async () => {
+    const { session, undo } = await dictatorReprompted('Mussolini', 'i109-mussolini-a', 'mussoliniBonusMilitia', 'mussoliniSpreadMilitia');
+    const result = await undo();
+    expect(result.success, result.error).toBe(true);
+    expect(session.readGame().getFlowState()?.availableActions).toContain('mussoliniBonusMilitia');
   });
 });
