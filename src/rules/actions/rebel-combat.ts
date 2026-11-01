@@ -1402,17 +1402,7 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
         return { success: false, error: 'No pending epinephrine choice' };
       }
 
-      // Find the dying MERC
-      let dyingMerc: CombatantModel | undefined;
-      if (pending.dyingCombatantSide === 'dictator') {
-        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingCombatantId);
-      } else {
-        for (const rebel of game.rebelPlayers) {
-          const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
-          dyingMerc = allMercs.find(m => m.id === pending.dyingCombatantId);
-          if (dyingMerc) break;
-        }
-      }
+      const dyingMerc = game.first(CombatantModel, m => m.id === pending.dyingCombatantId);
 
       if (!dyingMerc) {
         game.activeCombat!.pendingEpinephrine = undefined;
@@ -1450,17 +1440,7 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
         return { success: false, error: 'No pending epinephrine choice' };
       }
 
-      // Find the dying MERC
-      let dyingMerc: CombatantModel | undefined;
-      if (pending.dyingCombatantSide === 'dictator') {
-        dyingMerc = game.dictatorPlayer?.hiredMercs.find(m => m.id === pending.dyingCombatantId);
-      } else {
-        for (const rebel of game.rebelPlayers) {
-          const allMercs = [...rebel.primarySquad.getMercs(), ...rebel.secondarySquad.getMercs()];
-          dyingMerc = allMercs.find(m => m.id === pending.dyingCombatantId);
-          if (dyingMerc) break;
-        }
-      }
+      const dyingMerc = game.first(CombatantModel, m => m.id === pending.dyingCombatantId);
 
       if (!dyingMerc) {
         game.activeCombat!.pendingEpinephrine = undefined;

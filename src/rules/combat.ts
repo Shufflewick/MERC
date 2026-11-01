@@ -15,7 +15,7 @@
  */
 
 import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from './game.js';
-import { Sector, Militia, CombatantModel, Equipment } from './elements.js';
+import { Sector, Militia, CombatantModel, Equipment, Squad } from './elements.js';
 import { CombatConstants, TieBreakers } from './constants.js';
 import {
   sortTargetsByBotPriority,
@@ -1769,9 +1769,7 @@ function selectTargetsWithDogs(
  * Every way a round can stop for a decision, in one shape.
  *
  * `attackerIndex` is where the round resumes: the attacker still waiting to
- * act. Epinephrine leaves it undefined on purpose -- the dying MERC's attacker
- * has already been resolved, so the round resumes from wherever the saved
- * combat state left off rather than replaying him.
+ * act.
  */
 type CombatPause =
   | { kind: 'golemAttack'; attackerIndex: 0 }
@@ -1800,7 +1798,7 @@ type CombatPause =
     }
   // MERC-dice: the roll is made and its payload is already on game.activeCombat
   | { kind: 'hitAllocation'; attackerIndex: number }
-  | { kind: 'epinephrine'; attackerIndex?: undefined };
+  | { kind: 'epinephrine'; attackerIndex: number };
 
 /**
  * MERC-t5k: Result from executing a combat round (may be partial)
@@ -2450,8 +2448,9 @@ function syncMercDamage(target: Combatant): void {
 
 /**
  * Spend the attacker's hits: allocate them, animate and apply the damage, and
- * handle whoever dies of it. Returns a pause when a human owner has an
- * Epinephrine Shot to spend on a dying MERC, otherwise the damage per target.
+ * handle whoever dies of it. A MERC whose human owner has an Epinephrine Shot to
+ * spend is left for resolveEpinephrineDecisions once the attack is over.
+ * Returns the damage per target.
  */
 function applyAttackDamage(
   ctx: RoundContext,
@@ -2460,7 +2459,7 @@ function applyAttackDamage(
   expandedTargets: Combatant[],
   hits: number,
   playerAllocated: boolean
-): { damageDealt: Map<string, number> } | { pause: CombatRoundResult } {
+): Map<string, number> {
   const { game, rebels, dictatorSide, dogState: activeDogState, casualties } = ctx;
   const damageDealt = new Map<string, number>();
 
@@ -2529,34 +2528,23 @@ function applyAttackDamage(
           const merc = target.sourceElement;
           const savers = getEpinephrineSavers(game, merc);
 
-          // A human owner picks which shot is spent; the Bot spends the first available.
+          // A human owner picks which shot is spent once this attack is over
+          // (resolveEpinephrineDecisions); the Bot spends the first available now.
           const owner = target.isDictatorSide
             ? game.dictatorPlayer
             : game.rebelPlayers.find(r =>
                 [...r.primarySquad.getMercs(), ...r.secondarySquad.getMercs()]
                   .some(m => m.id === merc.id));
 
-          if (savers.length > 0 && owner && !owner.isBot && game.activeCombat) {
-            game.activeCombat.pendingEpinephrine = {
-              dyingCombatantId: merc.id,
-              dyingCombatantName: merc.combatantName,
-              dyingCombatantSide: target.isDictatorSide ? 'dictator' : 'rebel',
-              availableSavers: savers.map(m => ({
-                combatantId: m.id,
-                combatantName: m.combatantName,
-              })),
-            };
-            // Don't discard equipment yet - will be done after player choice
-            return { pause: pauseRound(ctx, { kind: 'epinephrine' }) };
-          }
-
-          const preferred = savers.find(m => m.id === merc.id) ?? savers[0];
-          if (preferred && applyEpinephrineSave(game, merc, preferred)) {
-            target.health = 1;
-            // Remove from casualties since they survived
-            casualties.pop();
-          } else {
-            handleMercDeath(game, merc, `${merc.combatantName} has been killed in combat!`);
+          if (savers.length === 0 || !owner || owner.isBot) {
+            const preferred = savers.find(m => m.id === merc.id) ?? savers[0];
+            if (preferred && applyEpinephrineSave(game, merc, preferred)) {
+              target.health = 1;
+              // Remove from casualties since they survived
+              casualties.pop();
+            } else {
+              handleMercDeath(game, merc, `${merc.combatantName} has been killed in combat!`);
+            }
           }
         }
 
@@ -2577,7 +2565,7 @@ function applyAttackDamage(
 
   }
 
-  return { damageDealt };
+  return damageDealt;
 }
 
 /** Grenades, mortars and the SMAW are gone once fired. */
@@ -2627,8 +2615,8 @@ function discardSpentEquipment(game: MERCGame, attacker: Combatant): void {
 
 /**
  * One attacker's turn: declare targets, roll, allocate hits, apply damage and
- * spend one-use equipment. Pauses for target selection, hit allocation or an
- * Epinephrine Shot; returns null when the attacker is finished.
+ * spend one-use equipment. Pauses for target selection or hit allocation;
+ * returns null when the attacker is finished.
  */
 function resolveMercAttack(
   ctx: RoundContext,
@@ -2700,15 +2688,14 @@ const { isHumanControlled, hasSelectedTargets } = control;
     const allocatedTargets = playerHitAllocation
       .map(targetId => enemies.find(e => e.id === targetId))
       .filter((t): t is Combatant => t !== undefined);
-    const damage = applyAttackDamage(ctx, attacker, enemies, allocatedTargets, allocatedTargets.length, true);
-    if ('pause' in damage) return damage.pause;
+    const damageDealt = applyAttackDamage(ctx, attacker, enemies, allocatedTargets, allocatedTargets.length, true);
     discardSpentEquipment(game, attacker);
     results.push({
       attacker,
       rolls: [],
       hits: allocatedTargets.length,
       targets,
-      damageDealt: damage.damageDealt,
+      damageDealt,
     });
     return null;
   }
@@ -2833,9 +2820,7 @@ const { isHumanControlled, hasSelectedTargets } = control;
     game.message(`Wolverine adds targets: ${extraTargets.map(t => t.name).join(', ')}`);
   }
 
-  const damage = applyAttackDamage(ctx, attacker, enemies, [...targets, ...extraTargets], hits, false);
-  if ('pause' in damage) return damage.pause;
-  const damageDealt = damage.damageDealt;
+  const damageDealt = applyAttackDamage(ctx, attacker, enemies, [...targets, ...extraTargets], hits, false);
 
   discardSpentEquipment(game, attacker);
 
@@ -2907,6 +2892,43 @@ function resolvePostRound(ctx: RoundContext, allCombatants: Combatant[]): void {
 }
 
 /**
+ * Between attackers: a MERC whose human owner holds an Epinephrine Shot is left
+ * at 0 health in his squad when he dies, until the owner decides. Brings back the
+ * combat copy of one the owner saved, and pauses for the next still waiting.
+ */
+function resolveEpinephrineDecisions(ctx: RoundContext, attackerIndex: number): CombatRoundResult | null {
+  const { game, casualties } = ctx;
+  for (const casualty of [...casualties]) {
+    const merc = casualty.sourceElement;
+    if (!merc?.isMerc || !(merc.parent instanceof Squad)) continue;
+
+    if (!merc.isDead) {
+      casualty.health = merc.health;
+      casualties.splice(casualties.indexOf(casualty), 1);
+      continue;
+    }
+
+    const savers = getEpinephrineSavers(game, merc);
+    if (savers.length === 0) {
+      handleMercDeath(game, merc, `${merc.combatantName} has been killed in combat!`);
+      continue;
+    }
+
+    game.activeCombat!.pendingEpinephrine = {
+      dyingCombatantId: merc.id,
+      dyingCombatantName: merc.combatantName,
+      dyingCombatantSide: casualty.isDictatorSide ? 'dictator' : 'rebel',
+      availableSavers: savers.map(m => ({
+        combatantId: m.id,
+        combatantName: m.combatantName,
+      })),
+    };
+    return pauseRound(ctx, { kind: 'epinephrine', attackerIndex });
+  }
+  return null;
+}
+
+/**
  * Execute a single combat round.
  * MERC-l09: Includes Attack Dog mechanics
  * MERC-t5k: Supports turn-by-turn player target selections
@@ -2969,6 +2991,9 @@ function executeCombatRound(
 
   // MERC-t5k: Loop through combatants starting from specified index
   for (let i = startIndex; i < allCombatants.length; i++) {
+    const epinephrinePause = resolveEpinephrineDecisions(ctx, i);
+    if (epinephrinePause) return epinephrinePause;
+
     const attacker = allCombatants[i];
 
     // Skip dead combatants and attack dogs (dogs don't attack)
@@ -3013,6 +3038,9 @@ function executeCombatRound(
     const attackPause = resolveMercAttack(ctx, attacker, i, enemies, control);
     if (attackPause) return attackPause;
   }
+
+  const epinephrinePause = resolveEpinephrineDecisions(ctx, allCombatants.length);
+  if (epinephrinePause) return epinephrinePause;
 
   resolvePostRound(ctx, allCombatants);
 
