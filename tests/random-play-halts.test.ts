@@ -66,6 +66,22 @@ describe('dictator extra militia (#74)', () => {
     expect(sector.dictatorMilitia).toBe(Sector.MAX_MILITIA_PER_SIDE);
     expect(enumerateLegalMoves(game, seat).some(m => m.action === 'dictatorPlaceExtraMilitia')).toBe(true);
   });
+
+  it('offers every sector holding dictator militia with room, even a single militia, and no empty sector', () => {
+    const runner = startRunner(3, 'extra-militia-targets');
+    const game = runner.game;
+    const seat = playUntilOffered(runner, 'dictatorPlaceExtraMilitia');
+    const [lone, empty] = game.gameMap.getAllSectors().filter(s => s.dictatorMilitia > 1);
+    lone.removeDictatorMilitia(lone.dictatorMilitia - 1);
+    empty.removeDictatorMilitia(empty.dictatorMilitia);
+
+    const targets = enumerateLegalMoves(game, seat)
+      .filter(m => m.action === 'dictatorPlaceExtraMilitia')
+      .map(m => m.args.targetSector);
+
+    expect(targets).toContain(lone.sectorName);
+    expect(targets).not.toContain(empty.sectorName);
+  });
 });
 
 describe('rebel landing with Teresa (#74)', () => {
