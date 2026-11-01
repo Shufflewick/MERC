@@ -342,6 +342,77 @@ describe('resuming combat after the player allocates hits', () => {
     expect(sector.dictatorMilitia).toBe(1);
   });
 
+  it('offers a human Basic the reroll on a roll with no hits, instead of spending it for him (#106)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('reroll-offered-on-miss');
+    sector.addDictatorMilitia(1);
+    dice.show(1);
+
+    // The dictator started this fight by placing the militia.
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    const pending = game.activeCombat?.pendingHitAllocation;
+    expect(pending?.attackerName, 'Basic should pause with the reroll on offer').toBe('Basic');
+    expect(pending!.canReroll).toBe(true);
+    expect(basicRollLines(game)).toEqual(['Basic rolls [1, 1] - 0 hit(s)']);
+
+    // Declining the reroll ends the attack on the miss.
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+    expect(result.success, result.error).toBe(true);
+    expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked again').toBeUndefined();
+    expect(sector.dictatorMilitia).toBe(1);
+  });
+
+  it('does not pause a human MERC without a reroll to allocate a miss among several targets (#106)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('miss-without-reroll');
+    // Swap Basic for a MERC with no reroll; the Uzi lets him declare both the MERC and the militia.
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.putInto(game.mercDeck);
+    const lucid = game.mercDeck.first(CombatantModel, c => c.combatantId === 'lucid')!;
+    lucid.putInto(rebel.primarySquad);
+    lucid.equip(game.first(Equipment, e => e.equipmentId === 'uzi')!);
+    apeironAndMilitia(game, sector);
+    dice.show(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    expect(game.activeCombat?.pendingHitAllocation?.attackerName).not.toBe('Lucid');
+  });
+
+  it('spends a grenade on a missed attack, whether the reroll was offered or not (#106)', () => {
+    for (const isBot of [true, false]) {
+      const { game, rebel, sector, dice } = basicAttacks(`grenade-miss-${isBot}`);
+      rebel.isBot = isBot;
+      const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+      basic.equip(game.first(Equipment, e => e.equipmentId === 'grenade')!);
+      sector.addDictatorMilitia(1);
+      dice.show(1);
+
+      executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+      if (!isBot) {
+        const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+        expect(result.success, result.error).toBe(true);
+      }
+
+      // The card reads "Discard after 1 attack", and a miss is still an attack.
+      expect(basic.accessorySlot, `the grenade is used up (Bot: ${isBot})`).toBeUndefined();
+    }
+  });
+
+  it('still rerolls a Bot Basic\'s missed roll automatically (#106)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('bot-rerolls-miss');
+    rebel.isBot = true;
+    sector.addDictatorMilitia(1);
+    dice.show(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    expect(basicRollLines(game).slice(0, 3)).toEqual([
+      'Basic rolls [1, 1] - 0 hit(s)',
+      'Basic uses reroll ability!',
+      'Basic rerolls [1, 1] - 0 hit(s)',
+    ]);
+  });
+
   it('offers Basic\'s reroll only once per combat (#91)', () => {
     const { game, rebel, sector, dice } = basicAttacks('reroll-once-per-combat');
     const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
