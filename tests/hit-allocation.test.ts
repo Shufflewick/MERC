@@ -246,6 +246,26 @@ describe('resuming combat after the player allocates hits', () => {
     expect(basic.accessorySlot, 'the grenade is used up by the attack').toBeUndefined();
   });
 
+  it('counts a wounding allocated attack as progress, so the stalemate count stays at zero (#83)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('allocate-wound');
+    const apeiron = game.mercDeck.first(CombatantModel, c => c.combatantId === 'apeiron')!;
+    apeiron.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const target = game.activeCombat!.pendingHitAllocation!.validTargets[0];
+    dice.show(1);
+    // Two hits on a 3-health MERC: a wound, no kill, and Apeiron's reply misses.
+    const result = game.performAction('combatAllocateHits', rebel, {
+      allocations: [`${target.id}::0`, `${target.id}::1`],
+    });
+    expect(result.success, result.error).toBe(true);
+
+    expect(apeiron.damage).toBe(2);
+    expect(game.activeCombat?.awaitingRetreatDecisions, 'the round should end at the retreat decision').toBe(true);
+    expect(game.activeCombat?.stalemateRounds).toBe(0);
+  });
+
   it('ends the attack when a reroll leaves nothing to allocate (#83)', () => {
     const { game, rebel, sector, dice } = basicAttacks('reroll-to-nothing');
     sector.addDictatorMilitia(1);
