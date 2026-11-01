@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { createTestGame } from 'boardsmith/testing';
+import { MERCGame } from '../src/rules/game.js';
+import { activeCombatIn } from './helpers/combat-state.js';
 import { allocateHits } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
 
@@ -81,5 +84,32 @@ describe('allocateHits', () => {
     const plan = allocateHits([m1, m2, m3], 3, false, false);
     expect(plan.every(p => p.hits === 1)).toBe(true);
     expect(plan.length).toBe(3);
+  });
+});
+
+describe('combatAllocateHits prompt', () => {
+  it('can be answered when the roll has more hits than the targets have health', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'allocate-overkill',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    const militia = (id: string) => ({ id, name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1 });
+    // A reroll-capable attacker pauses even on overkill: 3 hits, 2 health to take them.
+    game.activeCombat = {
+      ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
+      pendingHitAllocation: {
+        attackerId: 'basic', attackerName: 'Basic', attackerCombatantId: 'basic',
+        diceRolls: [6, 6, 6], hits: 3, hitThreshold: 4,
+        validTargets: [militia('m1'), militia('m2')],
+        wolverineSixes: 0, canReroll: true, hasRerolled: false, rollCount: 1,
+      },
+    };
+
+    // Both militia, one hit each: everything the targets can take.
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'm2::0'] });
+    expect(result.success, result.error).toBe(true);
+    expect(game.activeCombat?.pendingHitAllocation, 'the allocation was refused').toBeUndefined();
   });
 });

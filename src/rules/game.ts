@@ -474,7 +474,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // Tracks active combat that's paused for player decision (retreat/continue)
   activeCombat: {
     sectorId: string;
-    attackingPlayerId: string;
+    attackingPlayerId: string; // The rebel's seat, even when the dictator started the combat
     attackingPlayerIsRebel?: boolean; // True if rebel initiated combat, false if dictator
     round: number;
     rebelCombatants: Combatant[];
