@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import { enableAnimationTestMode, disableAnimationTestMode, getAnimationTrace, clearAnimationTrace } from 'boardsmith/testing';
@@ -41,7 +41,7 @@ function mountBoard(actionController: UseActionControllerReturn) {
 describe('MercBoard assignToSquad flight', () => {
   beforeEach(() => {
     document.body.innerHTML =
-      '<div data-combatant="Haarg"><span class="merc-name">Haarg</span></div>' +
+      '<div class="squad-section" data-squad="Secondary"><div class="combatant-card" data-combatant="Haarg"><span class="merc-name">Haarg</span></div></div>' +
       '<div class="squad-section" data-squad="Primary"></div>';
     enableAnimationTestMode();
   });
@@ -61,7 +61,7 @@ describe('MercBoard assignToSquad flight', () => {
     await flushPromises();
 
     expect(getAnimationTrace()).toContainEqual(
-      expect.objectContaining({ kind: 'action', element: 'Haarg', from: '[data-combatant="Haarg"]' }),
+      expect.objectContaining({ kind: 'action', element: 'Haarg', from: '.squad-section .combatant-card[data-combatant="Haarg"]' }),
     );
   });
 
@@ -81,5 +81,42 @@ describe('MercBoard assignToSquad flight', () => {
     await autoExecute('assignToSquad', args, 1, false);
 
     expect(wrapper.findComponent({ name: 'GameTable' }).props('flyingCombatantName')).toBeNull();
+  });
+});
+
+describe('MercBoard assignToSquad flying card', () => {
+  // The Assign to Squad panel row comes first in the page, as it does while the panel is open.
+  beforeEach(() => {
+    document.body.innerHTML =
+      '<div class="combatant-item" data-combatant="Haarg"><div class="combatant-icon-small"><img src="/mercs/haarg.webp"></div></div>' +
+      '<div class="squad-section" data-squad="Primary">' +
+        '<div class="combatant-card" data-combatant="Haarg">' +
+          '<div class="combatant-icon-small"><img src="/mercs/haarg.webp"></div>' +
+          '<span class="merc-name">Haarg</span>' +
+          '<div class="stats-grid"><div class="stat"><span class="stat-value">3</span></div><div class="stat"><span class="stat-value">4</span></div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="squad-section" data-squad="Secondary"></div>';
+    // jsdom has no layout and returns a plain object here, which the real flight cannot measure.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => new DOMRect());
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  it("flies the squad's card with its name, stats and portrait", async () => {
+    const { controller, autoExecute } = controllerThatRunsHooks();
+    const wrapper = mountBoard(controller);
+    const portrait = document.querySelector('.combatant-card img') as HTMLImageElement;
+    await flushPromises();
+    await autoExecute('assignToSquad', { combatantName: 'Haarg', targetSquad: 'Secondary Squad' }, 1, true);
+    await wrapper.setProps({ gameView: { id: 1, children: [{ id: 2 }] } });
+    await flushPromises();
+
+    expect(document.querySelector('.flying-card-name')?.textContent).toBe('Haarg');
+    expect([...document.querySelectorAll('.flying-stat-value')].slice(0, 2).map((s) => s.textContent)).toEqual(['3', '4']);
+    expect((document.querySelector('.flying-card-icon') as HTMLImageElement).src).toBe(portrait.src);
+    wrapper.unmount();
   });
 });

@@ -12,7 +12,6 @@ import { onMounted, ref, watch } from 'vue';
 import { useActionAnimations, FlyingCardsOverlay } from 'boardsmith/ui';
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import GameTable from './components/GameTable.vue';
-import { assetUrl } from './composables/useAssetUrl';
 import { lastActionWasDragDrop, quickReassignInProgress } from './drag-drop-state';
 import { headerCombatantData, closeHeaderCombatantModal } from './combatant-modal-state';
 
@@ -46,7 +45,8 @@ const actionAnimations = useActionAnimations({
     ({
       action: 'assignToSquad',
       elementSelection: 'combatantName',
-      elementSelector: '[data-combatant="{combatantName}"]',
+      // Scoped to the squad's card: the Assign to Squad panel's rows carry the same attribute.
+      elementSelector: '.squad-section .combatant-card[data-combatant="{combatantName}"]',
       // Use function-based selector because targetSquad values are like "Create Primary Squad" or "Primary Squad at X"
       destinationSelector: (args: Record<string, unknown>) => {
         const targetSquad = args.targetSquad as string;
@@ -219,7 +219,7 @@ watch(() => props.gameView, (v) => { gameViewRef.value = v; });
             <div class="flying-card-icon-wrapper">
               <img
                 v-if="card.cardData.image"
-                :src="assetUrl(card.cardData.image as string)"
+                :src="(card.cardData.image as string)"
                 :alt="(card.cardData.name as string)"
                 class="flying-card-icon"
                 :style="{ borderColor: (card.cardData.iconBorderColor as string) }"
