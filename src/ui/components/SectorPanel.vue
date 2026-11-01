@@ -585,7 +585,7 @@ const isInActionFlow = computed(() => {
     'armsDealerEquip', // Chained from armsDealer
     'dropEquipment', 'takeFromStash', 'move', 'squidheadDisarm', 'squidheadArm',
     'mortar', 'coordinatedAttack',
-    'hireMerc', // Mid-game hire (actingMerc/fireFirst steps show here, then HiringPhase takes over)
+    'hireMerc', // Mid-game hire (actingMerc/fireFirst picks show here; HiringPhase runs hireMercFromOffer)
   ];
 
   // Actions that are explicitly started from this panel - check FIRST before squad check

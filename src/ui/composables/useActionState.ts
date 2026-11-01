@@ -247,18 +247,11 @@ export function useActionState(
   // Simplified: check availableActions OR currentAction (no selection state check)
   const isHiringMercs = computed(() => {
     const currentAction = props.actionController.currentAction.value;
-    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'dictatorHireFirstMerc', 'castroBonusHire', 'gadafiBonusHire', 'stalinBonusHire', 'selectDictator'];
+    const hiringActions = ['hireFirstMerc', 'hireSecondMerc', 'hireThirdMerc', 'hireMercFromOffer', 'dictatorHireFirstMerc', 'castroBonusHire', 'gadafiBonusHire', 'stalinBonusHire', 'selectDictator'];
 
     // Check if any hiring action is available
     const hasHiringAction = props.availableActions.some(a => hiringActions.includes(a));
     if (hasHiringAction) return true;
-
-    // Mid-game hireMerc: show hiring UI only during selectedMercs/equipmentType picks
-    // (actingMerc and fireFirst steps use the normal action panel)
-    if (currentAction === 'hireMerc') {
-      const pickName = props.actionController.currentPick.value?.name;
-      return pickName === 'selectedMercs' || pickName === 'equipmentType';
-    }
 
     // Check if current action is a hiring action
     if (currentAction !== null && hiringActions.includes(currentAction)) {

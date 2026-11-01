@@ -349,8 +349,9 @@ describe('Combat Ability Integration', () => {
       game = testGame.game;
     });
 
-    it('should have combat-ability MERCs in deck', () => {
-      const mercs = game.mercDeck.all(CombatantModel).filter(c => c.isMerc);
+    it('should have combat-ability MERCs in the game', () => {
+      // The rebels' Day 1 hires are already drawn from the deck when the game starts
+      const mercs = game.all(CombatantModel).filter(c => c.isMerc);
 
       // MERCs with combat abilities
       const combatMercs = ['lucid', 'basic', 'sarge', 'tack', 'valkyrie',

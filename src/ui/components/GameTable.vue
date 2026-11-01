@@ -1091,7 +1091,7 @@ const landingSectors = computed(() => {
   }).filter(Boolean);
 });
 
-// ---- Multi-select state for mid-game hireMerc (draw 3, pick 1+) ----
+// ---- Multi-select state for mid-game hireMercFromOffer (pick 0-3 of the drawn MERCs) ----
 const hireMultiSelectValues = ref<unknown[]>([]);
 
 // Is the current hiring pick a multiSelect?

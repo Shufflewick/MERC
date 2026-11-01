@@ -184,6 +184,9 @@ export class MERCPlayer extends Player {
   playerColor?: PlayerColor;
   playerColorHex?: string;  // Hex color from lobby, if set
   areaRef?: string;
+  mercOfferRef?: string;
+  /** The squad a rebel's hire in progress joins (the acting MERC's), until the pick. */
+  hireSquadRef?: string;
 
   // Dictator-specific properties
   dictator?: CombatantModel;
@@ -260,6 +263,16 @@ export class MERCPlayer extends Player {
       throw new Error(`baseSquad: could not find squad "${this.baseSquadRef}" for player ${this.seat}`);
     }
     return squad;
+  }
+
+  /** Rebel-only: the MERCs this rebel drew for a hire, waiting for the pick. */
+  get mercOffer(): Space {
+    const game = this.game as MERCGame;
+    const offer = this.mercOfferRef ? game?.first(Space, s => s.name === this.mercOfferRef) : undefined;
+    if (!offer) {
+      throw new Error(`mercOffer: player ${this.seat} has no MERC offer space; only rebels have one.`);
+    }
+    return offer;
   }
 
   // Rebel-only: player area
@@ -1074,6 +1087,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     player.primarySquadRef = primaryRef;
     player.secondarySquadRef = secondaryRef;
     player.areaRef = areaRef;
+    player.mercOfferRef = `merc-offer-${seat}`;
+    this.create(Space, player.mercOfferRef);
   }
 
   /**
@@ -1335,16 +1350,16 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     return drawn[0];
   }
 
-  /** Draw MERCs into mercOffer, where a hire pick offers them. */
-  offerMercs(count: number): void {
+  /** Draw MERCs into an offer space (the dictator's by default), where a hire pick offers them. */
+  offerMercs(count: number, offer: Space = this.mercOffer): void {
     for (let i = 0; i < count; i++) {
-      this.drawMerc()?.putInto(this.mercOffer);
+      this.drawMerc()?.putInto(offer);
     }
   }
 
   /** Discard the MERCs left on offer once the hire is done. */
-  discardMercOffer(): void {
-    for (const merc of this.mercOffer.all(CombatantModel)) {
+  discardMercOffer(offer: Space = this.mercOffer): void {
+    for (const merc of offer.all(CombatantModel)) {
       merc.putInto(this.mercDiscard);
     }
   }

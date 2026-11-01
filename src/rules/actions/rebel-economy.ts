@@ -8,7 +8,6 @@ import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, MERCPlayer, RebelPlayer } from '../game.js';
 import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
 import { SectorConstants } from '../constants.js';
-import { drawMercsForHiring } from '../day-one.js';
 import { queuePendingCombat } from '../combat.js';
 import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, emitMapMilitiaTrain, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
 import {
@@ -40,27 +39,17 @@ import {
 // Hire MERC Action
 // =============================================================================
 
-// Settings key for drawn MERCs cache (persists across BoardSmith contexts)
-const HIRE_DRAWN_MERCS_KEY = 'hireDrawnMercs';
-
-// Helper to get CombatantModel elements from cached IDs
-function getHireDrawnMercs(game: MERCGame, playerId: string): CombatantModel[] | undefined {
-  const ids = getCachedValue<number[]>(game, HIRE_DRAWN_MERCS_KEY, playerId);
-  if (!ids) return undefined; // No cache - caller should draw
-  if (ids.length === 0) return []; // Cache exists but empty
-  return ids.map(id => game.getElementById(id)).filter((e): e is CombatantModel => isCombatantModel(e));
-}
-
 /**
  * Hire MERCs from the deck
  * Cost: 2 actions
  * Per rules (06-merc-actions.md): Draw 3, choose 0-3 to hire (within team limit)
  * MERC-yi7: Can also fire a MERC during this action
- * MERC-l1q: New MERCs join existing squad
+ * Draws the 3 into the rebel's offer, then chains to hireMercFromOffer for the pick.
  */
 export function createHireMercAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('hireMerc')
     .prompt('Hire')
+    .notUndoable() // Involves randomness (drawing MERCs)
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -105,58 +94,12 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       },
       display: (value: string) => value === 'none' ? 'No, continue hiring' : `Fire ${value}`,
     })
-    // Draw 3 MERCs and let player select which to hire
-    .chooseFrom('selectedMercs', {
-      prompt: 'Select MERCs to hire',
-      multiSelect: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const fireChoice = ctx.args?.fireFirst as string;
-        const willFire = fireChoice && fireChoice !== 'none';
-        const teamLimit = player.getTeamLimit(game);
-        const currentSize = player.teamSize - (willFire ? 1 : 0);
-        const canHire = Math.max(1, teamLimit - currentSize);
-        return { min: 1, max: canHire };
-      },
-      choices: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-
-        // Draw 3 MERCs if not already cached
-        let drawnMercs = getHireDrawnMercs(game, playerId);
-        if (!drawnMercs) {
-          const drawn = drawMercsForHiring(game, 3);
-          setCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId, drawn.map(m => m.id));
-          drawnMercs = drawn;
-        }
-
-        // MERC-s37: Filter out MERCs incompatible with current team
-        const compatibleMercs = drawnMercs.filter(m =>
-          canHireMercWithTeam(m.combatantId, player.team)
-        );
-        return compatibleMercs.map(m => capitalize(m.combatantName));
-      },
-    })
-    // Per rules: new hire draws 1 equipment from any deck (player chooses type)
-    .chooseFrom('equipmentType', {
-      prompt: 'Choose equipment type for new hire',
-      choices: () => ['Weapon', 'Armor', 'Accessory'],
-    })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
       const actingMerc = args.actingMerc;
-      const playerId = `${player.seat}`;
-      const drawnMercs = getHireDrawnMercs(game, playerId) || [];
-      const selectedNames = (args.selectedMercs as unknown as string[]) || [];
       const fireChoice = args.fireFirst;
-      const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
 
-      // Spend action
       if (!useAction(actingMerc, ACTION_COSTS.HIRE_MERC)) {
-        // Discard mercs if action failed
-        for (const merc of drawnMercs) {
-          merc.putInto(game.mercDiscard);
-        }
-        clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
         return { success: false, error: 'Not enough actions' };
       }
 
@@ -221,56 +164,89 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
         }
       }
 
-      // Calculate how many can be hired (team limit)
-      const teamLimit = player.getTeamLimit(game);
-      let currentSize = player.teamSize;
-      const hired: string[] = [];
-
-      // Auto-join: new MERCs join the squad of the acting merc (the one who spent actions to hire)
-      // This ensures new hires join the squad at the hiring sector
-      const preferredSquad = player.getSquadContaining(actingMerc) || player.primarySquad;
-      const otherSquad = preferredSquad === player.primarySquad ? player.secondarySquad : player.primarySquad;
-
-      for (const merc of drawnMercs) {
-        if (selectedNames.includes(capitalize(merc.combatantName)) && currentSize < teamLimit) {
-          // Pick target squad, overflowing to other squad if preferred is full
-          const targetSquad = !preferredSquad.isFull ? preferredSquad
-            : !otherSquad.isFull ? otherSquad
-            : null;
-
-          if (!targetSquad) {
-            // Both squads full — discard this merc
-            merc.putInto(game.mercDiscard);
-            continue;
-          }
-
-          // Merc inherits sectorId from squad via computed getter
-          merc.putInto(targetSquad);
-          if (targetSquad.sectorId) {
-            emitMapCombatantEntries(game, [
-              buildMapCombatantEntry(merc, targetSquad.sectorId),
-            ]);
-          }
-          // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
-          merc.actionsRemaining = 0;
-
-          // Per rules (06-merc-actions.md lines 52-55): Draw 1 equipment from any deck (free)
-          // Uses shared helper for Apeiron/Vrbansk ability handling
-          equipNewHire(game, merc, chosenEquipType);
-
-          hired.push(merc.combatantName);
-          currentSize++;
-        } else {
-          // Discard unhired MERCs
-          merc.putInto(game.mercDiscard);
-        }
-      }
-
-      clearCachedValue(game, HIRE_DRAWN_MERCS_KEY, playerId);
+      game.offerMercs(3, player.mercOffer);
 
       if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
         game.recordRebelActionForBatching(ctx.player);
       }
+
+      // New MERCs join the acting MERC's squad, so they arrive at the hiring sector
+      player.hireSquadRef = (player.getSquadContaining(actingMerc) || player.primarySquad).name;
+      return { success: true, message: 'Drew 3 MERCs for hiring', followUp: { action: 'hireMercFromOffer' } };
+    });
+}
+
+/** The pick after hireMerc: hire any of the MERCs on offer, discard the rest. */
+export function createHireMercFromOfferAction(game: MERCGame): ActionDefinition {
+  return Action.create<MERCGame>('hireMercFromOffer')
+    .prompt('Hire')
+    .notUndoable() // Involves randomness (drawing equipment)
+    .condition({
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      // Not a follow-up arg: a step ended by combat drops the follow-up, and the hire must still finish
+      'hire in progress': (ctx) => game.isRebelPlayer(ctx.player) && ctx.player.hireSquadRef != null &&
+        ctx.player.mercOffer.count(CombatantModel) > 0,
+    })
+    .chooseFrom('selectedMercs', {
+      prompt: 'Select MERCs to hire',
+      // Rules: choose 0-3. Optional too, so a hire with every MERC disabled is still a legal move.
+      optional: 'Hire no one',
+      multiSelect: (ctx: ActionContext) => {
+        const player = asRebelPlayer(ctx.player);
+        return { min: 0, max: player.getTeamLimit(game) - player.teamSize };
+      },
+      choices: (ctx: ActionContext) => asRebelPlayer(ctx.player).mercOffer.all(CombatantModel)
+        .map(m => capitalize(m.combatantName)),
+      // MERC-s37: MERCs incompatible with the current team cannot be hired
+      disabled: (value: string, ctx: ActionContext) => {
+        const player = asRebelPlayer(ctx.player);
+        const merc = player.mercOffer.all(CombatantModel).find(m => capitalize(m.combatantName) === value);
+        return merc && !canHireMercWithTeam(merc.combatantId, player.team) ? 'Will not work with your team' : false;
+      },
+    })
+    // Per rules: new hire draws 1 equipment from any deck (player chooses type)
+    .chooseFrom('equipmentType', {
+      prompt: 'Choose equipment type for new hire',
+      choices: () => ['Weapon', 'Armor', 'Accessory'],
+    })
+    .execute((args, ctx) => {
+      const player = asRebelPlayer(ctx.player);
+      const selectedNames = (args.selectedMercs as unknown as string[]) || [];
+      const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const preferredSquad = player.squads.find(s => s.name === player.hireSquadRef);
+      if (!preferredSquad) {
+        return { success: false, error: 'No hire is in progress. Use Hire to draw MERCs first.' };
+      }
+      const otherSquad = preferredSquad === player.primarySquad ? player.secondarySquad : player.primarySquad;
+      const teamLimit = player.getTeamLimit(game);
+      const hired: string[] = [];
+
+      for (const merc of player.mercOffer.all(CombatantModel)) {
+        if (!selectedNames.includes(capitalize(merc.combatantName)) || player.teamSize >= teamLimit) continue;
+        // Overflow to the other squad if the preferred one is full
+        const targetSquad = !preferredSquad.isFull ? preferredSquad
+          : !otherSquad.isFull ? otherSquad
+          : null;
+        if (!targetSquad) continue;
+
+        // Merc inherits sectorId from squad via computed getter
+        merc.putInto(targetSquad);
+        if (targetSquad.sectorId) {
+          emitMapCombatantEntries(game, [
+            buildMapCombatantEntry(merc, targetSquad.sectorId),
+          ]);
+        }
+        // Per rules (06-merc-actions.md): Newly hired MERCs start with 0 actions
+        merc.actionsRemaining = 0;
+
+        // Per rules (06-merc-actions.md lines 52-55): Draw 1 equipment from any deck (free)
+        // Uses shared helper for Apeiron/Vrbansk ability handling
+        equipNewHire(game, merc, chosenEquipType);
+
+        hired.push(merc.combatantName);
+      }
+      game.discardMercOffer(player.mercOffer);
+      player.hireSquadRef = undefined;
 
       if (hired.length > 0) {
         game.message(`${player.name} hired: ${hired.join(', ')}`);
@@ -281,8 +257,6 @@ export function createHireMercAction(game: MERCGame): ActionDefinition {
       }
     });
 }
-
-const REHIRE_DRAWN_MERCS_KEY = 'rehireDrawnMercs';
 
 /**
  * Rebuild a wiped-out team.
@@ -296,6 +270,7 @@ const REHIRE_DRAWN_MERCS_KEY = 'rehireDrawnMercs';
 export function createRehireMercAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('rehireMerc')
     .prompt('Hire a replacement MERC (free)')
+    .notUndoable() // Involves randomness (drawing MERCs)
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
@@ -307,23 +282,26 @@ export function createRehireMercAction(game: MERCGame): ActionDefinition {
       },
       'MERC deck has cards': () => game.mercDeck.count(CombatantModel) > 0,
     })
+    .execute((_args, ctx) => {
+      game.offerMercs(3, asRebelPlayer(ctx.player).mercOffer);
+      return { success: true, message: 'Drew 3 MERCs for hiring', followUp: { action: 'rehireMercFromOffer' } };
+    });
+}
+
+/** The pick after rehireMerc: take 1 of the MERCs on offer, discard the rest. */
+export function createRehireMercFromOfferAction(game: MERCGame): ActionDefinition {
+  return Action.create<MERCGame>('rehireMercFromOffer')
+    .prompt('Hire a replacement MERC (free)')
+    .notUndoable() // Involves randomness (drawing equipment)
+    .condition({
+      'is rebel player': (ctx) => game.isRebelPlayer(ctx.player),
+      'team is wiped out': (ctx) => game.isRebelPlayer(ctx.player) && ctx.player.teamSize === 0,
+      'MERCs on offer': (ctx) => game.isRebelPlayer(ctx.player) && ctx.player.mercOffer.count(CombatantModel) > 0,
+    })
     .chooseFrom('selectedMerc', {
       prompt: 'Choose your replacement MERC',
-      choices: (ctx: ActionContext) => {
-        const player = asRebelPlayer(ctx.player);
-        const playerId = `${player.seat}`;
-
-        let ids = getCachedValue<number[]>(game, REHIRE_DRAWN_MERCS_KEY, playerId);
-        if (!ids) {
-          const drawn = drawMercsForHiring(game, 3);
-          ids = drawn.map(m => m.id);
-          setCachedValue(game, REHIRE_DRAWN_MERCS_KEY, playerId, ids);
-        }
-        return ids
-          .map(id => game.getElementById(id))
-          .filter((e): e is CombatantModel => isCombatantModel(e))
-          .map(m => capitalize(m.combatantName));
-      },
+      choices: (ctx: ActionContext) => asRebelPlayer(ctx.player).mercOffer.all(CombatantModel)
+        .map(m => capitalize(m.combatantName)),
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose equipment type for new hire',
@@ -331,26 +309,16 @@ export function createRehireMercAction(game: MERCGame): ActionDefinition {
     })
     .execute((args, ctx) => {
       const player = asRebelPlayer(ctx.player);
-      const playerId = `${player.seat}`;
       const chosenName = args.selectedMerc;
       const chosenEquipType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
 
-      const ids = getCachedValue<number[]>(game, REHIRE_DRAWN_MERCS_KEY, playerId) ?? [];
-      const drawnMercs = ids
-        .map(id => game.getElementById(id))
-        .filter((e): e is CombatantModel => isCombatantModel(e));
-      clearCachedValue(game, REHIRE_DRAWN_MERCS_KEY, playerId);
-
-      const hired = drawnMercs.find(m => capitalize(m.combatantName) === chosenName);
-      for (const merc of drawnMercs) {
-        if (merc !== hired) merc.putInto(game.mercDiscard);
-      }
-
+      const hired = player.mercOffer.all(CombatantModel).find(m => capitalize(m.combatantName) === chosenName);
       if (!hired) {
-        return { success: false, error: `${chosenName} was not among the drawn MERCs.` };
+        return { success: false, error: `${chosenName} is not among the MERCs on offer. Choose one of them.` };
       }
 
       hired.putInto(player.primarySquad);
+      game.discardMercOffer(player.mercOffer);
       if (player.primarySquad.sectorId) {
         emitMapCombatantEntries(game, [
           buildMapCombatantEntry(hired, player.primarySquad.sectorId),
