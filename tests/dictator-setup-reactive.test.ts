@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
+import type { ChoiceSelection } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
 import { tacticsDeckOf } from './helpers/dictator.js';
 import { CombatantModel, Equipment, TacticsCard } from '../src/rules/elements.js';
@@ -329,7 +330,8 @@ describe('Reactive Abilities', () => {
     const equipment = `0:${vest.equipmentName} (Armor) at ${game.getSector(merc.sectorId!)!.sectorName}`;
     // The recipient filter reads the item index the equipment pick's onSelect stores, as the pick-by-pick UI does.
     const loot = game.getAction('gaddafiLootEquipment')!;
-    loot.selections.find(s => s.name === 'equipment')!.onSelect!(equipment, {} as never);
+    const pick = loot.selections.find(s => s.name === 'equipment') as ChoiceSelection<string>;
+    pick.onSelect!(equipment, {} as never);
 
     const result = game.performAction('gaddafiLootEquipment', game.dictatorPlayer, { equipment, recipient: merc });
 
