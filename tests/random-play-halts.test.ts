@@ -198,6 +198,22 @@ describe("Hagness's draw, pick and give (#74)", () => {
     expect(ids(game.weaponsDiscard).filter(id => drawn.includes(id))).toHaveLength(3);
   });
 
+  it('a give abandoned when Hagness dies puts the picked card in the discard', () => {
+    const { runner, game, rebel } = rebelWithHagnessOnDayTwo();
+    const hagness = game.first(CombatantModel, m => m.combatantId === 'hagness')!;
+    expect(runner.performAction('hagnessDrawType', rebel.seat, { equipmentType: 'Weapon' }).success).toBe(true);
+    const drawn = drawnIds(game, rebel.seat);
+    const [pick] = enumerateLegalMoves(game, rebel.seat).filter(m => m.action === 'hagnessSelectFromDrawn');
+    expect(runner.performAction('hagnessSelectFromDrawn', rebel.seat, pick.args).success).toBe(true);
+
+    hagness.damage = hagness.maxHealth;
+    handleMercDeath(game, hagness, 'Hagness has been killed in combat!');
+    game.refreshAwaitingActions();
+    playUntilRebelTurnOnDay(runner, rebel.seat, 3);
+
+    expect(ids(game.weaponsDiscard).filter(id => drawn.includes(id))).toHaveLength(3);
+  });
+
   it('a Hagness who dies with a pick pending leaves nothing to finish when she is hired again', () => {
     const { runner, game, rebel, offered } = rebelWithHagnessOnDayTwo();
     const hagness = game.first(CombatantModel, m => m.combatantId === 'hagness')!;
