@@ -14,9 +14,12 @@ const wolverineRoll: PendingHitAllocation = {
   wolverineSixes: 1, canReroll: false, hasRerolled: false, rollCount: 1,
 };
 
+// The 3D dice need WebGL, which jsdom lacks.
+const noDice = { DiceRollDisplay: true };
+
 describe('HitAllocationPanel with Wolverine\'s undeclared targets', () => {
   it('puts only a 6 on an enemy he did not declare (#91)', async () => {
-    const wrapper = mount(HitAllocationPanel, { props: { pendingAllocation: wolverineRoll, isMyTurn: true } });
+    const wrapper = mount(HitAllocationPanel, { props: { pendingAllocation: wolverineRoll, isMyTurn: true }, global: { stubs: noDice } });
     const panel = wrapper.vm as unknown as { addHitToTarget: (id: string) => void };
 
     // The 4 is selected first, but the militia can only take the 6.
@@ -40,7 +43,7 @@ describe('HitAllocationPanel with Wolverine\'s undeclared targets', () => {
         { id: 'ap', name: 'Apeiron', isMerc: true, currentHealth: 3, maxHealth: 3, armor: 0, declared: false },
       ],
     };
-    const wrapper = mount(HitAllocationPanel, { props: { pendingAllocation: wasteful, isMyTurn: true } });
+    const wrapper = mount(HitAllocationPanel, { props: { pendingAllocation: wasteful, isMyTurn: true }, global: { stubs: noDice } });
     const panel = wrapper.vm as unknown as { addHitToTarget: (id: string) => void };
 
     panel.addHitToTarget('m0');

@@ -18,6 +18,8 @@ const allocating = {
 function panel(combatSnapshot: Record<string, unknown>) {
   return mount(CombatPanel, {
     props: { combatSnapshot, isMyTurn: true, availableActions: ['combatContinue', 'combatRetreat'] },
+    // The 3D dice need WebGL, which jsdom lacks.
+    global: { stubs: { HitAllocationPanel: true } },
   });
 }
 
