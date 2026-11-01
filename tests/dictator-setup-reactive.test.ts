@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
+import type { ChoiceSelection } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
 import { tacticsDeckOf } from './helpers/dictator.js';
 import { CombatantModel, Equipment, TacticsCard } from '../src/rules/elements.js';
@@ -24,7 +25,7 @@ import {
  * Create a 2-player GameRunner with Bot dictator set to a specific dictator character.
  * Returns the runner already started (flow is ready but not advanced past first step).
  */
-function createDictatorGame(dictatorId: string, seed: string): { runner: GameRunner<MERCGame>; game: MERCGame } {
+function createDictatorGame(dictatorId: string, seed: string, dictatorIsBot = true): { runner: GameRunner<MERCGame>; game: MERCGame } {
   const runner = new GameRunner<MERCGame>({
     GameClass: MERCGame,
     gameType: 'merc',
@@ -32,11 +33,11 @@ function createDictatorGame(dictatorId: string, seed: string): { runner: GameRun
       playerCount: 2,
       playerNames: ['Rebel1', 'DictatorBot'],
       seed,
-      dictatorIsBot: true,
+      dictatorIsBot,
       dictatorChoice: dictatorId,
       playerConfigs: [
         { color: '#e74c3c', isBot: true },
-        { color: '#95a5a6', role: true, isBot: true, botLevel: 'medium' },
+        { color: '#95a5a6', role: true, isBot: dictatorIsBot, botLevel: 'medium' },
       ],
     } as any,
   });
@@ -296,6 +297,48 @@ describe('Reactive Abilities', () => {
 
     // Should return without error (no damage to spread)
     applyPinochetDamageSpread(game);
+  });
+
+  /** Stage a damaged Kevlar Vest in the Armor discard as Gaddafi loot for an unarmoured dictator MERC. */
+  function stageDamagedVestLoot(game: MERCGame) {
+    const sector = game.gameMap.getAllSectors()[0];
+    const merc = hireDictatorMerc(game, sector.sectorId)!;
+    merc.armorSlot?.putInto(game.armorDiscard);
+    const vest = game.first(Equipment, e => e.equipmentId === 'kevlar-vest')!;
+    vest.putInto(game.armorDiscard);
+    vest.applyArmorDamage(1);
+    vest.damage();
+    game._gaddafiLootableEquipment = [{ equipmentId: vest.id, sectorId: sector.sectorId }];
+    return { merc, vest };
+  }
+
+  it('bot Gaddafi loots damaged armour from the discard as a fresh card', () => {
+    const { game } = createDictatorGame('gadafi', 'gadafi-loot-repair-bot');
+    const { merc, vest } = stageDamagedVestLoot(game);
+
+    processGaddafiLoot(game);
+
+    expect(merc.armorSlot).toBe(vest);
+    expect(vest.isDamaged).toBe(false);
+    expect(vest.armorRemaining).toBe(2);
+  });
+
+  it('human Gaddafi loots damaged armour from the discard as a fresh card', () => {
+    const { game } = createDictatorGame('gadafi', 'gadafi-loot-repair-human', false);
+    const { merc, vest } = stageDamagedVestLoot(game);
+
+    const equipment = `0:${vest.equipmentName} (Armor) at ${game.getSector(merc.sectorId!)!.sectorName}`;
+    // The recipient filter reads the item index the equipment pick's onSelect stores, as the pick-by-pick UI does.
+    const loot = game.getAction('gaddafiLootEquipment')!;
+    const pick = loot.selections.find(s => s.name === 'equipment') as ChoiceSelection<string>;
+    pick.onSelect!(equipment, {} as never);
+
+    const result = game.performAction('gaddafiLootEquipment', game.dictatorPlayer, { equipment, recipient: merc });
+
+    expect(result.error).toBeUndefined();
+    expect(merc.armorSlot).toBe(vest);
+    expect(vest.isDamaged).toBe(false);
+    expect(vest.armorRemaining).toBe(2);
   });
 
   it('Gaddafi loot skips equipment when no MERC has an open slot', () => {
