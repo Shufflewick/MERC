@@ -714,9 +714,7 @@ export function createDictatorPlaceExtraMilitiaAction(game: MERCGame): ActionDef
       }
       amount = Math.min(amount, remaining);
 
-      // Extract sector name (remove militia count suffix)
-      const sectorName = targetChoice.replace(/\s*\(\d+\s*militia\)$/, '').trim();
-      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
+      const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === targetChoice);
 
       if (!targetSector) {
         return { success: false, error: 'Invalid sector' };

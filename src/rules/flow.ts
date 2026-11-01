@@ -21,7 +21,7 @@ import { checkLandMines } from './landmine.js';
 import { getGlobalCachedValue, setGlobalCachedValue, equipNewHire } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
-import { pendingHagnessStep } from './actions/rebel-equipment.js';
+import { pendingHagnessStep, clearHagnessDraws } from './actions/rebel-equipment.js';
 
 /**
  * MERC Game Flow
@@ -462,7 +462,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
   );
 }
 
-/** Check if a rebel has completed Day 1 setup (landed + hired MERCs) */
 /**
  * A rebel's daily turn is over when none of their MERCs has actions left — and,
  * for a rebel whose team was wiped out, once the free replacement hire is no
@@ -477,6 +476,7 @@ function rebelTurnIsOver(game: MERCGame, rebel: RebelPlayer): boolean {
   return !rebel.team.some(m => m.actionsRemaining > 0);
 }
 
+/** Check if a rebel has completed Day 1 setup (landed + hired MERCs) */
 function isDay1Complete(game: MERCGame, player: Player): boolean {
   if (!game.isRebelPlayer(player)) return true;
   const rebel = player as RebelPlayer;
@@ -725,6 +725,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
           // Advance the day
           execute(() => {
             game.advanceDay();
+            clearHagnessDraws(game);
             game.message(`Day ${game.currentDay} begins`);
           }),
 

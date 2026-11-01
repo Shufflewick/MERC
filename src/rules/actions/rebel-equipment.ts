@@ -1138,6 +1138,18 @@ export function pendingHagnessStep(game: MERCGame, player: MERCPlayer): 'hagness
 }
 
 /**
+ * Drop every seat's unfinished Hagness draw. Called as a day begins, when no living Hagness can have one
+ * pending, so only a Hagness who died mid-draw leaves one.
+ * shortcut: a Hagness who dies mid-draw and is hired back by the same seat that same day still finds it; clear on death if that matters.
+ */
+export function clearHagnessDraws(game: MERCGame): void {
+  for (const player of game.players) {
+    clearHagnessDrawnChoicesCache(game, `${player.seat}`);
+    clearHagnessCache(game, `${player.seat}`);
+  }
+}
+
+/**
  * Serialize equipment data for UI display.
  */
 function serializeEquipmentForCard(equipment: Equipment): HagnessEquipmentData {
@@ -1326,9 +1338,9 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
   return Action.create<MERCGame>('hagnessGiveEquipment')
     .prompt('Give equipment to squad member')
     .condition({
+      // No bot batch gate: like the pick, the give finishes the draw that already counted toward the batch
       'Hagness has picked equipment to give': (ctx) =>
         pendingHagnessStep(game, ctx.player as MERCPlayer) === 'hagnessGiveEquipment',
-      'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),
     })
     .chooseFrom('recipient', {
       prompt: 'Give to which squad member?',
@@ -1439,10 +1451,6 @@ export function createHagnessGiveEquipmentAction(game: MERCGame): ActionDefiniti
       clearHagnessCache(game, playerId);
 
       game.message(`Hagness gives ${equipment.equipmentName} to ${recipient.combatantName}`);
-
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
-        game.recordRebelActionForBatching(ctx.player);
-      }
 
       return { success: true, message: `Gave ${equipment.equipmentName} to ${recipient.combatantName}` };
     });

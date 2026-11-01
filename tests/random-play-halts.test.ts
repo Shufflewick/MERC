@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
 import { enumerateLegalMoves } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
+import { handleMercDeath } from '../src/rules/merc-death.js';
 import { CombatantModel, Sector } from '../src/rules/elements.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 
@@ -10,9 +11,9 @@ import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
  * engine offers must be accepted, and no flow loop may spin to its cap.
  */
 
-function startRunner(rebels: number, seed: string, dictator = 'castro'): GameRunner<MERCGame> {
+function startRunner(rebels: number, seed: string, rebelBots = false): GameRunner<MERCGame> {
   const playerConfigs = [
-    ...Array.from({ length: rebels }, () => ({ color: '#e74c3c', isDictator: false, isBot: false })),
+    ...Array.from({ length: rebels }, () => ({ color: '#e74c3c', isDictator: false, isBot: rebelBots })),
     { color: '#95a5a6', isDictator: true, isBot: false },
   ];
   const runner = new GameRunner<MERCGame>({
@@ -23,7 +24,7 @@ function startRunner(rebels: number, seed: string, dictator = 'castro'): GameRun
       playerNames: playerConfigs.map((_, i) => `P${i + 1}`),
       seed,
       dictatorIsBot: false,
-      dictatorChoice: dictator,
+      dictatorChoice: 'castro',
       playerConfigs,
     } as never,
   });
@@ -93,20 +94,27 @@ describe('rebel landing with Teresa (#74)', () => {
   });
 });
 
+/** Play first legal moves until `seat` is to act on `day`. */
+function playUntilRebelTurnOnDay(runner: GameRunner<MERCGame>, seat: number, day: number): void {
+  const game = runner.game;
+  for (let moves = 0; ; moves++) {
+    const current = getCurrentAction(game.getFlowState());
+    if (game.currentDay >= day && current?.currentPlayer === seat) return;
+    if (!current || moves > 300) throw new Error(`Seat ${seat} never got a turn on Day ${day}.`);
+    const order = current.available.includes('endTurn') ? ['endTurn', ...current.available] : current.available;
+    order.some(name => {
+      const args = autoResolveArgs(game, name, current.currentPlayer);
+      return args !== null && runner.performAction(name, current.currentPlayer, args).success;
+    });
+  }
+}
+
 describe("Hagness's draw, pick and give (#74)", () => {
-  function rebelWithHagnessOnDayTwo() {
-    const runner = startRunner(1, 'hagness-chain');
+  function rebelWithHagnessOnDayTwo(rebels = 1, rebelBots = false) {
+    const runner = startRunner(rebels, 'hagness-chain', rebelBots);
     const game = runner.game;
     const rebel = game.rebelPlayers[0];
-    for (let moves = 0; ; moves++) {
-      const current = getCurrentAction(game.getFlowState());
-      if (game.currentDay >= 2 && current?.currentPlayer === rebel.seat) break;
-      if (!current || moves > 200) throw new Error('The rebel never got a Day 2 turn.');
-      current.available.some(name => {
-        const args = autoResolveArgs(game, name, current.currentPlayer);
-        return args !== null && runner.performAction(name, current.currentPlayer, args).success;
-      });
-    }
+    playUntilRebelTurnOnDay(runner, rebel.seat, 2);
     const hagness = game.first(CombatantModel, m => m.combatantId === 'hagness')!;
     hagness.putInto(rebel.primarySquad);
     for (const merc of rebel.team) merc.actionsRemaining = 0;
@@ -125,5 +133,38 @@ describe("Hagness's draw, pick and give (#74)", () => {
     const [pick] = enumerateLegalMoves(runner.game, rebel.seat).filter(m => m.action === 'hagnessSelectFromDrawn');
     expect(runner.performAction('hagnessSelectFromDrawn', rebel.seat, pick.args).success).toBe(true);
     expect(offered()).toEqual(['hagnessGiveEquipment']);
+  });
+
+  it('a bot rebel may give what Hagness picked without its held follow-up, while another bot rebel still has actions', () => {
+    const { runner, game, rebel } = rebelWithHagnessOnDayTwo(2, true);
+    const other = game.rebelPlayers.find(p => p !== rebel)!;
+    for (const merc of other.team) merc.actionsRemaining = 2;
+    game.refreshAwaitingActions();
+
+    expect(runner.performAction('hagnessDrawType', rebel.seat, { equipmentType: 'Weapon' }).success).toBe(true);
+    const [pick] = enumerateLegalMoves(game, rebel.seat).filter(m => m.action === 'hagnessSelectFromDrawn');
+    expect(runner.performAction('hagnessSelectFromDrawn', rebel.seat, pick.args).success).toBe(true);
+
+    // A step that ends for another seat's combat drops the follow-up, leaving only the action's own condition
+    expect(game.getAvailableActions(rebel).map(a => a.name)).toContain('hagnessGiveEquipment');
+  });
+
+  it('a Hagness who dies with a pick pending leaves nothing to finish when she is hired again', () => {
+    const { runner, game, rebel, offered } = rebelWithHagnessOnDayTwo();
+    const hagness = game.first(CombatantModel, m => m.combatantId === 'hagness')!;
+    expect(runner.performAction('hagnessDrawType', rebel.seat, { equipmentType: 'Weapon' }).success).toBe(true);
+
+    hagness.damage = hagness.maxHealth;
+    handleMercDeath(game, hagness, 'Hagness has been killed in combat!');
+    game.refreshAwaitingActions();
+    playUntilRebelTurnOnDay(runner, rebel.seat, 3);
+
+    hagness.damage = 0;
+    hagness.putInto(rebel.primarySquad);
+    hagness.actionsRemaining = 2;
+    game.refreshAwaitingActions();
+
+    expect(offered()).toContain('hagnessDrawType');
+    expect(offered()).not.toContain('hagnessSelectFromDrawn');
   });
 });
