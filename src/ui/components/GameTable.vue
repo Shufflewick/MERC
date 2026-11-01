@@ -3,7 +3,7 @@
 import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
 
 // External packages
-import { useBoardInteraction, type UseActionControllerReturn, useAnimationEvents, GameOverlay } from 'boardsmith/ui';
+import { useBoardInteraction, useBoardSize, type UseActionControllerReturn, useAnimationEvents, GameOverlay } from 'boardsmith/ui';
 
 // Components (alphabetical)
 import AssignToSquadPanel from './AssignToSquadPanel.vue';
@@ -50,6 +50,10 @@ const fetchDeferredChoicesFn = inject<FetchDeferredChoicesFn | undefined>('fetch
 
 // Get board interaction for checking selectable elements
 const boardInteraction = useBoardInteraction();
+
+// A content-flow board: pin it to the region's width so it scrolls instead of being scaled to fit its height (#84).
+const boardRef = ref<HTMLElement | null>(null);
+const { boardStyle } = useBoardSize(boardRef);
 
 const props = defineProps<{
   gameView: any;
@@ -1420,7 +1424,7 @@ const clickableSectors = computed(() => {
 </script>
 
 <template>
-  <div class="game-board">
+  <div ref="boardRef" class="game-board" :style="boardStyle">
     <!-- Game Over Overlay -->
     <GameOverlay :active="showGameOverOverlay">
       <div class="game-over-content" @click.stop>
