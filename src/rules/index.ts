@@ -183,7 +183,6 @@ export {
 
 // Game definition for BoardSmith
 import { MERCGame } from './game.js';
-import { createColorOption } from 'boardsmith/session';
 import { mercBot } from './bot.js';
 
 export const gameDefinition = {
@@ -222,7 +221,6 @@ export const gameDefinition = {
 
   // Per-player options (each player configures their own)
   playerOptions: {
-    color: createColorOption(),
     isDictator: {
       type: 'exclusive',
       label: 'Dictator',
@@ -236,32 +234,32 @@ export const gameDefinition = {
     {
       name: 'Play as Rebel',
       players: [
-        { color: '#e74c3c', isDictator: false, isBot: false },
-        { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'medium' },
+        { color: '#E74C3C', isDictator: false, isBot: false },
+        { color: '#95A5A6', isDictator: true, isBot: true, botLevel: 'medium' },
       ],
     },
     {
       name: 'Play as Dictator',
       players: [
-        { color: '#95a5a6', isDictator: true, isBot: false },
-        { color: '#e74c3c', isDictator: false, isBot: true, botLevel: 'medium' },
+        { color: '#95A5A6', isDictator: true, isBot: false },
+        { color: '#E74C3C', isDictator: false, isBot: true, botLevel: 'medium' },
       ],
     },
     {
       name: '2 Rebels vs Bot Dictator',
       players: [
-        { color: '#e74c3c', isDictator: false, isBot: false },
-        { color: '#3498db', isDictator: false, isBot: false },
-        { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'medium' },
+        { color: '#E74C3C', isDictator: false, isBot: false },
+        { color: '#3498DB', isDictator: false, isBot: false },
+        { color: '#95A5A6', isDictator: true, isBot: true, botLevel: 'medium' },
       ],
     },
     {
       name: '3 Rebels vs Bot Dictator',
       players: [
-        { color: '#e74c3c', isDictator: false, isBot: false },
-        { color: '#3498db', isDictator: false, isBot: false },
-        { color: '#27ae60', isDictator: false, isBot: false },
-        { color: '#95a5a6', isDictator: true, isBot: true, botLevel: 'hard' },
+        { color: '#E74C3C', isDictator: false, isBot: false },
+        { color: '#3498DB', isDictator: false, isBot: false },
+        { color: '#27AE60', isDictator: false, isBot: false },
+        { color: '#95A5A6', isDictator: true, isBot: true, botLevel: 'hard' },
       ],
     },
   ],
