@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, nextTick, watch, onBeforeUnmount } from 'vue';
+import { computed, ref, nextTick } from 'vue';
 import { useAnimationEvents, useFlyingElements, FlyingCardsOverlay } from 'boardsmith/ui';
 import { getPlayerColor } from '../colors';
 import { assetUrl } from '../composables/useAssetUrl';
+import { sectorPortraitSlot } from '../portrait-slot';
 import SectorTile from './SectorTile.vue';
 import MilitiaTrainAnimation from './MilitiaTrainAnimation.vue';
 import CombatantEntryAnimation from './CombatantEntryAnimation.vue';
@@ -381,25 +382,18 @@ function handleDeathAnimationComplete(deathId: string) {
   }
 }
 
-/**
- * Where a combatant token sits inside a sector tile: the bottom-left corner,
- * where the merc row renders. Returned as a zero-size rect because
- * useFlyingElements centres the ghost on the rect it is given.
- */
+/** A zero-size rect on a tile's portrait slot, because useFlyingElements centres the ghost on the rect it is given. */
 function combatantAnchorRect(sectorId: string): DOMRect | null {
-  const sectorEl = document.querySelector(`[data-sector-id="${sectorId}"]`);
-  if (!sectorEl) return null;
-  const rect = sectorEl.getBoundingClientRect();
-  return new DOMRect(rect.left + 30, rect.bottom - 30, 0, 0);
+  const slot = sectorPortraitSlot(sectorId);
+  return slot && new DOMRect(slot.x, slot.y, 0, 0);
 }
-
-const COMBATANT_PORTRAIT_SIZE = { width: 42, height: 42 };
 
 async function queueMoveAnimation(data: CombatantMoveAnimationData): Promise<void> {
   if (!data.fromSectorId || !data.toSectorId) return;
 
   await nextTick();
-  if (!combatantAnchorRect(data.fromSectorId) || !combatantAnchorRect(data.toSectorId)) return;
+  const from = sectorPortraitSlot(data.fromSectorId);
+  if (!from || !sectorPortraitSlot(data.toSectorId)) return;
 
   flyingCombatantIds.value = new Set(flyingCombatantIds.value).add(data.combatantId);
   try {
@@ -407,7 +401,7 @@ async function queueMoveAnimation(data: CombatantMoveAnimationData): Promise<voi
       id: getAnimationId('move'),
       startRect: () => combatantAnchorRect(data.fromSectorId),
       endRect: () => combatantAnchorRect(data.toSectorId),
-      elementSize: COMBATANT_PORTRAIT_SIZE,
+      elementSize: { width: from.size, height: from.size },
       elementData: {
         kind: 'combatant-portrait',
         combatantName: data.combatantName,
@@ -577,25 +571,6 @@ const gridDimensions = computed(() => {
   return { rows: maxRow + 1, cols: maxCol + 1 };
 });
 
-// Tiles narrower than this overlap their own labels, so a screen too narrow for the map pans it sideways (#84).
-const MIN_TILE_WIDTH = 240;
-const GRID_GAP = 8;
-const mapScrollRef = ref<HTMLElement | null>(null);
-const mapWidth = ref(0);
-// Pan only when the tiles cannot fit: a scroll box clips the overlays that draw past the map's edges.
-const mapPans = computed(() => {
-  const { cols } = gridDimensions.value;
-  return mapWidth.value > 0 && mapWidth.value < cols * MIN_TILE_WIDTH + (cols - 1) * GRID_GAP;
-});
-let mapResizeObserver: ResizeObserver | null = null;
-watch(mapScrollRef, (el) => {
-  mapResizeObserver?.disconnect();
-  if (!el) return;
-  mapResizeObserver = new ResizeObserver(() => { mapWidth.value = el.clientWidth; });
-  mapResizeObserver.observe(el);
-});
-onBeforeUnmount(() => mapResizeObserver?.disconnect());
-
 // Sort sectors by position (row, col) for grid layout
 const sortedSectors = computed(() => {
   return [...props.sectors].sort((a, b) => {
@@ -632,118 +607,116 @@ function handleSectorClick(sectorId: string) {
 </script>
 
 <template>
-  <div ref="mapScrollRef" class="map-scroll" :style="{ overflowX: mapPans ? 'auto' : undefined }">
-    <div
-      ref="mapGridRef"
-      class="map-grid"
-      :style="{
-        gridTemplateColumns: `repeat(${gridDimensions.cols}, minmax(${MIN_TILE_WIDTH}px, 1fr))`,
-        gridTemplateRows: `repeat(${gridDimensions.rows}, 1fr)`,
-      }"
-    >
-      <SectorTile
-        v-for="sector in sortedSectors"
-        :key="sector.sectorId"
-        :data-sector-id="sector.sectorId"
-        :sector="getSectorWithDisplayMilitia(sector)"
-        :controlling-player-color="controlMap[sector.sectorId]"
-        :mercs-in-sector="getMercsInSector(sector.sectorId)"
-        :player-color-map="playerColorMap"
-        :is-clickable="isClickable(sector.sectorId)"
-        :can-drop-equipment="canDropEquipment"
-        :is-dictator-base="sector.sectorId === dictatorBaseSectorId"
-        :dictator-color="dictatorColor"
-        :hidden-combatant-ids="animatingCombatantIds"
-        :flipping="flippingSectors.has(sector.sectorId)"
-        @click="handleSectorClick"
-        @drop-equipment="handleDropEquipment"
-        @flip-complete="handleSectorFlipComplete"
-      />
+  <div
+    ref="mapGridRef"
+    class="map-grid"
+    :style="{
+      gridTemplateColumns: `repeat(${gridDimensions.cols}, minmax(0, 1fr))`,
+      gridTemplateRows: `repeat(${gridDimensions.rows}, 1fr)`,
+    }"
+  >
+    <SectorTile
+      v-for="sector in sortedSectors"
+      :key="sector.sectorId"
+      :data-sector-id="sector.sectorId"
+      :sector="getSectorWithDisplayMilitia(sector)"
+      :controlling-player-color="controlMap[sector.sectorId]"
+      :mercs-in-sector="getMercsInSector(sector.sectorId)"
+      :player-color-map="playerColorMap"
+      :is-clickable="isClickable(sector.sectorId)"
+      :can-drop-equipment="canDropEquipment"
+      :is-dictator-base="sector.sectorId === dictatorBaseSectorId"
+      :dictator-color="dictatorColor"
+      :hidden-combatant-ids="animatingCombatantIds"
+      :flipping="flippingSectors.has(sector.sectorId)"
+      @click="handleSectorClick"
+      @drop-equipment="handleDropEquipment"
+      @flip-complete="handleSectorFlipComplete"
+    />
 
-      <!-- Militia Training Animations -->
-      <MilitiaTrainAnimation
-        v-for="anim in activeAnimations"
-        :key="anim.id"
-        :sector-rect="anim.rect"
-        :count="anim.count"
-        :player-color="anim.playerColor"
-        :is-dictator="anim.isDictator"
-        @increment="handleAnimationIncrement(anim.id)"
-        @complete="handleAnimationComplete(anim.id)"
-      />
+    <!-- Militia Training Animations -->
+    <MilitiaTrainAnimation
+      v-for="anim in activeAnimations"
+      :key="anim.id"
+      :sector-rect="anim.rect"
+      :count="anim.count"
+      :player-color="anim.playerColor"
+      :is-dictator="anim.isDictator"
+      @increment="handleAnimationIncrement(anim.id)"
+      @complete="handleAnimationComplete(anim.id)"
+    />
 
-      <!-- Combatant Entry Animations -->
-      <CombatantEntryAnimation
-        v-for="anim in activeCombatantAnimations"
-        :key="anim.id"
-        :combatant-id="anim.combatantId"
-        :combatant-name="anim.combatantName"
-        :image="anim.image"
-        :player-color="anim.playerColor"
-        :sector-id="anim.sectorId"
-        @complete="handleCombatantAnimationComplete(anim.id)"
-      />
+    <!-- Combatant Entry Animations -->
+    <CombatantEntryAnimation
+      v-for="anim in activeCombatantAnimations"
+      :key="anim.id"
+      :combatant-id="anim.combatantId"
+      :combatant-name="anim.combatantName"
+      :image="anim.image"
+      :player-color="anim.playerColor"
+      :sector-id="anim.sectorId"
+      @complete="handleCombatantAnimationComplete(anim.id)"
+    />
 
-      <!-- Combatant Death Animations (suppressed during combat, released by CombatPanel signals) -->
-      <CombatantDeathAnimation
-        v-for="death in pendingDeaths"
-        :key="death.id"
-        :combatant-id="death.combatantId"
-        :combatant-name="death.combatantName"
-        :image="death.image"
-        :player-color="death.playerColor"
-        :sector-id="death.sectorId"
-        @complete="handleDeathAnimationComplete(death.id)"
-      />
+    <!-- Combatant Death Animations (suppressed during combat, released by CombatPanel signals) -->
+    <CombatantDeathAnimation
+      v-for="death in pendingDeaths"
+      :key="death.id"
+      :combatant-id="death.combatantId"
+      :combatant-name="death.combatantName"
+      :image="death.image"
+      :player-color="death.playerColor"
+      :sector-id="death.sectorId"
+      @complete="handleDeathAnimationComplete(death.id)"
+    />
 
-      <!-- Combatant move flights (framework overlay, MERC portrait rendering) -->
-      <FlyingCardsOverlay :flying-cards="flyingElements">
-        <template #card="{ card }">
-          <div
-            class="flying-combatant-portrait"
-            :style="{ borderColor: String(card.cardData.borderColor ?? '#666') }"
-          >
-            <img
-              :src="assetUrl(String(card.cardData.image ?? ''))"
-              :alt="String(card.cardData.combatantName ?? '')"
-            />
-          </div>
-        </template>
-      </FlyingCardsOverlay>
+    <!-- Combatant move flights (framework overlay, MERC portrait rendering) -->
+    <FlyingCardsOverlay :flying-cards="flyingElements">
+      <template #card="{ card }">
+        <div
+          class="flying-combatant-portrait"
+          :style="{ borderColor: String(card.cardData.borderColor ?? '#666') }"
+        >
+          <img
+            :src="assetUrl(String(card.cardData.image ?? ''))"
+            :alt="String(card.cardData.combatantName ?? '')"
+          />
+        </div>
+      </template>
+    </FlyingCardsOverlay>
 
-      <!-- Equipment Drop Animations -->
-      <EquipmentDropAnimation
-        v-for="anim in activeEquipmentAnimations"
-        :key="anim.id"
-        :equipment-name="anim.equipmentName"
-        :equipment-type="anim.equipmentType"
-        :image="anim.image"
-        :sector-id="anim.sectorId"
-        :combatant-id="anim.combatantId"
-        :direction="anim.direction"
-        @complete="handleEquipmentAnimationComplete(anim.id)"
-      />
+    <!-- Equipment Drop Animations -->
+    <EquipmentDropAnimation
+      v-for="anim in activeEquipmentAnimations"
+      :key="anim.id"
+      :equipment-name="anim.equipmentName"
+      :equipment-type="anim.equipmentType"
+      :image="anim.image"
+      :sector-id="anim.sectorId"
+      :combatant-id="anim.combatantId"
+      :direction="anim.direction"
+      @complete="handleEquipmentAnimationComplete(anim.id)"
+    />
 
-      <!-- Mortar Strike Animation -->
-      <MortarStrikeAnimation
-        v-if="mortarStrike && mortarStrikeRect"
-        :sector-rect="mortarStrikeRect"
-        :sector-id="mortarStrike.targetSectorId"
-        :hit-combatant-ids="mortarStrike.hitCombatantIds"
-        :militia-killed="mortarStrike.militiaKilled"
-        @complete="handleMortarStrikeComplete"
-      />
+    <!-- Mortar Strike Animation -->
+    <MortarStrikeAnimation
+      v-if="mortarStrike && mortarStrikeRect"
+      :sector-rect="mortarStrikeRect"
+      :sector-id="mortarStrike.targetSectorId"
+      :hit-combatant-ids="mortarStrike.hitCombatantIds"
+      :militia-killed="mortarStrike.militiaKilled"
+      @complete="handleMortarStrikeComplete"
+    />
 
-      <!-- Landmine Detonation Animation -->
-      <LandmineDetonationAnimation
-        v-if="landmineStrike && landmineStrikeRect"
-        :sector-rect="landmineStrikeRect"
-        :sector-id="landmineStrike.sectorId"
-        :target-names="landmineStrike.targetNames"
-        :damage="landmineStrike.damage"
-        @complete="handleLandmineStrikeComplete"
-      />
-    </div>
+    <!-- Landmine Detonation Animation -->
+    <LandmineDetonationAnimation
+      v-if="landmineStrike && landmineStrikeRect"
+      :sector-rect="landmineStrikeRect"
+      :sector-id="landmineStrike.sectorId"
+      :target-names="landmineStrike.targetNames"
+      :damage="landmineStrike.damage"
+      @complete="handleLandmineStrikeComplete"
+    />
   </div>
 </template>
 

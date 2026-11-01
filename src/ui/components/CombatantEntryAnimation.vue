@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { easeOutCubic } from '../easing';
 import { getPlayerColor } from '../colors';
 import { assetUrl } from '../composables/useAssetUrl';
+import { sectorPortraitSlot } from '../portrait-slot';
 
 const props = defineProps<{
   combatantId: string;
@@ -55,23 +56,6 @@ const nameStyle = computed(() => ({
   fontSize: `${currentNameSize.value}rem`,
 }));
 
-// Get current destination by querying the DOM
-// We query the sector tile itself and calculate the bottom-left position
-// (where mercs appear) since the mercs-area may be collapsed when empty
-function getDestination(): { x: number; y: number } | null {
-  const sectorEl = document.querySelector(`[data-sector-id="${props.sectorId}"]`);
-  if (!sectorEl) return null;
-
-  const rect = sectorEl.getBoundingClientRect();
-  // Target the bottom-left area where mercs appear
-  // Offset from left edge by ~30px (padding + half icon width)
-  // Offset from bottom by ~30px (padding + half icon height)
-  return {
-    x: rect.left + 30,
-    y: rect.bottom - 30,
-  };
-}
-
 // Animation state
 let animationFrameId: number | null = null;
 let startTime: number | null = null;
@@ -82,7 +66,7 @@ function animate(timestamp: number) {
   const rawProgress = Math.min(elapsed / ANIMATION_DURATION, 1);
 
   // Get current destination (may have moved due to scroll)
-  const dest = getDestination();
+  const dest = sectorPortraitSlot(props.sectorId);
   const startX = window.innerWidth / 2;
   const startY = window.innerHeight / 2;
   const endX = dest?.x ?? startX;
@@ -91,7 +75,7 @@ function animate(timestamp: number) {
   // Size animation values
   const startSize = 500;
   const peakSize = 520; // Slight scale-up during hold
-  const endSize = 42;
+  const endSize = dest?.size ?? peakSize; // with no sector to land in, it stays full size at the centre
   const startBorder = 8;
   const endBorder = 3;
 
