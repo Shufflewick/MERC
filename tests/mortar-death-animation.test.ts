@@ -1,24 +1,28 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
-import { MERCGame } from '../src/rules/game.js';
-import { CombatantModel } from '../src/rules/elements.js';
+import { MERCGame, type MERCPlayer } from '../src/rules/game.js';
+import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { buildMortarTargets } from '../src/rules/actions/rebel-equipment.js';
 
-describe('a mortar kill', () => {
-  it('plays the map death animation after the mortar strike', () => {
-    const game = createTestGame(MERCGame, {
+describe('a mortar hit on a MERC with 1 health left', () => {
+  let game: MERCGame;
+  let sector: Sector;
+  let victim: CombatantModel;
+
+  beforeEach(() => {
+    game = createTestGame(MERCGame, {
       playerCount: 2,
       playerNames: ['Rebel1', 'Dictator'],
       seed: 'mortar-death-animation',
     }).game;
-    const rebel = game.rebelPlayers[0];
-    const sector = game.gameMap.getAllSectors()[0];
-
-    const victim = game.mercDeck.first(CombatantModel, c => c.isMerc)!;
+    sector = game.gameMap.getAllSectors()[0];
+    victim = game.mercDeck.first(CombatantModel, c => c.isMerc)!;
     victim.putInto(game.dictatorPlayer.primarySquad);
     game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
     victim.damage = victim.maxHealth - 1;
+  });
 
+  function fireOneHit(attacker: MERCPlayer = game.rebelPlayers[0]) {
     game.pendingMortarAttack = {
       attackerName: 'Attacker',
       attackerCombatantId: 'attacker',
@@ -27,17 +31,24 @@ describe('a mortar kill', () => {
       diceRolls: [6],
       hits: 1,
       hitThreshold: 4,
-      attackingPlayerId: `${rebel.seat}`,
-      validTargets: buildMortarTargets(game, sector, true),
+      attackingPlayerId: `${attacker.seat}`,
+      validTargets: buildMortarTargets(game, sector, attacker.isRebel()),
     };
-
-    const result = game.performAction('mortarAllocateHits', rebel, {
+    const result = game.performAction('mortarAllocateHits', attacker, {
       allocations: [`${victim.combatantId}::0`],
     });
-
     expect(result.success).toBe(true);
-    expect(victim.isDead).toBe(true);
-    const types = game.pendingAnimationEvents.map(e => e.type);
+    return game.pendingAnimationEvents.map(e => e.type);
+  }
+
+  it('kills him: his gear is discarded, his card goes to the MERC discard, and the map death plays after the strike', () => {
+    const weapon = game.weaponsDeck.first(Equipment)!;
+    victim.equip(weapon);
+
+    const types = fireOneHit();
+
+    expect(victim.parent).toBe(game.mercDiscard);
+    expect(weapon.parent).toBe(game.weaponsDiscard);
     const death = game.pendingAnimationEvents.find(e => e.type === 'map-combatant-death');
     expect(death?.data).toEqual({
       combatants: [expect.objectContaining({
@@ -47,5 +58,19 @@ describe('a mortar kill', () => {
       })],
     });
     expect(types.indexOf('map-combatant-death')).toBeGreaterThan(types.indexOf('mortar-strike'));
+  });
+
+  it('is stopped by his own Epinephrine Shot, and no death plays', () => {
+    const rebel = game.rebelPlayers[0];
+    victim.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    victim.equip(game.accessoriesDeck.first(Equipment, e => e.equipmentId === 'epinephrine-shot')!);
+
+    const types = fireOneHit(game.dictatorPlayer);
+
+    expect(victim.isDead).toBe(false);
+    expect(victim.accessorySlot).toBeUndefined();
+    expect(types).toContain('mortar-strike');
+    expect(types).not.toContain('map-combatant-death');
   });
 });

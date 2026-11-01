@@ -32,6 +32,7 @@ import { hasMortar } from '../bot-helpers.js';
 import { rollDice } from '../combat.js';
 import { getHitThreshold } from '../merc-abilities.js';
 import { CombatConstants } from '../constants.js';
+import { killMercOutsideCombat } from '../merc-death.js';
 import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapEquipmentAnimations, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd, serializeCombatantForCard, type MapCombatantEventData } from '../animation-events.js';
 
 // =============================================================================
@@ -2183,10 +2184,15 @@ export function applyMortarDamage(
         hitCombatantIds.push(merc.combatantId);
         game.message(`Mortar deals ${hitCount} damage to ${capitalize(merc.combatantName)}`);
         if (merc.isDead) {
-          game.message(`${capitalize(merc.combatantName)} has been killed by mortar!`);
-          deaths.push(buildMapCombatantEntry(merc, targetSector.sectorId));
+          const killedMessage = `${capitalize(merc.combatantName)} has been killed by mortar!`;
+          // Built before the death sequence moves the card off the map.
+          const death = buildMapCombatantEntry(merc, targetSector.sectorId);
           if (merc.isDictator) {
+            game.message(killedMessage);
             game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+            deaths.push(death);
+          } else if (killMercOutsideCombat(game, merc, killedMessage)) {
+            deaths.push(death);
           }
         }
       }
