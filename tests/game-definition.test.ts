@@ -3,6 +3,11 @@ import { gameDefinition } from '../src/rules/index';
 import config from '../boardsmith.json';
 
 describe('game definition', () => {
+  // BoardSmith refuses a gameDefinition that declares gameOptions; they live in boardsmith.json.
+  it('leaves the game options to boardsmith.json', () => {
+    expect(gameDefinition).not.toHaveProperty('gameOptions');
+  });
+
   // boardsmith.json's colorPalette and role option are what the lobby offers; code player options make dev refuse to start.
   it('leaves the player options to boardsmith.json', () => {
     expect(gameDefinition).not.toHaveProperty('playerOptions');

@@ -19,6 +19,7 @@
     {
       "id": "dictatorCharacter",
       "label": "Dictator Character",
+      "description": "Choose which dictator the rebels face",
       "type": "select",
       "default": "random",
       "choices": [
