@@ -27,8 +27,8 @@ function runnerWithHumanDictator(seed: string): GameRunner<MERCGame> {
       playerNames: ['Rebel1', 'Dictator'],
       seed,
       playerConfigs: [
-        { color: '#e74c3c', isDictator: false, isBot: false },
-        { color: '#95a5a6', isDictator: true, isBot: false },
+        { color: '#e74c3c', isBot: false },
+        { color: '#95a5a6', role: true, isBot: false },
       ],
     } as never,
   });
