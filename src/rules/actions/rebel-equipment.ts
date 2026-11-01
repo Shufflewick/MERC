@@ -763,6 +763,7 @@ export function createFeedbackDiscardAction(game: MERCGame): ActionDefinition {
       }
 
       // Equip to Feedback (or replace existing)
+      selectedEquipment.repair();
       const { replaced, displacedBandolierItems } = feedback.equip(selectedEquipment);
       const feedbackSectorId = feedback.sectorId;
       if (feedbackSectorId) {

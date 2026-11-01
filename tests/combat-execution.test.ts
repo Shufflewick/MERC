@@ -381,6 +381,21 @@ describe('Combat Execution Tests', () => {
       expect(vest.isDamaged).toBe(false);
       expect(vest.armorRemaining).toBe(2);
     });
+
+    it('destroyed armour Feedback takes from the discard comes back as a fresh card', () => {
+      const { vest } = armouredMercUnderFire(3);
+      const rebel = game.rebelPlayers[0];
+      const feedback = game.first(CombatantModel, c => c.isMerc && c.combatantId === 'feedback')!;
+      feedback.putInto(rebel.primarySquad);
+      feedback.resetActions();
+
+      const result = game.performAction('feedbackDiscard', rebel, { equipment: vest });
+
+      expect(result.error).toBeUndefined();
+      expect(feedback.armorSlot).toBe(vest);
+      expect(vest.isDamaged).toBe(false);
+      expect(vest.armorRemaining).toBe(2);
+    });
   });
 
   // =========================================================================
