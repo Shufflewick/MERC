@@ -234,12 +234,9 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
         }
         return baseName;
       },
-      // Use multi-select when MERC can target multiple enemies
       multiSelect: () => {
         const pending = game.activeCombat?.pendingTargetSelection;
-        return (!pending || pending.maxTargets <= 1)
-          ? undefined
-          : { min: 1, max: pending.maxTargets };
+        return { min: 1, max: Math.max(1, pending?.maxTargets ?? 1) };
       },
     })
     .execute((args) => {
@@ -249,10 +246,7 @@ export function createCombatSelectTargetAction(game: MERCGame): ActionDefinition
 
       const pending = game.activeCombat.pendingTargetSelection;
 
-      // args.targets contains string IDs directly (single or array)
-      const targetIds = Array.isArray(args.targets)
-        ? args.targets as string[]
-        : [args.targets];
+      const targetIds = args.targets as string[];
 
       if (targetIds.length === 0) {
         return { success: false, error: 'No targets selected' };
@@ -500,7 +494,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       prompt: 'Allocate hits to targets',
       multiSelect: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
-        if (!pending) return undefined;
+        if (!pending) return { min: 0, max: 0 };
         const allocatable = allocatableHits(pending);
         return { min: allocatable, max: allocatable };
       },
@@ -533,9 +527,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
 
       const pending = game.activeCombat.pendingHitAllocation;
 
-      const allocChoices = Array.isArray(args.allocations)
-        ? args.allocations as unknown[]
-        : [args.allocations];
+      const allocChoices = args.allocations as unknown[];
 
       // Parse allocation choices into targetId -> hitCount map
       // Format is "targetId::hitIndex" - may come as string or {value, display} object
@@ -821,7 +813,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       prompt: "Select Wolverine's bonus targets",
       multiSelect: () => {
         const pending = game.activeCombat?.pendingWolverineSixes;
-        if (!pending) return undefined;
+        if (!pending) return { min: 0, max: 0 };
         return { min: pending.sixCount, max: pending.sixCount };
       },
       choices: () => {
@@ -836,9 +828,7 @@ export function createCombatAllocateWolverineSixesAction(game: MERCGame): Action
       }
 
       const pending = game.activeCombat.pendingWolverineSixes;
-      const targetChoices = Array.isArray(args.bonusTargets)
-        ? args.bonusTargets as string[]
-        : [args.bonusTargets];
+      const targetChoices = args.bonusTargets as string[];
 
       // Parse target IDs
       const targetIds = targetChoices.map(choice => choice.split('::')[1]);
@@ -1330,7 +1320,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
       prompt: 'Choose which of your units take the artillery hits',
       multiSelect: (ctx) => {
         const pending = game.pendingArtilleryAllocation;
-        if (!pending) return undefined;
+        if (!pending) return { min: 0, max: 0 };
         // Every hit this player can absorb, and no more: a rebel with two units
         // left cannot be asked to place five hits, and asking would leave the
         // allocation with no legal answer at all.
@@ -1378,9 +1368,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
       const player = ctx.player as RebelPlayer;
 
       // Parse allocations
-      const allocChoices = Array.isArray(args.allocations)
-        ? args.allocations as unknown[]
-        : [args.allocations];
+      const allocChoices = args.allocations as unknown[];
 
       const hitsByTarget = new Map<string, number>();
       for (const choice of allocChoices) {
@@ -1592,7 +1580,7 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
       prompt: 'Allocate mortar hits to targets',
       multiSelect: () => {
         const pending = game.pendingMortarAttack;
-        if (!pending) return undefined;
+        if (!pending) return { min: 0, max: 0 };
         // Cap min at total target health — excess hits beyond what targets can absorb are wasted
         const totalHealth = pending.validTargets.reduce((s, t) => s + t.currentHealth, 0);
         const effectiveHits = Math.min(pending.hits, totalHealth);
@@ -1625,9 +1613,7 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
 
       const pending = game.pendingMortarAttack;
 
-      const allocChoices = Array.isArray(args.allocations)
-        ? args.allocations as unknown[]
-        : [args.allocations];
+      const allocChoices = args.allocations as unknown[];
 
       // Parse allocation choices into targetId -> hitCount map
       const hitsByTarget = new Map<string, number>();

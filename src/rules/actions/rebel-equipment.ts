@@ -362,6 +362,7 @@ export function createReEquipContinueAction(game: MERCGame): ActionDefinition {
   }
 
   return Action.create<MERCGame>('reEquipContinue')
+    .followUpArgs<{ combatantId?: number; sectorId?: number; lastReplacedId?: number }>()
     .prompt('Continue equipping')
     .condition({
       'has combatant and sector from followUp': (ctx) => {

@@ -594,7 +594,7 @@ describe('Oil Reserves (initial play)', () => {
   });
 
   it('credits the dictator when he holds the oil and no rebel does', () => {
-    const game = newGame('oil-reserves-dictator', 5);
+    const game = newGame('oil-reserves-held', 5);
     const oil = game.gameMap.getAllSectors().find(s => s.sectorId === 'industry---oil')!;
     expect(oil, 'this map has no oil industry').toBeDefined();
 

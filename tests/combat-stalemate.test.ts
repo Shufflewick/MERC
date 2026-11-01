@@ -51,7 +51,7 @@ function deadlockedFight(seed: string): { game: MERCGame; sector: Sector; rebel:
  */
 function constantRandom(value: number): GameRandom {
   const random = (() => value) as GameRandom;
-  random.getState = () => 0;
+  random.getState = () => '';
   random.setState = () => {};
   return random;
 }

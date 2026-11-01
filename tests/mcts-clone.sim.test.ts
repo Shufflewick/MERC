@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
+import { snapshotTree } from 'boardsmith/session';
 import { createBot } from 'boardsmith/bot';
 import { MERCGame, MERCPlayer } from '../src/rules/game.js';
 import { Sector, CombatantModel, Equipment, TacticsCard } from '../src/rules/elements.js';
@@ -37,7 +38,7 @@ describe('MCTS Clone Divergence', () => {
     // state-authoritative restore never depends on replaying that history, so it
     // stays correct whether the history is gappy or complete.
     const clone = new MERCGame(gameOptions as any);
-    clone.loadSerializedState(snapshot.state);
+    clone.loadSerializedState(snapshotTree(snapshot));
     if (snapshot.sequence !== undefined) {
       clone._ctx.sequence = snapshot.sequence;
     }
@@ -223,7 +224,6 @@ describe('MCTS Clone Divergence', () => {
               MERCGame as any,
               'merc',
               dictatorSeat,
-              runner.actionHistory,
               5, // Keep this diagnostic test fast and bounded
             );
             const move = await bot.play();
@@ -255,7 +255,6 @@ describe('MCTS Clone Divergence', () => {
             console.log(`  Error: ${e.message}`);
             console.log(`  Flow: player=${action.currentPlayer} actions=[${action.available.join(', ')}]`);
             console.log(`  Action history: ${runner.actionHistory.length} actions`);
-            console.log(`  Command history: ${game.commandHistory.length} commands`);
 
             // Debug: try manual clone to see if it diverges
             const snapshot = runner.getSnapshot();

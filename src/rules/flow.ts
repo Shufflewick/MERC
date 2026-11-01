@@ -1422,8 +1422,5 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
         ),
       }),
     ),
-
-    isComplete: () => game.isFinished(),
-    getWinners: () => game.getWinners(),
   };
 }

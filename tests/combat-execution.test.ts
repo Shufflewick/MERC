@@ -347,7 +347,7 @@ describe('Combat Execution Tests', () => {
       sector.addDictatorMilitia(militia);
 
       const sixes = (() => 0.99) as GameRandom;
-      sixes.getState = () => 0;
+      sixes.getState = () => '';
       sixes.setState = () => {};
       game.random = sixes;
 

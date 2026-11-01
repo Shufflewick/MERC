@@ -6,7 +6,7 @@
  * $type and name because className can be mangled by production bundlers.
  */
 
-import { findElement, findElements, findElementById, type GameViewElement } from 'boardsmith/ui';
+import { findElement, findElements, type GameViewElement } from 'boardsmith/ui';
 
 // ============================================================================
 // Pure function exports (can be used directly without composable)
@@ -75,7 +75,7 @@ export function findElementByIdInTree(id: number | string, root: any): any {
   if (!root) return null;
   const numericId = typeof id === 'number' ? id : parseInt(id, 10);
   if (Number.isNaN(numericId)) return null;
-  return findElementById(root as GameViewElement, numericId) ?? null;
+  return findElement(root as GameViewElement, { id: numericId }) ?? null;
 }
 
 /**
