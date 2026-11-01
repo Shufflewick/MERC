@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
+import type { GameRandom } from 'boardsmith';
 import { MERCGame, RebelPlayer, DictatorPlayer } from '../src/rules/game.js';
 import { CombatantModel, Sector, Equipment, Squad } from '../src/rules/elements.js';
 import {
@@ -327,6 +328,47 @@ describe('Combat Execution Tests', () => {
       merc.takeDamage(2);
       expect(merc.damage).toBe(2);
       expect(armor.armorDamage).toBe(0);
+    });
+
+    /**
+     * Basic (initiative 2, health 3) in a Kevlar Vest (armour 2, initiative -1)
+     * against `militia` dictator militia, with every die showing 6. The vest drops
+     * Basic to initiative 1, so the militia's volley of `militia` hits lands first;
+     * Basic's own attack only ever hits militia.
+     */
+    function armouredMercUnderFire(militia: number) {
+      const rebel = game.rebelPlayers[0];
+      const sector = game.gameMap.getAllSectors()[0];
+      const merc = game.first(CombatantModel, c => c.isMerc && c.combatantId === 'basic')!;
+      merc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = sector.sectorId;
+      const vest = game.first(Equipment, e => e.equipmentId === 'kevlar-vest')!;
+      merc.equip(vest);
+      sector.addDictatorMilitia(militia);
+
+      const sixes = (() => 0.99) as GameRandom;
+      sixes.getState = () => 0;
+      sixes.setState = () => {};
+      game.random = sixes;
+
+      executeCombat(game, sector, rebel);
+      return { merc, vest };
+    }
+
+    it('worn armour absorbs a hit in combat before health does', () => {
+      const { merc, vest } = armouredMercUnderFire(1);
+
+      expect(merc.damage).toBe(0);
+      expect(vest.armorDamage).toBe(1);
+      expect(merc.armorSlot).toBe(vest);
+    });
+
+    it('armour that runs out is destroyed and discarded, and the rest of the hits reach health', () => {
+      const { merc, vest } = armouredMercUnderFire(3);
+
+      expect(merc.armorSlot).toBeUndefined();
+      expect(game.getEquipmentDiscard('Armor')!.all(Equipment)).toContain(vest);
+      expect(merc.damage).toBe(1);
     });
   });
 
