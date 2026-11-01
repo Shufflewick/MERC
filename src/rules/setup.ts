@@ -281,6 +281,17 @@ export function setupDictator(
 // Tactics Deck Setup
 // =============================================================================
 
+/** A tactics card's attributes as setup creates it from its data. */
+export function tacticsCardAttributes(tactics: TacticsData) {
+  return {
+    tacticsId: tactics.id,
+    tacticsName: tactics.name,
+    story: tactics.story,
+    description: tactics.description,
+    revealsBase: tactics.revealsBase ?? false,
+  };
+}
+
 /**
  * Set up the Dictator Tactics deck.
  * Selects 5 random tactics cards to form the active deck.
@@ -358,13 +369,7 @@ export function setupTacticsDeck(
   // Create the selected tactics cards in the deck
   for (let i = 0; i < selectedTactics.length; i++) {
     const tactics = selectedTactics[i];
-    tacticsDeck.create(TacticsCard, `tactics-${tactics.id}-${i}`, {
-      tacticsId: tactics.id,
-      tacticsName: tactics.name,
-      story: tactics.story,
-      description: tactics.description,
-      revealsBase: tactics.revealsBase ?? false,
-    });
+    tacticsDeck.create(TacticsCard, `tactics-${tactics.id}-${i}`, tacticsCardAttributes(tactics));
   }
 
   // Only shuffle in normal mode

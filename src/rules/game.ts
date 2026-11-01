@@ -641,6 +641,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   private _rebelActionCounts: Map<number, number> = new Map();
   private _rebelBatchRound: number = 0;
 
+  /** Each MERC and equipment card as setup made it, by element name: what a bot's search supposes a face-down one holds (#82). */
+  readonly _freshCards = new Map<string, Record<string, unknown>>();
+
   // Pending artillery allocation - rebels choose how to allocate hits during dictator's turn
   pendingArtilleryAllocation: {
     sectorId: string;        // Which sector is being attacked
@@ -1105,6 +1108,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         });
         // Initialize computed stats (no equipment yet, so just base stats)
         combatant.updateComputedStats();
+        this._freshCards.set(combatant.name!, { ...combatant });
       }
     }
   }
@@ -1122,7 +1126,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
       for (let i = 0; i < equip.quantity; i++) {
         const suffix = equip.quantity > 1 ? `-${i + 1}` : '';
-        deck.create(Equipment, `equip-${equip.id}${suffix}`, {
+        const card = deck.create(Equipment, `equip-${equip.id}${suffix}`, {
           equipmentId: equip.id,
           equipmentName: equip.name,
           equipmentType: equip.type,
@@ -1137,6 +1141,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
           negatesArmor: equip.negatesArmor,
           expansion: equip.expansion,
         });
+        this._freshCards.set(card.name!, { ...card });
       }
     }
   }
