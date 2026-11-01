@@ -440,6 +440,8 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       do: actionStep({
         name: 'wait-for-combat-animations',
         actions: ['clearCombatAnimations'],
+        // The combat behind this step rolled dice everyone saw, so undo must not reach back into it.
+        turnScope: 'restart',
         skipIf: () => !game.activeCombat?.combatComplete,
       }),
     }),
@@ -1072,6 +1074,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Regular action step - only runs when not in combat
                   actionStep({
                     name: 'dictator-merc-action',
+                    // The run behind each entry can hold a revealed tactics card, combat, mortar dice or a Hagness draw, none fenced, so undo starts afresh.
+                    turnScope: 'restart',
                     // The dictator finishes Hagness's pick or give before anything else.
                     actions: () => {
                       const hagnessStep = pendingHagnessStep(game, game.dictatorPlayer);
