@@ -1208,7 +1208,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Placing militia hides and rolls nothing (combat is only queued), so undo reaches back over the run.
                   turnScope: 'continue',
                   actions: ['maoBonusMilitia'],
-                  skipIf: () => game.isFinished() || game.pendingMaoMilitia == null || game.pendingMaoMilitia.remaining <= 0,
                 }),
               }),
 
@@ -1222,7 +1221,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   // Spreading militia hides and rolls nothing (combat is only queued), so undo reaches back over the run.
                   turnScope: 'continue',
                   actions: ['mussoliniSpreadMilitia'],
-                  skipIf: () => game.isFinished() || game.pendingMussoliniSpread == null || game.pendingMussoliniSpread.remaining <= 0,
                 }),
               }),
 
