@@ -1,4 +1,4 @@
-import { Game, Player, type GameOptions } from 'boardsmith';
+import { Game, Player, Space, type GameOptions } from 'boardsmith';
 import {
   CombatantModel,
   Equipment,
@@ -430,6 +430,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   weaponsDiscard!: DiscardPile;
   armorDiscard!: DiscardPile;
   accessoriesDiscard!: DiscardPile;
+
+  // MERCs drawn face up for the dictator to hire from
+  mercOffer!: Space;
 
   // Militia bonus flags (from tactics cards)
   betterWeaponsActive: boolean = false;  // +1 combat die per dictator militia
@@ -961,6 +964,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.weaponsDiscard = this.create(DiscardPile, 'weapons-discard');
     this.armorDiscard = this.create(DiscardPile, 'armor-discard');
     this.accessoriesDiscard = this.create(DiscardPile, 'accessories-discard');
+    this.mercOffer = this.create(Space, 'merc-offer');
 
     // Create game map (will be populated when data is loaded)
     this.gameMap = this.create(GameMap, 'game-map');
@@ -1318,6 +1322,20 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }
 
     return drawn[0];
+  }
+
+  /** Draw MERCs into mercOffer, where a hire pick offers them. */
+  offerMercs(count: number): void {
+    for (let i = 0; i < count; i++) {
+      this.drawMerc()?.putInto(this.mercOffer);
+    }
+  }
+
+  /** Discard the MERCs left on offer once the hire is done. */
+  discardMercOffer(): void {
+    for (const merc of this.mercOffer.all(CombatantModel)) {
+      merc.putInto(this.mercDiscard);
+    }
   }
 
   getSector(sectorId: string): Sector | undefined {

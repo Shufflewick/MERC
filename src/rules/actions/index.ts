@@ -77,6 +77,7 @@ import {
   createTrainAction,
   createHospitalAction,
   createArmsDealerAction,
+  createArmsDealerEquipAction,
   createEndTurnAction,
   createViewStashAction,
 } from './rebel-economy.js';
@@ -175,6 +176,7 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createMortarAction(game)); // Rebel mortar attack
   game.registerAction(createHospitalAction(game));
   game.registerAction(createArmsDealerAction(game));
+  game.registerAction(createArmsDealerEquipAction(game));
   game.registerAction(createAssignToSquadAction(game));
   game.registerAction(createEndTurnAction(game));
   game.registerAction(createViewStashAction(game));

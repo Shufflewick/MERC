@@ -854,16 +854,6 @@ export function createDictatorSkipExtraMilitiaAction(game: MERCGame): ActionDefi
  */
 export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
   const REMAINING_KEY = '_bonus_mercs_remaining';
-  const DRAWN_MERC_KEY = '_bonus_drawn_merc_id';
-
-  // Helper to find the drawn MERC from cache
-  const getDrawnMerc = (): CombatantModel | null => {
-    const mercId = getGlobalCachedValue<number>(game, DRAWN_MERC_KEY);
-    if (!mercId) return null;
-    const el = game.getElementById(mercId);
-    return (isCombatantModel(el) && el.isMerc) ? el : null;
-  };
-
   return Action.create<MERCGame>('bonusMercSetup')
     .prompt('Dictator Ability: Choose squad for bonus MERC')
     .notUndoable()
@@ -879,23 +869,11 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
         return remaining !== undefined && remaining > 0;
       },
     })
-    .chooseFrom('selectedMerc', {
+    .chooseElement('selectedMerc', {
       prompt: 'Bonus MERC drawn',
-      choices: () => {
-        // Check if MERC already drawn (cached from previous choices render)
-        const existing = getDrawnMerc();
-        if (existing) {
-          return [existing.combatantName];
-        }
-
-        // Draw a new MERC and cache it
-        const merc = game.drawMerc();
-        if (!merc) {
-          return ['No MERCs available'];
-        }
-        setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-        return [merc.combatantName];
-      },
+      elementClass: CombatantModel,
+      from: () => game.mercOffer,
+      display: (merc) => merc.combatantName,
     })
     .chooseFrom('targetSquad', {
       prompt: 'Assign to which squad?',
@@ -909,8 +887,8 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom('equipmentType', {
       prompt: 'Choose starting equipment type',
-      choices: () => {
-        const merc = getDrawnMerc();
+      choices: (ctx) => {
+        const merc = ctx.args.selectedMerc as CombatantModel | undefined;
         if (!merc) return ['Weapon', 'Armor', 'Accessory'];
         const choices: string[] = [];
         if (!merc.weaponSlot) choices.push('Weapon');
@@ -922,14 +900,7 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
       },
     })
     .execute((args) => {
-      const merc = getDrawnMerc();
-      if (!merc) {
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-        // Decrement counter even on failure to prevent infinite loop
-        const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
-        setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
-        return { success: false, error: 'No MERC drawn' };
-      }
+      const merc = args.selectedMerc;
 
       const squadChoice = args.targetSquad;
       const dictatorName = game.dictatorPlayer.dictator?.combatantName ?? 'Dictator';
@@ -938,7 +909,6 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
       if (squadChoice === 'Squads full - MERC will be discarded') {
         merc.putInto(game.mercDiscard);
         game.message(`${dictatorName}: ${merc.combatantName} discarded (squads full)`);
-        clearGlobalCachedValue(game, DRAWN_MERC_KEY);
         const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
         setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
         return { success: true, message: `${merc.combatantName} discarded` };
@@ -971,10 +941,9 @@ export function createBonusMercSetupAction(game: MERCGame): ActionDefinition {
 
       game.message(`${dictatorName} hired bonus MERC: ${merc.combatantName} to ${squadChoice}`);
 
-      // Decrement counter and clear drawn MERC cache
+      // Decrement counter
       const remaining = getGlobalCachedValue<number>(game, REMAINING_KEY) ?? 0;
       setGlobalCachedValue(game, REMAINING_KEY, Math.max(0, remaining - 1));
-      clearGlobalCachedValue(game, DRAWN_MERC_KEY);
 
       return {
         success: true,

@@ -489,6 +489,26 @@ function isDay1Complete(game: MERCGame, player: Player): boolean {
 }
 
 export function createGameFlow(game: MERCGame): FlowDefinition {
+  const dictatorHasSquadRoom = () =>
+    !game.dictatorPlayer.primarySquad.isFull || !game.dictatorPlayer.secondarySquad.isFull;
+
+  const noriegaHireDue = () => {
+    if (game.isFinished()) return false;
+    if (game.dictatorPlayer?.dictator?.combatantId !== 'noriega') return false;
+    if (game.dictatorPlayer?.isBot === true) return false;
+    if (game.pendingNoriegaConversion != null) return false; // conversion not done yet
+    if (!dictatorHasSquadRoom()) return false;
+    const dictSectors = game.getControlledSectors(game.dictatorPlayer).length;
+    let rebelSectors = 0;
+    for (const r of game.rebelPlayers) rebelSectors += game.getControlledSectors(r).length;
+    return dictSectors < rebelSectors;
+  };
+
+  const polpotHireDue = () => !game.isFinished() &&
+    game.dictatorPlayer?.dictator?.combatantId === 'polpot' &&
+    game.dictatorPlayer?.isBot !== true &&
+    game.lastAbilityCombatOutcome?.rebelVictory === true;
+
   return {
     root: sequence(
       // Day 1: The Landing
@@ -629,10 +649,14 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   return remaining !== undefined && remaining > 0;
                 },
                 maxIterations: 10,
-                do: actionStep({
-                  name: 'bonus-merc-squad-choice',
-                  actions: ['bonusMercSetup'],
-                }),
+                do: sequence(
+                  // The dictator now sees this MERC, so undo must not reach back and redraw.
+                  execute(() => game.offerMercs(1), { irreversible: true }),
+                  actionStep({
+                    name: 'bonus-merc-squad-choice',
+                    actions: ['bonusMercSetup'],
+                  }),
+                ),
               }),
 
               // Step 4: Draw tactics hand
@@ -843,6 +867,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   'hagnessSelectFromDrawn',
                   'hagnessGiveEquipment',
                   'armsDealer',
+                  'armsDealerEquip', // MERC-dh5: free re-equip (via followUp)
                   'repairKit',
                   'mortar',
                   'assignToSquad',
@@ -1050,6 +1075,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'hagnessSelectFromDrawn', // MERC-jrph: Hagness pick 1 of 3 (step 2, via followUp)
                       'hagnessGiveEquipment', // MERC-jrph: Hagness give equipment (step 2, via followUp)
                       'armsDealer',
+                      'armsDealerEquip', // MERC-dh5: free re-equip (via followUp)
                       'repairKit',
                       'mortar',
                       'assignToSquad',
@@ -1106,6 +1132,15 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 // Human players use the actionStep below
               }),
 
+              // Human per-turn hires pick from MERCs drawn here, never inside a pick (#65)
+              execute(() => {
+                if (game.isFinished() || game.dictatorPlayer?.isBot) return;
+                const dictatorId = game.dictatorPlayer?.dictator?.combatantId;
+                if (dictatorId === 'castro') game.offerMercs(3);
+                if (dictatorId === 'gadafi' || dictatorId === 'stalin') game.offerMercs(1);
+                if (dictatorId === 'hitler' && dictatorHasSquadRoom()) game.offerMercs(1);
+              }, { irreversible: true }),
+
               // Human dictator ability choice (skipped for Bot)
               actionStep({
                 name: 'dictator-ability',
@@ -1134,19 +1169,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Noriega: Conditional bonus hire (human only, after conversion complete)
+              execute(() => {
+                if (noriegaHireDue()) game.offerMercs(1);
+              }, { irreversible: true }),
               actionStep({
                 name: 'noriega-bonus-hire',
                 actions: ['noriegaBonusHire'],
-                skipIf: () => {
-                  if (game.isFinished()) return true;
-                  if (game.dictatorPlayer?.dictator?.combatantId !== 'noriega') return true;
-                  if (game.dictatorPlayer?.isBot === true) return true;
-                  if (game.pendingNoriegaConversion != null) return true; // conversion not done yet
-                  const dictSectors = game.getControlledSectors(game.dictatorPlayer).length;
-                  let rebelSectors = 0;
-                  for (const r of game.rebelPlayers) rebelSectors += game.getControlledSectors(r).length;
-                  return dictSectors >= rebelSectors;
-                },
+                skipIf: () => !noriegaHireDue(),
               }),
 
               // Mao militia distribution loop (human only, subsequent placements after first)
@@ -1242,13 +1271,13 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               }),
 
               // Pol Pot: Human conditional hire after combat loss
+              execute(() => {
+                if (polpotHireDue()) game.offerMercs(1);
+              }, { irreversible: true }),
               actionStep({
                 name: 'polpot-bonus-hire',
                 actions: ['polpotBonusHire'],
-                skipIf: () => game.isFinished() ||
-                  game.dictatorPlayer?.dictator?.combatantId !== 'polpot' ||
-                  game.dictatorPlayer?.isBot === true ||
-                  !game.lastAbilityCombatOutcome?.rebelVictory,
+                skipIf: () => !polpotHireDue(),
               }),
 
               // Clear outcome after human hire step (whether it ran or not)
@@ -1266,11 +1295,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                   game.dictatorPlayer?.isBot !== true &&
                   game._pinochetPendingHires > 0,
                 maxIterations: 20,
-                do: actionStep({
-                  name: 'pinochet-hire',
-                  actions: ['pinochetBonusHire'],
-                  skipIf: () => game.isFinished() || game._pinochetPendingHires <= 0,
-                }),
+                do: sequence(
+                  execute(() => {
+                    if (!game.isFinished() && game._pinochetPendingHires > 0 && dictatorHasSquadRoom()) game.offerMercs(1);
+                  }, { irreversible: true }),
+                  actionStep({
+                    name: 'pinochet-hire',
+                    actions: ['pinochetBonusHire'],
+                    skipIf: () => game.isFinished() || game._pinochetPendingHires <= 0,
+                  }),
+                ),
               }),
 
               // Apply end-of-turn effects (Conscripts)

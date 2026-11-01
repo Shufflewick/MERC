@@ -1183,21 +1183,10 @@ export function createHospitalAction(game: MERCGame): ActionDefinition {
 // Works for both rebel and dictator players.
 // =============================================================================
 
-// Settings key for arms dealer drawn equipment cache
-const ARMS_DEALER_DRAWN_KEY = 'armsDealerDrawn';
-
-// Helper to get player ID for arms dealer cache (distinguishes rebels by seat, dictator)
-function getArmsDealerPlayerId(player: unknown, game: MERCGame): string {
-  if (game.isRebelPlayer(player)) {
-    return `${asRebelPlayer(player).seat}`;
-  }
-  return 'dictator';
-}
-
 /**
  * Use arms dealer in a city sector
- * Cost: 1 action, draw equipment
- * MERC-dh5: Includes free re-equip option per rules
+ * Cost: 1 action, draw equipment into the sector stash
+ * MERC-dh5: Chains to armsDealerEquip for the free re-equip per rules
  * Works for both mercs and dictator combatants.
  */
 export function createArmsDealerAction(game: MERCGame): ActionDefinition {
@@ -1238,27 +1227,81 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       prompt: 'What type of equipment?',
       choices: () => ['Weapon', 'Armor', 'Accessory'],
     })
-    // MERC-dh5: Free re-equip - choose unit to equip the purchased item
+    .execute((args, ctx) => {
+      const sector = findCitySectorForPlayer(ctx.player, game);
+      const actingUnit = findArmsDealerUnit(game, args.actingUnit);
+
+      if (!actingUnit || !sector) {
+        return { success: false, error: 'Unit not found' };
+      }
+
+      // Spend action
+      if (actingUnit.actionsRemaining < ACTION_COSTS.ARMS_DEALER) {
+        return { success: false, error: 'Not enough actions' };
+      }
+
+      const equipmentType = args.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
+      const equipment = game.drawEquipment(equipmentType);
+      if (!equipment) {
+        return { success: false, error: `The ${equipmentType} deck and discard are empty, so the dealer has nothing to sell. Choose another type.` };
+      }
+
+      actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
+
+      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
+        game.recordRebelActionForBatching(ctx.player);
+      }
+
+      const actingUnitName = getUnitName(actingUnit);
+      if (sector.addToStash(equipment)) {
+        emitMapEquipmentAnimations(game, [
+          buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming'),
+        ]);
+        game.message(`${actingUnitName} bought ${equipment.equipmentName} (added to ${sector.sectorName} stash)`);
+      } else {
+        game.message(`${actingUnitName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);
+      }
+
+      return {
+        success: true,
+        message: `Bought ${equipment.equipmentName}`,
+        followUp: {
+          action: 'armsDealerEquip',
+          args: { equipmentId: equipment.id },
+          display: { equipmentId: equipment.equipmentName },
+        },
+      };
+    });
+}
+
+/** Parse an arms dealer unit choice ("id:name:isDictator") back to its unit. */
+function findArmsDealerUnit(game: MERCGame, choice: string): CombatantModel | null {
+  const parts = choice.split(':');
+  if (parts[parts.length - 1] === 'true') {
+    return game.dictatorPlayer?.dictator || null;
+  }
+  const unitId = parseInt(parts[0], 10);
+  return game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === unitId) || null;
+}
+
+/**
+ * MERC-dh5: Free re-equip of the item just bought (chained from armsDealer via followUp).
+ * Skipping leaves it in the sector stash.
+ */
+export function createArmsDealerEquipAction(game: MERCGame): ActionDefinition {
+  function getBought(ctx: { args?: Record<string, unknown> }): Equipment | undefined {
+    const element = game.getElementById(ctx.args?.equipmentId as number);
+    return element instanceof Equipment ? element : undefined;
+  }
+
+  return Action.create<MERCGame>('armsDealerEquip')
+    .prompt('Free Re-Equip')
+    .condition({
+      'triggered via followUp from armsDealer': (ctx) => ctx.args?.equipmentId != null,
+    })
     .chooseFrom('equipUnit', {
       prompt: 'Free Re-Equip: Which unit should equip this item? (or skip)',
       choices: (ctx: ActionContext) => {
-        const equipmentType = ctx.args?.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-        const playerId = getArmsDealerPlayerId(ctx.player, game);
-
-        // Draw equipment now so we can show what was bought
-        // Store in cache to persist across choices/execute contexts
-        if (getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId) === undefined) {
-          const equipment = game.drawEquipment(equipmentType);
-          if (equipment) {
-            setCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId, equipment.id);
-            game.message(`Drew ${equipment.equipmentName} from ${equipmentType} deck`);
-          }
-        }
-
-        const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
-        const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
-        const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
-
         // Only units in the city sector can receive equipment
         const sector = findCitySectorForPlayer(ctx.player, game);
         const playerUnits = sector ? getPlayerUnitsInSector(ctx.player, game, sector) : [];
@@ -1275,132 +1318,52 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
       // MERC-70a: Show Apeiron as disabled when equipment is a grenade/mortar
       disabled: (value, ctx) => {
         if (value === 'skip') return false;
-        const parts = value.split(':');
-        const unitId = parseInt(parts[0], 10);
-        const isDictatorUnit = parts[parts.length - 1] === 'true';
-
+        const unit = findArmsDealerUnit(game, value);
         // Only check Apeiron (who is always a merc, not dictator)
-        if (isDictatorUnit) return false;
+        if (!unit?.isMerc || unit.combatantId !== 'apeiron') return false;
 
-        // Find the unit to check combatantId
-        const unit = game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === unitId);
-        if (!unit || unit.combatantId !== 'apeiron') return false;
-
-        // Check if drawn equipment is a grenade/mortar
-        const playerId = getArmsDealerPlayerId(ctx.player, game);
-        const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
-        const drawnElement = equipmentId ? game.getElementById(equipmentId) : undefined;
-        const drawnEquip = drawnElement instanceof Equipment ? drawnElement : undefined;
-
-        if (drawnEquip && isGrenadeOrMortar(drawnEquip)) {
+        const bought = getBought(ctx);
+        if (bought && isGrenadeOrMortar(bought)) {
           return 'Apeiron cannot use explosives';
         }
         return false;
       },
     })
     .execute((args, ctx) => {
-      const actingUnitStr = args.actingUnit;
-      const playerId = getArmsDealerPlayerId(ctx.player, game);
+      const equipment = getBought(ctx);
       const sector = findCitySectorForPlayer(ctx.player, game);
-
-      // Parse acting unit string format: "id:name:isDictator"
-      const actingParts = actingUnitStr.split(':');
-      const actingUnitId = parseInt(actingParts[0], 10);
-      const isActingDictator = actingParts[actingParts.length - 1] === 'true';
-
-      // Find the acting unit
-      let actingUnit: CombatantModel | null = null;
-      if (isActingDictator) {
-        actingUnit = game.dictatorPlayer?.dictator || null;
-      } else {
-        actingUnit = game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === actingUnitId) || null;
+      if (!equipment || !sector) {
+        return { success: false, error: 'The bought equipment or the city sector could not be found.' };
       }
 
-      if (!actingUnit) {
-        clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
-        return { success: false, error: 'Unit not found' };
+      const targetUnit = args.equipUnit === 'skip' ? null : findArmsDealerUnit(game, args.equipUnit);
+      if (!targetUnit) {
+        return { success: true, message: `Kept ${equipment.equipmentName} in the stash` };
       }
 
-      // Spend action
-      if (actingUnit.actionsRemaining < ACTION_COSTS.ARMS_DEALER) {
-        clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId);
-        return { success: false, error: 'Not enough actions' };
+      const { replaced, displacedBandolierItems } = targetUnit.equip(equipment);
+      const equipmentAnimations = [
+        buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(targetUnit)),
+      ];
+      if (replaced) {
+        sector.addToStash(replaced);
+        equipmentAnimations.push(
+          buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
+        );
       }
-      actingUnit.actionsRemaining -= ACTION_COSTS.ARMS_DEALER;
-
-      if (game.isRebelPlayer(ctx.player) && ctx.player.isBot) {
-        game.recordRebelActionForBatching(ctx.player);
-      }
-
-      const actingUnitName = getUnitName(actingUnit);
-
-      // Get equipment from cache (stored by choices function)
-      const equipmentId = getCachedValue<number>(game, ARMS_DEALER_DRAWN_KEY, playerId);
-      const equipElement = equipmentId ? game.getElementById(equipmentId) : undefined;
-      const equipment = equipElement instanceof Equipment ? equipElement : undefined;
-      clearCachedValue(game, ARMS_DEALER_DRAWN_KEY, playerId); // Clean up
-
-      if (equipment && sector) {
-        const equipUnitStr = args.equipUnit;
-
-        if (equipUnitStr && equipUnitStr !== 'skip') {
-          // Parse equip target unit string
-          const equipParts = equipUnitStr.split(':');
-          const equipUnitId = parseInt(equipParts[0], 10);
-          const isEquipDictator = equipParts[equipParts.length - 1] === 'true';
-
-          // Find the target unit
-          let targetUnit: CombatantModel | null = null;
-          if (isEquipDictator) {
-            targetUnit = game.dictatorPlayer?.dictator || null;
-          } else {
-            targetUnit = game.all(CombatantModel).filter(c => c.isMerc).find(m => m.id === equipUnitId) || null;
-          }
-
-          if (targetUnit) {
-            const { replaced, displacedBandolierItems } = targetUnit.equip(equipment);
-            const equipmentAnimations = [
-              buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming', getMapCombatantId(targetUnit)),
-            ];
-            const targetUnitName = getUnitName(targetUnit);
-            if (replaced) {
-              sector.addToStash(replaced);
-              equipmentAnimations.push(
-                buildMapEquipmentAnimation(replaced, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
-              );
-              game.message(`${targetUnitName} equipped ${equipment.equipmentName}`);
-            } else {
-              game.message(`${targetUnitName} equipped ${equipment.equipmentName}`);
-            }
-            for (const item of displacedBandolierItems) {
-              if (sector.addToStash(item)) {
-                equipmentAnimations.push(
-                  buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
-                );
-              } else {
-                const discard = game.getEquipmentDiscard(item.equipmentType);
-                if (discard) item.putInto(discard);
-              }
-            }
-            emitMapEquipmentAnimations(game, equipmentAnimations);
-            return { success: true, message: `Bought and equipped ${equipment.equipmentName}` };
-          }
-        }
-
-        // Add to sector stash if not equipped
-        const added = sector.addToStash(equipment);
-        if (added) {
-          emitMapEquipmentAnimations(game, [
-            buildMapEquipmentAnimation(equipment, sector.sectorId, 'incoming'),
-          ]);
-          game.message(`${actingUnitName} bought ${equipment.equipmentName} (added to ${sector.sectorName} stash)`);
+      game.message(`${getUnitName(targetUnit)} equipped ${equipment.equipmentName}`);
+      for (const item of displacedBandolierItems) {
+        if (sector.addToStash(item)) {
+          equipmentAnimations.push(
+            buildMapEquipmentAnimation(item, sector.sectorId, 'outgoing', getMapCombatantId(targetUnit))
+          );
         } else {
-          game.message(`${actingUnitName} bought ${equipment.equipmentName} but couldn't stash it (damaged?)`);
+          const discard = game.getEquipmentDiscard(item.equipmentType);
+          if (discard) item.putInto(discard);
         }
-        return { success: true, message: `Bought ${equipment.equipmentName}` };
       }
-
-      return { success: false, error: 'No equipment available' };
+      emitMapEquipmentAnimations(game, equipmentAnimations);
+      return { success: true, message: `Bought and equipped ${equipment.equipmentName}` };
     });
 }
 
