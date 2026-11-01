@@ -32,7 +32,8 @@ import { hasMortar } from '../bot-helpers.js';
 import { rollDice } from '../combat.js';
 import { getHitThreshold } from '../merc-abilities.js';
 import { CombatConstants } from '../constants.js';
-import { buildMapEquipmentAnimation, emitMapEquipmentAnimations, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd, serializeCombatantForCard } from '../animation-events.js';
+import { killMercOutsideCombat } from '../merc-death.js';
+import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapEquipmentAnimations, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd, serializeCombatantForCard, type MapCombatantEventData } from '../animation-events.js';
 
 // =============================================================================
 // Re-Equip Action
@@ -1898,19 +1899,10 @@ export function createMortarAction(game: MERCGame): ActionDefinition {
 
       // Bot player: auto-allocate hits and apply damage immediately
       if ((ctx.player as MERCPlayer).isBot) {
-        const { totalDamage, hitCombatantIds, militiaKilled } = autoAllocateAndApplyMortarHits(
+        const { totalDamage } = autoAllocateAndApplyMortarHits(
           game, targetSector, validTargets, hits, isRebel,
+          { diceRolls, hits, hitThreshold, attackerName: capitalize(unitDisplayName) },
         );
-
-        game.animate('mortar-strike', {
-          targetSectorId: targetSector.sectorId,
-          hitCombatantIds,
-          militiaKilled,
-          diceRolls,
-          hits,
-          hitThreshold,
-          attackerName: capitalize(unitDisplayName),
-        });
 
         return {
           success: true,
@@ -2109,7 +2101,8 @@ function autoAllocateAndApplyMortarHits(
   }>,
   hits: number,
   isRebel: boolean,
-): { totalDamage: number; hitCombatantIds: string[]; militiaKilled: number } {
+  strike: MortarStrikeRoll,
+): { totalDamage: number } {
   // Sort targets: lowest health first (to secure kills), militia last
   const sortedTargets = [...validTargets].sort((a, b) => {
     if (a.type === 'militia' && b.type !== 'militia') return 1;
@@ -2129,11 +2122,18 @@ function autoAllocateAndApplyMortarHits(
   }
 
   // Apply damage
-  return applyMortarDamage(game, targetSector, validTargets, hitsByTarget, isRebel);
+  return applyMortarDamage(game, targetSector, validTargets, hitsByTarget, isRebel, strike);
+}
+
+export interface MortarStrikeRoll {
+  diceRolls: number[];
+  hits: number;
+  hitThreshold: number;
+  attackerName: string;
 }
 
 /**
- * Apply mortar damage based on hit allocation.
+ * Apply mortar damage based on hit allocation, then animate the strike and any deaths.
  * Used by both Bot auto-allocate and human allocation action.
  */
 export function applyMortarDamage(
@@ -2149,10 +2149,12 @@ export function applyMortarDamage(
   }>,
   hitsByTarget: Map<string, number>,
   isRebel: boolean,
-): { totalDamage: number; hitCombatantIds: string[]; militiaKilled: number } {
+  strike: MortarStrikeRoll,
+): { totalDamage: number } {
   let totalDamage = 0;
   const hitCombatantIds: string[] = [];
   let militiaKilled = 0;
+  const deaths: MapCombatantEventData[] = [];
 
   for (const [targetId, hitCount] of hitsByTarget) {
     const target = validTargets.find(t => t.id === targetId);
@@ -2182,16 +2184,30 @@ export function applyMortarDamage(
         hitCombatantIds.push(merc.combatantId);
         game.message(`Mortar deals ${hitCount} damage to ${capitalize(merc.combatantName)}`);
         if (merc.isDead) {
-          game.message(`${capitalize(merc.combatantName)} has been killed by mortar!`);
+          const killedMessage = `${capitalize(merc.combatantName)} has been killed by mortar!`;
+          // Built before the death sequence moves the card off the map.
+          const death = buildMapCombatantEntry(merc, targetSector.sectorId);
           if (merc.isDictator) {
+            game.message(killedMessage);
             game.message(`THE DICTATOR HAS BEEN KILLED BY MORTAR! REBELS WIN!`);
+            deaths.push(death);
+          } else if (killMercOutsideCombat(game, merc, killedMessage)) {
+            deaths.push(death);
           }
         }
       }
     }
   }
 
-  return { totalDamage, hitCombatantIds, militiaKilled };
+  game.animate('mortar-strike', {
+    targetSectorId: targetSector.sectorId,
+    hitCombatantIds,
+    militiaKilled,
+    ...strike,
+  });
+  emitMapCombatantDeaths(game, deaths);
+
+  return { totalDamage };
 }
 
 /**
