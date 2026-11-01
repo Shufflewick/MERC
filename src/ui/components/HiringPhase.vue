@@ -4,7 +4,7 @@ import { GameOverlay } from 'boardsmith/ui';
 import CombatantCard from './CombatantCard.vue';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import SectorCardChoice from './SectorCardChoice.vue';
-import type { SectorChoice } from '../composables/useActionState';
+import type { MercPortrait, SectorChoice } from '../composables/useActionState';
 import CombatantIconSmall from './CombatantIconSmall.vue';
 import ModalContent from './ModalContent.vue';
 
@@ -22,20 +22,18 @@ interface Props {
   equipmentTypeChoices: Array<{ value: string; label: string }>;
   sectorChoices: SectorChoice[];
 
-  // Selected MERC state (for equipment/sector selection context)
-  selectedMercForEquipment: any | null;
-  selectedMercImagePath: string;
-  selectedMercName: string;
-  selectedMercId: string;
+  // The MERCs being hired (for equipment/sector selection context)
+  selectedMercPortraits: MercPortrait[];
 
   // MultiSelect state (mid-game hire: draw 3, pick 1+)
   isMultiSelect?: boolean;
   isMultiSelectReady?: boolean;
   multiSelectCountDisplay?: string;
+  multiSelectSkipLabel?: string; // The optional pick's "hire no one" wording, empty when it cannot be skipped
   isMultiSelected?: (choiceValue: unknown) => boolean;
 
-  // Modal state
-  showHiringMercModal: boolean;
+  // The MERC shown in the detail modal, if any
+  hiringMercDetail: any | null;
 
   // Display context
   prompt: string;
@@ -50,7 +48,8 @@ const emit = defineEmits<{
   'select-sector': [sector: { value: string; label: string }];
   'skip-hire': [];
   'confirm-multi-select': [];
-  'open-detail-modal': [];
+  'skip-multi-select': [];
+  'open-detail-modal': [index: number];
   'close-detail-modal': [];
 }>();
 
@@ -80,10 +79,8 @@ function handleSkipHire() {
   emit('skip-hire');
 }
 
-function handleOpenDetailModal() {
-  if (props.selectedMercForEquipment) {
-    emit('open-detail-modal');
-  }
+function handleOpenDetailModal(index: number) {
+  emit('open-detail-modal', index);
 }
 
 function handleCloseDetailModal() {
@@ -105,9 +102,7 @@ function handleCloseDetailModal() {
     <DrawEquipmentType
       v-if="isSelectingEquipmentType && equipmentTypeChoices.length > 0"
       :choices="equipmentTypeChoices"
-      :combatant-id="selectedMercId"
-      :combatant-name="selectedMercName"
-      :image="selectedMercImagePath"
+      :combatants="selectedMercPortraits"
       :player-color="playerColor"
       @select="handleEquipmentTypeSelect"
       @clickMerc="handleOpenDetailModal"
@@ -118,13 +113,14 @@ function handleCloseDetailModal() {
       <div class="sector-row">
         <!-- MERC portrait (clickable to view details) -->
         <CombatantIconSmall
-          v-if="selectedMercImagePath"
-          :image="selectedMercImagePath"
-          :alt="selectedMercName || 'MERC'"
+          v-for="(portrait, index) in selectedMercPortraits"
+          :key="portrait.combatantName"
+          :image="portrait.image"
+          :alt="portrait.combatantName"
           :player-color="playerColor"
           :size="80"
           clickable
-          @click="handleOpenDetailModal"
+          @click="handleOpenDetailModal(index)"
         />
         <!-- Sector cards -->
         <div class="sector-card-choices">
@@ -163,6 +159,9 @@ function handleCloseDetailModal() {
         >
           Confirm Hire
         </button>
+        <button v-if="multiSelectSkipLabel" class="skip-hire-button" @click="emit('skip-multi-select')">
+          {{ multiSelectSkipLabel }}
+        </button>
       </div>
 
       <!-- Skip button for third hire (optional) -->
@@ -180,12 +179,12 @@ function handleCloseDetailModal() {
     </div>
 
     <!-- MERC Detail Modal -->
-    <GameOverlay :active="showHiringMercModal" @click="handleCloseDetailModal">
+    <GameOverlay :active="!!hiringMercDetail" @click="handleCloseDetailModal">
       <ModalContent @close="handleCloseDetailModal">
         <div class="hiring-merc-modal">
           <CombatantCard
-            v-if="selectedMercForEquipment"
-            :merc="selectedMercForEquipment"
+            v-if="hiringMercDetail"
+            :merc="hiringMercDetail"
             :player-color="playerColor"
           />
         </div>

@@ -433,7 +433,6 @@ export function drawDictatorFirstMerc(game: MERCGame): void {
   const merc = game.drawMerc();
   if (merc) {
     setGlobalCachedValue(game, DRAWN_MERC_KEY, merc.id);
-    setGlobalCachedValue(game, 'dictatorFirstMercCombatantId', merc.combatantId);
     game.message(`Dictator drew ${merc.combatantName}`);
   }
 }
@@ -491,7 +490,6 @@ export function createDictatorHireFirstMercAction(game: MERCGame): ActionDefinit
     .execute((args) => {
       const merc = getDrawnMerc();
       clearGlobalCachedValue(game, DRAWN_MERC_KEY);
-      clearGlobalCachedValue(game, 'dictatorFirstMercCombatantId');
       if (!merc) return { success: false, error: 'No MERC drawn' };
 
       // Bot path - Bot rules place and equip the MERC

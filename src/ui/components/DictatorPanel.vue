@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { UI_COLORS } from '../colors';
 import { type UseActionControllerReturn, GameOverlay } from 'boardsmith/ui';
 import { assetUrl } from '../composables/useAssetUrl';
+import type { MercPortrait } from '../composables/useActionState';
 import DrawEquipmentType from './DrawEquipmentType.vue';
 import CombatantCard from './CombatantCard.vue';
 import CombatantIcon from './CombatantIcon.vue';
@@ -235,6 +236,12 @@ const equipmentSelectionCombatant = computed(() => {
     combatantName: props.dictator?.combatantName,
     image: props.dictator?.image,
   };
+});
+
+// DrawEquipmentType's portrait list: the combatant above, when he has a name to show
+const equipmentSelectionPortraits = computed<MercPortrait[]>(() => {
+  const { combatantId, combatantName, image } = equipmentSelectionCombatant.value;
+  return combatantName ? [{ combatantId, combatantName, image }] : [];
 });
 
 // Get equipment type choices
@@ -634,9 +641,7 @@ const dictatorCardData = computed(() => ({
           <DrawEquipmentType
             v-else-if="isSelectingEquipmentType"
             :choices="equipmentTypeChoices"
-            :combatant-id="equipmentSelectionCombatant.combatantId"
-            :combatant-name="equipmentSelectionCombatant.combatantName"
-            :image="equipmentSelectionCombatant.image"
+            :combatants="equipmentSelectionPortraits"
             player-color="dictator"
             @select="selectEquipmentType"
           />
