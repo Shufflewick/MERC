@@ -1299,6 +1299,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // If deck is empty, reshuffle discard and try again
     if (drawn.length === 0 && discard.count(Equipment) > 0) {
       for (const eq of discard.all(Equipment)) {
+        // Equipping calls showToAll(), which would otherwise reveal the card through the hidden deck
+        eq.clearVisibility();
         eq.putInto(deck);
       }
       deck.shuffle();

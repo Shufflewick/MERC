@@ -654,6 +654,21 @@ describe('Error Conditions', () => {
         expect(drawn).toBeDefined();
       });
 
+      it('hides once-equipped weapons again when the discard is reshuffled into the deck', () => {
+        const merc = game.mercDeck.all(CombatantModel).find(c => c.isMerc)!;
+        const rebel = game.rebelPlayers[0];
+        for (const equip of game.weaponsDeck.all(Equipment)) {
+          merc.equip(equip);
+          equip.putInto(game.weaponsDiscard);
+        }
+
+        game.drawEquipment('Weapon');
+
+        const visibleInDeck = game.weaponsDeck.all(Equipment).filter(e => e.isVisibleTo(rebel));
+        expect(game.weaponsDeck.count(Equipment)).toBeGreaterThan(0);
+        expect(visibleInDeck.map(e => e.equipmentId)).toEqual([]);
+      });
+
       it('should return undefined when equipment deck and discard are both empty', () => {
         // Move all weapons to a sector stash
         const sector = game.gameMap.getAllSectors()[0];
