@@ -138,6 +138,30 @@ describe('GameTable mid-game hire panel (#93)', () => {
     done();
   });
 
+  it('the panel can hire no one, and its Confirm waits for a pick', async () => {
+    const { shell, hiringPhase, done } = await mountOnOffer('hireMercFromOffer');
+    expect(hiringPhase().props('isMultiSelectReady')).toBe(false);
+    expect(hiringPhase().props('multiSelectSkipLabel')).toBe('Hire no one');
+    hiringPhase().vm.$emit('skip-multi-select');
+    await flushPromises();
+    expect(shell.actionController.currentPick.value?.name).toBe('equipmentType');
+    done();
+  });
+
+  it('a MERC\'s detail opened at the equipment step closes when the hire is cancelled', async () => {
+    const { shell, hiringPhase, hirable, done } = await mountOnOffer('hireMercFromOffer');
+    hiringPhase().vm.$emit('select-merc', hirable('Snake'));
+    hiringPhase().vm.$emit('confirm-multi-select');
+    await flushPromises();
+    hiringPhase().vm.$emit('open-detail-modal', 0);
+    await flushPromises();
+    expect(hiringPhase().props('hiringMercDetail')).not.toBeNull();
+    shell.actionController.cancel();
+    await flushPromises();
+    expect(hiringPhase().props('hiringMercDetail')).toBeNull();
+    done();
+  });
+
   it('the free rehire offers the MERCs as cards and shows the pick at the equipment step', async () => {
     const { hiringPhase, hirable, done } = await mountOnOffer('rehireMercFromOffer');
     expect(hiringPhase().exists()).toBe(true);

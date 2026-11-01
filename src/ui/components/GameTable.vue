@@ -1105,12 +1105,24 @@ const isHireMultiSelect = computed(() => {
   return !!pick?.multiSelect;
 });
 
-// Can the player confirm their multiSelect choices?
+// Can the player confirm their multiSelect choices? Hiring nobody is the skip button's job.
 const isHireMultiSelectReady = computed(() => {
   const pick = props.actionController.currentPick.value;
   if (!pick?.multiSelect) return false;
-  return hireMultiSelectValues.value.length >= pick.multiSelect.min;
+  return hireMultiSelectValues.value.length > 0 && hireMultiSelectValues.value.length >= pick.multiSelect.min;
 });
+
+// The optional multiSelect pick's skip wording ("Hire no one"), empty when it cannot be skipped
+const hireMultiSelectSkipLabel = computed(() => {
+  const pick = props.actionController.currentPick.value;
+  if (!pick?.multiSelect || !pick.optional) return '';
+  return typeof pick.optional === 'string' ? pick.optional : 'Skip';
+});
+
+function skipHireMultiSelect() {
+  const pick = props.actionController.currentPick.value;
+  if (pick) props.actionController.skip(pick.name);
+}
 
 // "Selected: 1/2" display text
 const hireMultiSelectCountDisplay = computed(() => {
@@ -1205,6 +1217,12 @@ function openHiringMercDetail(index: number) {
 function closeHiringMercModal() {
   hiringMercDetail.value = null;
 }
+
+// A detail opened for one pick must not reopen on the next hire
+watch(
+  [() => props.actionController.currentAction.value, () => props.actionController.currentPick.value?.name],
+  closeHiringMercModal
+);
 
 // Handle reassign from squad badge click - starts action and scrolls to panel
 async function handleReassignCombatant(combatantName: string) {
@@ -1523,6 +1541,7 @@ const clickableSectors = computed(() => {
       :is-multi-select="isHireMultiSelect"
       :is-multi-select-ready="isHireMultiSelectReady"
       :multi-select-count-display="hireMultiSelectCountDisplay"
+      :multi-select-skip-label="hireMultiSelectSkipLabel"
       :is-multi-selected="isHireMultiSelected"
       :prompt="currentPick?.prompt || state?.flowState?.prompt || 'Select your MERCs'"
       :player-color="currentPlayerColor"
@@ -1531,6 +1550,7 @@ const clickableSectors = computed(() => {
       @select-sector="selectSector"
       @skip-hire="skipThirdHire"
       @confirm-multi-select="actionController.confirmMultiSelect()"
+      @skip-multi-select="skipHireMultiSelect"
       @open-detail-modal="openHiringMercDetail"
       @close-detail-modal="closeHiringMercModal"
     />

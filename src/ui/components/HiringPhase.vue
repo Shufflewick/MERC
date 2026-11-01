@@ -29,6 +29,7 @@ interface Props {
   isMultiSelect?: boolean;
   isMultiSelectReady?: boolean;
   multiSelectCountDisplay?: string;
+  multiSelectSkipLabel?: string; // The optional pick's "hire no one" wording, empty when it cannot be skipped
   isMultiSelected?: (choiceValue: unknown) => boolean;
 
   // The MERC shown in the detail modal, if any
@@ -47,6 +48,7 @@ const emit = defineEmits<{
   'select-sector': [sector: { value: string; label: string }];
   'skip-hire': [];
   'confirm-multi-select': [];
+  'skip-multi-select': [];
   'open-detail-modal': [index: number];
   'close-detail-modal': [];
 }>();
@@ -157,6 +159,9 @@ function handleCloseDetailModal() {
           @click="emit('confirm-multi-select')"
         >
           Confirm Hire
+        </button>
+        <button v-if="multiSelectSkipLabel" class="skip-hire-button" @click="emit('skip-multi-select')">
+          {{ multiSelectSkipLabel }}
         </button>
       </div>
 
