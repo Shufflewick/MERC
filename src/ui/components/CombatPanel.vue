@@ -438,9 +438,12 @@ const isHealingBeforeAttack = computed(() => {
   return !!snapshotBeforeAttackHealing.value && props.isMyTurn;
 });
 
-const isChoosingGolemStrike = computed(() => !!snapshotGolemAttack.value && props.isMyTurn);
+// The snapshot keeps a decision until the next pause, so the available actions say whether it is still open.
+const isChoosingGolemStrike = computed(() =>
+  !!snapshotGolemAttack.value && props.isMyTurn && props.availableActions.includes('golemPreCombatAttack'));
 
-const isChoosingEpinephrine = computed(() => !!snapshotEpinephrine.value && props.isMyTurn);
+const isChoosingEpinephrine = computed(() =>
+  !!snapshotEpinephrine.value && props.isMyTurn && props.availableActions.includes('combatUseEpinephrine'));
 
 // Initiative tracker
 interface InitiativeSlot {
