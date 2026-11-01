@@ -19,10 +19,10 @@ const sectors = [0, 1, 2].flatMap(row => [0, 1, 2].map(col => ({
   explored: false, weaponLoot: 0, armorLoot: 0, accessoryLoot: 0, dictatorMilitia: 0,
 })));
 
-async function mapGivenWidth(width: number) {
+async function mapGivenWidth(width: number, extraProps: Record<string, unknown> = {}) {
   const events = ref<{ id: number; type: string; data: Record<string, unknown> }[]>([]);
   const wrapper = mount(MapGrid, {
-    props: { sectors, mercs: [], players: [], controlMap: {} },
+    props: { sectors, mercs: [], players: [], controlMap: {}, ...extraProps },
     global: { provide: { [ANIMATION_EVENTS_KEY as symbol]: createAnimationEvents({ events: () => events.value as never }) } },
     shallow: true,
     attachTo: document.body,
@@ -45,10 +45,17 @@ describe('MapGrid on a narrow screen (#84)', () => {
     expect(getComputedStyle(box).overflowX).toBe('auto');
   });
 
-  it('does not clip anything when the tiles fit, so overlays can draw past the map', async () => {
-    const { wrapper, box } = await mapGivenWidth(1068);
+  it('does not clip anything when the tiles just fit, so overlays can draw past the map', async () => {
+    // Three 240px tiles and two 8px gaps.
+    const { wrapper, box } = await mapGivenWidth(736);
     unmount = () => wrapper.unmount();
     await flushPromises();
     expect(getComputedStyle(box).overflowX).toBe('visible');
+  });
+
+  it('plays no mortar strike on a sector that is not on the map', async () => {
+    const { wrapper } = await mapGivenWidth(736, { mortarStrike: { targetSectorId: 'not-on-map', hitCombatantIds: [], militiaKilled: 0 } });
+    unmount = () => wrapper.unmount();
+    expect(wrapper.findComponent({ name: 'MortarStrikeAnimation' }).exists()).toBe(false);
   });
 });
