@@ -593,6 +593,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       const selectedMerc = mercs.find(m => capitalize(m.combatantName) === selectedMercName);
 
       if (!selectedMerc) {
+        for (const merc of mercs) merc.putInto(game.mercDiscard);
         game.pendingGeneralissimoHire = null;
         return { success: false, error: 'MERC not found' };
       }
@@ -616,6 +617,7 @@ export function createGeneralissimoPickAction(game: MERCGame): ActionDefinition 
       }
 
       if (!targetSector) {
+        for (const merc of mercs) merc.putInto(game.mercDiscard);
         game.pendingGeneralissimoHire = null;
         return { success: false, error: 'No valid sector found' };
       }

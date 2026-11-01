@@ -141,6 +141,7 @@ describe('Reactive Abilities', () => {
     // Draw a weapon to the discard pile (simulating dead rebel equipment)
     const weapon = game.drawEquipment('Weapon');
     expect(weapon).toBeDefined();
+    weapon!.putInto(game.weaponsDiscard);
     const weaponId = weapon!.id; // BoardSmith element ID (number)
 
     // Verify weapon is in the discard pile
@@ -317,6 +318,7 @@ describe('Reactive Abilities', () => {
     // Draw another weapon to discard (the loot candidate)
     const extraWeapon = game.drawEquipment('Weapon');
     expect(extraWeapon).toBeDefined();
+    extraWeapon!.putInto(game.weaponsDiscard);
     const weaponId = extraWeapon!.id;
 
     // Stage loot -- weapon type, but MERC already has a weapon

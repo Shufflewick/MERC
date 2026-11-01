@@ -459,6 +459,21 @@ describe('Generalisimo', () => {
     expect(game.pendingGeneralissimoHire).toBeNull();
     expect(game.dictatorPlayer.hiredMercs.map(m => m.id)).toContain(chosen.id);
   });
+
+  it('discards all six drawn MERCs when the pick fails (#76)', () => {
+    const game = newGame('generalisimo-failed-pick');
+    const base = withBase(game);
+    game.dictatorPlayer.isBot = false;
+    executeTacticsEffect(game, card(game, 'generalisimo', 'Generalisimo', true));
+    const drawn = game.pendingGeneralissimoHire!.drawnMercIds;
+
+    const result = runAction(game, 'generalissimoPick', game.dictatorPlayer, {
+      selectedMerc: 'Nobody', equipmentType: 'Weapon', targetSector: base.sectorName,
+    });
+
+    expect(result).toMatchObject({ success: false });
+    expect(game.mercDiscard.all(CombatantModel).map(m => m.id).filter(id => drawn.includes(id))).toHaveLength(6);
+  });
 });
 
 describe('Lockdown', () => {

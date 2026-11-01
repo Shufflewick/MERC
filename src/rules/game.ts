@@ -453,6 +453,9 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   // MERCs drawn face up for the dictator to hire from
   mercOffer!: Space;
 
+  // Cards drawn but not yet placed, kept out of the discard so a reshuffle cannot take them back
+  drawnCards!: Space;
+
   // Militia bonus flags (from tactics cards)
   betterWeaponsActive: boolean = false;  // +1 combat die per dictator militia
   veteranMilitiaActive: boolean = false; // +1 initiative for dictator militia
@@ -985,6 +988,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     this.armorDiscard = this.create(DiscardPile, 'armor-discard');
     this.accessoriesDiscard = this.create(DiscardPile, 'accessories-discard');
     this.mercOffer = this.create(Space, 'merc-offer');
+    this.drawnCards = this.create(Space, 'drawn-cards');
 
     // Create game map (will be populated when data is loaded)
     this.gameMap = this.create(GameMap, 'game-map');
@@ -1317,8 +1321,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     const discard = this.getEquipmentDiscard(type);
     if (!deck || !discard) return undefined;
 
-    // Draw to discard as holding area (caller will putInto final destination)
-    let drawn = deck.drawTo(discard, 1, Equipment);
+    // Caller will putInto final destination
+    let drawn = deck.drawTo(this.drawnCards, 1, Equipment);
 
     // If deck is empty, reshuffle discard and try again
     if (drawn.length === 0 && discard.count(Equipment) > 0) {
@@ -1329,15 +1333,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         eq.putInto(deck);
       }
       deck.shuffle();
-      drawn = deck.drawTo(discard, 1, Equipment);
+      drawn = deck.drawTo(this.drawnCards, 1, Equipment);
     }
 
     return drawn[0];
   }
 
   drawMerc(): CombatantModel | undefined {
-    // Draw to discard as holding area (caller will putInto final destination)
-    let drawn = this.mercDeck.drawTo(this.mercDiscard, 1, CombatantModel);
+    // Caller will putInto final destination
+    let drawn = this.mercDeck.drawTo(this.drawnCards, 1, CombatantModel);
 
     // If deck is empty, reshuffle discard and try again
     if (drawn.length === 0 && this.mercDiscard.count(CombatantModel) > 0) {
@@ -1345,7 +1349,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
         merc.putInto(this.mercDeck);
       }
       this.mercDeck.shuffle();
-      drawn = this.mercDeck.drawTo(this.mercDiscard, 1, CombatantModel);
+      drawn = this.mercDeck.drawTo(this.drawnCards, 1, CombatantModel);
     }
 
     return drawn[0];
