@@ -8,7 +8,7 @@
  * lives in one component now because GameShell renders a board component, not
  * slot content — so the board and the state it needs are in the same place.
  */
-import { onMounted, ref, watch } from 'vue';
+import { nextTick, onMounted, ref, watch } from 'vue';
 import { useActionAnimations, FlyingCardsOverlay } from 'boardsmith/ui';
 import type { UseActionControllerReturn } from 'boardsmith/ui';
 import GameTable from './components/GameTable.vue';
@@ -154,6 +154,9 @@ function setupAnimations(actionController: UseActionControllerReturn, gameView: 
     // Set flyingCombatantName BEFORE animation starts to hide destination card immediately
     // (game state may update before the animation plays)
     if (actionName === 'assignToSquad' && args.combatantName) {
+      // A quick reassign finds its card still collapsed from the last flight; lay it out before it is measured.
+      flyingCombatantName.value = null;
+      await nextTick();
       flyingCombatantName.value = args.combatantName as string;
     }
 
