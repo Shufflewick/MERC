@@ -66,10 +66,6 @@ export interface MERCOptions extends GameOptions {
   dictatorChoice?: string;  // Which dictator character to use
   expansionModes?: string[]; // 'A' for vehicles
   dictatorIsBot?: boolean;  // MERC-exaf: Explicitly set if dictator is Bot-controlled
-  // MERC-pbx4: Role selection - which player seat is the dictator
-  // Default: last player (seat = playerCount - 1)
-  // Set to 0 for first player, 1 for second player, etc.
-  dictatorPlayerSeat?: number;
   // Player configurations from lobby (colors, Bot settings)
   playerConfigs?: PlayerConfig[];
   /** The Dictator Character game option from boardsmith.json: 'random' or a dictator id. */
@@ -872,19 +868,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Store player configs from lobby
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
-    // Find dictator seat (1-indexed) from:
-    // 1. exclusiveSeats.role (the host's lobby or preset, seat number directly)
-    // 2. dictatorPlayerSeat (legacy, 0-indexed)
-    // 3. Default to last player
-    let dictatorSeat = -1;  // -1 means last player (resolved below)
-
-    const exclusiveSeats = options.exclusiveSeats;
-    if (exclusiveSeats?.role != null) {
-      dictatorSeat = exclusiveSeats.role;
-    } else if (options.dictatorPlayerSeat !== undefined) {
-      // Legacy: 0-indexed seat, convert
-      dictatorSeat = options.dictatorPlayerSeat + 1;
-    }
+    // The host's lobby or preset names the dictator's seat (1-indexed); -1 means last player (resolved below)
+    const dictatorSeat = options.exclusiveSeats?.role ?? -1;
 
     // Validate seat if explicitly set (seat is 1-indexed)
     if (dictatorSeat > 0 && dictatorSeat > MERCGame._pendingPlayerCount) {
