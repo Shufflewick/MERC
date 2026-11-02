@@ -1782,7 +1782,6 @@ function isUnitOwnedForMortar(unit: CombatantModel, player: any, game: MERCGame)
 export function createMortarAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('mortar')
     .prompt('Fire Mortar')
-    .notUndoable() // Involves randomness (rolling dice)
     .condition({
       'not in combat': () => isNotInActiveCombat(game),
       'bot batch gate': (ctx) => !game.shouldGateBotAction(ctx.player as MERCPlayer),

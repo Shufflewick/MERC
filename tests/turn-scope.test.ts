@@ -90,7 +90,7 @@ describe('undo across hidden draws and dice', () => {
 
     const result = await undo();
     expect(result.success).toBe(false);
-    expect(result.error).toBe('Cannot undo: mortar is marked notUndoable.');
+    expect(result.error).toMatch(/^Cannot undo: a random draw was consumed since the point being restored/);
   });
 });
 
