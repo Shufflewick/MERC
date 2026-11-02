@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
-import { Equipment, Sector, TacticsCard } from '../src/rules/elements.js';
+import { CombatantModel, Equipment, Sector, TacticsCard } from '../src/rules/elements.js';
 import { isLandMine } from '../src/rules/equipment-effects.js';
 import {
   applyKimTurnAbility,
@@ -267,6 +267,32 @@ describe('placeDictatorMilitia', () => {
 
     expect(sector.dictatorMilitia).toBe(5);
     expect(hasMine(sector)).toBe(true);
+  });
+
+  it('leaves a mine alone where only dictator MERCs hold the sector', () => {
+    const game = newGame('castro', false);
+    const sector = industry(game);
+    const merc = game.mercDeck.first(CombatantModel, c => c.isMerc)!;
+    merc.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+    plantMine(game, sector);
+
+    placeDictatorMilitia(game, sector, 3);
+
+    expect(sector.dictatorMilitia).toBe(3);
+    expect(hasMine(sector)).toBe(true);
+  });
+
+  it('queues one fight per sector however many times militia arrive', () => {
+    const game = newGame('castro', false);
+    const sector = industry(game);
+    sector.addRebelMilitia(rebelId(game), 2);
+
+    placeDictatorMilitia(game, sector, 1);
+    placeDictatorMilitia(game, sector, 1);
+
+    const fights = [game.pendingCombat, ...game.pendingCombatQueue].filter(c => c?.sectorId === sector.sectorId);
+    expect(fights).toHaveLength(1);
   });
 
   it('starts a fight when militia survive alongside rebels', () => {

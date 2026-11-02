@@ -50,7 +50,7 @@ export function checkLandMines(
   //    The mine is only friendly when the entering player has militia AND
   //    there are no enemy forces -- meaning the entering player controls
   //    the sector exclusively.
-  if (isFriendlyMine(game, sector, enteringPlayerIsRebel, arrivingDictatorMilitia)) {
+  if (isFriendlyMine(game, sector, enteringSquads, enteringPlayerIsRebel, arrivingDictatorMilitia)) {
     return NO_OP;
   }
 
@@ -187,7 +187,8 @@ export function checkLandMines(
 
 /**
  * Check if the mine is friendly to the entering player.
- * A mine is friendly when the entering player has militia in the sector
+ * A mine is friendly when the entering player already had militia in the
+ * sector (the dictator also counts MERCs that are not part of this entry)
  * AND there are no enemy forces present. This means the entering player
  * controls the sector unopposed -- the mine was placed by their faction.
  *
@@ -197,6 +198,7 @@ export function checkLandMines(
 function isFriendlyMine(
   game: MERCGame,
   sector: Sector,
+  enteringSquads: Squad[],
   enteringPlayerIsRebel: boolean,
   arrivingDictatorMilitia: number,
 ): boolean {
@@ -208,8 +210,11 @@ function isFriendlyMine(
     if (game.isDictatorInSector(sector)) return false;
     return true;
   } else {
-    // Dictator entering: friendly if dictator militia were already there AND no rebel forces
-    if (sector.dictatorMilitia - arrivingDictatorMilitia === 0) return false;
+    // Dictator entering: friendly if dictator militia or MERCs were already there AND no rebel forces
+    const enteringIds = new Set(enteringSquads.flatMap(s => s.getLivingMercs().map(m => m.id)));
+    const alreadyThere = sector.dictatorMilitia - arrivingDictatorMilitia +
+      game.getDictatorMercsInSector(sector).filter(m => !enteringIds.has(m.id)).length;
+    if (alreadyThere === 0) return false;
     for (const rebel of game.rebelPlayers) {
       if (sector.getRebelMilitia(`${rebel.seat}`) > 0) return false;
       if (game.getMercsInSector(sector, rebel).length > 0) return false;

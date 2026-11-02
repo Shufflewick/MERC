@@ -29,10 +29,16 @@ export function placeDictatorMilitia(
       rebel.secondarySquad.sectorId === sector.sectorId;
     const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
     if ((hasSquad || hasMilitia) && hasEnemies(game, sector, rebel)) {
+      if (combatPendingAt(game, sector)) return { placed, combatQueued: true };
       game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
       queuePendingCombat(game, sector, rebel, false);
       return { placed, combatQueued: true };
     }
   }
   return { placed, combatQueued: false };
+}
+
+function combatPendingAt(game: MERCGame, sector: Sector): boolean {
+  return game.pendingCombat?.sectorId === sector.sectorId ||
+    game.pendingCombatQueue.some(c => c.sectorId === sector.sectorId);
 }
