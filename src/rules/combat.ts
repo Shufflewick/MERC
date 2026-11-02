@@ -2919,7 +2919,10 @@ function resolveEpinephrineDecisions(ctx: RoundContext, attackerIndex: number): 
     if (!merc?.isMerc || !(merc.parent instanceof Squad)) continue;
 
     if (!merc.isDead) {
-      casualty.health = merc.health;
+      // After a reload the casualty is a separate copy of the combatant in its side's list.
+      for (const combatant of casualty.isDictatorSide ? ctx.dictatorSide : ctx.rebels) {
+        if (combatant.id === casualty.id) combatant.health = merc.health;
+      }
       casualties.splice(casualties.indexOf(casualty), 1);
       continue;
     }
