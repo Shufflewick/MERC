@@ -8,7 +8,8 @@ import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
-import { placeDictatorMilitia } from '../dictator-militia.js';
+import { placeDictatorMilitia, isKimBase } from '../dictator-militia.js';
+import { SectorConstants } from '../constants.js';
 import {
   hasMortar,
   getMortarTargets,
@@ -437,7 +438,8 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
       choices: () => {
         // Get sectors where dictator can place militia
         const sectors = game.gameMap.getAllSectors()
-          .filter(s => s.dictatorMilitia > 0 || s.sectorType === 'Industry');
+          .filter(s => s.dictatorMilitia > 0 || s.sectorType === 'Industry')
+          .filter(s => s.dictatorMilitia < (isKimBase(game, s) ? SectorConstants.KIM_BASE_MAX_MILITIA : Sector.MAX_MILITIA_PER_SIDE));
 
         // Return sector names as strings (UI displays these directly)
         return sectors.map(s => s.sectorName);
@@ -462,7 +464,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         return { success: false, error: 'Invalid sector' };
       }
 
-      const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount, true);
+      const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
       game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
       if (combatQueued) {
