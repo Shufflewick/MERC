@@ -3577,7 +3577,9 @@ export function executeCombat(
   const playerSelectedDogTargets = midRound.playerSelectedDogTargets;
   let currentAttackerIndex = midRound.currentAttackerIndex;
   let roundResults = midRound.roundResults;
-  let roundCasualties = midRound.roundCasualties;
+  // A reload hands the round's casualties back as copies; the round must change the combatants in play.
+  const inPlay = new Map([...rebels, ...dictator].map(c => [c.id, c]));
+  let roundCasualties = midRound.roundCasualties.map(c => inPlay.get(c.id)!);
   let savedRoundInitiativeOrder = midRound.savedRoundInitiativeOrder;
 
   let stalemateRounds = carriedStalemateRounds;

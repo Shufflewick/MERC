@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import type { GameRandom } from 'boardsmith';
+import { GameRunner } from 'boardsmith/runtime';
+import { gameDefinition } from '../src/rules/index';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
@@ -528,6 +530,71 @@ describe('resuming combat after the player allocates hits', () => {
 
     expect(basicRollLines(game), 'Basic already attacked this round').toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
     expect(apeiron.health).toBe(1);
+  });
+
+  it('does not spend a saved MERC\'s own shot when the squadmate who saved him dies next (#114)', () => {
+    const testGame = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'epinephrine-saved-then-saver-dies',
+    });
+    const dice = riggedDice();
+    let game = testGame.game;
+    const seededRandom = game.random;
+    game.random = dice.random;
+    const sector = game.gameMap.getAllSectors()[0];
+    // Basic (initiative 2) then Apeiron (1) attack before Meatbop and Teresa (0) act.
+    for (const id of ['basic', 'apeiron']) {
+      game.first(CombatantModel, c => c.combatantId === id)!.putInto(game.dictatorPlayer.primarySquad);
+    }
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+    const shots = game.all(Equipment, e => e.equipmentId === 'epinephrine-shot');
+    ['meatbop', 'teresa'].forEach((id, i) => {
+      const merc = game.first(CombatantModel, c => c.combatantId === id)!;
+      merc.putInto(game.rebelPlayers[0].primarySquad);
+      merc.equip(shots[i]);
+      merc.damage = merc.maxHealth - 1;
+    });
+    game.rebelPlayers[0].primarySquad.sectorId = sector.sectorId;
+    const merc = (id: string) => game.first(CombatantModel, c => c.combatantId === id)!;
+    const selectTarget = (attacker: string, target: string) => {
+      const selection = game.activeCombat?.pendingTargetSelection;
+      expect(selection?.attackerName).toBe(attacker);
+      const targetId = selection!.validTargets.find(t => t.name === target)!.id;
+      expect(game.performAction('combatSelectTarget', game.dictatorPlayer, { targets: [targetId] }).success).toBe(true);
+    };
+    // A real host runs every action on a game restored from a JSON snapshot.
+    const reload = () => {
+      game.random = seededRandom;
+      const snapshot = JSON.parse(JSON.stringify(testGame.runner.getSnapshot()));
+      game = GameRunner.fromSnapshot<MERCGame>(snapshot, gameDefinition.gameClass).game;
+      game.random = dice.random;
+    };
+    const resume = () => executeCombat(game, game.getSector(sector.sectorId)!, game.rebelPlayers[0]);
+
+    executeCombat(game, sector, game.rebelPlayers[0], { attackingPlayerIsRebel: true });
+    selectTarget('Basic', 'Meatbop');
+    const allocation = game.activeCombat?.pendingHitAllocation;
+    expect(allocation?.attackerName).toBe('Basic');
+    expect(game.performAction('combatAllocateHits', game.dictatorPlayer, {
+      allocations: [`${allocation!.validTargets[0].id}::0`],
+    }).success).toBe(true);
+    expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName).toBe('Meatbop');
+    expect(game.performAction('combatUseEpinephrine', game.rebelPlayers[0], { saverMerc: merc('teresa') }).success).toBe(true);
+
+    reload();
+    resume();
+    const apeironTargets = game.activeCombat?.pendingTargetSelection?.validTargets.map(t => t.name) ?? [];
+    expect(apeironTargets, 'Meatbop was saved, so Apeiron can shoot him or Teresa').toEqual(expect.arrayContaining(['Meatbop', 'Teresa']));
+    selectTarget('Apeiron', 'Teresa');
+    expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName).toBe('Teresa');
+    // The rebels' replies miss, so nobody else is hurt this round.
+    dice.show(1);
+    expect(game.performAction('combatDeclineEpinephrine', game.rebelPlayers[0], {}).success).toBe(true);
+    resume();
+
+    expect(merc('meatbop').accessorySlot?.equipmentId, 'Meatbop was already saved; his own shot stays').toBe('epinephrine-shot');
+    expect(merc('meatbop').health).toBe(1);
   });
 
   it('lets a human dictator save his MERC with an Epinephrine Shot in combat (#92)', () => {
