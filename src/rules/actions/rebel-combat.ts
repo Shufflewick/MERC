@@ -1235,21 +1235,15 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
       choices: () => {
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return [];
-        // One value per hit a target can still take.
-        return pending.validTargets.flatMap(target =>
-          Array.from({ length: Math.max(0, target.currentHealth) }, (_, i) => `${target.id}::${i}`)
-        );
+        // A target's id once per hit it can take, so a split is one move however its hits are ordered.
+        return pending.validTargets.flatMap(target => Array<string>(target.currentHealth).fill(target.id));
       },
       display: (choice: string) => {
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return choice;
-        const [targetId, indexStr] = choice.split('::');
-        const index = parseInt(indexStr, 10);
-        const target = pending.validTargets.find(t => t.id === targetId);
+        const target = pending.validTargets.find(t => t.id === choice);
         if (!target) return choice;
-        return target.type === 'militia'
-          ? `${target.name} (${target.currentHealth - index} remaining)`
-          : target.name;
+        return target.name;
       },
     })
     .execute((args) => {
@@ -1259,16 +1253,8 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
 
       const pending = game.pendingArtilleryAllocation;
 
-      // Parse allocations
-      const allocChoices = args.allocations as unknown[];
-
       const hitsByTarget = new Map<string, number>();
-      for (const choice of allocChoices) {
-        const choiceStr = typeof choice === 'string' ? choice :
-          (choice && typeof choice === 'object' && 'value' in choice)
-            ? String((choice as { value: unknown }).value)
-            : String(choice);
-        const targetId = choiceStr.split('::')[0];
+      for (const targetId of args.allocations as string[]) {
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 

@@ -257,7 +257,7 @@ describe('Artillery Barrage', () => {
     const hits = Math.min(pending.hits, militiaTarget.currentHealth);
 
     const result = runAction(game, 'artilleryAllocateHits', rebel, {
-      allocations: Array.from({ length: hits }, (_, i) => `${militiaTarget.id}::${i}`),
+      allocations: Array<string>(hits).fill(militiaTarget.id),
     });
 
     expect(result).toMatchObject({ success: true });
