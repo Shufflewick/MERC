@@ -192,7 +192,6 @@ export function useSectorState(
       'train',
       'reEquip',
       'dropEquipment',
-      'takeFromStash',
       'move',
       'squidheadDisarm',
       'squidheadArm',

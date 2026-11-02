@@ -779,10 +779,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }>;
   } | null = null;
 
-  // Track last explorer for "Take from stash" action
-  // Only the MERC who just explored can take from stash (until they do or action changes)
-  lastExplorer: { combatantId: string; sectorId: string } | null = null;
-
   // Pending loot cache for explore action
   // Caches equipment IDs during selection phase to avoid multiple draws
   // Changed to Map to support multiple MERCs in different unexplored sectors
