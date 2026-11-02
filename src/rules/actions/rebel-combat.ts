@@ -564,8 +564,8 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       // Clear pending allocation
       game.activeCombat.pendingHitAllocation = undefined;
 
-      // The roll line already reports 0 hit(s), so an empty allocation needs no log line.
-      if (totalAllocated > 0) {
+      // An empty allocation has no targets to name, so it gets no log line.
+      if (hitsByTarget.size > 0) {
         const allocMsg = Array.from(hitsByTarget.entries())
           .map(([targetId, count]) => {
             const target = pending.validTargets.find(t => t.id === targetId);
