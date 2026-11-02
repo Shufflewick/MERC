@@ -10,10 +10,9 @@
 import type { MERCGame, RebelPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
-import { queuePendingCombat } from './combat.js';
 import { selectBotBaseLocation, selectNewMercLocation } from './bot-helpers.js';
 import { equipNewHire, equipDictatorOnEntry } from './actions/helpers.js';
-import { checkLandMines } from './landmine.js';
+import { placeDictatorMilitia } from './dictator-militia.js';
 import { killMercOutsideCombat } from './merc-death.js';
 
 // =============================================================================
@@ -29,15 +28,6 @@ export interface TacticsEffectResult {
 // =============================================================================
 // Individual Tactics Effects
 // =============================================================================
-
-export function checkLandmineOnDictatorMilitiaEntry(
-  game: MERCGame,
-  sector: Sector,
-  placed: number,
-): void {
-  if (placed <= 0) return;
-  checkLandMines(game, sector, [], false);
-}
 
 /**
  * Build list of valid targets for artillery allocation in a sector
@@ -419,7 +409,6 @@ function fodder(game: MERCGame): TacticsEffectResult {
     sectorName: string;
     rebelMilitia: number;
     militiaSent: number;
-    rebel: RebelPlayer;
     sector: Sector;
   }> = [];
 
@@ -442,7 +431,6 @@ function fodder(game: MERCGame): TacticsEffectResult {
         sectorName: targetSector.sectorName,
         rebelMilitia: maxMilitia,
         militiaSent: Math.ceil(maxMilitia / 2),
-        rebel,
         sector: targetSector,
       });
     }
@@ -461,14 +449,9 @@ function fodder(game: MERCGame): TacticsEffectResult {
     })),
   }, () => {
     for (const target of targets) {
-      const placed = target.sector.addDictatorMilitia(target.militiaSent);
+      const { placed, combatQueued } = placeDictatorMilitia(game, target.sector, target.militiaSent);
       game.message(`Dictator sends ${placed} militia to attack ${target.rebelName} at ${target.sectorName}`);
-
-      if (placed > 0) {
-        checkLandmineOnDictatorMilitiaEntry(game, target.sector, placed);
-        combatsTriggered.push(target.sectorName);
-        queuePendingCombat(game, target.sector, target.rebel, false);
-      }
+      if (combatQueued) combatsTriggered.push(target.sectorName);
     }
   });
 
@@ -500,26 +483,10 @@ function reinforcements(game: MERCGame): TacticsEffectResult {
     })),
   }, () => {
     for (const sector of industries) {
-      const placed = sector.addDictatorMilitia(game.rebelCount);
+      const { placed, combatQueued } = placeDictatorMilitia(game, sector, game.rebelCount);
       totalPlaced += placed;
-      if (placed > 0) {
-        checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
-        game.message(`Reinforced ${sector.sectorName} with ${placed} militia`);
-
-        // Check for combat with any rebel in this sector
-        for (const rebel of game.rebelPlayers) {
-          const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-            rebel.secondarySquad.sectorId === sector.sectorId;
-          const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-          if (hasSquad || hasMilitia) {
-            game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-            combatsTriggered.push(sector.sectorName);
-            queuePendingCombat(game, sector, rebel, false);
-            break; // Only trigger combat once per sector
-          }
-        }
-      }
+      if (placed > 0) game.message(`Reinforced ${sector.sectorName} with ${placed} militia`);
+      if (combatQueued) combatsTriggered.push(sector.sectorName);
     }
   });
 
@@ -578,10 +545,9 @@ function seizure(game: MERCGame): TacticsEffectResult {
       game.message(`Seizure: ${sector.sectorName} is now explored`);
 
       if (militiaToAdd > 0) {
-        const placed = sector.addDictatorMilitia(militiaToAdd);
+        const { placed } = placeDictatorMilitia(game, sector, militiaToAdd);
         totalMilitiaPlaced += placed;
         if (placed > 0) {
-          checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
           game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
         }
       }
@@ -617,10 +583,9 @@ function sentry(game: MERCGame): TacticsEffectResult {
     })),
   }, () => {
     for (const sector of uncontrolledSectors) {
-      const placed = sector.addDictatorMilitia(militiaToAdd);
+      const { placed } = placeDictatorMilitia(game, sector, militiaToAdd);
       totalPlaced += placed;
       if (placed > 0) {
-        checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
         game.message(`Sentry: ${placed} militia placed at ${sector.sectorName}`);
       }
     }
@@ -663,26 +628,10 @@ function blockTrade(game: MERCGame): TacticsEffectResult {
 
     // Step 2: Place militia on ALL cities (not just flipped ones)
     for (const city of allCities) {
-      const placed = city.addDictatorMilitia(militiaPerCity);
+      const { placed, combatQueued } = placeDictatorMilitia(game, city, militiaPerCity);
       totalPlaced += placed;
-      if (placed > 0) {
-        checkLandmineOnDictatorMilitiaEntry(game, city, placed);
-        game.message(`${placed} militia placed at ${city.sectorName}`);
-
-        // Check for combat with any rebel in this sector
-        for (const rebel of game.rebelPlayers) {
-          const hasSquad = rebel.primarySquad.sectorId === city.sectorId ||
-            rebel.secondarySquad.sectorId === city.sectorId;
-          const hasMilitia = city.getRebelMilitia(`${rebel.seat}`) > 0;
-
-          if (hasSquad || hasMilitia) {
-            game.message(`Rebels detected at ${city.sectorName} - combat begins!`);
-            combatsTriggered.push(city.sectorName);
-            queuePendingCombat(game, city, rebel, false);
-            break; // Only trigger combat once per sector
-          }
-        }
-      }
+      if (placed > 0) game.message(`${placed} militia placed at ${city.sectorName}`);
+      if (combatQueued) combatsTriggered.push(city.sectorName);
     }
   });
 
@@ -728,25 +677,7 @@ export function applyConscriptsEffect(game: MERCGame): void {
 
   for (const sector of game.gameMap.getAllSectors()) {
     if (game.dictatorControls(sector)) {
-      const placed = sector.addDictatorMilitia(amount);
-      totalPlaced += placed;
-
-      // Check for combat with any rebel in this sector
-      if (placed > 0) {
-        checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
-        for (const rebel of game.rebelPlayers) {
-          const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-            rebel.secondarySquad.sectorId === sector.sectorId;
-          const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-          if (hasSquad || hasMilitia) {
-            game.message(`Conscripts triggered combat at ${sector.sectorName}!`);
-            // Dictator initiated combat
-            queuePendingCombat(game, sector, rebel, false);
-            break; // Only trigger combat once per sector
-          }
-        }
-      }
+      totalPlaced += placeDictatorMilitia(game, sector, amount).placed;
     }
   }
 
@@ -937,7 +868,7 @@ function lockdown(game: MERCGame): TacticsEffectResult {
   // Bot dictator: auto-distribute evenly across base + adjacent sectors
   if (game.dictatorPlayer.isBot) {
     const validSectors = [baseSector, ...adjacentSectors];
-    const placedSectors: Array<{ sectorId: string; sectorName: string; militiaPlaced: number }> = [];
+    const shares = new Map<Sector, number>();
     let remaining = totalMilitia;
 
     // Distribute evenly, respecting 10-per-sector cap
@@ -946,31 +877,22 @@ function lockdown(game: MERCGame): TacticsEffectResult {
       let placedThisRound = 0;
       for (const sector of validSectors) {
         if (remaining <= 0) break;
-        if (sector.dictatorMilitia >= 10) continue; // Respect 10 cap
-        const room = 10 - sector.dictatorMilitia;
-        const toPlace = Math.min(1, room, remaining);
-        if (toPlace > 0) {
-          sector.addDictatorMilitia(toPlace);
-          checkLandmineOnDictatorMilitiaEntry(game, sector, toPlace);
-          remaining -= toPlace;
-          placedThisRound += toPlace;
-
-          // Track for animation data
-          const existing = placedSectors.find(p => p.sectorId === sector.sectorId);
-          if (existing) {
-            existing.militiaPlaced += toPlace;
-          } else {
-            placedSectors.push({
-              sectorId: sector.sectorId,
-              sectorName: sector.sectorName,
-              militiaPlaced: toPlace,
-            });
-          }
-        }
+        const share = shares.get(sector) ?? 0;
+        if (sector.dictatorMilitia + share >= 10) continue; // Respect 10 cap
+        shares.set(sector, share + 1);
+        remaining--;
+        placedThisRound++;
       }
       // If no placement happened this round, all sectors are at cap
       if (placedThisRound === 0) break;
     }
+
+    const placedSectors = [...shares].map(([sector, militiaPlaced]) => ({
+      sectorId: sector.sectorId,
+      sectorName: sector.sectorName,
+      militiaPlaced,
+    }));
+    for (const [sector, share] of shares) placeDictatorMilitia(game, sector, share);
 
     // Pure UI signal — mutations already done above
     game.animate('tactic-lockdown', {
@@ -979,22 +901,6 @@ function lockdown(game: MERCGame): TacticsEffectResult {
       totalMilitia,
       sectors: placedSectors,
     }, () => {});
-
-    // Check each sector for rebel presence and queue combat
-    for (const placed of placedSectors) {
-      const sector = game.gameMap.getAllSectors().find(s => s.sectorId === placed.sectorId);
-      if (!sector) continue;
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          queuePendingCombat(game, sector, rebel, false);
-          break; // Only trigger combat once per sector
-        }
-      }
-    }
 
     game.message(`Lockdown: ${totalMilitia - remaining} militia placed across ${placedSectors.length} sectors`);
 
