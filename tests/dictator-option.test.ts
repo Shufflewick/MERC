@@ -33,8 +33,7 @@ describe('Dictator player option', () => {
   );
 
   it('"Play as Dictator", set up as boardsmith dev sets up a preset, seats the human in seat 1 as the dictator', () => {
-    // shortcut: casts the as-const presets BoardSmith's mutable GamePreset[] refuses; drop the cast once Shufflewick/BoardSmith#1572 lands
-    const options = presetStartOptions(gameDefinition as never, 'Play as Dictator');
+    const options = presetStartOptions(gameDefinition, 'Play as Dictator');
     const { game } = createTestGame(MERCGame, { ...options, seed: 'play-as-dictator' });
 
     expect(game.dictatorPlayer.seat).toBe(1);
