@@ -635,14 +635,13 @@ export function applyPolpotTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: true, message: 'No target sector', data: { militiaPlaced: 0 } };
   }
 
-  // Track target for post-combat outcome detection
-  game._polpotTargetSectorId = targetSector.sectorId;
-
   // Place militia equal to rebel-controlled sector count (standard cap)
   const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
   game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
   if (combatQueued) {
+    // Militia a mine wiped out never fought, so only a queued fight can be a battle Pol Pot loses (#131)
+    game._polpotTargetSectorId = targetSector.sectorId;
     return {
       success: true,
       message: `Placed ${placed} militia and engaged in combat`,
