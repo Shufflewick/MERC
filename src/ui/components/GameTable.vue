@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Vue core
-import { computed, ref, watch, inject, nextTick, toRef } from 'vue';
+import { computed, ref, watch, inject, nextTick, toRef, onBeforeUnmount } from 'vue';
 
 // External packages
 import { useBoardInteraction, useBoardSize, type UseActionControllerReturn, useAnimationEvents, GameOverlay } from 'boardsmith/ui';
@@ -592,6 +592,8 @@ function handleEquipFlyComplete() {
 // COMBAT BARRIER OVERLAY - shown when simultaneous actions pause for combat
 const combatBarrierActive = ref(false);
 let combatBarrierClosed = () => {};
+let tableUnmounted = false;
+onBeforeUnmount(() => { tableUnmounted = true; });
 
 // TACTICS CARD ANIMATIONS - driven by animation events
 const activeTacticEvent = ref<{
@@ -716,11 +718,16 @@ if (animationEvents) {
     combatSnapshot.value = event.data as Record<string, unknown>;
   }, { skip: 'run' });
 
-  animationEvents.registerHandler('combat-barrier', async () => {
+  animationEvents.registerHandler('combat-barrier', async (_event, { signal }) => {
     combatBarrierActive.value = true;
-    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 2000);
+      signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+    });
     const closed = new Promise<void>((resolve) => (combatBarrierClosed = resolve));
     combatBarrierActive.value = false;
+    // Skipped, so the queue has moved on, or unmounted, so no fade-out will run: nothing to wait for.
+    if (signal.aborted || tableUnmounted) return;
     await closed;
   }, { skip: 'drop' });
 
