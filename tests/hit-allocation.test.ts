@@ -513,6 +513,50 @@ describe('resuming combat after the player allocates hits', () => {
     expect(game.activeCombat?.pendingHitAllocation?.canReroll ?? false, 'the reroll was already used').toBe(false);
   });
 
+  it('reports the round combat ended in when it ends after a reload (#124)', () => {
+    const testGame = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'final-round-after-reload',
+    });
+    let game = testGame.game;
+    const seededRandom = game.random;
+    const dice = riggedDice();
+    game.random = dice.random;
+    const sector = game.gameMap.getAllSectors()[0];
+    game.first(CombatantModel, c => c.combatantId === 'basic')!.putInto(game.rebelPlayers[0].primarySquad);
+    game.rebelPlayers[0].primarySquad.sectorId = sector.sectorId;
+    game.first(CombatantModel, c => c.combatantId === 'apeiron')!.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+    const allocate = (hits: number) => {
+      const target = game.activeCombat!.pendingHitAllocation!.validTargets[0].id;
+      const result = game.performAction('combatAllocateHits', game.rebelPlayers[0], {
+        allocations: Array.from({ length: hits }, () => target),
+      });
+      expect(result.success, result.error).toBe(true);
+    };
+
+    executeCombat(game, sector, game.rebelPlayers[0], { attackingPlayerIsRebel: true });
+    // Two hits wound Apeiron and his reply misses, so the fight goes to a second round.
+    dice.show(1);
+    allocate(2);
+    expect(game.activeCombat?.awaitingRetreatDecisions, 'round 1 should end at the retreat decision').toBe(true);
+
+    // A real host runs every action on a game restored from a JSON snapshot.
+    game.random = seededRandom;
+    game = GameRunner.fromSnapshot<MERCGame>(
+      JSON.parse(JSON.stringify(testGame.runner.getSnapshot())), gameDefinition.gameClass,
+    ).game;
+    game.random = dice.random;
+    dice.show(6);
+    executeCombat(game, game.getSector(sector.sectorId)!, game.rebelPlayers[0]);
+    // His last health point takes the killing hit.
+    allocate(1);
+
+    expect(game.activeCombat?.combatComplete, 'Basic\'s second volley should end combat').toBe(true);
+    expect(game.activeCombat?.round).toBe(2);
+  });
+
   /** Dictator-side Basic kills a rebel Apeiron on 1 health who carries a shot; combat pauses for it. */
   function basicKillsApeironWithShot(seed: string) {
     const { game, rebel, sector, dice } = basicAttacks(seed);
