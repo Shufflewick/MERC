@@ -575,7 +575,6 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
   return Action.create<MERCGame>('dictatorSetupAbility')
     .prompt('Apply dictator special ability')
     .manual()
-    .notUndoable() // Involves randomness (Hussein's extra tactics cards)
     .condition({
       'is Day 1': () => game.currentDay === 1,
       'Kim base set if needed': () => {
