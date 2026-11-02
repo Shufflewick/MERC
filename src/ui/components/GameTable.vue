@@ -790,6 +790,12 @@ async function handleCombatFinished() {
   }
 }
 
+// Offered with no combat panel open and no animation still to play (after a reload), there is nothing to wait for.
+watch(() => props.availableActions.includes('clearCombatAnimations'), (offered) => {
+  const animating = animationEvents?.isAnimating.value || (animationEvents?.pendingCount.value ?? 0) > 0;
+  if (offered && !hasActiveCombat.value && !animating) void handleCombatFinished();
+}, { immediate: true });
+
 // Handle Basic's reroll
 async function handleReroll() {
   await props.actionController.execute('combatBasicReroll', {});

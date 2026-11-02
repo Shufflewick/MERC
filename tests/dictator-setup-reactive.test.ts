@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GameRunner } from 'boardsmith/runtime';
-import type { ChoiceSelection } from 'boardsmith';
 import { MERCGame } from '../src/rules/game.js';
+import { clearActiveCombat } from '../src/rules/combat.js';
 import { tacticsDeckOf } from './helpers/dictator.js';
 import { CombatantModel, Equipment, TacticsCard } from '../src/rules/elements.js';
 import {
@@ -328,10 +328,7 @@ describe('Reactive Abilities', () => {
     const { merc, vest } = stageDamagedVestLoot(game);
 
     const equipment = `0:${vest.equipmentName} (Armor) at ${game.getSector(merc.sectorId!)!.sectorName}`;
-    // The recipient filter reads the item index the equipment pick's onSelect stores, as the pick-by-pick UI does.
-    const loot = game.getAction('gaddafiLootEquipment')!;
-    const pick = loot.selections.find(s => s.name === 'equipment') as ChoiceSelection<string>;
-    pick.onSelect!(equipment, {} as never);
+    expect(game.getAvailableActions(game.dictatorPlayer).map(a => a.name)).toContain('gaddafiLootEquipment');
 
     const result = game.performAction('gaddafiLootEquipment', game.dictatorPlayer, { equipment, recipient: merc });
 
@@ -339,6 +336,15 @@ describe('Reactive Abilities', () => {
     expect(merc.armorSlot).toBe(vest);
     expect(vest.isDamaged).toBe(false);
     expect(vest.armorRemaining).toBe(2);
+  });
+
+  it('keeps Gaddafi loot staged until its combat is cleared, then drops what nobody took', () => {
+    const { game } = createDictatorGame('gadafi', 'gadafi-loot-cleared', false);
+    stageDamagedVestLoot(game);
+
+    clearActiveCombat(game);
+
+    expect(game._gaddafiLootableEquipment).toBeNull();
   });
 
   it('Gaddafi loot skips equipment when no MERC has an open slot', () => {

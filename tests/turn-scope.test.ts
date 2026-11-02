@@ -1,45 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { buildActionArgs, enumerateLegalMoves } from 'boardsmith';
-import { GameRunner } from 'boardsmith/runtime';
 import { createHeadlessSession } from 'boardsmith/testing';
 import { gameDefinition } from '../src/rules/index.js';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
+import { DICTATORS, RANDOM_PLAY_TIMEOUT, randomPlay } from './helpers/random-play.js';
 
-const DICTATORS = ['castro', 'kim', 'gadafi', 'hitler', 'hussein', 'mao', 'mussolini', 'noriega', 'pinochet', 'polpot', 'stalin'];
-
-/** Seeded random legal play by human seats, returning every step that re-prompted a seat without saying whether its turn continues. */
-function undeclaredStepsInRandomPlay(dictator: string, rebels: number, seed: number): string[] {
-  const playerConfigs = [
-    ...Array.from({ length: rebels }, () => ({ color: '#e74c3c', isDictator: false, isBot: false })),
-    { color: '#95a5a6', isDictator: true, isBot: false },
-  ];
-  const runner = new GameRunner<MERCGame>({
-    GameClass: MERCGame,
-    gameType: 'merc',
-    gameOptions: {
-      playerCount: rebels + 1,
-      playerNames: playerConfigs.map((_, i) => `P${i + 1}`),
-      seed: `i109-${dictator}-${seed}`,
-      dictatorIsBot: false,
-      dictatorChoice: dictator,
-      playerConfigs,
-    } as never,
-  });
-  runner.start();
-  let state = seed + 1;
-  const pick = (n: number) => { state = (state * 1103515245 + 12345) & 0x7fffffff; return state % n; };
+/** Steps that re-prompted a seat without saying whether its turn continues, in seeded random play against `dictator`. */
+function undeclaredStepsInRandomPlay(dictator: string, rebels: number): string[] {
   const undeclared = new Set<string>();
-  for (let i = 0; i < 1500; i++) {
-    const flow = runner.game.getFlowState();
-    if (flow?.turnScopeUndeclared) undeclared.add(flow.turnScopeUndeclared);
-    const current = getCurrentAction(flow);
-    if (!current) break;
-    const moves = enumerateLegalMoves(runner.game, current.currentPlayer, { maxPerAction: 3 });
-    const move = moves[pick(moves.length)];
-    if (!runner.performAction(move.action, current.currentPlayer, move.args).success) break;
-  }
+  randomPlay('i109', dictator, rebels, game => {
+    const step = game.getFlowState()?.turnScopeUndeclared;
+    if (step) undeclared.add(step);
+  });
   return [...undeclared];
 }
 
@@ -79,9 +53,9 @@ async function rebelOnDayTwo(seed: string, arrange: (game: MERCGame) => void) {
 
 describe('turnScope', () => {
   it.each(DICTATORS)('declares every step that re-prompts a seat in random play against %s', (dictator) => {
-    const undeclared = new Set([1, 2, 3].flatMap(rebels => undeclaredStepsInRandomPlay(dictator, rebels, rebels)));
+    const undeclared = new Set([1, 2, 3].flatMap(rebels => undeclaredStepsInRandomPlay(dictator, rebels)));
     expect([...undeclared]).toEqual([]);
-  });
+  }, RANDOM_PLAY_TIMEOUT);
 });
 
 describe('undo across hidden draws and dice', () => {

@@ -78,6 +78,8 @@ import {
  */
 export function clearActiveCombat(game: MERCGame): void {
   game.activeCombat = null;
+  // Loot from this combat that no dictator MERC took stays in the discard.
+  game._gaddafiLootableEquipment = null;
 }
 
 function emitMapCombatantDeathForTarget(game: MERCGame, target: Combatant): void {
@@ -2167,11 +2169,15 @@ const { isHumanControlled, hasMercSource } = control;
         combatant: Combatant;
       }> = [];
 
+      // The pause asks the attacker's player, so only that player's own healers count.
+      const decider = getControllingPlayer(game, attacker);
+
       for (const ally of alliedCombatants) {
         if (ally.health <= 0) continue;
         if (!ally.sourceElement) continue;
         const sourceElem = ally.sourceElement as CombatantModel;
         if (!sourceElem.isMerc) continue;
+        if (getControllingPlayer(game, ally) !== decider) continue;
 
         // Check dice available for this healer
         const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
@@ -2252,6 +2258,7 @@ const { isHumanControlled, hasMercSource } = control;
         if (ally.health <= 0) return false;
         const sourceElem = ally.sourceElement as CombatantModel | undefined;
         if (!sourceElem?.isMerc || sourceElem.combatantId !== 'surgeon') return false;
+        if (getControllingPlayer(game, ally) !== decider) return false;
         // One die to sacrifice, one left to attack with.
         const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
         if (ally.combat - diceUsed < 2) return false;
@@ -3673,8 +3680,8 @@ export function executeCombat(
 
     // MERC-n1f: Check if retreat is possible and pause for player decision
     // Only pause for HUMAN players — Bot players decide automatically, and pausing
-    // for an Bot's retreat option causes an infinite loop when the human player
-    // can't retreat (ActionPanel auto-executes the sole combatContinue action).
+    // for a Bot's retreat option causes an infinite loop when the human player
+    // can't retreat.
     const humanRebels = game.rebelPlayers.filter(p => !p.isBot);
     const rebelsCanRetreat = humanRebels.some(p => canRetreatFromModule(game, sector, p));
     const dictatorPlayer = game.dictatorPlayer;

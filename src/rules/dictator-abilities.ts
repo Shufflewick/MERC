@@ -1315,6 +1315,19 @@ export function findEquipmentInDiscards(game: MERCGame, equipmentId: number): Eq
   return undefined;
 }
 
+/** Dictator MERCs in the loot's sector with the slot it needs open; none once it has left the discard. */
+export function gaddafiLootRecipients(game: MERCGame, item: { equipmentId: number; sectorId: string }): CombatantModel[] {
+  const sector = game.getSector(item.sectorId);
+  const equipment = findEquipmentInDiscards(game, item.equipmentId);
+  if (!sector || !equipment) return [];
+  return game.getDictatorMercsInSector(sector).filter(m => {
+    if (equipment.equipmentType === 'Weapon') return !m.weaponSlot;
+    if (equipment.equipmentType === 'Armor') return !m.armorSlot;
+    if (equipment.equipmentType === 'Accessory') return !m.accessorySlot;
+    return false;
+  });
+}
+
 /**
  * Process Gaddafi's looted equipment (Bot auto-equip path).
  * For each staged equipment item, find a dictator MERC in the combat sector
@@ -1328,25 +1341,10 @@ export function processGaddafiLoot(game: MERCGame): void {
   game._gaddafiLootableEquipment = null;
 
   for (const item of lootItems) {
-    const sector = game.getSector(item.sectorId);
-    if (!sector) continue;
-
-    const dictatorMercs = game.getDictatorMercsInSector(sector);
-    if (dictatorMercs.length === 0) continue;
-
     const equipment = findEquipmentInDiscards(game, item.equipmentId);
     if (!equipment) continue;
 
-    const equipType = equipment.equipmentType as 'Weapon' | 'Armor' | 'Accessory';
-
-    // Find dictator MERC with open slot of matching type
-    const recipient = dictatorMercs.find(m => {
-      if (equipType === 'Weapon') return !m.weaponSlot;
-      if (equipType === 'Armor') return !m.armorSlot;
-      if (equipType === 'Accessory') return !m.accessorySlot;
-      return false;
-    });
-
+    const [recipient] = gaddafiLootRecipients(game, item);
     if (!recipient) {
       game.message(`Gaddafi: No MERC in sector can use ${equipment.equipmentName} - discarded`);
       continue;
