@@ -261,4 +261,40 @@ describe('artillery allocation flow', () => {
       'the bot did not place all three hits').toBe(1);
     expect(game.pendingArtilleryAllocation).toBeNull();
   });
+
+  it('offers a wounded MERC every hit it can still take and kills it when they all land', () => {
+    const runner = runnerWithTwoRebels('artillery-two-rebels-merc');
+    runner.start();
+    const game = runner.game;
+    const [first, second] = game.rebelPlayers;
+
+    const { seat: dictatorSeat } = reachArtilleryPlay(runner);
+    const sector = garrisonAdjacentSector(game, 1, [second]);
+    first.primarySquad.sectorId = sector.sectorId;
+    const [merc] = game.getMercsInSector(sector, first);
+    // No Epinephrine Shot to spend, so the last hit kills.
+    for (const squadmate of first.team) {
+      if (squadmate.accessorySlot) squadmate.unequip('Accessory');
+      for (const item of [...squadmate.bandolierSlots]) squadmate.unequipBandolierItem(item);
+    }
+    merc.takeDamage(1);
+    const left = merc.health;
+    expect(left, 'the wounded MERC has no health to test with').toBeGreaterThan(0);
+
+    const pending = shell(runner, dictatorSeat, left + 1);
+    pending.sectorsRemaining.length = 0;
+    const offered = pending.validTargets.find(t => t.id === merc.combatantId);
+    expect(offered?.currentHealth, 'the MERC is offered fewer hits than its health').toBe(left);
+
+    const result = runner.performAction('artilleryAllocateHits', dictatorSeat, {
+      allocations: [
+        ...Array.from({ length: left }, (_, i) => `${merc.combatantId}::${i}`),
+        `militia-${second.seat}-${sector.sectorId}::0`,
+      ],
+    });
+
+    expect(result.success, result.error).toBe(true);
+    expect(first.team, 'a MERC killed by artillery stayed on the team').not.toContain(merc);
+    expect(merc.parent, 'a MERC killed by artillery was not discarded').toBe(game.mercDiscard);
+  });
 });

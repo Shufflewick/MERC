@@ -14,7 +14,7 @@ import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-eff
 import { advanceArtilleryAllocation, artilleryAllocator, artilleryHitsToPlace } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
 import { applyMortarDamage } from './rebel-equipment.js';
-import { applyEpinephrineSave, handleMercDeath } from '../merc-death.js';
+import { applyEpinephrineSave, handleMercDeath, killMercOutsideCombat } from '../merc-death.js';
 import { getRetreatableSquads } from '../combat-retreat.js';
 
 /** Sentinel choice meaning "pull every squad I have here out of the fight". */
@@ -1295,6 +1295,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
               game.message(`${merc.combatantName} takes 1 artillery damage`);
               totalApplied++;
             }
+            killMercOutsideCombat(game, merc, `${merc.combatantName} is killed by artillery!`);
           }
         }
       }

@@ -73,7 +73,7 @@ function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
         name: merc.combatantName,
         type: 'merc',
         ownerId: playerId,
-        currentHealth: merc.health - merc.damage, // Available health
+        currentHealth: merc.health, // Hits it can still take
         maxHealth: merc.health,
       });
     }
