@@ -33,7 +33,8 @@ describe('GameTable combat barrier (#108)', () => {
     const { events, shell, wrapper, barrier, mortar } = await mountTable();
     events.value = [{ id: 1, type: 'combat-barrier', data: {} }, mortarStrike(2)];
     await flushPromises();
-    expect(barrier().props('active')).toBe(true);
+    // Half dimmed, so the board stays readable behind the banner.
+    expect(barrier().props()).toMatchObject({ active: true, backdropOpacity: 0.5 });
 
     await vi.runAllTimersAsync();
     expect(barrier().props('active')).toBe(false);
