@@ -3,6 +3,7 @@ import { buildActionArgs } from 'boardsmith';
 import { createHeadlessSession } from 'boardsmith/testing';
 import { gameDefinition } from '../src/rules/index.js';
 import { TacticsCard } from '../src/rules/elements.js';
+import { DictatorConstants } from '../src/rules/constants.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 
 // Two rebels, so the dictator has extra militia to place; the last seat is the dictator.
@@ -70,7 +71,7 @@ describe('dictator Day 1 setup undo', () => {
     await act(DICTATOR, 'dictatorHireFirstMerc');
     await act(DICTATOR, 'dictatorSetupAbility');
     const dealt = deck();
-    expect(dealt).toHaveLength(10);
+    expect(dealt).toHaveLength(DictatorConstants.HUSSEIN_TACTICS_CARDS);
     expect(available()).toContain('dictatorDrawTactics');
 
     const result = await undo();
