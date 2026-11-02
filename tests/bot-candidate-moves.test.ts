@@ -64,6 +64,15 @@ describe('bot free moves (#90)', () => {
       .toEqual(['Full Body Armor', 'Repair Kit', 'Mortar', 'Grenade']);
   });
 
+  it('searches skipping the stash picks, which the bot is offered when no pick is open to it (#103)', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
+    expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
+    const skip = { action: 'collectEquipment', args: {} };
+
+    expect(mercBot.candidateMoves!(runner.game, 2, () => [skip])).toEqual([skip]);
+  });
+
   it('searches picks while re-equipping into an empty slot but not ones that swap out equipment (#103)', () => {
     const runner = castroGameAtDayTwo(1, 2);
     const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
