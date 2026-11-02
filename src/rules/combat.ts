@@ -2919,10 +2919,7 @@ function resolveEpinephrineDecisions(ctx: RoundContext, attackerIndex: number): 
     if (!merc?.isMerc || !(merc.parent instanceof Squad)) continue;
 
     if (!merc.isDead) {
-      // After a reload the casualty is a separate copy of the combatant in its side's list.
-      for (const combatant of casualty.isDictatorSide ? ctx.dictatorSide : ctx.rebels) {
-        if (combatant.id === casualty.id) combatant.health = merc.health;
-      }
+      casualty.health = merc.health;
       casualties.splice(casualties.indexOf(casualty), 1);
       continue;
     }
@@ -3580,7 +3577,9 @@ export function executeCombat(
   const playerSelectedDogTargets = midRound.playerSelectedDogTargets;
   let currentAttackerIndex = midRound.currentAttackerIndex;
   let roundResults = midRound.roundResults;
-  let roundCasualties = midRound.roundCasualties;
+  // A reload hands the round's casualties back as copies; the round must change the combatants in play.
+  const inPlay = new Map([...rebels, ...dictator].map(c => [c.id, c]));
+  let roundCasualties = midRound.roundCasualties.map(c => inPlay.get(c.id)!);
   let savedRoundInitiativeOrder = midRound.savedRoundInitiativeOrder;
 
   let stalemateRounds = carriedStalemateRounds;
