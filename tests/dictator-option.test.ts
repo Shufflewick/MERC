@@ -27,7 +27,7 @@ describe('Dictator player option', () => {
         playerCount: players.length,
         seed: 'dictator-option',
         exclusiveSeats: { role: holders[0] },
-      } as never);
+      });
       expect(game.dictatorPlayer.seat).toBe(holders[0]);
     },
   );
@@ -48,7 +48,7 @@ describe('Dictator Character game option', () => {
       seed: 'dictator-character',
       dictatorCharacter: 'kim',
       playerConfigs: [{ isBot: false }, { isBot: true }],
-    } as never);
+    });
     expect(game.dictatorPlayer.dictator?.combatantId).toBe('kim');
   });
 });
