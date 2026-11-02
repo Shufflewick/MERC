@@ -8,7 +8,7 @@ describe('player colour', () => {
       playerCount: 3,
       playerNames: ['Rebel1', 'Rebel2', 'Dictator'],
       seed: 'player-color-known',
-      playerConfigs: [{ color: '#E74C3C' }, { color: '#3498db' }, { color: '#95a5a6', role: true }],
+      playerConfigs: [{ color: '#E74C3C' }, { color: '#3498db' }, { color: '#95a5a6' }],
     });
 
     expect(game.rebelPlayers.map(p => p.playerColor)).toEqual(['red', 'blue']);
@@ -20,7 +20,7 @@ describe('player colour', () => {
       playerCount: 2,
       playerNames: ['Rebel1', 'Dictator'],
       seed: 'player-color-unknown',
-      playerConfigs: [{ color: '#1abc9c' }, { color: '#95a5a6', role: true }],
+      playerConfigs: [{ color: '#1abc9c' }, { color: '#95a5a6' }],
     })).toThrow(/#1abc9c.*colorPalette/);
   });
 });
