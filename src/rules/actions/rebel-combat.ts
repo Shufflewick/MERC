@@ -9,7 +9,7 @@
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.js';
 import { Sector, Equipment, CombatantModel } from '../elements.js';
-import { executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatRebel, type Combatant } from '../combat.js';
+import { buildCombatPanelSnapshot, executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatRebel, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
 import { advanceArtilleryAllocation, artilleryHitsAllocatableBy } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
@@ -1409,8 +1409,12 @@ export function createCombatUseEpinephrineAction(game: MERCGame): ActionDefiniti
         return { success: false, error: 'Epinephrine not found on selected MERC' };
       }
 
-      // Clear pending state
+      // The panel draws the combat copy, which would otherwise stay at 0 health until combat resumes.
+      const combatCopy = [...game.activeCombat!.rebelCombatants, ...game.activeCombat!.dictatorCombatants]
+        .find(c => c.id === String(dyingMerc.id))!;
+      combatCopy.health = dyingMerc.health;
       game.activeCombat!.pendingEpinephrine = undefined;
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       return {
         success: true,
@@ -1444,8 +1448,8 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
 
       handleMercDeath(game, dyingMerc, `${dyingMerc.combatantName} has died!`);
 
-      // Clear pending state
       game.activeCombat!.pendingEpinephrine = undefined;
+      game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
       return {
         success: true,

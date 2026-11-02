@@ -137,7 +137,7 @@ function serializeCombatant(c: Combatant): Record<string, unknown> {
  * Contains full combatant data for both sides, casualties, and decision context.
  * Emitted at every decision cycle point so CombatPanel can render entirely from events.
  */
-function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
+export function buildCombatPanelSnapshot(game: MERCGame): Record<string, unknown> {
   const ac = game.activeCombat!;
 
   // Build initiative order from all living combatants, sorted
