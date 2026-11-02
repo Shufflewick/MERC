@@ -8,8 +8,7 @@ import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
 import { executeTacticsEffect } from '../tactics-effects.js';
-import { placeDictatorMilitia, isKimBase } from '../dictator-militia.js';
-import { SectorConstants } from '../constants.js';
+import { placeDictatorMilitia, dictatorMilitiaCap } from '../dictator-militia.js';
 import {
   hasMortar,
   getMortarTargets,
@@ -439,7 +438,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         // Get sectors where dictator can place militia
         const sectors = game.gameMap.getAllSectors()
           .filter(s => s.dictatorMilitia > 0 || s.sectorType === 'Industry')
-          .filter(s => s.dictatorMilitia < (isKimBase(game, s) ? SectorConstants.KIM_BASE_MAX_MILITIA : Sector.MAX_MILITIA_PER_SIDE));
+          .filter(s => s.dictatorMilitia < dictatorMilitiaCap(game, s));
 
         // Return sector names as strings (UI displays these directly)
         return sectors.map(s => s.sectorName);
