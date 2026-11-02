@@ -61,6 +61,19 @@ describe('human Kim bonus militia', () => {
 
     expect(other.dictatorMilitia).toBe(10);
   });
+
+  it('is only offered sectors with room for more militia', () => {
+    const { game, base, other } = newKimGame(false);
+    base.dictatorMilitia = Sector.MAX_MILITIA_PER_SIDE;
+    other.dictatorMilitia = Sector.MAX_MILITIA_PER_SIDE;
+    const offered = () => game.getSelectionChoices('kimBonusMilitia', 'targetSector', game.dictatorPlayer)
+      .map(c => c.value);
+
+    expect(offered()).toContain(base.sectorName);
+    expect(offered()).not.toContain(other.sectorName);
+    base.dictatorMilitia = 20;
+    expect(offered()).not.toContain(base.sectorName);
+  });
 });
 
 describe('bot Kim bonus militia', () => {

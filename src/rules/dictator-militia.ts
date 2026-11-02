@@ -19,9 +19,7 @@ export function placeDictatorMilitia(
   sector: Sector,
   count: number,
 ): DictatorMilitiaPlacement {
-  const isKimBase = game.dictatorPlayer.dictator?.combatantId === 'kim' &&
-    sector.sectorId === game.dictatorPlayer.baseSectorId;
-  const placed = sector.addDictatorMilitia(count, isKimBase);
+  const placed = sector.addDictatorMilitia(count, isKimBase(game, sector));
   if (placed === 0) return { placed, combatQueued: false };
 
   checkLandMines(game, sector, [], false, placed);
@@ -38,6 +36,11 @@ export function placeDictatorMilitia(
     }
   }
   return { placed, combatQueued: false };
+}
+
+export function isKimBase(game: MERCGame, sector: Sector): boolean {
+  return game.dictatorPlayer.dictator?.combatantId === 'kim' &&
+    sector.sectorId === game.dictatorPlayer.baseSectorId;
 }
 
 function combatPendingAt(game: MERCGame, sector: Sector): boolean {
