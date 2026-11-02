@@ -979,16 +979,16 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 skipIf: () => game.isFinished(),
               }),
 
-              // MERC-lw9r: Artillery hit allocation - rebels choose how damage is allocated
+              // MERC-lw9r: Artillery hit allocation - the shelled rebel, or the dictator when several share the sector
               // This runs after playTactics in case Artillery Barrage was played
               loop({
                 name: 'artillery-allocation',
                 while: () => game.pendingArtilleryAllocation != null && !game.isFinished(),
                 maxIterations: 50, // Safety: max sectors * max allocations per sector
                 do: actionStep({
-                  // Artillery resolves on the dictator's turn but is allocated by
-                  // the rebels being shelled, so the step must name the rebel
-                  // rather than inherit the turn's player (issue #57).
+                  // Artillery resolves on the dictator's turn but a lone shelled
+                  // rebel allocates it, so the step must name the allocator
+                  // rather than inherit the turn's player (issues #57, #81).
                   player: () => requireArtilleryAllocator(game),
                   name: 'artillery-allocate',
                   // The tactics card and its dice are out, so undo must not reach back over them.
@@ -1407,7 +1407,7 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 while: () => game.pendingArtilleryAllocation != null && !game.isFinished(),
                 maxIterations: 50,
                 do: actionStep({
-                  // As above: the shelled rebels allocate, not the dictator.
+                  // As above: name the allocator rather than inherit the turn's player.
                   player: () => requireArtilleryAllocator(game),
                   name: 'hussein-artillery-allocate',
                   // The tactics card and its dice are out, so undo must not reach back over them.

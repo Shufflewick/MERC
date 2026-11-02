@@ -7,7 +7,7 @@
  * Each tactics card has a unique effect when played.
  */
 
-import type { MERCGame, RebelPlayer } from './game.js';
+import type { MERCGame, MERCPlayer, RebelPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { SectorConstants } from './constants.js';
 import { selectBotBaseLocation, selectNewMercLocation } from './bot-helpers.js';
@@ -57,7 +57,7 @@ function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
     if (militiaCount > 0) {
       targets.push({
         id: `militia-${playerId}-${sector.sectorId}`,
-        name: `${rebel.seat} Militia (${militiaCount})`,
+        name: `${rebel.name}'s militia`,
         type: 'militia',
         ownerId: playerId,
         currentHealth: militiaCount, // Each hit kills one militia
@@ -73,7 +73,7 @@ function buildArtilleryTargets(game: MERCGame, sector: Sector): Array<{
         name: merc.combatantName,
         type: 'merc',
         ownerId: playerId,
-        currentHealth: merc.health - merc.damage, // Available health
+        currentHealth: merc.health, // Hits it can still take
         maxHealth: merc.health,
       });
     }
@@ -90,29 +90,32 @@ interface ArtilleryQueueEntry {
 }
 
 /**
- * The rebel the flow must ask to allocate the pending artillery hits: the first
- * one who still has a living target in the sector being shelled.
+ * The player who places the pending artillery hits. The card lets the shelled
+ * rebel choose, but when units of more than one rebel share the sector the
+ * dictator assigns every hit (designer ruling, issue #81).
  *
- * Artillery resolves during the DICTATOR's turn, so the flow cannot use the
- * turn's own player here — the dictator can never satisfy `artilleryAllocateHits`.
+ * Artillery resolves during the DICTATOR's turn, so the flow names this player
+ * rather than inheriting the turn's (issue #57).
  */
-function nextArtilleryAllocator(game: MERCGame): RebelPlayer | null {
+export function artilleryAllocator(game: MERCGame): MERCPlayer | null {
   const pending = game.pendingArtilleryAllocation;
   if (!pending) return null;
-  return game.rebelPlayers.find(rebel =>
+  const shelled = game.rebelPlayers.filter(rebel =>
     pending.validTargets.some(t => t.ownerId === `${rebel.seat}` && t.currentHealth > 0)
-  ) ?? null;
+  );
+  if (shelled.length === 0) return null;
+  return shelled.length > 1 ? game.dictatorPlayer : shelled[0];
 }
 
 /**
- * The rebel the flow is about to ask for an artillery allocation.
+ * The player the flow is about to ask for an artillery allocation.
  *
  * The allocation loop only runs while a sector is pending, and a sector is only
- * ever made pending when some rebel can allocate there, so a null here means
- * that invariant has been broken rather than that the barrage is finished.
+ * ever made pending when it holds a rebel unit, so a null here means that
+ * invariant has been broken rather than that the barrage is finished.
  */
-export function requireArtilleryAllocator(game: MERCGame): RebelPlayer {
-  const allocator = nextArtilleryAllocator(game);
+export function requireArtilleryAllocator(game: MERCGame): MERCPlayer {
+  const allocator = artilleryAllocator(game);
   if (!allocator) {
     const pending = game.pendingArtilleryAllocation;
     throw new Error(
@@ -125,20 +128,15 @@ export function requireArtilleryAllocator(game: MERCGame): RebelPlayer {
 }
 
 /**
- * How many hits `rebel` can still absorb in the pending sector: the hits left to
- * place, capped by the health their units in that sector actually have.
- *
- * Without the cap the allocation prompt asks for more hits than there are places
- * to put them, no legal set of arguments exists, and the allocation flow cannot
- * finish.
+ * How many hits the pending sector actually takes: its roll, capped by the
+ * health its rebel units have. The surplus is wasted, and asking for it would
+ * leave the allocation prompt with no legal answer.
  */
-export function artilleryHitsAllocatableBy(game: MERCGame, rebel: RebelPlayer): number {
+export function artilleryHitsToPlace(game: MERCGame): number {
   const pending = game.pendingArtilleryAllocation;
   if (!pending) return 0;
-  const capacity = pending.validTargets
-    .filter(t => t.ownerId === `${rebel.seat}`)
-    .reduce((sum, t) => sum + Math.max(0, t.currentHealth), 0);
-  return Math.min(pending.hits - pending.allocatedHits, capacity);
+  const capacity = pending.validTargets.reduce((sum, t) => sum + Math.max(0, t.currentHealth), 0);
+  return Math.min(pending.hits, capacity);
 }
 
 /**
@@ -146,8 +144,8 @@ export function artilleryHitsAllocatableBy(game: MERCGame, rebel: RebelPlayer): 
  * to hit, or clear it when none is left.
  *
  * A sector whose rebels are already gone must never become the pending one: no
- * rebel could allocate there, and the flow's allocation loop would spin until it
- * tripped its safety cap (issue #57).
+ * unit could take the hits there, and the flow's allocation loop would spin
+ * until it tripped its safety cap (issue #57).
  *
  * @returns true when a sector is now pending, false when the barrage is over.
  */
@@ -167,7 +165,6 @@ export function advanceArtilleryAllocation(
       sectorId: next.sectorId,
       sectorName: next.sectorName,
       hits: next.hits,
-      allocatedHits: 0,
       validTargets: targets,
       sectorsRemaining: queue,
     };
@@ -183,7 +180,7 @@ export function advanceArtilleryAllocation(
  * Artillery Barrage: Attack sectors adjacent to controlled sectors.
  * Roll d6 per sector, deal that many hits.
  *
- * Rebels choose how to allocate hits to their units via pendingArtilleryAllocation.
+ * The hits are placed through pendingArtilleryAllocation; see artilleryAllocator for who places them.
  * Each sector is processed one at a time through the allocation action.
  */
 function artilleryBarrage(game: MERCGame): TacticsEffectResult {

@@ -654,12 +654,11 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
   /** Each MERC and equipment card as setup made it, by element name: what a bot's search supposes a face-down one holds (#82). */
   readonly _freshCards = new Map<string, Record<string, unknown>>();
 
-  // Pending artillery allocation - rebels choose how to allocate hits during dictator's turn
+  // Pending artillery allocation, placed during the dictator's turn by artilleryAllocator()
   pendingArtilleryAllocation: {
     sectorId: string;        // Which sector is being attacked
     sectorName: string;      // For display
     hits: number;            // Total hits to allocate
-    allocatedHits: number;   // Hits allocated so far
     validTargets: Array<{
       id: string;            // Target identifier
       name: string;          // Display name
@@ -675,7 +674,7 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     }>;
   } | null = null;
 
-  /** Check if artillery allocation is pending (rebels need to allocate hits) */
+  /** Check if artillery allocation is pending */
   get hasArtilleryPending(): boolean {
     return this.pendingArtilleryAllocation !== null;
   }

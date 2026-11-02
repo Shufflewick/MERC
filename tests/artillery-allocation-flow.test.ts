@@ -5,6 +5,8 @@ import { MERCGame } from '../src/rules/game.js';
 import { TacticsCard, Sector } from '../src/rules/elements.js';
 import { advanceArtilleryAllocation } from '../src/rules/tactics-effects.js';
 import { getCurrentAction } from './helpers/auto-play.js';
+import { mcts } from 'boardsmith/sim';
+import { gameDefinition } from '../src/rules/index.js';
 
 /**
  * Issue #57: playing Artillery Barrage halted the flow with
@@ -28,6 +30,23 @@ function runnerWithHumanDictator(seed: string): GameRunner<MERCGame> {
       seed,
       playerConfigs: [
         { color: '#e74c3c', isBot: false },
+        { color: '#95a5a6', role: true, isBot: false },
+      ],
+    } as never,
+  });
+}
+
+function runnerWithTwoRebels(seed: string): GameRunner<MERCGame> {
+  return new GameRunner<MERCGame>({
+    GameClass: MERCGame,
+    gameType: 'merc',
+    gameOptions: {
+      playerCount: 3,
+      playerNames: ['Rebel1', 'Rebel2', 'Dictator'],
+      seed,
+      playerConfigs: [
+        { color: '#e74c3c', isBot: false },
+        { color: '#3498db', isBot: false },
         { color: '#95a5a6', role: true, isBot: false },
       ],
     } as never,
@@ -62,17 +81,29 @@ function reachArtilleryPlay(runner: GameRunner<MERCGame>): { seat: number } {
   throw new Error('the dictator was never offered playTactics');
 }
 
-/** Put `count` rebel militia in a sector the dictator can shell. */
-function garrisonAdjacentSector(game: MERCGame, count: number): Sector {
-  const rebelId = `${game.rebelPlayers[0].seat}`;
+/** Put `count` militia of each given rebel (the first rebel by default) in a sector the dictator can shell. */
+function garrisonAdjacentSector(game: MERCGame, count: number, rebels = [game.rebelPlayers[0]]): Sector {
   for (const held of game.gameMap.getAllSectors().filter(s => game.dictatorControls(s))) {
     for (const adjacent of game.getAdjacentSectors(held)) {
       if (game.dictatorControls(adjacent)) continue;
-      adjacent.addRebelMilitia(rebelId, count);
+      for (const rebel of rebels) adjacent.addRebelMilitia(`${rebel.seat}`, count);
       return adjacent;
     }
   }
   throw new Error('no sector adjacent to a dictator-held sector to garrison');
+}
+
+/** Play the Artillery Barrage the dictator holds and fix the pending sector's hits at `hits`. */
+function shell(runner: GameRunner<MERCGame>, dictatorSeat: number, hits: number) {
+  const game = runner.game;
+  const play = enumerateLegalMoves(game, dictatorSeat, { maxPerAction: 1 })
+    .find(m => m.action === 'playTactics')!;
+  const result = runner.performAction('playTactics', dictatorSeat, play.args);
+  expect(result.success, result.error).toBe(true);
+  const pending = game.pendingArtilleryAllocation!;
+  expect(pending, 'the barrage did not pause for allocation').not.toBeNull();
+  pending.hits = hits;
+  return pending;
 }
 
 describe('artillery allocation flow', () => {
@@ -169,5 +200,101 @@ describe('artillery allocation flow', () => {
 
     expect(set, 'a sector with no rebels must not become the pending allocation').toBe(false);
     expect(game.pendingArtilleryAllocation).toBeNull();
+  });
+
+  // Issue #81: the designer ruled that the dictator places the hits when the
+  // shelled sector holds more than one rebel's units. The card text lets rebels
+  // choose, so a sector holding one rebel's units stays theirs to allocate.
+  it('asks the dictator to allocate when two rebels share the shelled sector', () => {
+    const runner = runnerWithTwoRebels('artillery-two-rebels-human');
+    runner.start();
+    const game = runner.game;
+    const [first, second] = game.rebelPlayers;
+
+    const { seat: dictatorSeat } = reachArtilleryPlay(runner);
+    const sector = garrisonAdjacentSector(game, 3, [first, second]);
+    // Only this sector is shelled, so the barrage ends with this allocation.
+    shell(runner, dictatorSeat, 2).sectorsRemaining.length = 0;
+
+    const waiting = getCurrentAction(game.getFlowState());
+    expect(waiting?.available).toContain('artilleryAllocateHits');
+    expect(waiting?.currentPlayer, 'a rebel was asked to allocate a shared sector').toBe(dictatorSeat);
+    for (const rebel of [first, second]) {
+      expect(enumerateLegalMoves(game, rebel.seat).some(m => m.action === 'artilleryAllocateHits'),
+        `${rebel.name} may still allocate`).toBe(false);
+    }
+
+    const result = runner.performAction('artilleryAllocateHits', dictatorSeat, {
+      allocations: [
+        `militia-${first.seat}-${sector.sectorId}::0`,
+        `militia-${second.seat}-${sector.sectorId}::0`,
+      ],
+    });
+
+    expect(result.success, result.error).toBe(true);
+    expect(sector.getRebelMilitia(`${first.seat}`)).toBe(2);
+    expect(sector.getRebelMilitia(`${second.seat}`)).toBe(2);
+    expect(game.pendingArtilleryAllocation, 'artillery never finished allocating').toBeNull();
+  });
+
+  it('lets a bot dictator place every hit across both rebels', { timeout: 120_000 }, async () => {
+    const runner = runnerWithTwoRebels('artillery-two-rebels-bot');
+    runner.start();
+    const game = runner.game;
+    const [first, second] = game.rebelPlayers;
+
+    const { seat: dictatorSeat } = reachArtilleryPlay(runner);
+    // Two militia each and three hits, so the bot has several ways to place them.
+    const sector = garrisonAdjacentSector(game, 2, [first, second]);
+    shell(runner, dictatorSeat, 3).sectorsRemaining.length = 0;
+
+    let draws = 0;
+    const move = await mcts(30).choose({
+      game, seat: dictatorSeat, random: { next: () => ++draws }, definition: gameDefinition,
+    } as never);
+    if ('noMove' in move) throw new Error(move.noMove);
+    expect(move.action).toBe('artilleryAllocateHits');
+
+    const result = runner.performAction(move.action, dictatorSeat, move.args);
+    expect(result.success, result.error).toBe(true);
+    expect(sector.getRebelMilitia(`${first.seat}`) + sector.getRebelMilitia(`${second.seat}`),
+      'the bot did not place all three hits').toBe(1);
+    expect(game.pendingArtilleryAllocation).toBeNull();
+  });
+
+  it('offers a wounded MERC every hit it can still take and kills it when they all land', () => {
+    const runner = runnerWithTwoRebels('artillery-two-rebels-merc');
+    runner.start();
+    const game = runner.game;
+    const [first, second] = game.rebelPlayers;
+
+    const { seat: dictatorSeat } = reachArtilleryPlay(runner);
+    const sector = garrisonAdjacentSector(game, 1, [second]);
+    first.primarySquad.sectorId = sector.sectorId;
+    const [merc] = game.getMercsInSector(sector, first);
+    // No Epinephrine Shot to spend, so the last hit kills.
+    for (const squadmate of first.team) {
+      if (squadmate.accessorySlot) squadmate.unequip('Accessory');
+      for (const item of [...squadmate.bandolierSlots]) squadmate.unequipBandolierItem(item);
+    }
+    merc.takeDamage(1);
+    const left = merc.health;
+    expect(left, 'the wounded MERC has no health to test with').toBeGreaterThan(0);
+
+    const pending = shell(runner, dictatorSeat, left + 1);
+    pending.sectorsRemaining.length = 0;
+    const offered = pending.validTargets.find(t => t.id === merc.combatantId);
+    expect(offered?.currentHealth, 'the MERC is offered fewer hits than its health').toBe(left);
+
+    const result = runner.performAction('artilleryAllocateHits', dictatorSeat, {
+      allocations: [
+        ...Array.from({ length: left }, (_, i) => `${merc.combatantId}::${i}`),
+        `militia-${second.seat}-${sector.sectorId}::0`,
+      ],
+    });
+
+    expect(result.success, result.error).toBe(true);
+    expect(first.team, 'a MERC killed by artillery stayed on the team').not.toContain(merc);
+    expect(merc.parent, 'a MERC killed by artillery was not discarded').toBe(game.mercDiscard);
   });
 });

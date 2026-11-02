@@ -11,10 +11,10 @@ import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.
 import { Sector, Equipment, CombatantModel } from '../elements.js';
 import { buildCombatPanelSnapshot, executeCombat, executeCombatRetreat, getValidRetreatSectors, canRetreat, clearActiveCombat, resolveActiveCombatRebel, type Combatant } from '../combat.js';
 import { isHealingItem, getHealingEffect, isEpinephrine } from '../equipment-effects.js';
-import { advanceArtilleryAllocation, artilleryHitsAllocatableBy } from '../tactics-effects.js';
+import { advanceArtilleryAllocation, artilleryAllocator, artilleryHitsToPlace } from '../tactics-effects.js';
 import { capitalize, isRebelPlayer, isMerc, isCombatantModel } from './helpers.js';
 import { applyMortarDamage } from './rebel-equipment.js';
-import { applyEpinephrineSave, handleMercDeath } from '../merc-death.js';
+import { applyEpinephrineSave, handleMercDeath, killMercOutsideCombat } from '../merc-death.js';
 import { getRetreatableSquads } from '../combat-retreat.js';
 
 /** Sentinel choice meaning "pull every squad I have here out of the fight". */
@@ -1216,52 +1216,29 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
 // =============================================================================
 
 /**
- * Allocate artillery barrage hits to rebel units.
- * Called during dictator's turn when Artillery Barrage targets rebel sectors.
- * Each rebel allocates hits to their own units in the targeted sector.
+ * Allocate artillery barrage hits to the rebel units in the shelled sector.
+ * Called during the dictator's turn; artilleryAllocator decides who places them.
  */
 export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('artilleryAllocateHits')
     .prompt('Allocate artillery damage')
     .condition({
       'has pending artillery allocation': () => game.pendingArtilleryAllocation != null,
-      'is rebel player': (ctx) => isRebelPlayer(ctx.player),
-      'player has a living unit in the targeted sector': (ctx) => {
-        const pending = game.pendingArtilleryAllocation;
-        if (!pending) return false;
-        const playerId = `${ctx.player.seat}`;
-        return pending.validTargets.some(t => t.ownerId === playerId && t.currentHealth > 0);
-      },
+      'is the player placing the artillery hits': (ctx) => artilleryAllocator(game)?.seat === ctx.player.seat,
     })
     .chooseFrom('allocations', {
-      prompt: 'Choose which of your units take the artillery hits',
-      multiSelect: (ctx) => {
-        const pending = game.pendingArtilleryAllocation;
-        if (!pending) return { min: 0, max: 0 };
-        // Every hit this player can absorb, and no more: a rebel with two units
-        // left cannot be asked to place five hits, and asking would leave the
-        // allocation with no legal answer at all.
-        const takeable = artilleryHitsAllocatableBy(game, ctx.player as RebelPlayer);
-        return { min: takeable, max: takeable };
+      prompt: 'Choose which units take the artillery hits',
+      multiSelect: () => {
+        const hits = artilleryHitsToPlace(game);
+        return { min: hits, max: hits };
       },
-      choices: (ctx) => {
+      choices: () => {
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return [];
-
-        const playerId = `${ctx.player.seat}`;
-        const choices: string[] = [];
-
-        // Build choices for this player's targets only
-        for (const target of pending.validTargets) {
-          if (target.ownerId !== playerId) continue;
-          if (target.currentHealth <= 0) continue;
-
-          // Allow selecting up to currentHealth times
-          for (let i = 0; i < target.currentHealth; i++) {
-            choices.push(`${target.id}::${i}`);
-          }
-        }
-        return choices;
+        // One value per hit a target can still take.
+        return pending.validTargets.flatMap(target =>
+          Array.from({ length: Math.max(0, target.currentHealth) }, (_, i) => `${target.id}::${i}`)
+        );
       },
       display: (choice: string) => {
         const pending = game.pendingArtilleryAllocation;
@@ -1271,18 +1248,16 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         const target = pending.validTargets.find(t => t.id === targetId);
         if (!target) return choice;
         return target.type === 'militia'
-          ? `Militia (${target.currentHealth - index} remaining)`
+          ? `${target.name} (${target.currentHealth - index} remaining)`
           : target.name;
       },
     })
-    .execute((args, ctx) => {
+    .execute((args) => {
       if (!game.pendingArtilleryAllocation) {
         return { success: false, error: 'No artillery allocation pending' };
       }
 
       const pending = game.pendingArtilleryAllocation;
-      const playerId = `${ctx.player.seat}`;
-      const player = ctx.player as RebelPlayer;
 
       // Parse allocations
       const allocChoices = args.allocations as unknown[];
@@ -1303,44 +1278,31 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
 
       for (const [targetId, hits] of hitsByTarget) {
         const target = pending.validTargets.find(t => t.id === targetId);
-        if (!target || target.ownerId !== playerId) continue;
+        if (!target) continue;
 
         if (target.type === 'militia') {
-          // Remove militia from sector
-          const removed = sector?.removeRebelMilitia(playerId, hits) ?? 0;
+          const removed = sector?.removeRebelMilitia(target.ownerId, hits) ?? 0;
           if (removed > 0) {
-            game.message(`${removed} militia killed by artillery at ${pending.sectorName}`);
+            game.message(`${removed} of ${target.name} killed by artillery at ${pending.sectorName}`);
           }
           totalApplied += removed;
-
-          // Update target health in pending state
-          target.currentHealth -= removed;
         } else {
-          // Damage MERC
-          const merc = player.team.find(m => m.combatantId === targetId);
+          const owner = game.rebelPlayers.find(r => `${r.seat}` === target.ownerId);
+          const merc = owner?.team.find(m => m.combatantId === targetId);
           if (merc) {
             for (let i = 0; i < hits; i++) {
               merc.takeDamage(1);
               game.message(`${merc.combatantName} takes 1 artillery damage`);
               totalApplied++;
             }
-            target.currentHealth = merc.health - merc.damage;
+            killMercOutsideCombat(game, merc, `${merc.combatantName} is killed by artillery!`);
           }
         }
       }
 
-      // Update allocated count
-      pending.allocatedHits += totalApplied;
-
-      // Check if all hits for this sector are allocated
-      // (or all targets exhausted)
-      const remainingTargets = pending.validTargets.filter(t => t.currentHealth > 0);
-      const allHitsAllocated = pending.allocatedHits >= pending.hits || remainingTargets.length === 0;
-
-      if (allHitsAllocated) {
-        if (!advanceArtilleryAllocation(game, pending.sectorsRemaining)) {
-          game.message('Artillery Barrage complete');
-        }
+      // The prompt asks for every hit the sector can take, so one allocation finishes it.
+      if (!advanceArtilleryAllocation(game, pending.sectorsRemaining)) {
+        game.message('Artillery Barrage complete');
       }
 
       return {
