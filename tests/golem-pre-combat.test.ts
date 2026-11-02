@@ -65,6 +65,42 @@ describe('Golem pre-combat strike (#113)', () => {
     expect(resolutions).toBe(1);
   });
 
+  it('announces round 1 once when combat resumes after his strike (#120)', () => {
+    const runner = new GameRunner({
+      GameClass: gameDefinition.gameClass,
+      gameType: gameDefinition.gameType,
+      gameOptions: {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'golem-strikes-once',
+        playerIsBot: [false, true],
+      },
+    }) as GameRunner<MERCGame>;
+    runner.start();
+    const game = runner.game;
+    const rebel = game.rebelPlayers[0];
+    const sector = game.gameMap.getAllSectors()[0];
+    const golem = game.first(CombatantModel, m => m.isMerc && m.combatantId === 'golem')!;
+    golem.damage = 0;
+    golem.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    sector.dictatorMilitia = 4;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const combat = game.activeCombat!;
+    const pending = combat.pendingGolemAttack!;
+    expect(pending, 'Golem should be offered his strike first').toBeDefined();
+    combat.selectedTargets ??= new Map();
+    combat.selectedTargets.set(`golem:${pending.golemId}`, [pending.validTargets[0].id]);
+    combat.pendingGolemAttack = undefined;
+    executeCombat(game, sector, rebel);
+
+    expect(game.activeCombat!.pendingTargetSelection, 'combat should pause again inside round 1').toBeDefined();
+    expect(game.activeCombat!.round).toBe(1);
+    const roundHeaders = game.messages.filter(m => m.text.startsWith('--- Round')).map(m => m.text);
+    expect(roundHeaders).toEqual(['--- Round 1 ---']);
+  });
+
   it('stays resolved, with the stalemate count, when dictator MERCs retreat and militia hold the line', () => {
     const runner = new GameRunner({
       GameClass: gameDefinition.gameClass,

@@ -5,6 +5,33 @@ import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { executeCombat } from '../src/rules/combat.js';
 
+/** A lone rebel MERC with a Medical Kit and 1 damage, against 4 militia, human rebel. */
+function woundedMercAgainstMilitia(seed: string) {
+  const runner = new GameRunner({
+    GameClass: gameDefinition.gameClass,
+    gameType: gameDefinition.gameType,
+    gameOptions: {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed,
+      playerIsBot: [false, true],
+    },
+  }) as GameRunner<MERCGame>;
+  runner.start();
+  const game = runner.game;
+  const rebel = game.rebelPlayers[0];
+  const sector = game.gameMap.getAllSectors()[0];
+
+  const merc = game.first(CombatantModel, m => m.isMerc && !m.isDead
+    && !['golem', 'surgeon'].includes(m.combatantId))!;
+  merc.damage = 1;
+  merc.equip(game.first(Equipment, e => e.equipmentId === 'medical-kit')!);
+  merc.putInto(rebel.primarySquad);
+  rebel.primarySquad.sectorId = sector.sectorId;
+  sector.dictatorMilitia = 4;
+  return { runner, game, rebel, sector };
+}
+
 /**
  * #113 review F1: a MERC answers the before-attack healing prompt once per turn.
  * His target selection pauses combat right after, and that pause must not
@@ -12,28 +39,7 @@ import { executeCombat } from '../src/rules/combat.js';
  */
 describe('before-attack healing across a target-selection pause', () => {
   it('is not offered again to the same attacker in the same round', () => {
-    const runner = new GameRunner({
-      GameClass: gameDefinition.gameClass,
-      gameType: gameDefinition.gameType,
-      gameOptions: {
-        playerCount: 2,
-        playerNames: ['Rebel1', 'Dictator'],
-        seed: 'heal-once-per-turn',
-        playerIsBot: [false, true],
-      },
-    }) as GameRunner<MERCGame>;
-    runner.start();
-    const game = runner.game;
-    const rebel = game.rebelPlayers[0];
-    const sector = game.gameMap.getAllSectors()[0];
-
-    const merc = game.first(CombatantModel, m => m.isMerc && !m.isDead
-      && !['golem', 'surgeon'].includes(m.combatantId))!;
-    merc.damage = 1;
-    merc.equip(game.first(Equipment, e => e.equipmentId === 'medical-kit')!);
-    merc.putInto(rebel.primarySquad);
-    rebel.primarySquad.sectorId = sector.sectorId;
-    sector.dictatorMilitia = 4;
+    const { game, rebel, sector } = woundedMercAgainstMilitia('heal-once-per-turn');
 
     executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
     const attackerId = game.activeCombat!.pendingBeforeAttackHealing?.attackerId;
@@ -50,5 +56,28 @@ describe('before-attack healing across a target-selection pause', () => {
     const combat = game.activeCombat!;
     const askedAgainThisRound = combat.round === selectionRound && combat.pendingBeforeAttackHealing?.attackerId === attackerId;
     expect(askedAgainThisRound).toBe(false);
+  });
+
+  it('resumes the same round at the first attacker when he skips healing (#120)', () => {
+    const { runner, game: started, rebel, sector } = woundedMercAgainstMilitia('heal-once-per-turn');
+
+    executeCombat(started, sector, rebel, { attackingPlayerIsRebel: true });
+    const paused = started.activeCombat!;
+    expect(paused.currentAttackerIndex, 'the MERC should be the round\'s first attacker').toBe(0);
+    const attackerId = paused.pendingBeforeAttackHealing?.attackerId;
+    const order = paused.roundInitiativeOrder;
+    expect(started.performAction('combatSkipBeforeAttackHeal', rebel, {}).success).toBe(true);
+
+    // A real host runs every action on a game restored from a JSON snapshot.
+    const snapshot = JSON.parse(JSON.stringify(runner.getSnapshot()));
+    const game = GameRunner.fromSnapshot<MERCGame>(snapshot, gameDefinition.gameClass).game;
+    executeCombat(game, game.getSector(sector.sectorId)!, game.rebelPlayers[0]);
+
+    const combat = game.activeCombat!;
+    expect(combat.round).toBe(1);
+    expect(combat.pendingTargetSelection?.attackerId, 'the same MERC should now pick his target').toBe(attackerId);
+    expect(combat.roundInitiativeOrder).toEqual(order);
+    const roundHeaders = (game.messages as { text: string }[]).filter(m => m.text.startsWith('--- Round'));
+    expect(roundHeaders.map(m => m.text), 'round setup should run once').toEqual(['--- Round 1 ---']);
   });
 });

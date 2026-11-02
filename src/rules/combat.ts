@@ -1861,9 +1861,9 @@ function pauseRound(ctx: RoundContext, pausedFor: CombatPause): CombatRoundResul
  * initiative bonuses, and the initiative sort.
  *
  * Every one of those is once-per-round, and a mid-round resume must not run
- * them again. That rule lives here, in the `startIndex === 0` branch, rather
- * than being spread through the round as an ordering constraint the next
- * pause added has to rediscover.
+ * them again. That rule lives here: a saved `roundInitiativeOrder` means the
+ * round was already set up, rather than being spread through the round as an
+ * ordering constraint the next pause added has to rediscover.
  */
 function setUpRound(
   roundNumber: number,
@@ -1872,7 +1872,6 @@ function setUpRound(
   game: MERCGame,
   dogState: AttackDogState | undefined,
   options: {
-    startIndex: number;
     partialResults: CombatResult[];
     partialCasualties: Combatant[];
     interactive: boolean;
@@ -1883,7 +1882,7 @@ function setUpRound(
   initiativeOrder: string[];
   dogState: AttackDogState;
 } {
-  const { startIndex, partialResults, partialCasualties, interactive, roundInitiativeOrder } = options;
+  const { partialResults, partialCasualties, interactive, roundInitiativeOrder } = options;
 
   // MERC-l09: Initialize dog state if not provided
   const activeDogState: AttackDogState = dogState || {
@@ -1893,7 +1892,7 @@ function setUpRound(
 
   let allCombatants: Combatant[];
 
-  if (startIndex === 0) {
+  if (!roundInitiativeOrder) {
     // Fresh round: full initialization — refresh stats, apply bonuses, sort by initiative
     // MERC-54m: Refresh all combatant stats at start of round
     // This updates initiative/combat/targets after equipment changes in previous rounds
@@ -1927,7 +1926,7 @@ function setUpRound(
     applyKhennInitiative([...rebels, ...dictatorSide], game);
 
     allCombatants = sortByInitiative([...rebels, ...dictatorSide], game);
-  } else if (roundInitiativeOrder) {
+  } else {
     // Resuming mid-round: restore saved initiative order instead of re-sorting
     // This prevents Khenn's random initiative from being re-rolled and changing combatant order
     const allUnordered = [...rebels, ...dictatorSide];
@@ -1935,9 +1934,6 @@ function setUpRound(
     allCombatants = allUnordered.sort((a, b) =>
       (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
     );
-  } else {
-    // Fallback: no saved order (legacy combat state without roundInitiativeOrder)
-    allCombatants = sortByInitiative([...rebels, ...dictatorSide], game);
   }
 
   // Save initiative order so it can be persisted across mid-round pauses
@@ -2979,7 +2975,6 @@ function executeCombatRound(
   } = options || {};
 
   const setup = setUpRound(roundNumber, rebels, dictatorSide, game, dogState, {
-    startIndex,
     partialResults,
     partialCasualties,
     interactive,
@@ -3351,6 +3346,8 @@ interface CombatStart {
   allRebelCasualties: Combatant[];
   allDictatorCasualties: Combatant[];
   startRound: number;
+  /** startRound was already announced before the pause this resumes. */
+  resumingRound: boolean;
   attackingPlayerIsRebel: boolean;
   dogState: AttackDogState;
 }
@@ -3373,6 +3370,7 @@ function startOrResumeCombat(
   let allRebelCasualties: Combatant[];
   let allDictatorCasualties: Combatant[];
   let startRound: number;
+  let resumingRound = false;
   // Track who initiated combat (for target selection - only attacking side chooses)
   let attackingPlayerIsRebel: boolean;
 
@@ -3386,14 +3384,9 @@ function startOrResumeCombat(
     rounds = [];
     allRebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
     allDictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
-    // MERC-t5k: If resuming mid-round (has partial round data or pending targets), stay on same round
-    // Otherwise (between rounds after retreat decision), start next round
-    const hasPartialRoundData = (game.activeCombat.roundResults?.length ?? 0) > 0 ||
-                                 (game.activeCombat.roundCasualties?.length ?? 0) > 0 ||
-                                 (game.activeCombat.currentAttackerIndex ?? 0) > 0 ||
-                                 (game.activeCombat.selectedTargets?.size ?? 0) > 0 ||
-                                 (game.activeCombat.selectedDogTargets?.size ?? 0) > 0;
-    startRound = hasPartialRoundData ? game.activeCombat.round : game.activeCombat.round + 1;
+    // Every in-round pause saves currentAttackerIndex; the between-rounds states never do.
+    resumingRound = game.activeCombat.currentAttackerIndex !== undefined;
+    startRound = resumingRound ? game.activeCombat.round : game.activeCombat.round + 1;
 
     // MERC-l09: Restore dog state
     dogState = {
@@ -3481,6 +3474,7 @@ function startOrResumeCombat(
     allRebelCasualties,
     allDictatorCasualties,
     startRound,
+    resumingRound,
     attackingPlayerIsRebel,
     dogState,
   };
@@ -3565,6 +3559,7 @@ export function executeCombat(
     rebels, dictator, rounds, allRebelCasualties, allDictatorCasualties,
     startRound, attackingPlayerIsRebel, dogState,
   } = start;
+  let { resumingRound } = start;
 
   let retreatSector: Sector | undefined;
   let didRetreat = false;
@@ -3592,7 +3587,7 @@ export function executeCombat(
       );
     }
     // MERC-t5k: Only show round message if starting fresh (not resuming mid-round)
-    if (currentAttackerIndex === 0) {
+    if (!resumingRound) {
       game.message(`--- Round ${round} ---`);
       // Emit round-start event for UI animation
       game.animate('combat-round-start', {
@@ -3640,6 +3635,7 @@ export function executeCombat(
     rounds.push(roundResult.round);
 
     // Clear mid-round state for next round
+    resumingRound = false;
     currentAttackerIndex = 0;
     roundResults = [];
     roundCasualties = [];

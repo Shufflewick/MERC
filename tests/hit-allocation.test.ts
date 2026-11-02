@@ -466,6 +466,8 @@ describe('resuming combat after the player allocates hits', () => {
     // The flow starts the next round once the player chooses to continue.
     executeCombat(game, sector, rebel);
 
+    const roundHeaders = game.messages.filter(m => m.text.startsWith('--- Round')).map(m => m.text);
+    expect(roundHeaders, 'continuing after the retreat decision starts round 2').toEqual(['--- Round 1 ---', '--- Round 2 ---']);
     expect(basicRollLines(game).filter(line => line.startsWith('Basic rolls'))).toHaveLength(2);
     expect(game.activeCombat?.pendingHitAllocation?.canReroll ?? false, 'the reroll was already used').toBe(false);
   });
