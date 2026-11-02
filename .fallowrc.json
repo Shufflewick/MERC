@@ -1,13 +1,13 @@
 {
-  // `three` reaches this project through the vendored engine: importing
+  // `three` reaches this project through the linked BoardSmith: importing
   // `boardsmith/ui/dice` (DiceRollDisplay.vue) pulls in Die3D.vue, which does
   // `import * as THREE from 'three'`. BoardSmith does not declare three
   // itself, so MERC must, and fallow cannot follow that import across the
-  // vendored package boundary. Without this entry every commit that touches
+  // linked package boundary. Without this entry every commit that touches
   // package.json is blocked on a dependency that is genuinely in use.
   // `jiti` is never imported by this project's code: ESLint loads it itself to
   // read eslint.config.ts, which has to be TypeScript because the BoardSmith
-  // rule plugin ships as TypeScript source inside the vendored package and Node
+  // rule plugin ships as TypeScript source inside the boardsmith package and Node
   // refuses to strip types under node_modules. Without the dependency the lint
   // config cannot load at all.
   "ignoreDependencies": ["three", "jiti"],

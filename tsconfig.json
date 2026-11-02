@@ -8,6 +8,11 @@
       "DOM",
       "DOM.Iterable"
     ],
+    // The linked BoardSmith checkout carries its own vue; resolve vue from this project, as `boardsmith init` does.
+    "paths": {
+      "vue": ["./node_modules/vue"],
+      "@vue/*": ["./node_modules/@vue/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

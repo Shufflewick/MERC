@@ -13,7 +13,7 @@ import tsParser from '@typescript-eslint/parser';
  */
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'vendor/**', 'public/**'],
+    ignores: ['dist/**', 'node_modules/**', 'public/**'],
   },
   {
     files: ['src/**/*.ts', 'tests/**/*.ts'],
