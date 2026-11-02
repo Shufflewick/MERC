@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createTestGame } from 'boardsmith/testing';
+import { createTestGame, presetStartOptions } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
 import { gameDefinition } from '../src/rules/index';
 import config from '../boardsmith.json';
-// shortcut: reads the dev host's private seat setup, as boardsmith exports none; use its export once Shufflewick/BoardSmith#1565 lands
-import { exclusiveSeats, mergePlayerOptions, presetSeatSetup } from '../node_modules/boardsmith/src/cli/lib/player-options.js';
 
 /**
  * The platform refuses an exclusive option without choices, so the dictator
@@ -35,22 +33,12 @@ describe('Dictator player option', () => {
   );
 
   it('"Play as Dictator", set up as boardsmith dev sets up a preset, seats the human in seat 1 as the dictator', () => {
-    const preset = gameDefinition.presets.find(p => p.name === 'Play as Dictator')!;
-    const options = mergePlayerOptions(undefined, config.playerOptions);
-    const seats = presetSeatSetup(preset as never, options, config.colorPalette.map(c => c.hex))!;
-    const seatOptions = seats.map(s => s.playerOptions);
-
-    // The fields of the dev host's start op that say who holds the role
-    const { game } = createTestGame(MERCGame, {
-      playerCount: seats.length,
-      seed: 'play-as-dictator',
-      playerOptions: seatOptions,
-      exclusiveSeats: exclusiveSeats(options, seatOptions),
-      playerConfigs: seats.map(s => ({ ...s.playerOptions, isBot: s.isBot })),
-    } as never);
+    // shortcut: casts the as-const presets BoardSmith's mutable GamePreset[] refuses; drop the cast once Shufflewick/BoardSmith#1572 lands
+    const options = presetStartOptions(gameDefinition as never, 'Play as Dictator');
+    const { game } = createTestGame(MERCGame, { ...options, seed: 'play-as-dictator' });
 
     expect(game.dictatorPlayer.seat).toBe(1);
-    expect(seats[0].isBot).toBe(false);
+    expect(game.dictatorPlayer.isBot).toBe(false);
   });
 });
 
