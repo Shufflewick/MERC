@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
+import { enumerateLegalMoves } from 'boardsmith';
 import { MERCGame, type MERCPlayer } from '../src/rules/game.js';
 import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { buildMortarTargets } from '../src/rules/actions/rebel-equipment.js';
+import { getCurrentAction } from './helpers/auto-play.js';
+import { randomPlay, RANDOM_PLAY_TIMEOUT } from './helpers/random-play.js';
 
 describe('a mortar hit on a unit with 1 health left', () => {
   let game: MERCGame;
@@ -35,7 +38,7 @@ describe('a mortar hit on a unit with 1 health left', () => {
       validTargets: buildMortarTargets(game, sector, attacker.isRebel()),
     };
     const result = game.performAction('mortarAllocateHits', attacker, {
-      allocations: [`${victim.combatantId}::0`],
+      allocations: [victim.combatantId],
     });
     expect(result.success).toBe(true);
     return game.pendingAnimationEvents.map(e => e.type);
@@ -108,4 +111,25 @@ describe('a mortar hit on a unit with 1 health left', () => {
     expect(victim.isDead).toBe(false);
     expect(victim.accessorySlot).toBeUndefined();
   });
+});
+
+describe('listing the moves of a big mortar roll (#122)', () => {
+  it('lists each way to split the hits among the targets once', () => {
+    let moves: number | undefined;
+    // This seed's game reaches a mortar allocation in the real flow, where move enumeration reads the pending roll.
+    randomPlay('scan36', 'kim', 2, game => {
+      const current = getCurrentAction(game.getFlowState());
+      if (!current?.available.includes('mortarAllocateHits')) return false;
+      game.pendingMortarAttack = {
+        ...game.pendingMortarAttack!,
+        diceRolls: [6, 6, 6, 6, 6], hits: 5, hitThreshold: 4,
+        validTargets: Array.from({ length: 10 }, (_, i) => (
+          { id: `t${i}`, name: 'Militia', type: 'militia' as const, currentHealth: 3, maxHealth: 3 })),
+      };
+      moves = enumerateLegalMoves(game, current.currentPlayer).filter(m => m.action === 'mortarAllocateHits').length;
+      return true;
+    });
+    // 5 hits over 10 targets taking at most 3 each: C(14,5) - 10 * C(10,9).
+    expect(moves).toBe(1902);
+  }, RANDOM_PLAY_TIMEOUT);
 });

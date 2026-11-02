@@ -133,16 +133,7 @@ function handleTargetClick(targetId: string) {
 }
 
 function handleConfirm() {
-  const hitIndexByTarget = new Map<string, number>();
-  const allocations: string[] = [];
-
-  allocatedHits.value.forEach((targetId) => {
-    const hitIndex = hitIndexByTarget.get(targetId) ?? 0;
-    allocations.push(`${targetId}::${hitIndex}`);
-    hitIndexByTarget.set(targetId, hitIndex + 1);
-  });
-
-  emit('confirm-allocation', allocations);
+  emit('confirm-allocation', [...allocatedHits.value.values()]);
 }
 </script>
 

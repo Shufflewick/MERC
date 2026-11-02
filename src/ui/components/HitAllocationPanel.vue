@@ -184,32 +184,8 @@ function allocateToTarget(targetId: string) {
   addHitToTarget(targetId);
 }
 
-// Build allocation strings from current allocatedHits
-function buildAllocations(): string[] {
-  const hitIndexByTarget = new Map<string, number>();
-  const allocations: string[] = [];
-
-  if (hasDiceData.value) {
-    allocatedHits.value.forEach((targetId) => {
-      const hitIndex = hitIndexByTarget.get(targetId) ?? 0;
-      allocations.push(`${targetId}::${hitIndex}`);
-      hitIndexByTarget.set(targetId, hitIndex + 1);
-    });
-  } else {
-    // Fallback mode: build from fallbackAllocations
-    for (const targetId of fallbackAllocations.value) {
-      const hitIndex = hitIndexByTarget.get(targetId) ?? 0;
-      allocations.push(`${targetId}::${hitIndex}`);
-      hitIndexByTarget.set(targetId, hitIndex + 1);
-    }
-  }
-
-  return allocations;
-}
-
 function handleConfirm() {
-  const allocs = buildAllocations();
-  emit('confirm-allocation', allocs);
+  emit('confirm-allocation', [...allocatedTargetIds.value]);
 }
 
 function handleReroll() {

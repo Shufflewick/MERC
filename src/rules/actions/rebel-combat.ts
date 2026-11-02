@@ -504,20 +504,13 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       choices: () => {
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return [];
-        // One choice per hit a target can take: its armour, then its health.
-        const choices: string[] = [];
-        for (const target of pending.validTargets) {
-          for (let i = 0; i < target.armor + target.currentHealth; i++) {
-            choices.push(`${target.id}::${i}`);
-          }
-        }
-        return choices;
+        // A target's id once per hit it can take (armour, then health), so a split is one move however its hits are ordered.
+        return pending.validTargets.flatMap(target => Array<string>(target.armor + target.currentHealth).fill(target.id));
       },
       display: (choice: string) => {
         const pending = game.activeCombat?.pendingHitAllocation;
         if (!pending) return choice;
-        const targetId = choice.split('::')[0];
-        const target = pending.validTargets.find(t => t.id === targetId);
+        const target = pending.validTargets.find(t => t.id === choice);
         if (!target) return choice;
         // Capitalize target name for display
         return target.name.charAt(0).toUpperCase() + target.name.slice(1);
@@ -528,7 +521,7 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       const pending = game.activeCombat?.pendingHitAllocation;
       if (!pending) return true;
       const undeclared = new Set(pending.validTargets.filter(t => !t.declared).map(t => t.id));
-      const undeclaredHits = (args.allocations as string[]).filter(a => undeclared.has(a.split('::')[0])).length;
+      const undeclaredHits = (args.allocations as string[]).filter(id => undeclared.has(id)).length;
       return undeclaredHits <= pending.wolverineSixes
         || `Only ${pending.wolverineSixes} hit(s) can go to targets ${pending.attackerName} did not declare, one per 6 rolled (allocated ${undeclaredHits})`;
     })
@@ -539,17 +532,8 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
 
       const pending = game.activeCombat.pendingHitAllocation;
 
-      const allocChoices = args.allocations as unknown[];
-
-      // Parse allocation choices into targetId -> hitCount map
-      // Format is "targetId::hitIndex" - may come as string or {value, display} object
       const hitsByTarget = new Map<string, number>();
-      for (const choice of allocChoices) {
-        // Handle both string format (from CombatPanel) and object format (from ActionPanel)
-        const choiceStr = typeof choice === 'string' ? choice :
-          (choice && typeof choice === 'object' && 'value' in choice) ? String((choice as { value: unknown }).value) : String(choice);
-        const parts = choiceStr.split('::');
-        const targetId = parts[0];
+      for (const targetId of args.allocations as string[]) {
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 
@@ -1506,19 +1490,13 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
       choices: () => {
         const pending = game.pendingMortarAttack;
         if (!pending) return [];
-        const choices: string[] = [];
-        for (const target of pending.validTargets) {
-          for (let i = 0; i < target.currentHealth; i++) {
-            choices.push(`${target.id}::${i}`);
-          }
-        }
-        return choices;
+        // A target's id once per hit it can take, so a split is one move however its hits are ordered.
+        return pending.validTargets.flatMap(target => Array<string>(target.currentHealth).fill(target.id));
       },
       display: (choice: string) => {
         const pending = game.pendingMortarAttack;
         if (!pending) return choice;
-        const targetId = choice.split('::')[0];
-        const target = pending.validTargets.find(t => t.id === targetId);
+        const target = pending.validTargets.find(t => t.id === choice);
         if (!target) return choice;
         return target.name;
       },
@@ -1530,16 +1508,8 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
 
       const pending = game.pendingMortarAttack;
 
-      const allocChoices = args.allocations as unknown[];
-
-      // Parse allocation choices into targetId -> hitCount map
       const hitsByTarget = new Map<string, number>();
-      for (const choice of allocChoices) {
-        const choiceStr = typeof choice === 'string' ? choice :
-          (choice && typeof choice === 'object' && 'value' in choice)
-            ? String((choice as { value: unknown }).value)
-            : String(choice);
-        const targetId = choiceStr.split('::')[0];
+      for (const targetId of args.allocations as string[]) {
         hitsByTarget.set(targetId, (hitsByTarget.get(targetId) ?? 0) + 1);
       }
 
