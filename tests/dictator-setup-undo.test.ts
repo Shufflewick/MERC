@@ -65,7 +65,7 @@ describe('dictator Day 1 setup undo', () => {
 
   it("does not let Hussein undo his setup ability, which deals random tactics cards", async () => {
     const { session, act, undo, available } = await tableAtDictatorSetup('Hussein');
-    const deck = () => session.readGame().dictatorPlayer.tacticsDeck.all(TacticsCard).map(c => c.tacticsId);
+    const deck = () => session.readGame().dictatorPlayer.tacticsDeck!.all(TacticsCard).map(c => c.tacticsId);
 
     await act(DICTATOR, 'dictatorPlaceInitialMilitia');
     await act(DICTATOR, 'dictatorHireFirstMerc');
