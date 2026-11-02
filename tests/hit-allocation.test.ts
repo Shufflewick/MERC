@@ -172,6 +172,35 @@ describe('combatAllocateHits prompt', () => {
     expect(result.success, result.error).toBe(true);
   });
 
+  it('offers only allocations that keep undeclared targets to Wolverine\'s 6s, so bots and the simulator are never refused (#117)', () => {
+    const game = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'allocate-wolverine-offers',
+    }).game;
+    const rebel = game.rebelPlayers[0];
+    game.activeCombat = {
+      ...activeCombatIn(game.gameMap.getAllSectors()[0].sectorId, rebel.seat),
+      pendingHitAllocation: {
+        attackerId: 'wolverine', attackerName: 'Wolverine', attackerCombatantId: 'wolverine',
+        diceRolls: [6, 4], hits: 2, hitThreshold: 4,
+        validTargets: [
+          { id: 'merc', name: 'merc', isMerc: true, currentHealth: 3, maxHealth: 3, armor: 0, declared: true },
+          { id: 'm1', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: false },
+          { id: 'm2', name: 'militia', isMerc: false, currentHealth: 1, maxHealth: 1, armor: 0, declared: false },
+        ],
+        wolverineSixes: 1, canReroll: false, hasRerolled: false, rollCount: 1,
+      },
+    };
+
+    // Move enumeration (bots, the simulator) offers only what the action's validation accepts.
+    const validate = (allocations: string[]) => game.getActionExecutor()
+      .validateAction(game.getAction('combatAllocateHits')!, rebel, { allocations });
+
+    expect(validate(['m1::0', 'm2::0']).valid).toBe(false);
+    expect(validate(['merc::0', 'm1::0']).valid).toBe(true);
+  });
+
   it('asks for only the hits the targets can take when the undeclared ones are limited to the 6s (#91)', () => {
     const game = createTestGame(MERCGame, {
       playerCount: 2,

@@ -231,6 +231,35 @@ describe('the arms dealer sells, then offers the free re-equip (#65)', () => {
   });
 });
 
+describe('the arms dealer offers only types it can sell (#117)', () => {
+  function emptyPile(game: MERCGame, type: 'Weapon' | 'Armor' | 'Accessory'): void {
+    for (const pile of [game.getEquipmentDeck(type)!, game.getEquipmentDiscard(type)!]) {
+      for (const eq of pile.all(Equipment)) eq.putInto(game.drawnCards);
+    }
+  }
+
+  it('leaves out a type whose deck and discard are both empty', () => {
+    const game = startGame('castro', 'arms-dealer-empty-type');
+    const { rebel, merc } = putRebelMercInCity(game);
+    emptyPile(game, 'Accessory');
+    const executor = game.getActionExecutor();
+    const action = game.getAction('armsDealer')!;
+
+    const types = executor.getChoices(action.selections[1], rebel, { actingUnit: `${merc.id}:${merc.combatantName}:false` }, 'armsDealer')
+      .map(c => c.value);
+
+    expect(types).toEqual(['Weapon', 'Armor']);
+  });
+
+  it('is not offered when every deck and discard is empty', () => {
+    const game = startGame('castro', 'arms-dealer-all-empty');
+    const { rebel } = putRebelMercInCity(game);
+    for (const type of ['Weapon', 'Armor', 'Accessory'] as const) emptyPile(game, type);
+
+    expect(game.getActionExecutor().isActionAvailable(game.getAction('armsDealer')!, rebel)).toBe(false);
+  });
+});
+
 describe('a hire with no squad room draws nothing and lets the turn go on (#65)', () => {
   it('Castro with both squads full skips the hire', () => {
     const runner = startRunner('castro', 'castro-full-squads');

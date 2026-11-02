@@ -523,6 +523,15 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return target.name.charAt(0).toUpperCase() + target.name.slice(1);
       },
     })
+    // A rule across the picks belongs here, where move enumeration also applies it.
+    .validate((args) => {
+      const pending = game.activeCombat?.pendingHitAllocation;
+      if (!pending) return true;
+      const undeclared = new Set(pending.validTargets.filter(t => !t.declared).map(t => t.id));
+      const undeclaredHits = (args.allocations as string[]).filter(a => undeclared.has(a.split('::')[0])).length;
+      return undeclaredHits <= pending.wolverineSixes
+        || `Only ${pending.wolverineSixes} hit(s) can go to targets ${pending.attackerName} did not declare, one per 6 rolled (allocated ${undeclaredHits})`;
+    })
     .execute((args, _ctx) => {
       if (!game.activeCombat?.pendingHitAllocation) {
         return { success: false, error: 'No hit allocation pending' };
@@ -551,16 +560,6 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
         return {
           success: false,
           error: `Allocate exactly ${expectedHits} hit(s) (allocated ${totalAllocated})`,
-        };
-      }
-
-      const undeclaredHits = pending.validTargets
-        .filter(t => !t.declared)
-        .reduce((sum, t) => sum + (hitsByTarget.get(t.id) ?? 0), 0);
-      if (undeclaredHits > pending.wolverineSixes) {
-        return {
-          success: false,
-          error: `Only ${pending.wolverineSixes} hit(s) can go to targets ${pending.attackerName} did not declare, one per 6 rolled (allocated ${undeclaredHits})`,
         };
       }
 

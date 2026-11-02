@@ -6,7 +6,7 @@
 
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, MERCPlayer, RebelPlayer } from '../game.js';
-import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar } from '../elements.js';
+import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar, type EquipmentType } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { queuePendingCombat } from '../combat.js';
 import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, emitMapMilitiaTrain, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
@@ -1182,6 +1182,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         const units = getPlayerUnitsInSector(ctx.player, game, sector);
         return units.some(u => u.actionsRemaining >= ACTION_COSTS.ARMS_DEALER);
       },
+      'dealer has equipment to sell': () => dealerTypesInStock(game).length > 0,
     })
     .chooseFrom('actingUnit', {
       prompt: 'Which unit visits the dealer?',
@@ -1200,7 +1201,7 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
     })
     .chooseFrom('equipmentType', {
       prompt: 'What type of equipment?',
-      choices: () => ['Weapon', 'Armor', 'Accessory'],
+      choices: () => dealerTypesInStock(game),
     })
     .execute((args, ctx) => {
       const sector = findCitySectorForPlayer(ctx.player, game);
@@ -1249,6 +1250,12 @@ export function createArmsDealerAction(game: MERCGame): ActionDefinition {
         },
       };
     });
+}
+
+/** The equipment types the dealer can sell: a draw reshuffles the discard, so either pile counts. */
+function dealerTypesInStock(game: MERCGame): EquipmentType[] {
+  return (['Weapon', 'Armor', 'Accessory'] as const).filter(type =>
+    game.getEquipmentDeck(type)!.count(Equipment) + game.getEquipmentDiscard(type)!.count(Equipment) > 0);
 }
 
 /** Parse an arms dealer unit choice ("id:name:isDictator") back to its unit. */

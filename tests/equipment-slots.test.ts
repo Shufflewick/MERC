@@ -291,4 +291,25 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       expect(result.displacedBandolierItems).toContain(item3);
     });
   });
+
+  describe('dropEquipment from a bandolier', () => {
+    it('drops an item in the second bandolier slot after the first was emptied (#117)', () => {
+      const rebel = game.rebelPlayers[0];
+      const sector = game.gameMap.getAllSectors()[0];
+      const merc = findMerc('basic')!;
+      merc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = sector.sectorId;
+      merc.equip(game.accessoriesDeck.first(Equipment, e => e.equipmentId === 'bandolier')!);
+      const [first, second] = getNonBandolierAccessories();
+      merc.equip(first);
+      merc.equip(second);
+      expect(game.performAction('dropEquipment', rebel, { actingMerc: merc, equipment: first }).success).toBe(true);
+
+      const result = game.performAction('dropEquipment', rebel, { actingMerc: merc, equipment: second });
+
+      expect(result.success, result.error).toBe(true);
+      expect(merc.bandolierSlots).toEqual([]);
+      expect(sector.stash).toContain(second);
+    });
+  });
 });
