@@ -3,6 +3,8 @@ import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
 import { gameDefinition } from '../src/rules/index';
 import config from '../boardsmith.json';
+// boardsmith exports no preset helper, so this reads the dev host's own seat setup
+import { exclusiveSeats, mergePlayerOptions, presetSeatSetup } from '../node_modules/boardsmith/src/cli/lib/player-options.js';
 
 /**
  * The platform refuses an exclusive option without choices, so the dictator
@@ -31,6 +33,25 @@ describe('Dictator player option', () => {
       expect(game.dictatorPlayer.seat).toBe(holders[0]);
     },
   );
+
+  it('"Play as Dictator", set up as boardsmith dev sets up a preset, seats the human in seat 1 as the dictator', () => {
+    const preset = gameDefinition.presets.find(p => p.name === 'Play as Dictator')!;
+    const options = mergePlayerOptions(undefined, config.playerOptions);
+    const seats = presetSeatSetup(preset as never, options, config.colorPalette.map(c => c.hex))!;
+    const seatOptions = seats.map(s => s.playerOptions);
+
+    // The fields of the dev host's start op that say who holds the role
+    const { game } = createTestGame(MERCGame, {
+      playerCount: seats.length,
+      seed: 'play-as-dictator',
+      playerOptions: seatOptions,
+      exclusiveSeats: exclusiveSeats(options, seatOptions),
+      playerConfigs: seats.map(s => ({ ...s.playerOptions, isBot: s.isBot })),
+    } as never);
+
+    expect(game.dictatorPlayer.seat).toBe(1);
+    expect(seats[0].isBot).toBe(false);
+  });
 });
 
 describe('Dictator Character game option', () => {
@@ -39,7 +60,7 @@ describe('Dictator Character game option', () => {
       playerCount: 2,
       seed: 'dictator-character',
       dictatorCharacter: 'kim',
-      playerConfigs: [{ isBot: false }, { role: true, isBot: true }],
+      playerConfigs: [{ isBot: false }, { isBot: true }],
     } as never);
     expect(game.dictatorPlayer.dictator?.combatantId).toBe('kim');
   });
