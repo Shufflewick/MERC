@@ -217,6 +217,17 @@ const paths: Array<{ name: string; run: () => { game: MERCGame; sector: Sector }
   },
 ];
 
+it('human Pol Pot reports the fight its militia start', () => {
+  const game = newGame('polpot', false);
+  const sector = industry(game);
+  sector.addRebelMilitia(rebelId(game), 2);
+
+  const result = runAction(game, 'polpotBonusMilitia', { targetSector: sector.sectorName });
+
+  expect(result).toMatchObject({ success: true, data: { combatTriggered: true } });
+  expect(combatQueuedAt(game, sector)).toBe(true);
+});
+
 describe('dictator militia placement sets off rebel land mines', () => {
   for (const path of paths) {
     it(path.name, () => {
@@ -285,8 +296,10 @@ describe('placeDictatorMilitia', () => {
 
   it('queues one fight per sector however many times militia arrive', () => {
     const game = newGame('castro', false);
-    const sector = industry(game);
+    const [first, sector] = game.gameMap.getAllSectors().filter(s => s.isIndustry);
+    first.addRebelMilitia(rebelId(game), 2);
     sector.addRebelMilitia(rebelId(game), 2);
+    placeDictatorMilitia(game, first, 1);
 
     placeDictatorMilitia(game, sector, 1);
     placeDictatorMilitia(game, sector, 1);
