@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { enumerateLegalMoves } from 'boardsmith';
 import { mercBot } from '../src/rules/bot.js';
 import { castroGameAtDayTwo } from './helpers/day-two.js';
+import { Equipment } from '../src/rules/elements.js';
 
 /**
  * Free moves the bot searches (#90): it may break a MERC off into a new squad,
@@ -45,5 +46,67 @@ describe('bot free moves (#90)', () => {
 
     const moves = enumerateLegalMoves(runner.game, 2);
     expect(mercBot.candidateMoves!(runner.game, 2, () => moves)).toEqual(moves.filter((move) => move.action !== 'viewStash'));
+  });
+
+  it('searches stash picks into an empty slot but not ones that swap out equipment (#103)', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
+    expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
+    // The bot sees an element arg as its id; Basic carries only a weapon.
+    const picks = enumerateLegalMoves(runner.game, 2)
+      .filter((move) => move.action === 'collectEquipment')
+      .map((move) => ({ action: move.action, args: { equipment: (move.args.equipment as Equipment).id } }));
+    const name = (id: unknown) => (runner.game.getElementById(id as number) as Equipment).equipmentName;
+    expect(picks.map((move) => name(move.args.equipment))).toEqual(
+      ['M16', '50 Caliber Rifle with FLIR Scope', 'Full Body Armor', 'Repair Kit', 'Mortar', 'Grenade']);
+
+    expect(mercBot.candidateMoves!(runner.game, 2, () => picks).map((move) => name(move.args.equipment)))
+      .toEqual(['Full Body Armor', 'Repair Kit', 'Mortar', 'Grenade']);
+  });
+
+  it('searches skipping the stash picks, which the bot is offered when no pick is open to it (#103)', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
+    expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
+    const skip = { action: 'collectEquipment', args: {} };
+
+    expect(mercBot.candidateMoves!(runner.game, 2, () => [skip])).toEqual([skip]);
+  });
+
+  it('searches picks while re-equipping into an empty slot but not ones that swap out equipment (#103)', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
+    expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
+    expect(runner.performAction('collectEquipment', 2, {}).success).toBe(true);
+    const name = (id: unknown) => (runner.game.getElementById(id as number) as Equipment).equipmentName;
+    const reEquip = enumerateLegalMoves(runner.game, 2)
+      .find((move) => move.action === 'reEquip' && move.args.equipment !== undefined && name((move.args.equipment as Equipment).id) === 'Full Body Armor')!;
+    expect(runner.performAction('reEquip', 2, reEquip.args).success).toBe(true);
+    const picks = enumerateLegalMoves(runner.game, 2)
+      .filter((move) => move.action === 'reEquipContinue')
+      .map((move) => ({ action: move.action, args: { equipment: (move.args.equipment as Equipment).id } }));
+    expect(picks.map((move) => name(move.args.equipment))).toEqual(
+      ['M16', '50 Caliber Rifle with FLIR Scope', 'Repair Kit', 'Mortar', 'Grenade']);
+
+    expect(mercBot.candidateMoves!(runner.game, 2, () => picks).map((move) => name(move.args.equipment)))
+      .toEqual(['Repair Kit', 'Mortar', 'Grenade']);
+  });
+
+  it('searches dropping equipment, since it gives up the held pick and no free move can take the gear back (#103)', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const explore = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'explore')!;
+    expect(runner.performAction('explore', 2, explore.args).success).toBe(true);
+    const drop = enumerateLegalMoves(runner.game, 2).find((move) => move.action === 'dropEquipment')!;
+    expect(mercBot.candidateMoves!(runner.game, 2, () => [drop])).toEqual([drop]);
+
+    expect(runner.performAction('dropEquipment', 2, drop.args).success).toBe(true);
+    expect(enumerateLegalMoves(runner.game, 2).filter((move) => move.action === 'collectEquipment' || move.action === 'reEquipContinue')).toEqual([]);
+  });
+
+  it('searches Squidhead re-arming a mine but not picking one up from the stash, which re-arming would undo (#103)', () => {
+    const runner = castroGameAtDayTwo(1, 2);
+    const arm = { action: 'squidheadArm', args: {} };
+
+    expect(mercBot.candidateMoves!(runner.game, 2, () => [{ action: 'squidheadDisarm', args: {} }, arm])).toEqual([arm]);
   });
 });

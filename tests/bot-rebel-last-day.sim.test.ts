@@ -9,10 +9,13 @@ import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 /**
  * On Day 6 ending the turn loses the game, so the bot rebel's search scored
  * every move that kept the turn above it. Assigning a MERC to a squad is free
- * and undoes itself, so it flipped MERCs between squads forever (#90).
+ * and undoes itself, so it flipped MERCs between squads forever (#90). Picks
+ * from the stash after an explore or a re-equip are free too, and a pick into
+ * a full slot can be undone by the next pick, so a deeper search swapped gear
+ * forever instead (#103).
  */
-describe('bot rebel on the last day (#90)', () => {
-  it('spends its turn and hands it back instead of flipping MERCs between squads', { timeout: 600_000 }, async () => {
+describe('bot rebel on the last day (#90, #103)', () => {
+  it.each([100, 300])('spends its turn and hands it back at mcts(%i) instead of repeating free moves', { timeout: 600_000 }, async (iterations) => {
     const runner = new GameRunner<MERCGame>({
       GameClass: MERCGame,
       gameType: 'merc',
@@ -52,7 +55,7 @@ describe('bot rebel on the last day (#90)', () => {
       if (!played) throw new Error(`The dictator had no legal move on Day ${game.currentDay}.`);
     }
 
-    const bot = mcts(100);
+    const bot = mcts(iterations);
     let draws = 0;
     const played: string[] = [];
     while (getCurrentAction(game.getFlowState())?.currentPlayer === 2 && played.length < 20) {
