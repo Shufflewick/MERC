@@ -3573,7 +3573,9 @@ export function executeCombat(
 
   let stalemateRounds = carriedStalemateRounds;
   let standoff = false;
-  for (let round = startRound; round <= ABSOLUTE_ROUND_LIMIT; round++) {
+  // Outlives the loop: the round combat ends in is the one it broke out of.
+  let round = startRound;
+  for (; ; round++) {
     if (round === ABSOLUTE_ROUND_LIMIT) {
       throw new Error(
         `Combat at ${sector.sectorName} ran ${ABSOLUTE_ROUND_LIMIT} rounds without resolving. ` +
@@ -3769,7 +3771,7 @@ export function executeCombat(
     sectorId: sector.sectorId,
     attackingPlayerId,
     attackingPlayerIsRebel,
-    round: rounds.length > 0 ? rounds.length : 1,
+    round,
     rebelCombatants: rebels,
     dictatorCombatants: dictator,
     rebelCasualties: allRebelCasualties,
@@ -3883,7 +3885,7 @@ export function executeCombatRetreat(
     sectorId: game.activeCombat.sectorId,
     attackingPlayerId: game.activeCombat.attackingPlayerId,
     attackingPlayerIsRebel: game.activeCombat.attackingPlayerIsRebel,
-    round: 1,
+    round: game.activeCombat.round,
     rebelCombatants: rebels,
     dictatorCombatants: dictator,
     rebelCasualties,
