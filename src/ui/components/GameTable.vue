@@ -1146,6 +1146,11 @@ const hireMultiSelectSkipLabel = computed(() => {
   return typeof pick.optional === 'string' ? pick.optional : 'Skip';
 });
 
+function confirmHireMultiSelect() {
+  const pick = props.actionController.currentPick.value;
+  if (pick) props.actionController.confirmMultiSelect(pick.name);
+}
+
 function skipHireMultiSelect() {
   const pick = props.actionController.currentPick.value;
   if (pick) props.actionController.skip(pick.name);
@@ -1580,7 +1585,7 @@ const clickableSectors = computed(() => {
       @select-equipment-type="selectEquipmentType"
       @select-sector="selectSector"
       @skip-hire="skipThirdHire"
-      @confirm-multi-select="actionController.confirmMultiSelect()"
+      @confirm-multi-select="confirmHireMultiSelect"
       @skip-multi-select="skipHireMultiSelect"
       @open-detail-modal="openHiringMercDetail"
       @close-detail-modal="closeHiringMercModal"

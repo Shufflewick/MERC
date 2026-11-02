@@ -12,7 +12,7 @@
     "validate": "boardsmith validate"
   },
   "dependencies": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-r285-6019ff931bea.tgz",
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-r308-2d8b7723b433.tgz",
     "three": "^0.182.0",
     "vue": "^3.4.0"
   },
@@ -30,6 +30,6 @@
     "vue-tsc": "^2.2.12"
   },
   "overrides": {
-    "boardsmith": "file:./vendor/boardsmith-0.0.1-r285-6019ff931bea.tgz"
+    "boardsmith": "file:./vendor/boardsmith-0.0.1-r308-2d8b7723b433.tgz"
   }
 }

@@ -133,7 +133,7 @@ describe('GameTable mid-game hire panel (#93)', () => {
     const { shell, hiringPhase, done } = await mountOnOffer('hireMercFromOffer', { borrisOnTeam: false, militiaSectors: 1 });
     await shell.actionController.toggleMultiSelect('selectedMercs', 'Squirrel');
     await shell.actionController.toggleMultiSelect('selectedMercs', 'Snake');
-    await shell.actionController.confirmMultiSelect();
+    await shell.actionController.confirmMultiSelect('selectedMercs');
     await flushPromises();
     expect(hiringPhase().props('isSelectingEquipmentType')).toBe(true);
     expect(portraitNames(hiringPhase().props('selectedMercPortraits'))).toEqual(['Squirrel', 'Snake']);
