@@ -3209,6 +3209,12 @@ const PAUSE_SAVE: Record<CombatPause['kind'], {
   golemAttack:         { fromScratch: false, keepRoundProgress: false, saveDogTargets: true,  syncCasualties: false },
 };
 
+/** Choices made once per combat, which every rebuild of activeCombat must carry. */
+function perCombatChoices(game: MERCGame) {
+  const { golemResolved, adelheidKillsInstead } = game.activeCombat ?? {};
+  return { golemResolved, adelheidKillsInstead };
+}
+
 /** The shape a paused combat hands the UI for its target lists. */
 function toTargetSummaries(targets: Combatant[]): Combatant[] {
   return targets.map((t) => ({
@@ -3272,6 +3278,7 @@ function pauseCombat(
   const save = PAUSE_SAVE[pause.kind];
 
   const base = {
+    ...perCombatChoices(game),
     sectorId: sector.sectorId,
     attackingPlayerId,
     attackingPlayerIsRebel,
@@ -3696,6 +3703,7 @@ export function executeCombat(
 
       // Save combat state and pause for player decision
       game.activeCombat = {
+        ...perCombatChoices(game),
         sectorId: sector.sectorId,
         attackingPlayerId,
         attackingPlayerIsRebel,
@@ -3836,6 +3844,7 @@ export function executeCombatRetreat(
 
     // Update activeCombat with only the combatants still in the sector
     game.activeCombat = {
+      ...perCombatChoices(game),
       sectorId: game.activeCombat.sectorId,
       attackingPlayerId: game.activeCombat.attackingPlayerId,
       attackingPlayerIsRebel: game.activeCombat.attackingPlayerIsRebel,
