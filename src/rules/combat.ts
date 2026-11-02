@@ -3754,6 +3754,11 @@ export function executeCombat(
     canRetreat: false,
   };
 
+  // Pol Pot's hire hangs on how his battle ended, not on who holds the sector after it (#134)
+  if (sector.sectorId === game._polpotTargetSectorId) {
+    game.lastAbilityCombatOutcome = { rebelVictory: outcome.rebelVictory, sectorId: sector.sectorId };
+  }
+
   if (standoff) {
     // The break-off message is already in the log; naming a victor here would
     // contradict it.
