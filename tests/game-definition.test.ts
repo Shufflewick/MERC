@@ -13,6 +13,19 @@ describe('game definition', () => {
     expect(gameDefinition).not.toHaveProperty('playerOptions');
   });
 
+  it('leaves to a bot each preset seat its name does not give to people', () => {
+    const botSeats = Object.fromEntries(gameDefinition.presets.map((preset) => [
+      preset.name,
+      preset.players.flatMap((seat, i) => ('isBot' in seat && seat.isBot ? [i + 1] : [])),
+    ]));
+    expect(botSeats).toEqual({
+      'Play as Rebel': [2],
+      'Play as Dictator': [2],
+      '2 Rebels vs Bot Dictator': [3],
+      '3 Rebels vs Bot Dictator': [4],
+    });
+  });
+
   it('seats every preset player in a colour from the palette', () => {
     const palette = config.colorPalette.map((c) => c.hex);
     for (const preset of gameDefinition.presets) {
