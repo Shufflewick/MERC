@@ -7,8 +7,8 @@
 import { Action, type ActionDefinition, type ActionContext } from 'boardsmith';
 import type { MERCGame, RebelPlayer } from '../game.js';
 import { Sector, Equipment, TacticsCard, CombatantModel } from '../elements.js';
-import { queuePendingCombat, hasEnemies } from '../combat.js';
-import { executeTacticsEffect, checkLandmineOnDictatorMilitiaEntry } from '../tactics-effects.js';
+import { executeTacticsEffect } from '../tactics-effects.js';
+import { placeDictatorMilitia } from '../dictator-militia.js';
 import {
   hasMortar,
   getMortarTargets,
@@ -237,31 +237,19 @@ export function createReinforceAction(game: MERCGame): ActionDefinition {
       // Discard the card
       card.putInto(game.dictatorPlayer.tacticsDiscard!);
 
-      // Place militia
-      const placed = sector.addDictatorMilitia(reinforcements);
-
+      const { placed, combatQueued } = placeDictatorMilitia(game, sector, reinforcements);
       game.message(`Dictator discards ${card.tacticsName} to reinforce`);
       game.message(`Placed ${placed} militia at ${sector.sectorName}`);
 
-      // Check if any rebel has units at this sector and trigger combat
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          // Dictator initiated combat, queue it so UI can mount CombatPanel
-          queuePendingCombat(game, sector, rebel, false);
-          return {
-            success: true,
-            message: `Reinforced with ${placed} militia and engaged in combat`,
-            data: {
-              combatTriggered: true,
-              combatQueued: true,
-            },
-          };
-        }
+      if (combatQueued) {
+        return {
+          success: true,
+          message: `Reinforced with ${placed} militia and engaged in combat`,
+          data: {
+            combatTriggered: true,
+            combatQueued: true,
+          },
+        };
       }
 
       return { success: true, message: `Reinforced with ${placed} militia` };
@@ -474,28 +462,18 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         return { success: false, error: 'Invalid sector' };
       }
 
-      const placed = targetSector.addDictatorMilitia(rebelSectorCount, true);
+      const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount, true);
       game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
-      // Check if any rebel has units at this sector and trigger combat
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-          rebel.secondarySquad.sectorId === targetSector.sectorId;
-        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-          // Dictator initiated combat, queue it so UI can mount CombatPanel
-          queuePendingCombat(game, targetSector, rebel, false);
-          return {
-            success: true,
-            message: `Placed ${placed} militia and engaged in combat`,
-            data: {
-              combatTriggered: true,
-              combatQueued: true,
-            },
-          };
-        }
+      if (combatQueued) {
+        return {
+          success: true,
+          message: `Placed ${placed} militia and engaged in combat`,
+          data: {
+            combatTriggered: true,
+            combatQueued: true,
+          },
+        };
       }
 
       return { success: true, message: `Placed ${placed} militia` };
@@ -728,9 +706,8 @@ export function createSeizureFlipSectorAction(game: MERCGame): ActionDefinition 
 
       let placed = 0;
       if (pending.militiaPerSector > 0) {
-        placed = sector.addDictatorMilitia(pending.militiaPerSector);
+        placed = placeDictatorMilitia(game, sector, pending.militiaPerSector).placed;
         if (placed > 0) {
-          checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
           game.message(`Seizure: ${placed} militia placed at ${sector.sectorName}`);
         }
       }
@@ -793,24 +770,9 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
       const amount = Math.min(requestedAmount, sectorRoom, pending.remaining);
       if (amount <= 0) return { success: false, error: `${sector.sectorName} is already at capacity (10 militia)` };
 
-      // Place militia
-      const placed = sector.addDictatorMilitia(amount);
+      const { placed } = placeDictatorMilitia(game, sector, amount);
       pending.remaining -= placed;
       game.message(`Lockdown: ${placed} militia placed at ${sector.sectorName} (${pending.remaining} remaining)`);
-      checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
-
-      // Check for combat
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          queuePendingCombat(game, sector, rebel, false);
-          break; // Only trigger combat once per sector
-        }
-      }
 
       // Clear pending if all placed
       if (pending.remaining <= 0) {
@@ -871,23 +833,9 @@ export function createMaoBonusMilitiaAction(game: MERCGame): ActionDefinition {
       const amount = Math.min(requestedAmount, sectorRoom, pending.remaining);
       if (amount <= 0) return { success: false, error: `${sector.sectorName} is already at capacity (${Sector.MAX_MILITIA_PER_SIDE} militia)` };
 
-      // Place militia
-      const placed = sector.addDictatorMilitia(amount);
+      const { placed } = placeDictatorMilitia(game, sector, amount);
       pending.remaining -= placed;
       game.message(`Mao: ${placed} militia placed at ${sector.sectorName} (${pending.remaining} remaining)`);
-
-      // Check for combat
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          queuePendingCombat(game, sector, rebel, false);
-          break; // Only trigger combat once per sector
-        }
-      }
 
       // Clear pending if all placed
       if (pending.remaining <= 0) {
@@ -940,7 +888,7 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
         return { success: true, message: 'No militia to place' };
       }
 
-      const placed = sector.addDictatorMilitia(rebelCount);
+      const { placed } = placeDictatorMilitia(game, sector, rebelCount);
       game.message(`Mussolini placed ${placed} militia at ${sector.sectorName} (${rebelCount} rebels)`);
 
       // Set up spread state: remaining is total militia in source sector after placement
@@ -948,19 +896,6 @@ export function createMussoliniBonusMilitiaAction(game: MERCGame): ActionDefinit
         sourceSectorId: sector.sectorId,
         remaining: sector.dictatorMilitia,
       };
-
-      // Check for combat at placement sector
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          queuePendingCombat(game, sector, rebel, false);
-          break;
-        }
-      }
 
       return { success: true, message: `Placed ${placed} militia` };
     });
@@ -1042,23 +977,9 @@ export function createMussoliniSpreadMilitiaAction(game: MERCGame): ActionDefini
       if (amount <= 0) return { success: false, error: 'Cannot move militia (no room or no source militia)' };
 
       sourceSector.removeDictatorMilitia(amount);
-      targetSector.addDictatorMilitia(amount);
       pending.remaining -= amount;
-
       game.message(`Mussolini moved ${amount} militia from ${sourceSector.sectorName} to ${targetSector.sectorName} (${pending.remaining} remaining)`);
-
-      // Check for combat on target
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-          rebel.secondarySquad.sectorId === targetSector.sectorId;
-        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-          queuePendingCombat(game, targetSector, rebel, false);
-          break;
-        }
-      }
+      placeDictatorMilitia(game, targetSector, amount);
 
       // Clear pending if source has 0 militia left or remaining is 0
       if (sourceSector.dictatorMilitia <= 0 || pending.remaining <= 0) {
@@ -1121,31 +1042,21 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
         return { success: false, error: `Invalid sector: "${targetSectorName}"` };
       }
 
-      // Place militia (standard cap)
-      const placed = targetSector.addDictatorMilitia(rebelSectorCount);
-      game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
-
       // Track target for post-combat outcome detection
       game._polpotTargetSectorId = targetSector.sectorId;
 
-      // Queue combat - target is a rebel sector, so always triggers
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-          rebel.secondarySquad.sectorId === targetSector.sectorId;
-        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+      const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
+      game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-          queuePendingCombat(game, targetSector, rebel, false);
-          return {
-            success: true,
-            message: `Placed ${placed} militia and engaged in combat`,
-            data: {
-              combatTriggered: true,
-              combatQueued: true,
-            },
-          };
-        }
+      if (combatQueued) {
+        return {
+          success: true,
+          message: `Placed ${placed} militia and engaged in combat`,
+          data: {
+            combatTriggered: true,
+            combatQueued: true,
+          },
+        };
       }
 
       return { success: true, message: `Placed ${placed} militia` };
@@ -1856,30 +1767,19 @@ export function createHusseinBonusReinforceAction(game: MERCGame): ActionDefinit
       // Discard the card
       card.putInto(game.dictatorPlayer.tacticsDiscard!);
 
-      // Place militia
-      const placed = sector.addDictatorMilitia(reinforcements);
-
+      const { placed, combatQueued } = placeDictatorMilitia(game, sector, reinforcements);
       game.message(`Hussein discards ${card.tacticsName} to reinforce`);
       game.message(`Placed ${placed} militia at ${sector.sectorName}`);
 
-      // Check if any rebel has units at this sector and trigger combat
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === sector.sectorId ||
-          rebel.secondarySquad.sectorId === sector.sectorId;
-        const hasMilitia = sector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${sector.sectorName} - combat begins!`);
-          queuePendingCombat(game, sector, rebel, false);
-          return {
-            success: true,
-            message: `Reinforced with ${placed} militia and engaged in combat`,
-            data: {
-              combatTriggered: true,
-              combatQueued: true,
-            },
-          };
-        }
+      if (combatQueued) {
+        return {
+          success: true,
+          message: `Reinforced with ${placed} militia and engaged in combat`,
+          data: {
+            combatTriggered: true,
+            combatQueued: true,
+          },
+        };
       }
 
       return { success: true, message: `Reinforced with ${placed} militia` };
@@ -1966,21 +1866,9 @@ export function createNoriegaPlaceMilitiaAction(game: MERCGame): ActionDefinitio
       const targetSector = game.gameMap.getAllSectors().find(s => s.sectorName === sectorName);
       if (!targetSector) return { success: false, error: `Invalid sector: "${sectorName}"` };
 
-      targetSector.addDictatorMilitia(pending.convertedCount);
-      game.message(`Noriega moved ${pending.convertedCount} converted militia to ${targetSector.sectorName}`);
       game.pendingNoriegaConversion = null;
-
-      // Queue combat for any rebel with forces in the target sector
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-          rebel.secondarySquad.sectorId === targetSector.sectorId;
-        const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-          queuePendingCombat(game, targetSector, rebel, false);
-        }
-      }
+      game.message(`Noriega moved ${pending.convertedCount} converted militia to ${targetSector.sectorName}`);
+      placeDictatorMilitia(game, targetSector, pending.convertedCount);
 
       return { success: true, message: `Placed ${pending.convertedCount} militia` };
     });

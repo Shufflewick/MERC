@@ -17,7 +17,7 @@ import {
   selectMilitiaPlacementSector,
   getRebelControlledSectors,
 } from './bot-helpers.js';
-import { queuePendingCombat } from './combat.js';
+import { placeDictatorMilitia } from './dictator-militia.js';
 import { equipNewHire, equipDictatorOnEntry } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 import { executeTacticsEffect } from './tactics-effects.js';
@@ -439,30 +439,20 @@ export function applyKimTurnAbility(game: MERCGame): DictatorAbilityResult {
     targetSector = industries[0] || allSectors[0];
   }
 
-  const placed = targetSector.addDictatorMilitia(rebelSectorCount);
+  const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
   game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
-  // Check if any rebel has units at this sector and trigger combat
-  for (const rebel of game.rebelPlayers) {
-    const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-      rebel.secondarySquad.sectorId === targetSector.sectorId;
-    const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-    if (hasSquad || hasMilitia) {
-      game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-      // Dictator initiated combat, queue it so UI can mount CombatPanel
-      queuePendingCombat(game, targetSector, rebel, false);
-      return {
-        success: true,
-        message: `Placed ${placed} militia and engaged in combat`,
-        data: {
-          militiaPlaced: placed,
-          targetSector: targetSector.sectorName,
-          combatTriggered: true,
-          combatQueued: true,
-        },
-      };
-    }
+  if (combatQueued) {
+    return {
+      success: true,
+      message: `Placed ${placed} militia and engaged in combat`,
+      data: {
+        militiaPlaced: placed,
+        targetSector: targetSector.sectorName,
+        combatTriggered: true,
+        combatQueued: true,
+      },
+    };
   }
 
   return {
@@ -516,21 +506,8 @@ export function applyMaoTurnAbility(game: MERCGame): DictatorAbilityResult {
     const targetSector = selectMilitiaPlacementSector(game, available, 'neutral');
     if (!targetSector) break;
 
-    const placed = targetSector.addDictatorMilitia(1);
-    totalPlaced += placed;
+    totalPlaced += placeDictatorMilitia(game, targetSector, 1).placed;
     remaining--;
-
-    // Check for rebel presence and queue combat
-    for (const rebel of game.rebelPlayers) {
-      const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-        rebel.secondarySquad.sectorId === targetSector.sectorId;
-      const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-      if (hasSquad || hasMilitia) {
-        game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-        queuePendingCombat(game, targetSector, rebel, false);
-      }
-    }
   }
 
   game.message(`Mao placed ${totalPlaced} militia across wilderness sectors (rebels control ${rebelSectorCount} sectors)`);
@@ -575,20 +552,8 @@ export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult
   }
 
   // Place militia equal to rebel count (standard cap)
-  const placed = targetSector.addDictatorMilitia(rebelCount);
+  const { placed } = placeDictatorMilitia(game, targetSector, rebelCount);
   game.message(`Mussolini placed ${placed} militia at ${targetSector.sectorName} (${rebelCount} rebels)`);
-
-  // Check for combat at placement sector
-  for (const rebel of game.rebelPlayers) {
-    const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-      rebel.secondarySquad.sectorId === targetSector.sectorId;
-    const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-    if (hasSquad || hasMilitia) {
-      game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-      queuePendingCombat(game, targetSector, rebel, false);
-    }
-  }
 
   // Bot spread: move militia from source to adjacent sectors opportunistically
   const adjacentSectors = game.getAdjacentSectors(targetSector);
@@ -616,20 +581,8 @@ export function applyMussoliniTurnAbility(game: MERCGame): DictatorAbilityResult
     if (room <= 0) continue;
 
     targetSector.removeDictatorMilitia(1);
-    adjSector.addDictatorMilitia(1);
+    placeDictatorMilitia(game, adjSector, 1);
     spreadTotal++;
-
-    // Check for combat on spread target
-    for (const rebel of game.rebelPlayers) {
-      const hasSquad = rebel.primarySquad.sectorId === adjSector.sectorId ||
-        rebel.secondarySquad.sectorId === adjSector.sectorId;
-      const hasMilitia = adjSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-      if (hasSquad || hasMilitia) {
-        game.message(`Rebels detected at ${adjSector.sectorName} - combat begins!`);
-        queuePendingCombat(game, adjSector, rebel, false);
-      }
-    }
   }
 
   if (spreadTotal > 0) {
@@ -682,38 +635,26 @@ export function applyPolpotTurnAbility(game: MERCGame): DictatorAbilityResult {
     return { success: true, message: 'No target sector', data: { militiaPlaced: 0 } };
   }
 
-  // Place militia equal to rebel-controlled sector count (standard cap)
-  const placed = targetSector.addDictatorMilitia(rebelSectorCount);
-  game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
-
   // Track target for post-combat outcome detection
   game._polpotTargetSectorId = targetSector.sectorId;
 
-  // Queue combat - target is always a rebel sector, so combat always triggers
-  // Find the rebel who controls this sector
-  for (const rebel of game.rebelPlayers) {
-    const hasSquad = rebel.primarySquad.sectorId === targetSector.sectorId ||
-      rebel.secondarySquad.sectorId === targetSector.sectorId;
-    const hasMilitia = targetSector.getRebelMilitia(`${rebel.seat}`) > 0;
+  // Place militia equal to rebel-controlled sector count (standard cap)
+  const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
+  game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
-    if (hasSquad || hasMilitia) {
-      game.message(`Rebels detected at ${targetSector.sectorName} - combat begins!`);
-      queuePendingCombat(game, targetSector, rebel, false);
-      return {
-        success: true,
-        message: `Placed ${placed} militia and engaged in combat`,
-        data: {
-          militiaPlaced: placed,
-          targetSector: targetSector.sectorName,
-          combatTriggered: true,
-          combatQueued: true,
-        },
-      };
-    }
+  if (combatQueued) {
+    return {
+      success: true,
+      message: `Placed ${placed} militia and engaged in combat`,
+      data: {
+        militiaPlaced: placed,
+        targetSector: targetSector.sectorName,
+        combatTriggered: true,
+        combatQueued: true,
+      },
+    };
   }
 
-  // Edge case: rebel controls sector via militia only but no units detected
-  // (shouldn't happen since getRebelControlledSectors returns sectors with rebel units)
   return {
     success: true,
     message: `Placed ${placed} militia`,
@@ -1092,7 +1033,7 @@ export function applyNoriegaTurnAbility(game: MERCGame): DictatorAbilityResult {
       // Edge case: all sectors are rebel-controlled, place on any sector with dictator presence
       const fallback = game.gameMap.getAllSectors().find(s => s.dictatorMilitia > 0);
       if (fallback) {
-        fallback.addDictatorMilitia(totalConverted);
+        placeDictatorMilitia(game, fallback, totalConverted);
         game.message(`Noriega moved ${totalConverted} converted militia to ${fallback.sectorName}`);
       }
     } else {
@@ -1109,20 +1050,8 @@ export function applyNoriegaTurnAbility(game: MERCGame): DictatorAbilityResult {
         }
       }
 
-      bestSector.addDictatorMilitia(totalConverted);
+      placeDictatorMilitia(game, bestSector, totalConverted);
       game.message(`Noriega moved ${totalConverted} converted militia to ${bestSector.sectorName}`);
-
-      // Check for combat in destination sector
-      for (const rebel of game.rebelPlayers) {
-        const hasSquad = rebel.primarySquad.sectorId === bestSector.sectorId ||
-          rebel.secondarySquad.sectorId === bestSector.sectorId;
-        const hasMilitia = bestSector.getRebelMilitia(`${rebel.seat}`) > 0;
-
-        if (hasSquad || hasMilitia) {
-          game.message(`Rebels detected at ${bestSector.sectorName} - combat begins!`);
-          queuePendingCombat(game, bestSector, rebel, false);
-        }
-      }
     }
   }
 

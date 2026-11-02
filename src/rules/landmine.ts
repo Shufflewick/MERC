@@ -30,6 +30,7 @@ const NO_OP: LandmineResult = { detonated: false, disarmed: false };
  * @param sector - The destination sector being entered
  * @param enteringSquads - The squad(s) entering the sector
  * @param enteringPlayerIsRebel - Whether the entering player is a rebel
+ * @param arrivingDictatorMilitia - Dictator militia already added to the sector by this entry
  * @returns LandmineResult indicating what happened
  */
 export function checkLandMines(
@@ -37,6 +38,7 @@ export function checkLandMines(
   sector: Sector,
   enteringSquads: Squad[],
   enteringPlayerIsRebel: boolean,
+  arrivingDictatorMilitia = 0,
 ): LandmineResult {
   // 1. Find first land mine in sector stash
   const stash = sector.getStashContents();
@@ -48,7 +50,7 @@ export function checkLandMines(
   //    The mine is only friendly when the entering player has militia AND
   //    there are no enemy forces -- meaning the entering player controls
   //    the sector exclusively.
-  if (isFriendlyMine(game, sector, enteringPlayerIsRebel)) {
+  if (isFriendlyMine(game, sector, enteringPlayerIsRebel, arrivingDictatorMilitia)) {
     return NO_OP;
   }
 
@@ -196,6 +198,7 @@ function isFriendlyMine(
   game: MERCGame,
   sector: Sector,
   enteringPlayerIsRebel: boolean,
+  arrivingDictatorMilitia: number,
 ): boolean {
   if (enteringPlayerIsRebel) {
     // Rebel entering: friendly if rebel militia present AND no dictator forces
@@ -205,8 +208,8 @@ function isFriendlyMine(
     if (game.isDictatorInSector(sector)) return false;
     return true;
   } else {
-    // Dictator entering: friendly if dictator militia present AND no rebel forces
-    if (sector.dictatorMilitia === 0) return false;
+    // Dictator entering: friendly if dictator militia were already there AND no rebel forces
+    if (sector.dictatorMilitia - arrivingDictatorMilitia === 0) return false;
     for (const rebel of game.rebelPlayers) {
       if (sector.getRebelMilitia(`${rebel.seat}`) > 0) return false;
       if (game.getMercsInSector(sector, rebel).length > 0) return false;
