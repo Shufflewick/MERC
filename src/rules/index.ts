@@ -74,28 +74,17 @@ export {
 // Day 1 - The Landing
 export {
   // Rebel Phase
-  hireSelectedMercs,
   isValidLandingSector,
   getValidLandingSectors,
-  placeLanding,
   equipStartingEquipment,
   // Dictator Phase
-  getUnoccupiedIndustries,
   placeInitialMilitia,
   hireDictatorMerc,
   applyDictatorSetupAbility,
   drawTacticsHand,
-  placeExtraMilitia,
   autoPlaceExtraMilitia,
   // Utilities
   getDay1Summary,
-  isRebelDay1Complete,
-  isRebelPhaseComplete,
-  getStartingMercCount,
-  getMercsToDrawForHiring,
-  getMaxMilitiaPerSector,
-  // Types
-  type RebelDay1Setup,
 } from './day-one.js';
 
 // Flow
