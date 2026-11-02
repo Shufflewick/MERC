@@ -3575,7 +3575,7 @@ export function executeCombat(
   let standoff = false;
   // Outlives the loop: the round combat ends in is the one it broke out of.
   let round = startRound;
-  for (; round <= ABSOLUTE_ROUND_LIMIT; round++) {
+  for (; ; round++) {
     if (round === ABSOLUTE_ROUND_LIMIT) {
       throw new Error(
         `Combat at ${sector.sectorName} ran ${ABSOLUTE_ROUND_LIMIT} rounds without resolving. ` +
