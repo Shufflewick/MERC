@@ -673,12 +673,10 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
           }
         }
       } else {
-        // Check bandolier slots
-        for (let i = 0; i < actingCombatant.bandolierSlots.length; i++) {
-          if (actingCombatant.bandolierSlots[i]?.id === equipment.id) {
-            droppedItem = actingCombatant.unequipBandolierSlot(i);
-            break;
-          }
+        // The slot number, not the item's place in the list: an emptied slot leaves a gap
+        const slotMatch = equipment.equippedSlot?.match(/^bandolier:(\d+)$/);
+        if (slotMatch && actingCombatant.bandolierSlots.includes(equipment)) {
+          droppedItem = actingCombatant.unequipBandolierSlot(parseInt(slotMatch[1], 10));
         }
       }
 
