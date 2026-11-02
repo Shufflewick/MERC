@@ -415,6 +415,8 @@ describe('resuming combat after the player allocates hits', () => {
       'Basic rolls [] - 0 hit(s)',
       'Basic uses reroll ability! [] - 0 hit(s)',
     ]);
+    const logLines = (game.messages as unknown[]).map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''));
+    expect(logLines.filter(line => line.includes('allocates hits')), 'an empty allocation should not be logged (#128)').toEqual([]);
     expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked to allocate again').toBeUndefined();
     expect(sector.dictatorMilitia).toBe(1);
   });
