@@ -1271,23 +1271,12 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
               // Combat resolution sub-flow (ability-triggered combat: Kim, Pol Pot, Mussolini, etc.)
               combatResolutionFlow(game, 'kim-militia-combat'),
 
-              // Pol Pot: Capture combat outcome for conditional hire
+              // Pol Pot: Bot hire after a lost battle
               execute(() => {
                 if (game.isFinished()) return;
                 const dictator = game.dictatorPlayer?.dictator;
                 if (dictator?.combatantId !== 'polpot') return;
-                if (!game._polpotTargetSectorId) return;
-
-                const sector = game.getSector(game._polpotTargetSectorId);
-                if (sector) {
-                  // Check if any rebel still controls this sector (means dictator lost)
-                  const rebelControls = game.rebelPlayers.some(r =>
-                    game.getControlledSectors(r).some(s => s.sectorId === sector.sectorId)
-                  );
-                  if (rebelControls) {
-                    game.lastAbilityCombatOutcome = { rebelVictory: true, sectorId: sector.sectorId };
-                  }
-                }
+                // A later fight at that sector is not the battle his ability started
                 game._polpotTargetSectorId = null;
 
                 // Bot Pol Pot: auto-hire on combat loss
