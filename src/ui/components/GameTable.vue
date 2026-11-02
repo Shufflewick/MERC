@@ -803,7 +803,6 @@ async function handleReroll() {
 
 // Handle confirming hit allocation - executes the action with allocations from CombatPanel
 async function handleConfirmAllocation(allocations: string[]) {
-  if (!allocations || allocations.length === 0) return;
   if (!props.availableActions.includes('combatAllocateHits')) return;
 
   await props.actionController.execute('combatAllocateHits', { allocations });
