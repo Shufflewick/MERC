@@ -1535,14 +1535,16 @@ export function createMortarAllocateHitsAction(game: MERCGame): ActionDefinition
         },
       );
 
-      // Log allocation
-      const allocMsg = Array.from(hitsByTarget.entries())
-        .map(([targetId, count]) => {
-          const target = pending.validTargets.find(t => t.id === targetId);
-          return `${target?.name ?? 'Unknown'} x${count}`;
-        })
-        .join(', ');
-      game.message(`${pending.attackerName} allocates mortar hits: ${allocMsg}`);
+      // An empty allocation has no targets to name, so it gets no log line.
+      if (hitsByTarget.size > 0) {
+        const allocMsg = Array.from(hitsByTarget.entries())
+          .map(([targetId, count]) => {
+            const target = pending.validTargets.find(t => t.id === targetId);
+            return `${target?.name ?? 'Unknown'} x${count}`;
+          })
+          .join(', ');
+        game.message(`${pending.attackerName} allocates mortar hits: ${allocMsg}`);
+      }
 
       // Clear pending state
       game.pendingMortarAttack = null;

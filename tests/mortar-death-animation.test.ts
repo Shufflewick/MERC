@@ -26,23 +26,43 @@ describe('a mortar hit on a unit with 1 health left', () => {
   });
 
   function fireOneHit(attacker: MERCPlayer = game.rebelPlayers[0]) {
+    return fire([victim.combatantId], attacker);
+  }
+
+  function fire(allocations: string[], attacker: MERCPlayer = game.rebelPlayers[0]) {
     game.pendingMortarAttack = {
       attackerName: 'Attacker',
       attackerCombatantId: 'attacker',
       targetSectorId: sector.sectorId,
       targetSectorName: sector.sectorName,
-      diceRolls: [6],
-      hits: 1,
+      diceRolls: allocations.map(() => 6),
+      hits: allocations.length,
       hitThreshold: 4,
       attackingPlayerId: `${attacker.seat}`,
       validTargets: buildMortarTargets(game, sector, attacker.isRebel()),
     };
-    const result = game.performAction('mortarAllocateHits', attacker, {
-      allocations: [victim.combatantId],
-    });
+    const result = game.performAction('mortarAllocateHits', attacker, { allocations });
     expect(result.success).toBe(true);
     return game.pendingAnimationEvents.map(e => e.type);
   }
+
+  function mortarAllocationLines(): string[] {
+    return (game.messages as unknown[])
+      .map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''))
+      .filter(line => line.includes('allocates mortar hits'));
+  }
+
+  it('logs the targets a mortar allocation names', () => {
+    fireOneHit();
+
+    expect(mortarAllocationLines()).toEqual([`Attacker allocates mortar hits: ${victim.combatantName} x1`]);
+  });
+
+  it('logs nothing for a mortar allocation with no hits (#132)', () => {
+    fire([]);
+
+    expect(mortarAllocationLines()).toEqual([]);
+  });
 
   it('on a MERC kills him: his gear is discarded, his card goes to the MERC discard, and the map death plays after the strike', () => {
     const weapon = game.weaponsDeck.first(Equipment)!;
