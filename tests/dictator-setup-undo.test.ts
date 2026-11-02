@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { buildActionArgs } from 'boardsmith';
 import { createHeadlessSession } from 'boardsmith/testing';
 import { gameDefinition } from '../src/rules/index.js';
+import { TacticsCard } from '../src/rules/elements.js';
+import { DictatorConstants } from '../src/rules/constants.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
 
 // Two rebels, so the dictator has extra militia to place; the last seat is the dictator.
@@ -59,6 +61,23 @@ describe('dictator Day 1 setup undo', () => {
     const result = await undo();
     expect(result.success).toBe(false);
     expect(result.error).toBe('Cannot undo: chooseKimBase is marked notUndoable.');
+  });
+
+  it("does not let Hussein undo his setup ability, which deals random tactics cards", async () => {
+    const { session, act, undo, available } = await tableAtDictatorSetup('Hussein');
+    const deck = () => session.readGame().dictatorPlayer.tacticsDeck!.all(TacticsCard).map(c => c.tacticsId);
+
+    await act(DICTATOR, 'dictatorPlaceInitialMilitia');
+    await act(DICTATOR, 'dictatorHireFirstMerc');
+    await act(DICTATOR, 'dictatorSetupAbility');
+    const dealt = deck();
+    expect(dealt).toHaveLength(DictatorConstants.HUSSEIN_TACTICS_CARDS);
+    expect(available()).toContain('dictatorDrawTactics');
+
+    const result = await undo();
+    expect(result.success).toBe(false);
+    expect(available()).toContain('dictatorDrawTactics');
+    expect(deck()).toEqual(dealt);
   });
 
   it('undoes extra militia back to the tactics draw, but not behind it', async () => {
