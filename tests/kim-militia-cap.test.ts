@@ -74,6 +74,15 @@ describe('human Kim bonus militia', () => {
     base.dictatorMilitia = 20;
     expect(offered()).not.toContain(base.sectorName);
   });
+
+  it('is not offered an empty sector that is not an industry', () => {
+    const { game } = newKimGame(false);
+    const empty = game.gameMap.getAllSectors().find(s => !s.isIndustry)!;
+
+    const offered = game.getSelectionChoices('kimBonusMilitia', 'targetSector', game.dictatorPlayer).map(c => c.value);
+
+    expect(offered).not.toContain(empty.sectorName);
+  });
 });
 
 describe('bot Kim bonus militia', () => {
