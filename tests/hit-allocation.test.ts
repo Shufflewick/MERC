@@ -278,10 +278,13 @@ describe('resuming combat after the player allocates hits', () => {
     return { game, rebel, sector, dice };
   }
 
-  function basicRollLines(game: MERCGame): string[] {
+  function logLines(game: MERCGame): string[] {
     return (game.messages as unknown[])
-      .map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''))
-      .filter(line => /^Basic (rolls|rerolls|uses reroll)/.test(line));
+      .map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''));
+  }
+
+  function basicRollLines(game: MERCGame): string[] {
+    return logLines(game).filter(line => /^Basic (rolls|rerolls|uses reroll)/.test(line));
   }
 
   it('applies the roll the player allocated, without rolling again (#83)', () => {
@@ -301,6 +304,7 @@ describe('resuming combat after the player allocates hits', () => {
     expect(result.success, result.error).toBe(true);
 
     expect(basicRollLines(game)).toEqual(['Basic rolls [6, 6] - 2 hit(s)']);
+    expect(logLines(game).filter(line => line.includes('allocates hits'))).toEqual([`Basic allocates hits: ${pending!.validTargets[0].name} x1`]);
     expect(sector.dictatorMilitia, 'the allocated hit should kill the militia').toBe(0);
   });
 
@@ -415,8 +419,7 @@ describe('resuming combat after the player allocates hits', () => {
       'Basic rolls [] - 0 hit(s)',
       'Basic uses reroll ability! [] - 0 hit(s)',
     ]);
-    const logLines = (game.messages as unknown[]).map(m => typeof m === 'string' ? m : String((m as { text?: unknown }).text ?? ''));
-    expect(logLines.filter(line => line.includes('allocates hits')), 'an empty allocation should not be logged (#128)').toEqual([]);
+    expect(logLines(game).filter(line => line.includes('allocates hits')), 'an empty allocation should not be logged (#128)').toEqual([]);
     expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked to allocate again').toBeUndefined();
     expect(sector.dictatorMilitia).toBe(1);
   });
