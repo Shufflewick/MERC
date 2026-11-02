@@ -22,6 +22,7 @@ describe('bot dictator Day 2 turn (#82)', () => {
     while (getCurrentAction(game.getFlowState())?.currentPlayer === 2 && played.length < 20) {
       const move = await bot.choose({ game, seat: 2, random: { next: () => ++draws }, definition: gameDefinition } as never);
       if ('noMove' in move) throw new Error(move.noMove);
+      if ('waitUntil' in move) throw new Error(`The bot waited for the step clock (until ${move.waitUntil}) instead of moving, but MERC has no timed steps.`);
       const result = runner.performAction(move.action, 2, move.args);
       expect(result.success, `${move.action} was refused: ${result.error}`).toBe(true);
       played.push(move.action);

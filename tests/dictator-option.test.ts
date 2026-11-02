@@ -16,19 +16,19 @@ describe('Dictator player option', () => {
   });
 
   it.each(gameDefinition.presets.map(p => [p.name, p.players] as const))(
-    'preset "%s" seats its dictator where it marks role',
+    'preset "%s" gives role to one seat, and the game seats its dictator there',
     (_name, players) => {
-      // Every seat sets role, so a lobby's 'last' default cannot add a second dictator
-      const roles: boolean[] = players.map(p => p.role);
-      expect(roles.filter(r => r === true)).toHaveLength(1);
-      const marked = roles.indexOf(true);
+      // A host refuses a preset seat with fields other than color, isBot, botLevel and playerOptions
+      const holders = players.flatMap((p, i) => ('playerOptions' in p && p.playerOptions.role === 'dictator' ? [i + 1] : []));
+      expect(holders).toHaveLength(1);
 
+      // The host hands the holder's seat to the game as exclusiveSeats.role
       const { game } = createTestGame(MERCGame, {
         playerCount: players.length,
         seed: 'dictator-option',
-        playerConfigs: [...players],
+        exclusiveSeats: { role: holders[0] },
       } as never);
-      expect(game.dictatorPlayer.seat).toBe(marked + 1);
+      expect(game.dictatorPlayer.seat).toBe(holders[0]);
     },
   );
 });

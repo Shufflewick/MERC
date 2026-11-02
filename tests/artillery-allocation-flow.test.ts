@@ -253,6 +253,7 @@ describe('artillery allocation flow', () => {
       game, seat: dictatorSeat, random: { next: () => ++draws }, definition: gameDefinition,
     } as never);
     if ('noMove' in move) throw new Error(move.noMove);
+    if ('waitUntil' in move) throw new Error(`The bot waited for the step clock (until ${move.waitUntil}) instead of moving, but MERC has no timed steps.`);
     expect(move.action).toBe('artilleryAllocateHits');
 
     const result = runner.performAction(move.action, dictatorSeat, move.args);
