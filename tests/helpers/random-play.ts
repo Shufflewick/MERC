@@ -3,6 +3,9 @@ import { GameRunner } from 'boardsmith/runtime';
 import { MERCGame } from '../../src/rules/game.js';
 import { getCurrentAction } from './auto-play.js';
 
+/** A limit that only stops a hung game: three seeded games take seconds, but far longer on a loaded machine. */
+export const RANDOM_PLAY_TIMEOUT = 120_000;
+
 export const DICTATORS = ['castro', 'kim', 'gadafi', 'hitler', 'hussein', 'mao', 'mussolini', 'noriega', 'pinochet', 'polpot', 'stalin'];
 
 /** Seeded random legal play by an all-human table of `rebels` rebels against `dictator`, calling `visit` before every move. */

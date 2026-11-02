@@ -5,7 +5,7 @@ import { gameDefinition } from '../src/rules/index.js';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
-import { DICTATORS, randomPlay } from './helpers/random-play.js';
+import { DICTATORS, RANDOM_PLAY_TIMEOUT, randomPlay } from './helpers/random-play.js';
 
 /** Steps that re-prompted a seat without saying whether its turn continues, in seeded random play against `dictator`. */
 function undeclaredStepsInRandomPlay(dictator: string, rebels: number): string[] {
@@ -55,7 +55,7 @@ describe('turnScope', () => {
   it.each(DICTATORS)('declares every step that re-prompts a seat in random play against %s', (dictator) => {
     const undeclared = new Set([1, 2, 3].flatMap(rebels => undeclaredStepsInRandomPlay(dictator, rebels)));
     expect([...undeclared]).toEqual([]);
-  });
+  }, RANDOM_PLAY_TIMEOUT);
 });
 
 describe('undo across hidden draws and dice', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { MERCGame } from '../src/rules/game.js';
-import { DICTATORS, randomPlay } from './helpers/random-play.js';
+import { DICTATORS, RANDOM_PLAY_TIMEOUT, randomPlay } from './helpers/random-play.js';
 
 /** Each seat's offers when it is the only one: the client plays a lone enabled action with no choices unless it is manual. */
 function autoPlayedOffers(game: MERCGame): string[] {
@@ -24,5 +24,5 @@ describe('client auto-execute', () => {
       randomPlay('i110', dictator, rebels, game => autoPlayedOffers(game).forEach(name => autoPlayed.add(name)));
     }
     expect([...autoPlayed]).toEqual([]);
-  });
+  }, RANDOM_PLAY_TIMEOUT);
 });
