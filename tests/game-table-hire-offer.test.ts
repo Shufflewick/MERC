@@ -39,12 +39,14 @@ async function mountOnOffer(action: 'hireMercFromOffer' | 'rehireMercFromOffer',
   playUntilOffered('hireMerc');
   const rebel = game.rebelPlayers[0];
   if (action === 'rehireMercFromOffer') {
-    // A wiped-out team is offered the free rehire from its next turn on.
+    // A wiped-out team is offered the free rehire from its next turn on, placed in a friendly sector (#96).
+    const sector = game.getSector(rebel.primarySquad.sectorId!)!;
     for (const m of rebel.team) m.putInto(game.mercDiscard);
+    sector.addRebelMilitia(`${rebel.seat}`, 10);
     playUntilOffered('rehireMerc');
   }
   const drew = action === 'rehireMercFromOffer'
-    ? runner.performAction('rehireMerc', rebel.seat, {})
+    ? runner.performAction('rehireMerc', rebel.seat, autoResolveArgs(game, 'rehireMerc', rebel.seat)!)
     : runner.performAction('hireMerc', rebel.seat, autoResolveArgs(game, 'hireMerc', rebel.seat)!);
   expect(drew.success).toBe(true);
   game.discardMercOffer(rebel.mercOffer);

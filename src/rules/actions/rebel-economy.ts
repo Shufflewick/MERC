@@ -9,6 +9,7 @@ import type { MERCGame, MERCPlayer, RebelPlayer } from '../game.js';
 import { Sector, Equipment, Squad, CombatantModel, isGrenadeOrMortar, type EquipmentType } from '../elements.js';
 import { SectorConstants } from '../constants.js';
 import { queuePendingCombat } from '../combat.js';
+import { getRebelControlledSectors } from '../bot-combat-helpers.js';
 import { buildMapCombatantEntry, buildMapEquipmentAnimation, emitMapCombatantDeaths, emitMapCombatantEntries, emitMapEquipmentAnimations, emitMapMilitiaTrain, getMapCombatantId, emitEquipSessionStart, emitEquipSessionEnd } from '../animation-events.js';
 import {
   ACTION_COSTS,
@@ -282,8 +283,16 @@ export function createRehireMercAction(game: MERCGame): ActionDefinition {
       },
       'MERC deck has cards': () => game.mercDeck.count(CombatantModel) > 0,
     })
-    .execute((_args, ctx) => {
-      game.offerMercs(3, asRebelPlayer(ctx.player).mercOffer);
+    // Rules (06-merc-actions.md, Placement): with no squad on the map, the hire goes to a sector you or an ally control
+    .chooseElement('sector', {
+      prompt: 'Choose a friendly sector for your replacement MERC',
+      elements: () => getRebelControlledSectors(game),
+      boardRef: (element) => ({ id: asSector(element).id }),
+    })
+    .execute((args, ctx) => {
+      const player = asRebelPlayer(ctx.player);
+      player.primarySquad.sectorId = asSector(args.sector).sectorId;
+      game.offerMercs(3, player.mercOffer);
       return { success: true, message: 'Drew 3 MERCs for hiring', followUp: { action: 'rehireMercFromOffer' } };
     });
 }
