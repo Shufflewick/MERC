@@ -316,7 +316,7 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
         game.recordRebelActionForBatching(ctx.player);
       }
 
-      checkLandMines(game, destination, [ride.squad], isRebel);
+      checkLandMines(game, destination, [ride.squad], isRebel, militiaCount);
 
       if (isRebel) {
         const player = asRebelPlayer(ctx.player);
@@ -501,7 +501,7 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
       }
 
       // Check for landmines in the destination sector
-      checkLandMines(game, destination, [squad], isRebel);
+      checkLandMines(game, destination, [squad], isRebel, militiaMoved);
 
       // Per rules: "Combat triggers when: A squad moves into an enemy-occupied sector"
       if (isRebel) {

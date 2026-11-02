@@ -30,7 +30,7 @@ const NO_OP: LandmineResult = { detonated: false, disarmed: false };
  * @param sector - The destination sector being entered
  * @param enteringSquads - The squad(s) entering the sector
  * @param enteringPlayerIsRebel - Whether the entering player is a rebel
- * @param arrivingDictatorMilitia - Dictator militia already added to the sector by this entry
+ * @param arrivingMilitia - The entering player's militia already added to the sector by this entry
  * @returns LandmineResult indicating what happened
  */
 export function checkLandMines(
@@ -38,7 +38,7 @@ export function checkLandMines(
   sector: Sector,
   enteringSquads: Squad[],
   enteringPlayerIsRebel: boolean,
-  arrivingDictatorMilitia = 0,
+  arrivingMilitia = 0,
 ): LandmineResult {
   // 1. Find first land mine in sector stash
   const stash = sector.getStashContents();
@@ -50,7 +50,7 @@ export function checkLandMines(
   //    The mine is only friendly when the entering player has militia AND
   //    there are no enemy forces -- meaning the entering player controls
   //    the sector exclusively.
-  if (isFriendlyMine(game, sector, enteringSquads, enteringPlayerIsRebel, arrivingDictatorMilitia)) {
+  if (isFriendlyMine(game, sector, enteringSquads, enteringPlayerIsRebel, arrivingMilitia)) {
     return NO_OP;
   }
 
@@ -200,11 +200,11 @@ function isFriendlyMine(
   sector: Sector,
   enteringSquads: Squad[],
   enteringPlayerIsRebel: boolean,
-  arrivingDictatorMilitia: number,
+  arrivingMilitia: number,
 ): boolean {
   if (enteringPlayerIsRebel) {
-    // Rebel entering: friendly if rebel militia present AND no dictator forces
-    if (sector.getTotalRebelMilitia() === 0) return false;
+    // Rebel entering: friendly if rebel militia were already there AND no dictator forces
+    if (sector.getTotalRebelMilitia() - arrivingMilitia === 0) return false;
     if (sector.dictatorMilitia > 0) return false;
     if (game.getDictatorMercsInSector(sector).length > 0) return false;
     if (game.isDictatorInSector(sector)) return false;
@@ -212,7 +212,7 @@ function isFriendlyMine(
   } else {
     // Dictator entering: friendly if dictator militia or MERCs were already there AND no rebel forces
     const enteringIds = new Set(enteringSquads.flatMap(s => s.getLivingMercs().map(m => m.id)));
-    const alreadyThere = sector.dictatorMilitia - arrivingDictatorMilitia +
+    const alreadyThere = sector.dictatorMilitia - arrivingMilitia +
       game.getDictatorMercsInSector(sector).filter(m => !enteringIds.has(m.id)).length;
     if (alreadyThere === 0) return false;
     for (const rebel of game.rebelPlayers) {
