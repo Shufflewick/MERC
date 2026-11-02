@@ -18,6 +18,7 @@ import { applyConscriptsEffect, applyOilReservesEffect, requireArtilleryAllocato
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatRebel } from './combat.js';
 import type { Combatant } from './combat-types.js';
 import { checkLandMines } from './landmine.js';
+import { getRebelControlledSectors } from './bot-combat-helpers.js';
 import { getGlobalCachedValue, setGlobalCachedValue, equipNewHire } from './actions/helpers.js';
 import { buildMapCombatantEntry, emitMapCombatantEntries } from './animation-events.js';
 import { drawDictatorFirstMerc } from './actions/day-one-actions.js';
@@ -465,7 +466,7 @@ function rebelTurnIsOver(game: MERCGame, rebel: RebelPlayer): boolean {
   if (rebel.mercOffer.count(CombatantModel) > 0) return false;
   if (pendingHagnessStep(game, rebel)) return false;
   if (rebel.teamSize === 0) {
-    return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0 || game.getRebelControlledSectors().length === 0;
+    return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0 || getRebelControlledSectors(game).length === 0;
   }
   return !rebel.team.some(m => m.actionsRemaining > 0);
 }

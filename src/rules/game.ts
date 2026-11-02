@@ -1400,11 +1400,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     });
   }
 
-  /** Sectors friendly to every rebel: controlled by one of them, since rebels are allies (07-combat-system.md). */
-  getRebelControlledSectors(): Sector[] {
-    return this.rebelPlayers.flatMap(rebel => this.getControlledSectors(rebel));
-  }
-
   getMercsInSector(sector: Sector, player: RebelPlayer): CombatantModel[] {
     const mercs: CombatantModel[] = [];
 
