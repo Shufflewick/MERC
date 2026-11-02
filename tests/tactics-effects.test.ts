@@ -534,6 +534,23 @@ describe('Lockdown', () => {
     expect(result).toMatchObject({ success: false });
     expect(base.dictatorMilitia).toBe(10);
   });
+
+  it('ends the placement when the base and its neighbours are full, dropping militia that do not fit', () => {
+    const game = newGame('lockdown-full', 1);
+    const base = withBase(game);
+    game.dictatorPlayer.isBot = false;
+    for (const s of game.getAdjacentSectors(base)) s.dictatorMilitia = 10;
+    base.dictatorMilitia = 8;
+
+    executeTacticsEffect(game, card(game, 'lockdown', 'Lockdown', true));
+    runAction(game, 'lockdownPlaceMilitia', game.dictatorPlayer, {
+      targetSector: base.sectorName,
+      amount: '5',
+    });
+
+    expect(base.dictatorMilitia).toBe(10);
+    expect(game.pendingLockdownMilitia, 'Lockdown still waits for militia no sector has room for').toBeNull();
+  });
 });
 
 describe('Block Trade', () => {

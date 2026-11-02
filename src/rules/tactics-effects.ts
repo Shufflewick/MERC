@@ -1005,22 +1005,25 @@ function lockdown(game: MERCGame): TacticsEffectResult {
     };
   }
 
-  // Human dictator: set pending state for interactive flow step
-  game.pendingLockdownMilitia = { remaining: totalMilitia, validSectorIds };
+  // Human dictator: set pending state for interactive flow step, capped at the room
+  // left under the 10-per-sector cap so the placement loop always ends
+  const room = [baseSector, ...adjacentSectors].reduce((sum, s) => sum + Math.max(0, 10 - s.dictatorMilitia), 0);
+  const toPlace = Math.min(totalMilitia, room);
+  game.pendingLockdownMilitia = toPlace > 0 ? { remaining: toPlace, validSectorIds } : null;
 
   // Pure UI signal
   game.animate('tactic-lockdown', {
     cardName: 'Lockdown',
-    description: `Place ${totalMilitia} extra militia around your base`,
-    totalMilitia,
+    description: `Place ${toPlace} extra militia around your base`,
+    totalMilitia: toPlace,
   }, () => {});
 
-  game.message(`Lockdown: ${totalMilitia} militia to place on base or adjacent sectors`);
+  game.message(`Lockdown: ${toPlace} militia to place on base or adjacent sectors`);
 
   return {
     success: baseResult.success,
-    message: `${baseResult.message}. Place ${totalMilitia} militia on base or adjacent sectors`,
-    data: { ...baseResult.data, totalMilitia, pending: true },
+    message: `${baseResult.message}. Place ${toPlace} militia on base or adjacent sectors`,
+    data: { ...baseResult.data, totalMilitia: toPlace, pending: toPlace > 0 },
   };
 }
 
