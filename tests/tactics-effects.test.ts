@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
 import { tacticsDeckOf } from './helpers/dictator.js';
-import { CombatantModel, Sector, TacticsCard } from '../src/rules/elements.js';
+import { CombatantModel, Equipment, Sector, TacticsCard } from '../src/rules/elements.js';
+import { isLandMine } from '../src/rules/equipment-effects.js';
 import { executeTacticsEffect, applyConscriptsEffect, applyOilReservesEffect } from '../src/rules/tactics-effects.js';
 import { executeCombat, getCombatants, countHitsForCombatant } from '../src/rules/combat.js';
 
@@ -516,6 +517,25 @@ describe('Lockdown', () => {
 
     expect(base.dictatorMilitia).toBe(3);
     expect(game.pendingLockdownMilitia!.remaining).toBe(5 * game.rebelCount - 3);
+  });
+
+  it("sets off a rebel land mine where a human dictator places militia", () => {
+    const game = newGame('lockdown-human-mine', 1);
+    const base = withBase(game);
+    game.dictatorPlayer.isBot = false;
+    for (const s of game.gameMap.getAllSectors()) s.dictatorMilitia = 0;
+    const mine = game.accessoriesDeck.first(Equipment, e => isLandMine(e.equipmentId))!;
+    base.addToStash(mine);
+    base.addRebelMilitia(`${game.rebelPlayers[0].seat}`, 2);
+
+    executeTacticsEffect(game, card(game, 'lockdown', 'Lockdown', true));
+    runAction(game, 'lockdownPlaceMilitia', game.dictatorPlayer, {
+      targetSector: base.sectorName,
+      amount: '3',
+    });
+
+    expect(base.dictatorMilitia, 'the mine should kill the militia that walked onto it').toBe(0);
+    expect(base.getStashContents().some(e => isLandMine(e.equipmentId))).toBe(false);
   });
 
   it('refuses to overfill a sector already at the 10 cap', () => {
