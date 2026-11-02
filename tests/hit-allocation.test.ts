@@ -496,6 +496,37 @@ describe('resuming combat after the player allocates hits', () => {
     expect(apeiron.parent).toBe(game.mercDiscard);
   });
 
+  /** The combat panel snapshot the last action sent, and Apeiron's place in it. */
+  function lastPanel(game: MERCGame, apeiron: CombatantModel) {
+    const panels = game.pendingAnimationEvents.filter(e => e.type === 'combat-panel');
+    expect(panels.length, 'the action should send the combat panel a fresh snapshot').toBeGreaterThan(0);
+    const panel = panels[panels.length - 1].data as {
+      pendingEpinephrine: unknown;
+      rebelCombatants: Array<{ id: string; health: number }>;
+    };
+    return { panel, apeironEntry: panel.rebelCombatants.find(c => c.id === String(apeiron.id)) };
+  }
+
+  it('shows the saved MERC back on 1 health in the combat panel as soon as the shot is used (#115)', () => {
+    const { game, rebel, apeiron } = basicKillsApeironWithShot('epinephrine-panel-saved');
+
+    expect(game.performAction('combatUseEpinephrine', rebel, { saverMerc: apeiron }).success).toBe(true);
+
+    const { panel, apeironEntry } = lastPanel(game, apeiron);
+    expect(panel.pendingEpinephrine).toBeNull();
+    expect(apeironEntry?.health).toBe(1);
+  });
+
+  it('closes the Epinephrine choice in the combat panel as soon as the shot is declined (#115)', () => {
+    const { game, rebel, apeiron } = basicKillsApeironWithShot('epinephrine-panel-declined');
+
+    expect(game.performAction('combatDeclineEpinephrine', rebel, {}).success).toBe(true);
+
+    const { panel, apeironEntry } = lastPanel(game, apeiron);
+    expect(panel.pendingEpinephrine).toBeNull();
+    expect(apeironEntry?.health).toBe(0);
+  });
+
   it('lands the rest of the attack before asking for the shot, and does not replay the round (#92)', () => {
     const { game, rebel, sector, dice } = basicAttacks('epinephrine-after-whole-attack');
     const dictator = game.dictatorPlayer;
