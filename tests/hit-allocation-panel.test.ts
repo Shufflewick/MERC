@@ -29,7 +29,7 @@ describe('HitAllocationPanel with Wolverine\'s undeclared targets', () => {
     await wrapper.vm.$nextTick();
     await wrapper.get('.confirm-button').trigger('click');
 
-    expect(wrapper.emitted('confirm-allocation')).toEqual([[['m1::0', 'merc::0']]]);
+    expect(wrapper.emitted('confirm-allocation')).toEqual([[['m1', 'merc']]]);
     expect(wrapper.text()).toContain("Wolverine's 6s may also hit enemies he did not target");
   });
 
@@ -52,6 +52,6 @@ describe('HitAllocationPanel with Wolverine\'s undeclared targets', () => {
     await wrapper.vm.$nextTick();
     await wrapper.get('.confirm-button').trigger('click');
 
-    expect(wrapper.emitted('confirm-allocation')).toEqual([[['m0::0', 'ap::0']]]);
+    expect(wrapper.emitted('confirm-allocation')).toEqual([[['m0', 'ap']]]);
   });
 });

@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
-import type { GameRandom } from 'boardsmith';
+import { enumerateLegalMoves, type GameRandom } from 'boardsmith';
 import { GameRunner } from 'boardsmith/runtime';
 import { gameDefinition } from '../src/rules/index';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
+import { getCurrentAction } from './helpers/auto-play.js';
+import { randomPlay, RANDOM_PLAY_TIMEOUT } from './helpers/random-play.js';
 import { allocateHits, executeCombat } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
 
@@ -112,7 +114,7 @@ describe('combatAllocateHits prompt', () => {
     };
 
     // Both militia, one hit each: everything the targets can take.
-    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'm2::0'] });
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1', 'm2'] });
     expect(result.success, result.error).toBe(true);
     expect(game.activeCombat?.pendingHitAllocation, 'the allocation was refused').toBeUndefined();
   });
@@ -138,7 +140,7 @@ describe('combatAllocateHits prompt', () => {
       },
     };
 
-    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'merc::1', 'm1::0'] });
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc', 'merc', 'm1'] });
     expect(result.success, result.error).toBe(true);
   });
 
@@ -164,11 +166,11 @@ describe('combatAllocateHits prompt', () => {
       },
     };
 
-    const refused = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'm2::0'] });
+    const refused = game.performAction('combatAllocateHits', rebel, { allocations: ['m1', 'm2'] });
     expect(refused.success).toBe(false);
     expect(refused.error).toBe('Only 1 hit(s) can go to targets Wolverine did not declare, one per 6 rolled (allocated 2)');
 
-    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc::0', 'm1::0'] });
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['merc', 'm1'] });
     expect(result.success, result.error).toBe(true);
   });
 
@@ -197,8 +199,8 @@ describe('combatAllocateHits prompt', () => {
     const validate = (allocations: string[]) => game.getActionExecutor()
       .validateAction(game.getAction('combatAllocateHits')!, rebel, { allocations });
 
-    expect(validate(['m1::0', 'm2::0']).valid).toBe(false);
-    expect(validate(['merc::0', 'm1::0']).valid).toBe(true);
+    expect(validate(['m1', 'm2']).valid).toBe(false);
+    expect(validate(['merc', 'm1']).valid).toBe(true);
   });
 
   it('asks for only the hits the targets can take when the undeclared ones are limited to the 6s (#91)', () => {
@@ -222,7 +224,7 @@ describe('combatAllocateHits prompt', () => {
       },
     };
 
-    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1::0', 'merc::0'] });
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: ['m1', 'merc'] });
     expect(result.success, result.error).toBe(true);
   });
 });
@@ -235,6 +237,28 @@ function riggedDice(): { random: GameRandom; show: (face: number) => void } {
   random.setState = () => {};
   return { random, show: (f: number) => { face = f; } };
 }
+
+describe('listing the moves of a big roll (#122)', () => {
+  it('lists each way to split the hits among the targets once', () => {
+    let moves: number | undefined;
+    // This seed's game reaches a hit allocation in the real flow, where move enumeration reads the pending roll.
+    randomPlay('scan62', 'castro', 2, game => {
+      const current = getCurrentAction(game.getFlowState());
+      if (!current?.available.includes('combatAllocateHits')) return false;
+      game.activeCombat!.pendingHitAllocation = {
+        ...game.activeCombat!.pendingHitAllocation!,
+        diceRolls: [6, 6, 6, 6, 6], hits: 5, hitThreshold: 4,
+        validTargets: Array.from({ length: 10 }, (_, i) => (
+          { id: `t${i}`, name: 'militia', isMerc: false, currentHealth: 3, maxHealth: 3, armor: 0, declared: true })),
+        wolverineSixes: 0, canReroll: false,
+      };
+      moves = enumerateLegalMoves(game, current.currentPlayer).filter(m => m.action === 'combatAllocateHits').length;
+      return true;
+    });
+    // 5 hits over 10 targets taking at most 3 each: C(14,5) - 10 * C(10,9).
+    expect(moves).toBe(1902);
+  }, RANDOM_PLAY_TIMEOUT);
+});
 
 describe('resuming combat after the player allocates hits', () => {
   /** Human Basic in a sector, on dice showing 6. Basic pauses for allocation on any hit, because the reroll is on offer. */
@@ -272,7 +296,7 @@ describe('resuming combat after the player allocates hits', () => {
     // Any roll after the allocation would now miss.
     dice.show(1);
     const result = game.performAction('combatAllocateHits', rebel, {
-      allocations: [`${pending!.validTargets[0].id}::0`],
+      allocations: [pending!.validTargets[0].id],
     });
     expect(result.success, result.error).toBe(true);
 
@@ -305,7 +329,7 @@ describe('resuming combat after the player allocates hits', () => {
     dice.show(1);
     // One hit each, MERC first: spending hits greedily in that order would put both on the MERC.
     const result = game.performAction('combatAllocateHits', rebel, {
-      allocations: [`${mercId}::0`, `${militiaId}::0`],
+      allocations: [mercId, militiaId],
     });
     expect(result.success, result.error).toBe(true);
 
@@ -325,7 +349,7 @@ describe('resuming combat after the player allocates hits', () => {
     const pending = game.activeCombat?.pendingHitAllocation;
     expect(pending?.attackerName).toBe('Basic');
     const allocations = pending!.validTargets.flatMap(t =>
-      Array.from({ length: t.armor + t.currentHealth }, (_, i) => `${t.id}::${i}`));
+      Array<string>(t.armor + t.currentHealth).fill(t.id));
     const result = game.performAction('combatAllocateHits', rebel, { allocations });
     expect(result.success, result.error).toBe(true);
 
@@ -343,7 +367,7 @@ describe('resuming combat after the player allocates hits', () => {
     dice.show(1);
     // Two hits on a 3-health MERC: a wound, no kill, and Apeiron's reply misses.
     const result = game.performAction('combatAllocateHits', rebel, {
-      allocations: [`${target.id}::0`, `${target.id}::1`],
+      allocations: [target.id, target.id],
     });
     expect(result.success, result.error).toBe(true);
 
@@ -474,7 +498,7 @@ describe('resuming combat after the player allocates hits', () => {
     // Two hits wound Apeiron and his reply misses, so the fight goes to a second round.
     dice.show(1);
     const allocated = game.performAction('combatAllocateHits', rebel, {
-      allocations: [`${target.id}::0`, `${target.id}::1`],
+      allocations: [target.id, target.id],
     });
     expect(allocated.success, allocated.error).toBe(true);
     expect(game.activeCombat?.awaitingRetreatDecisions, 'round 1 should end at the retreat decision').toBe(true);
@@ -508,7 +532,7 @@ describe('resuming combat after the player allocates hits', () => {
     expect(pending?.attackerName).toBe('Basic');
     dice.show(1);
     const result = game.performAction('combatAllocateHits', dictator, {
-      allocations: [`${pending!.validTargets[0].id}::0`],
+      allocations: [pending!.validTargets[0].id],
     });
     expect(result.success, result.error).toBe(true);
     return { game, rebel, sector, dice, apeiron };
@@ -597,7 +621,7 @@ describe('resuming combat after the player allocates hits', () => {
     dice.show(1);
     // MERC first, so the kill that asks for the shot comes before the militia's hit.
     const allocated = game.performAction('combatAllocateHits', dictator, {
-      allocations: [`${mercId}::0`, `${militiaId}::0`],
+      allocations: [mercId, militiaId],
     });
     expect(allocated.success, allocated.error).toBe(true);
 
@@ -656,7 +680,7 @@ describe('resuming combat after the player allocates hits', () => {
     const allocation = game.activeCombat?.pendingHitAllocation;
     expect(allocation?.attackerName).toBe('Basic');
     expect(game.performAction('combatAllocateHits', game.dictatorPlayer, {
-      allocations: [`${allocation!.validTargets[0].id}::0`],
+      allocations: [allocation!.validTargets[0].id],
     }).success).toBe(true);
     expect(game.activeCombat?.pendingEpinephrine?.dyingCombatantName).toBe('Meatbop');
     expect(game.performAction('combatUseEpinephrine', game.rebelPlayers[0], { saverMerc: merc('teresa') }).success).toBe(true);
@@ -690,7 +714,7 @@ describe('resuming combat after the player allocates hits', () => {
     expect(pending?.attackerName).toBe('Basic');
     dice.show(1);
     const allocated = game.performAction('combatAllocateHits', rebel, {
-      allocations: [`${pending!.validTargets[0].id}::0`],
+      allocations: [pending!.validTargets[0].id],
     });
     expect(allocated.success, allocated.error).toBe(true);
 
@@ -720,7 +744,7 @@ describe('resuming combat after the player allocates hits', () => {
     expect(pending?.attackerName).toBe('Basic');
     dice.show(1);
     const allocated = game.performAction('combatAllocateHits', rebel, {
-      allocations: [`${pending!.validTargets[0].id}::0`],
+      allocations: [pending!.validTargets[0].id],
     });
     expect(allocated.success, allocated.error).toBe(true);
 
@@ -755,7 +779,7 @@ describe('resuming combat after a militia batch allocates hits', () => {
     const pending = game.activeCombat?.pendingHitAllocation;
     expect(pending?.attackerName).toBe('Militia x2');
     const result = game.performAction('combatAllocateHits', rebel, {
-      allocations: pending!.validTargets.map(t => `${t.id}::0`),
+      allocations: pending!.validTargets.map(t => t.id),
     });
     expect(result.success, result.error).toBe(true);
 
@@ -863,8 +887,8 @@ describe('Wolverine\'s sixes when a human allocates the hits', () => {
 
     // One six on the undeclared militia, one on the declared one, the rest on Apeiron.
     const apeironId = pending!.validTargets.find(t => t.isMerc)!.id;
-    const allocations = [`${bonus[0].id}::0`, `${declaredMilitia.id}::0`];
-    for (let i = 0; i < pending!.hits - 2; i++) allocations.push(`${apeironId}::${i}`);
+    const allocations = [bonus[0].id, declaredMilitia.id];
+    for (let i = 0; i < pending!.hits - 2; i++) allocations.push(apeironId);
     const result = game.performAction('combatAllocateHits', rebel, { allocations });
     expect(result.success, result.error).toBe(true);
 

@@ -8,8 +8,8 @@ export const RANDOM_PLAY_TIMEOUT = 120_000;
 
 export const DICTATORS = ['castro', 'kim', 'gadafi', 'hitler', 'hussein', 'mao', 'mussolini', 'noriega', 'pinochet', 'polpot', 'stalin'];
 
-/** Seeded random legal play by an all-human table of `rebels` rebels against `dictator`, calling `visit` before every move. */
-export function randomPlay(seed: string, dictator: string, rebels: number, visit: (game: MERCGame) => void): void {
+/** Seeded random legal play by an all-human table of `rebels` rebels against `dictator`, calling `visit` before every move and stopping when it returns true. */
+export function randomPlay(seed: string, dictator: string, rebels: number, visit: (game: MERCGame) => boolean | void): void {
   const playerConfigs = [
     ...Array.from({ length: rebels }, () => ({ color: '#e74c3c', isDictator: false, isBot: false })),
     { color: '#95a5a6', isDictator: true, isBot: false },
@@ -30,7 +30,7 @@ export function randomPlay(seed: string, dictator: string, rebels: number, visit
   let state = rebels + 1;
   const pick = (n: number) => { state = (state * 1103515245 + 12345) & 0x7fffffff; return state % n; };
   for (let i = 0; i < 1500; i++) {
-    visit(runner.game);
+    if (visit(runner.game)) return;
     const current = getCurrentAction(runner.game.getFlowState());
     if (!current) break;
     const moves = enumerateLegalMoves(runner.game, current.currentPlayer, { maxPerAction: 3 });
