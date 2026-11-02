@@ -48,7 +48,6 @@ export {
   createCommitSquadToCoordinatedAttackAction, // MERC-a2h: Simultaneous response
   createDeclineCoordinatedAttackAction, // MERC-a2h: Simultaneous response
   createExploreAction,
-  createTakeFromStashAction,
   createTrainAction,
   // createAttackAction removed - combat triggers via movement only
   createReEquipAction,

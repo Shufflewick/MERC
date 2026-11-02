@@ -583,7 +583,7 @@ const isInActionFlow = computed(() => {
     'explore', 'collectEquipment', 'armsDealer', 'hospital', 'train', 'reEquip',
     'reEquipContinue', // Chained from reEquip
     'armsDealerEquip', // Chained from armsDealer
-    'dropEquipment', 'takeFromStash', 'move', 'squidheadDisarm', 'squidheadArm',
+    'dropEquipment', 'move', 'squidheadDisarm', 'squidheadArm',
     'mortar', 'coordinatedAttack',
     'hireMerc', // Mid-game hire (actingMerc/fireFirst picks show here; HiringPhase runs hireMercFromOffer)
   ];

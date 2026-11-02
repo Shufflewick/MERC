@@ -891,7 +891,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                     'mortar',
                     'assignToSquad',
                     'viewStash',
-                    'takeFromStash',
                     'endTurn',
                   ];
                 },
@@ -1115,7 +1114,6 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                       'mortar',
                       'assignToSquad',
                       'viewStash',
-                      'takeFromStash',
                       'endTurn',
                       ];
                     },

@@ -74,7 +74,6 @@ import {
   createRehireMercFromOfferAction,
   createExploreAction,
   createCollectEquipmentAction,
-  createTakeFromStashAction,
   createTrainAction,
   createHospitalAction,
   createArmsDealerAction,
@@ -163,7 +162,6 @@ export function registerAllActions(game: MERCGame): void {
   game.registerAction(createDeclineCoordinatedAttackAction(game)); // MERC-a2h: Simultaneous response
   game.registerAction(createExploreAction(game));
   game.registerAction(createCollectEquipmentAction(game));
-  game.registerAction(createTakeFromStashAction(game));
   game.registerAction(createTrainAction(game));
   game.registerAction(createReEquipAction(game));
   game.registerAction(createReEquipContinueAction(game));

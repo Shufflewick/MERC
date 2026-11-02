@@ -112,7 +112,6 @@
     "src/rules/index.ts:createCommitSquadToCoordinatedAttackAction",
     "src/rules/index.ts:createDeclineCoordinatedAttackAction",
     "src/rules/index.ts:createExploreAction",
-    "src/rules/index.ts:createTakeFromStashAction",
     "src/rules/index.ts:createTrainAction",
     "src/rules/index.ts:createReEquipAction",
     "src/rules/index.ts:createHospitalAction",
