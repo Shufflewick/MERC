@@ -11,15 +11,17 @@ export interface DictatorMilitiaPlacement {
 /**
  * Put dictator militia into a sector. The arriving militia set off any hostile
  * land mine there, and if dictator forces survive alongside rebels, a fight starts.
+ * Kim's base holds up to 20 militia; every other sector holds 10 (#130).
  * Every dictator militia placement after setup goes through here (#127).
  */
 export function placeDictatorMilitia(
   game: MERCGame,
   sector: Sector,
   count: number,
-  bypassCap = false,
 ): DictatorMilitiaPlacement {
-  const placed = sector.addDictatorMilitia(count, bypassCap);
+  const isKimBase = game.dictatorPlayer.dictator?.combatantId === 'kim' &&
+    sector.sectorId === game.dictatorPlayer.baseSectorId;
+  const placed = sector.addDictatorMilitia(count, isKimBase);
   if (placed === 0) return { placed, combatQueued: false };
 
   checkLandMines(game, sector, [], false, placed);

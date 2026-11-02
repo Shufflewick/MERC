@@ -462,7 +462,7 @@ export function createKimBonusMilitiaAction(game: MERCGame): ActionDefinition {
         return { success: false, error: 'Invalid sector' };
       }
 
-      const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount, true);
+      const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
       game.message(`Kim placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
       if (combatQueued) {
