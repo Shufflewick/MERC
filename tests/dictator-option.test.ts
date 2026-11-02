@@ -3,7 +3,7 @@ import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
 import { gameDefinition } from '../src/rules/index';
 import config from '../boardsmith.json';
-// boardsmith exports no preset helper, so this reads the dev host's own seat setup
+// shortcut: reads the dev host's private seat setup, as boardsmith exports none; use its export once Shufflewick/BoardSmith#1565 lands
 import { exclusiveSeats, mergePlayerOptions, presetSeatSetup } from '../node_modules/boardsmith/src/cli/lib/player-options.js';
 
 /**
