@@ -3885,7 +3885,7 @@ export function executeCombatRetreat(
     sectorId: game.activeCombat.sectorId,
     attackingPlayerId: game.activeCombat.attackingPlayerId,
     attackingPlayerIsRebel: game.activeCombat.attackingPlayerIsRebel,
-    round: 1,
+    round: game.activeCombat.round,
     rebelCombatants: rebels,
     dictatorCombatants: dictator,
     rebelCasualties,

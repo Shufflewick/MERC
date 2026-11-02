@@ -8,7 +8,7 @@ import { CombatantModel, Equipment, Sector } from '../src/rules/elements.js';
 import { activeCombatIn } from './helpers/combat-state.js';
 import { getCurrentAction } from './helpers/auto-play.js';
 import { randomPlay, RANDOM_PLAY_TIMEOUT } from './helpers/random-play.js';
-import { allocateHits, executeCombat } from '../src/rules/combat.js';
+import { allocateHits, executeCombat, executeCombatRetreat } from '../src/rules/combat.js';
 import type { Combatant } from '../src/rules/combat-types.js';
 
 function makeCombatant(id: string, health: number, armor: number): Combatant {
@@ -554,6 +554,41 @@ describe('resuming combat after the player allocates hits', () => {
     allocate(1);
 
     expect(game.activeCombat?.combatComplete, 'Basic\'s second volley should end combat').toBe(true);
+    expect(game.activeCombat?.round).toBe(2);
+  });
+
+  it('reports the round combat ended in when the rebels retreat after a reload (#124)', () => {
+    const testGame = createTestGame(MERCGame, {
+      playerCount: 2,
+      playerNames: ['Rebel1', 'Dictator'],
+      seed: 'final-round-after-retreat',
+    });
+    let game = testGame.game;
+    const seededRandom = game.random;
+    const dice = riggedDice();
+    game.random = dice.random;
+    const sector = game.gameMap.getAllSectors()[0];
+    game.first(CombatantModel, c => c.combatantId === 'meatbop')!.putInto(game.rebelPlayers[0].primarySquad);
+    game.rebelPlayers[0].primarySquad.sectorId = sector.sectorId;
+    game.first(CombatantModel, c => c.combatantId === 'apeiron')!.putInto(game.dictatorPlayer.primarySquad);
+    game.dictatorPlayer.primarySquad.sectorId = sector.sectorId;
+
+    // Meatbop will not fight without an accessory and Apeiron misses, so each round ends at the retreat decision.
+    dice.show(1);
+    executeCombat(game, sector, game.rebelPlayers[0], { attackingPlayerIsRebel: true });
+    executeCombat(game, sector, game.rebelPlayers[0]);
+    expect(game.activeCombat?.awaitingRetreatDecisions, 'round 2 should end at the retreat decision').toBe(true);
+    expect(game.activeCombat?.round).toBe(2);
+
+    // A real host runs every action on a game restored from a JSON snapshot.
+    game.random = seededRandom;
+    game = GameRunner.fromSnapshot<MERCGame>(
+      JSON.parse(JSON.stringify(testGame.runner.getSnapshot())), gameDefinition.gameClass,
+    ).game;
+    const combatSector = game.getSector(sector.sectorId)!;
+    executeCombatRetreat(game, game.getAdjacentSectors(combatSector)[0], game.rebelPlayers[0]);
+
+    expect(game.activeCombat?.combatComplete, 'the rebels\' retreat should end combat').toBe(true);
     expect(game.activeCombat?.round).toBe(2);
   });
 
