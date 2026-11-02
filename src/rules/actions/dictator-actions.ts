@@ -1044,13 +1044,12 @@ export function createPolpotBonusMilitiaAction(game: MERCGame): ActionDefinition
         return { success: false, error: `Invalid sector: "${targetSectorName}"` };
       }
 
-      // Track target for post-combat outcome detection
-      game._polpotTargetSectorId = targetSector.sectorId;
-
       const { placed, combatQueued } = placeDictatorMilitia(game, targetSector, rebelSectorCount);
       game.message(`Pol Pot placed ${placed} militia at ${targetSector.sectorName} (rebels control ${rebelSectorCount} sectors)`);
 
       if (combatQueued) {
+        // Militia a mine wiped out never fought, so only a queued fight can be a battle Pol Pot loses (#131)
+        game._polpotTargetSectorId = targetSector.sectorId;
         return {
           success: true,
           message: `Placed ${placed} militia and engaged in combat`,
