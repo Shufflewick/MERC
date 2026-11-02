@@ -564,14 +564,16 @@ export function createCombatAllocateHitsAction(game: MERCGame): ActionDefinition
       // Clear pending allocation
       game.activeCombat.pendingHitAllocation = undefined;
 
-      // Log allocation
-      const allocMsg = Array.from(hitsByTarget.entries())
-        .map(([targetId, count]) => {
-          const target = pending.validTargets.find(t => t.id === targetId);
-          return `${target?.name ?? 'Unknown'} x${count}`;
-        })
-        .join(', ');
-      game.message(`${pending.attackerName} allocates hits: ${allocMsg}`);
+      // An empty allocation has no targets to name, so it gets no log line.
+      if (hitsByTarget.size > 0) {
+        const allocMsg = Array.from(hitsByTarget.entries())
+          .map(([targetId, count]) => {
+            const target = pending.validTargets.find(t => t.id === targetId);
+            return `${target?.name ?? 'Unknown'} x${count}`;
+          })
+          .join(', ');
+        game.message(`${pending.attackerName} allocates hits: ${allocMsg}`);
+      }
 
       // Continue combat
       const sector = game.getSector(game.activeCombat.sectorId);
