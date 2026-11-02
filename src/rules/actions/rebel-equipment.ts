@@ -673,11 +673,7 @@ export function createDropEquipmentAction(game: MERCGame): ActionDefinition {
           }
         }
       } else {
-        // The slot number, not the item's place in the list: an emptied slot leaves a gap
-        const slotMatch = equipment.equippedSlot?.match(/^bandolier:(\d+)$/);
-        if (slotMatch && actingCombatant.bandolierSlots.includes(equipment)) {
-          droppedItem = actingCombatant.unequipBandolierSlot(parseInt(slotMatch[1], 10));
-        }
+        droppedItem = actingCombatant.unequipBandolierItem(equipment);
       }
 
       if (!droppedItem) {
@@ -998,13 +994,7 @@ export function createSquidheadArmAction(game: MERCGame): ActionDefinition {
       } else {
         // Check bandolier slots
         const mineInBandolier = squidhead.bandolierSlots.find(e => isLandMine(e.equipmentId));
-        if (mineInBandolier) {
-          const slotMatch = mineInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
-          if (slotMatch) {
-            const index = parseInt(slotMatch[1], 10);
-            mine = squidhead.unequipBandolierSlot(index);
-          }
-        }
+        if (mineInBandolier) mine = squidhead.unequipBandolierItem(mineInBandolier);
       }
 
       if (!mine) {
@@ -1582,18 +1572,13 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       // Find the Repair Kit on the combatant
       let repairKit: Equipment | undefined;
       let repairKitSlot: 'Accessory' | 'bandolier' = 'Accessory';
-      let bandolierIndex = -1;
 
       if (combatant.accessorySlot && isRepairKit(combatant.accessorySlot.equipmentId)) {
         repairKit = combatant.accessorySlot;
         repairKitSlot = 'Accessory';
       } else {
-        const idx = combatant.bandolierSlots.findIndex(e => isRepairKit(e.equipmentId));
-        if (idx >= 0) {
-          repairKit = combatant.bandolierSlots[idx];
-          repairKitSlot = 'bandolier';
-          bandolierIndex = idx;
-        }
+        repairKit = combatant.bandolierSlots.find(e => isRepairKit(e.equipmentId));
+        repairKitSlot = 'bandolier';
       }
 
       if (!repairKit) {
@@ -1614,7 +1599,7 @@ export function createRepairKitAction(game: MERCGame): ActionDefinition {
       if (repairKitSlot === 'Accessory') {
         combatant.unequip('Accessory');
       } else {
-        combatant.unequipBandolierSlot(bandolierIndex);
+        combatant.unequipBandolierItem(repairKit);
       }
       const accessoryDiscard = game.getEquipmentDiscard('Accessory');
       if (accessoryDiscard) {
@@ -1966,15 +1951,11 @@ function discardMortar(unit: CombatantModel, unitDisplayName: string, game: MERC
     // Check bandolier slots
     const mortarInBandolier = unit.bandolierSlots.find(e => hasRangedAttack(e.equipmentId));
     if (mortarInBandolier) {
-      const slotMatch = mortarInBandolier.equippedSlot?.match(/^bandolier:(\d+)$/);
-      if (slotMatch) {
-        const index = parseInt(slotMatch[1], 10);
-        unit.unequipBandolierSlot(index);
-        if (accessoryDiscard) {
-          mortarInBandolier.putInto(accessoryDiscard);
-        }
-        game.message(`${unitDisplayName}'s mortar is used up!`);
+      unit.unequipBandolierItem(mortarInBandolier);
+      if (accessoryDiscard) {
+        mortarInBandolier.putInto(accessoryDiscard);
       }
+      game.message(`${unitDisplayName}'s mortar is used up!`);
     }
   }
 }

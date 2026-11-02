@@ -847,9 +847,8 @@ export abstract class CombatantBase extends BaseCard {
     return equipment;
   }
 
-  unequipBandolierSlot(index: number): Equipment | undefined {
-    const equipment = this.bandolierSlots.find(e => e.equippedSlot === `bandolier:${index}`);
-    if (!equipment) return undefined;
+  unequipBandolierItem(equipment: Equipment): Equipment | undefined {
+    if (!this.bandolierSlots.includes(equipment)) return undefined;
     this.clearSlot(equipment);
     this.syncEquipmentData();
     this.updateComputedStats();

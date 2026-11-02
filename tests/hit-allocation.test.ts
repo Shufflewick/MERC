@@ -429,6 +429,23 @@ describe('resuming combat after the player allocates hits', () => {
     }
   });
 
+  it('takes a spent grenade out of the bandolier (#121)', () => {
+    const { game, rebel, sector, dice } = basicAttacks('grenade-bandolier');
+    rebel.isBot = true;
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'bandolier')!);
+    const grenade = game.first(Equipment, e => e.equipmentId === 'grenade')!;
+    basic.equip(grenade);
+    expect(grenade.equippedSlot).toBe('bandolier:0');
+    sector.addDictatorMilitia(1);
+    dice.show(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+
+    expect(grenade.equippedSlot).toBeUndefined();
+    expect(basic.bandolierSlotsData).toEqual([]);
+  });
+
   it('still rerolls a Bot Basic\'s missed roll automatically (#106)', () => {
     const { game, rebel, sector, dice } = basicAttacks('bot-rerolls-miss');
     rebel.isBot = true;

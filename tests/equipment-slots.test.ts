@@ -312,4 +312,31 @@ describe('Equipment Slots - Bandolier Replacement', () => {
       expect(sector.stash).toContain(second);
     });
   });
+
+  describe('repairKit from a bandolier', () => {
+    it('takes a Repair Kit out of the second bandolier slot after the first was emptied (#121)', () => {
+      const rebel = game.rebelPlayers[0];
+      const sector = game.gameMap.getAllSectors()[0];
+      const merc = findMerc('basic')!;
+      merc.putInto(rebel.primarySquad);
+      rebel.primarySquad.sectorId = sector.sectorId;
+      merc.equip(game.accessoriesDeck.first(Equipment, e => e.equipmentId === 'bandolier')!);
+      const filler = game.accessoriesDeck.first(Equipment, e => e.equipmentId === 'field-radio')!;
+      const repairKit = game.accessoriesDeck.first(Equipment, e => e.equipmentId === 'repair-kit')!;
+      merc.equip(filler);
+      merc.equip(repairKit);
+      expect(game.performAction('dropEquipment', rebel, { actingMerc: merc, equipment: filler }).success).toBe(true);
+      const discarded = game.weaponsDeck.first(Equipment)!;
+      discarded.putInto(game.weaponsDiscard!);
+
+      const result = game.performAction('repairKit', rebel, {
+        combatant: merc,
+        equipment: `${discarded.equipmentName} (Weapon)`,
+      });
+
+      expect(result.success, result.error).toBe(true);
+      expect(repairKit.equippedSlot).toBeUndefined();
+      expect(merc.bandolierSlotsData).toEqual([]);
+    });
+  });
 });

@@ -77,3 +77,44 @@ describe('out-of-combat MERC death', () => {
     expect(epi.parent).toBe(game.accessoriesDiscard);
   });
 });
+
+/** Equip a bandolier, put a Field Radio in slot 0 and `item` in slot 1, then drop the Field Radio. */
+function carryInSecondBandolierSlotAfterAGap(game: MERCGame, merc: CombatantModel, item: Equipment): void {
+  const rebel = game.rebelPlayers[0];
+  rebel.primarySquad.sectorId = game.gameMap.getAllSectors()[0].sectorId;
+  merc.equip(findEquipment(game, 'bandolier')!);
+  const filler = findEquipment(game, 'field-radio')!;
+  merc.equip(filler);
+  merc.equip(item);
+  expect(item.equippedSlot).toBe('bandolier:1');
+  expect(game.performAction('dropEquipment', rebel, { actingMerc: merc, equipment: filler }).success).toBe(true);
+}
+
+describe('bandolier items after an earlier slot was emptied (#121)', () => {
+  it('spends an Epinephrine Shot from the second bandolier slot', () => {
+    const game = newGame('epi-bandolier-gap');
+    const merc = giveRebelAMerc(game);
+    const epi = findEquipment(game, 'epinephrine-shot')!;
+    carryInSecondBandolierSlotAfterAGap(game, merc, epi);
+
+    merc.takeDamage(merc.maxHealth);
+    const died = killMercOutsideCombat(game, merc, 'test death');
+
+    expect(died).toBe(false);
+    expect(merc.bandolierSlots).toEqual([]);
+    expect(epi.parent).toBe(game.accessoriesDiscard);
+  });
+
+  it('discards a dead MERC\'s item from the second bandolier slot', () => {
+    const game = newGame('death-bandolier-gap');
+    const merc = giveRebelAMerc(game);
+    const kit = findEquipment(game, 'medical-kit')!;
+    carryInSecondBandolierSlotAfterAGap(game, merc, kit);
+
+    merc.takeDamage(merc.maxHealth);
+    killMercOutsideCombat(game, merc, 'test death');
+
+    expect(kit.equippedSlot).toBeUndefined();
+    expect(kit.parent).toBe(game.accessoriesDiscard);
+  });
+});

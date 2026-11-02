@@ -58,8 +58,8 @@ export function applyEpinephrineSave(
   if (holder.accessorySlot && isEpinephrine(holder.accessorySlot.equipmentId)) {
     shot = holder.unequip('Accessory');
   } else {
-    const index = holder.bandolierSlots.findIndex(e => isEpinephrine(e.equipmentId));
-    if (index >= 0) shot = holder.unequipBandolierSlot(index);
+    const bandolierShot = holder.bandolierSlots.find(e => isEpinephrine(e.equipmentId));
+    if (bandolierShot) shot = holder.unequipBandolierItem(bandolierShot);
   }
   if (!shot) return false;
 
@@ -79,7 +79,7 @@ export function applyEpinephrineSave(
 export function discardMercEquipment(game: MERCGame, merc: CombatantModel): void {
   for (const { item, slot } of allEquippedItems(merc)) {
     const removed = slot === 'Bandolier'
-      ? merc.unequipBandolierSlot(merc.bandolierSlots.findIndex(e => e.id === item.id))
+      ? merc.unequipBandolierItem(item)
       : merc.unequip(slot);
     if (!removed) continue;
 
