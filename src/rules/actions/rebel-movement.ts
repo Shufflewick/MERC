@@ -16,6 +16,7 @@ import type { MERCGame, MERCPlayer, RebelPlayer, DictatorPlayer } from '../game.
 import { Sector, Squad, CombatantModel, Equipment } from '../elements.js';
 import { hasEnemies, queuePendingCombat } from '../combat.js';
 import { checkLandMines } from '../landmine.js';
+import { dictatorMilitiaCap } from '../dictator-militia.js';
 import { buildMapCombatantMove, emitMapCombatantMoves } from '../animation-events.js';
 import { ACTION_COSTS, useAction, useMoveAction, capitalize, asSquad, asSector, asCombatantModel, asRebelPlayer, isDictatorUnit, isNotInActiveCombat } from './helpers.js';
 import { getMilitiaBringCount } from '../merc-abilities.js';
@@ -193,6 +194,13 @@ function militiaAvailableToRide(game: MERCGame, ride: VehicleRide, player: unkno
     : sector.getRebelMilitia(`${(player as MERCPlayer).seat}`);
 }
 
+/** How many more of the player's side's militia the sector can hold. */
+function militiaRoom(game: MERCGame, sector: Sector, player: unknown): number {
+  return game.isDictatorPlayer(player)
+    ? dictatorMilitiaCap(game, sector) - sector.dictatorMilitia
+    : Sector.MAX_MILITIA_PER_SIDE - sector.getTotalRebelMilitia();
+}
+
 function describeRide(ride: VehicleRide): string {
   return `${capitalize(ride.merc.combatantName)}'s ${ride.equipmentName}`;
 }
@@ -246,8 +254,9 @@ export function createVehicleMoveAction(game: MERCGame): ActionDefinition {
         if (!ride) return [0];
         const seats = ride.capacity - ride.squad.getLivingMercs().length;
         if (seats <= 0) return [0];
-        const available = militiaAvailableToRide(game, ride, ctx.player);
-        const max = Math.min(seats, available);
+        const destination = ctx.args?.destination as Sector | undefined;
+        const room = destination ? militiaRoom(game, destination, ctx.player) : seats;
+        const max = Math.max(0, Math.min(seats, militiaAvailableToRide(game, ride, ctx.player), room));
         return Array.from({ length: max + 1 }, (_, i) => i);
       },
       display: (n: number) => (n === 0 ? 'None' : `${n} militia`),
@@ -431,7 +440,9 @@ export function createMoveAction(game: MERCGame): ActionDefinition {
         const available = sourceSector.getRebelMilitia(playerId);
         if (available === 0) return [0];
 
-        const max = Math.min(bringLimit, available);
+        const destination = ctx.args?.destination as Sector | undefined;
+        const room = destination ? militiaRoom(game, destination, ctx.player) : bringLimit;
+        const max = Math.max(0, Math.min(bringLimit, available, room));
         return Array.from({ length: max + 1 }, (_, i) => i);
       },
       display: (n: number) => n === 0 ? 'None' : `${n} militia`,

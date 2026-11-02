@@ -1,6 +1,7 @@
 import type { MERCGame } from './game.js';
 import type { Sector } from './elements.js';
 import { checkLandMines } from './landmine.js';
+import { SectorConstants } from './constants.js';
 import { hasEnemies, queuePendingCombat } from './combat.js';
 
 export interface DictatorMilitiaPlacement {
@@ -38,7 +39,12 @@ export function placeDictatorMilitia(
   return { placed, combatQueued: false };
 }
 
-export function isKimBase(game: MERCGame, sector: Sector): boolean {
+/** How many dictator militia the sector can hold: 20 at Kim's base, else 10. */
+export function dictatorMilitiaCap(game: MERCGame, sector: Sector): number {
+  return isKimBase(game, sector) ? SectorConstants.KIM_BASE_MAX_MILITIA : SectorConstants.MAX_MILITIA_PER_SIDE;
+}
+
+function isKimBase(game: MERCGame, sector: Sector): boolean {
   return game.dictatorPlayer.dictator?.combatantId === 'kim' &&
     sector.sectorId === game.dictatorPlayer.baseSectorId;
 }
