@@ -3346,6 +3346,8 @@ interface CombatStart {
   allRebelCasualties: Combatant[];
   allDictatorCasualties: Combatant[];
   startRound: number;
+  /** startRound was already announced before the pause this resumes. */
+  resumingRound: boolean;
   attackingPlayerIsRebel: boolean;
   dogState: AttackDogState;
 }
@@ -3368,6 +3370,7 @@ function startOrResumeCombat(
   let allRebelCasualties: Combatant[];
   let allDictatorCasualties: Combatant[];
   let startRound: number;
+  let resumingRound = false;
   // Track who initiated combat (for target selection - only attacking side chooses)
   let attackingPlayerIsRebel: boolean;
 
@@ -3382,9 +3385,8 @@ function startOrResumeCombat(
     allRebelCasualties = game.activeCombat.rebelCasualties as Combatant[];
     allDictatorCasualties = game.activeCombat.dictatorCasualties as Combatant[];
     // Every in-round pause saves currentAttackerIndex; the between-rounds states never do.
-    startRound = game.activeCombat.currentAttackerIndex !== undefined
-      ? game.activeCombat.round
-      : game.activeCombat.round + 1;
+    resumingRound = game.activeCombat.currentAttackerIndex !== undefined;
+    startRound = resumingRound ? game.activeCombat.round : game.activeCombat.round + 1;
 
     // MERC-l09: Restore dog state
     dogState = {
@@ -3472,6 +3474,7 @@ function startOrResumeCombat(
     allRebelCasualties,
     allDictatorCasualties,
     startRound,
+    resumingRound,
     attackingPlayerIsRebel,
     dogState,
   };
@@ -3556,6 +3559,7 @@ export function executeCombat(
     rebels, dictator, rounds, allRebelCasualties, allDictatorCasualties,
     startRound, attackingPlayerIsRebel, dogState,
   } = start;
+  let { resumingRound } = start;
 
   let retreatSector: Sector | undefined;
   let didRetreat = false;
@@ -3583,7 +3587,7 @@ export function executeCombat(
       );
     }
     // MERC-t5k: Only show round message if starting fresh (not resuming mid-round)
-    if (!savedRoundInitiativeOrder) {
+    if (!resumingRound) {
       game.message(`--- Round ${round} ---`);
       // Emit round-start event for UI animation
       game.animate('combat-round-start', {
@@ -3631,6 +3635,7 @@ export function executeCombat(
     rounds.push(roundResult.round);
 
     // Clear mid-round state for next round
+    resumingRound = false;
     currentAttackerIndex = 0;
     roundResults = [];
     roundCasualties = [];
