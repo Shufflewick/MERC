@@ -1510,8 +1510,7 @@ function unequipAndDiscard(merc: CombatantModel, equip: Equipment, game: MERCGam
   } else if (slot === 'accessory') {
     removed = merc.unequip('Accessory');
   } else if (slot?.startsWith('bandolier:')) {
-    const idx = parseInt(slot.split(':')[1]);
-    removed = merc.unequipBandolierSlot(idx);
+    removed = merc.unequipBandolierItem(equip);
   }
 
   if (removed) {
@@ -2605,14 +2604,9 @@ function discardSpentEquipment(game: MERCGame, attacker: Combatant): void {
     );
     for (const equipment of bandolierToDiscard) {
       game.message(`${merc.combatantName}'s ${equipment.equipmentName} is used up!`);
-      // Extract bandolier index from equippedSlot (format: 'bandolier:0', 'bandolier:1', etc.)
-      const slotMatch = equipment.equippedSlot?.match(/^bandolier:(\d+)$/);
-      if (slotMatch) {
-        const index = parseInt(slotMatch[1], 10);
-        merc.unequipBandolierSlot(index);
-        if (accessoryDiscard) {
-          equipment.putInto(accessoryDiscard);
-        }
+      merc.unequipBandolierItem(equipment);
+      if (accessoryDiscard) {
+        equipment.putInto(accessoryDiscard);
       }
     }
   }

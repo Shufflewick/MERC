@@ -944,10 +944,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         if (healerMerc.accessorySlot?.id === healingItem.id) {
           healerMerc.unequip('Accessory');
         } else {
-          const bIdx = healerMerc.bandolierSlots.findIndex(e => e.id === healingItem!.id);
-          if (bIdx >= 0) {
-            healerMerc.unequipBandolierSlot(bIdx);
-          }
+          healerMerc.unequipBandolierItem(healingItem);
         }
 
         const discard = game.getEquipmentDiscard('Accessory');

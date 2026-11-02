@@ -81,3 +81,31 @@ describe('before-attack healing across a target-selection pause', () => {
     expect(roundHeaders.map(m => m.text), 'round setup should run once').toEqual(['--- Round 1 ---']);
   });
 });
+
+describe('before-attack healing from a bandolier (#121)', () => {
+  it('discards a spent Medical Kit from the second bandolier slot after the first was emptied', () => {
+    const { game, rebel, sector } = woundedMercAgainstMilitia('heal-bandolier-gap');
+    const merc = rebel.primarySquad.getMercs()[0];
+    const kit = merc.unequip('Accessory')!;
+    merc.equip(game.first(Equipment, e => e.equipmentId === 'bandolier')!);
+    const filler = game.first(Equipment, e => e.equipmentId === 'field-radio')!;
+    merc.equip(filler);
+    merc.equip(kit);
+    expect(kit.equippedSlot).toBe('bandolier:1');
+    expect(game.performAction('dropEquipment', rebel, { actingMerc: merc, equipment: filler }).success).toBe(true);
+    kit.usesRemaining = 1;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const pending = game.activeCombat!.pendingBeforeAttackHealing!;
+    const healer = pending.availableHealers[0];
+    const target = pending.damagedAllies[0];
+    const result = game.performAction('combatBeforeAttackHeal', rebel, {
+      healer: `${healer.healerName} (${healer.itemName})`,
+      target: `${target.name} (${target.damage} damage)`,
+    });
+
+    expect(result.success, result.error).toBe(true);
+    expect(kit.equippedSlot).toBeUndefined();
+    expect(kit.parent).toBe(game.accessoriesDiscard);
+  });
+});
