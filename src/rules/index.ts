@@ -190,7 +190,7 @@ export const gameDefinition = {
   minPlayers: 2,  // 1 Dictator + 1 Rebel
   maxPlayers: 7,  // 1 Dictator + 6 Rebels
 
-  // Competitive: a draw, once made, is final, so undo cannot reorder actions to re-roll it
+  // Competitive: dice and shuffles are final, so undo cannot reorder actions to re-roll them
   undo: { fenceRandomRewind: true },
 
   // MCTS hooks — without these the bot has no evaluation gradient on this board
