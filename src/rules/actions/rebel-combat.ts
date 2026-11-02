@@ -1236,7 +1236,7 @@ export function createArtilleryAllocateHitsAction(game: MERCGame): ActionDefinit
         const pending = game.pendingArtilleryAllocation;
         if (!pending) return [];
         // A target's id once per hit it can take, so a split is one move however its hits are ordered.
-        return pending.validTargets.flatMap(target => Array<string>(Math.max(0, target.currentHealth)).fill(target.id));
+        return pending.validTargets.flatMap(target => Array<string>(target.currentHealth).fill(target.id));
       },
       display: (choice: string) => {
         const pending = game.pendingArtilleryAllocation;
