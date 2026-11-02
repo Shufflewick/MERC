@@ -70,34 +70,58 @@ function logged(game: MERCGame, text: string): boolean {
   return (game.messages as { text: string }[]).some(m => m.text.includes(text));
 }
 
+/** Human Pol Pot places militia on a rebel sector, mined or not; returns whether he is then offered a MERC. */
+function humanPolpotOfferedMerc(mined: boolean): boolean {
+  const runner = polpotGame(false);
+  const game = runner.game;
+  playUntil(runner, t => t.currentPlayer === DICTATOR && t.available.includes('polpotBonusMilitia'));
+  if (mined) mineRebelSectors(game);
+  const [sector] = rebelSectors(game);
+  const day = game.currentDay;
+
+  const result = runner.performAction('polpotBonusMilitia', DICTATOR, { targetSector: sector.sectorName });
+  expect(result.success, result.error).toBe(true);
+  if (mined) expect(sector.dictatorMilitia, 'the mine should kill the militia that arrived').toBe(0);
+
+  let offered = false;
+  playUntil(runner, t => (offered = t.available.includes('polpotBonusHire')) || game.currentDay > day);
+  return offered;
+}
+
+/** Bot Pol Pot takes his Day 2 turn with every rebel sector mined or not; returns how many MERCs he gained. */
+function botPolpotMercsGained(mined: boolean): number {
+  const runner = polpotGame(true);
+  const game = runner.game;
+  playUntil(runner, t => game.currentDay >= 2 && t.currentPlayer !== DICTATOR && t.available.includes('endTurn'));
+  if (mined) mineRebelSectors(game);
+  const mercsBefore = dictatorMercCount(game);
+  const day = game.currentDay;
+  const placedCount = () => (game.messages as { text: string }[]).filter(m => m.text.startsWith('Pol Pot placed')).length;
+  const placedBefore = placedCount();
+
+  playUntil(runner, () => game.currentDay > day, true);
+  expect(placedCount(), 'Pol Pot should place militia on his turn').toBe(placedBefore + 1);
+
+  if (mined) expect(rebelSectors(game).every(s => s.dictatorMilitia === 0), 'the mines should kill the militia that arrived').toBe(true);
+  return dictatorMercCount(game) - mercsBefore;
+}
+
 describe('Pol Pot militia killed by a land mine before any fight', () => {
   it('human Pol Pot is not offered a MERC', () => {
-    const runner = polpotGame(false);
-    const game = runner.game;
-    playUntil(runner, t => t.currentPlayer === DICTATOR && t.available.includes('polpotBonusMilitia'));
-    mineRebelSectors(game);
-    const [sector] = rebelSectors(game);
-
-    const result = runner.performAction('polpotBonusMilitia', DICTATOR, { targetSector: sector.sectorName });
-    expect(result.success, result.error).toBe(true);
-
-    expect(sector.dictatorMilitia, 'the mine should kill the militia that arrived').toBe(0);
-    const next = getCurrentAction(game.getFlowState());
-    expect(next?.available ?? []).not.toContain('polpotBonusHire');
+    expect(humanPolpotOfferedMerc(true)).toBe(false);
   });
 
   it('bot Pol Pot does not hire a MERC', () => {
-    const runner = polpotGame(true);
-    const game = runner.game;
-    playUntil(runner, t => game.currentDay >= 2 && t.currentPlayer !== DICTATOR && t.available.includes('endTurn'));
-    mineRebelSectors(game);
-    const mercsBefore = dictatorMercCount(game);
-    const placedCount = () => (game.messages as { text: string }[]).filter(m => m.text.startsWith('Pol Pot placed')).length;
-    const placedBefore = placedCount();
+    expect(botPolpotMercsGained(true)).toBe(0);
+  });
+});
 
-    playUntil(runner, () => placedCount() > placedBefore, true);
+describe('Pol Pot militia that lose the fight they start', () => {
+  it('human Pol Pot is offered a MERC', () => {
+    expect(humanPolpotOfferedMerc(false)).toBe(true);
+  });
 
-    expect(rebelSectors(game).every(s => s.dictatorMilitia === 0), 'the mines should kill the militia that arrived').toBe(true);
-    expect(dictatorMercCount(game)).toBe(mercsBefore);
+  it('bot Pol Pot hires a MERC', () => {
+    expect(botPolpotMercsGained(false)).toBe(1);
   });
 });
