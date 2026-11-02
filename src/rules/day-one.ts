@@ -443,36 +443,6 @@ export function autoPlaceExtraMilitia(game: MERCGame): number {
   return totalPlaced;
 }
 
-// =============================================================================
-// Complete Day 1 Execution
-// =============================================================================
-
-/**
- * Execute the complete dictator phase of Day 1.
- * This is called after all rebels have completed their phase.
- */
-export function executeDictatorDay1(game: MERCGame): void {
-  game.message('=== Dictator Day 1 Phase ===');
-
-  // Step 1: Place initial militia on unoccupied industries
-  placeInitialMilitia(game);
-
-  // Step 2: Hire dictator's first MERC
-  const merc = game.drawMerc();
-  if (merc) hireDictatorMerc(game, merc);
-
-  // Step 3: Check dictator special ability
-  applyDictatorSetupAbility(game);
-
-  // Step 4: Draw tactics hand
-  drawTacticsHand(game);
-
-  // Step 5: Place extra militia
-  autoPlaceExtraMilitia(game);
-
-  game.message('=== Dictator Day 1 Complete ===');
-}
-
 /**
  * Get the summary of Day 1 state after completion.
  */

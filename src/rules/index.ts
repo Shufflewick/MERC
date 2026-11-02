@@ -87,7 +87,6 @@ export {
   drawTacticsHand,
   placeExtraMilitia,
   autoPlaceExtraMilitia,
-  executeDictatorDay1,
   // Utilities
   getDay1Summary,
   isRebelDay1Complete,
