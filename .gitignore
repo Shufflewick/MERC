@@ -1,6 +1,5 @@
 node_modules/
 dist/
-vendor/
 .boardsmith/
 .DS_Store
 *.log
