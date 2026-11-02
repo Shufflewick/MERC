@@ -721,8 +721,8 @@ if (animationEvents) {
   animationEvents.registerHandler('combat-barrier', async (_event, { signal }) => {
     combatBarrierActive.value = true;
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, 2000);
-      signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+      setTimeout(resolve, 2000);
+      signal.addEventListener('abort', () => resolve(), { once: true });
     });
     const closed = new Promise<void>((resolve) => (combatBarrierClosed = resolve));
     combatBarrierActive.value = false;
