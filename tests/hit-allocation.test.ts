@@ -397,6 +397,28 @@ describe('resuming combat after the player allocates hits', () => {
     expect(sector.dictatorMilitia).toBe(1);
   });
 
+  it('ends the attack when Basic has no combat dice and his reroll also rolls nothing (#126)', () => {
+    const { game, rebel, sector } = basicAttacks('no-dice-reroll');
+    const basic = rebel.primarySquad.first(CombatantModel, c => c.combatantId === 'basic')!;
+    // Full Body Armor takes Basic's combat from 2 to 0.
+    basic.equip(game.first(Equipment, e => e.equipmentId === 'full-body-armor')!);
+    sector.addDictatorMilitia(1);
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: false });
+    expect(game.activeCombat?.pendingHitAllocation?.canReroll, 'Basic should pause with the reroll on offer').toBe(true);
+
+    expect(game.performAction('combatBasicReroll', rebel, {}).success).toBe(true);
+    const result = game.performAction('combatAllocateHits', rebel, { allocations: [] });
+    expect(result.success, result.error).toBe(true);
+
+    expect(basicRollLines(game)).toEqual([
+      'Basic rolls [] - 0 hit(s)',
+      'Basic uses reroll ability! [] - 0 hit(s)',
+    ]);
+    expect(game.activeCombat?.pendingHitAllocation, 'Basic should not be asked to allocate again').toBeUndefined();
+    expect(sector.dictatorMilitia).toBe(1);
+  });
+
   it('offers a human Basic the reroll on a roll with no hits, instead of spending it for him (#106)', () => {
     const { game, rebel, sector, dice } = basicAttacks('reroll-offered-on-miss');
     sector.addDictatorMilitia(1);

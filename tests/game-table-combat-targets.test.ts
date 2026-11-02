@@ -45,6 +45,35 @@ describe('GameTable confirming combat targets', () => {
   });
 });
 
+describe('GameTable confirming a hit allocation', () => {
+  it('sends an allocation with no hits, as after Basic rerolls into a miss (#126)', async () => {
+    const testGame = createTestGame(MERCGame, { playerCount: 2, playerNames: ['Rebel1', 'Dictator'], seed: 'table-empty-allocation' });
+    const events = ref<{ id: number; type: string; data: Record<string, unknown> }[]>([]);
+    const shell = await tableShellContext(testGame, 1, {
+      provide: { [ANIMATION_EVENTS_KEY as symbol]: createAnimationEvents({ events: () => events.value as never }) },
+    });
+    const sent: [string, Record<string, unknown>][] = [];
+    const actionController: UseActionControllerReturn = {
+      ...shell.actionController,
+      execute: async (action, args) => { sent.push([action, args ?? {}]); return { success: true }; },
+    };
+    const wrapper = mount(GameTable, {
+      props: { gameView: testGame.getPlayerView(1), playerSeat: 1, isMyTurn: true, availableActions: ['combatAllocateHits'], actionController, setBoardPrompt: () => {} },
+      global: { provide: shell.provide },
+      shallow: true,
+    });
+    events.value = [{ id: 1, type: 'combat-panel', data: {} }];
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'CombatPanel' }).vm.$emit('confirm-allocation', []);
+    await flushPromises();
+
+    expect(sent).toEqual([['combatAllocateHits', { allocations: [] }]]);
+    wrapper.unmount();
+    shell.stop();
+  });
+});
+
 describe('GameTable sending Golem and Epinephrine choices from the combat panel (#105)', () => {
   async function tableWith(availableActions: string[]) {
     const testGame = createTestGame(MERCGame, { playerCount: 2, playerNames: ['Rebel1', 'Dictator'], seed: 'table-choices' });
