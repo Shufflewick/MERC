@@ -11,8 +11,8 @@ import { autoResolveArgs, getCurrentAction } from './helpers/auto-play.js';
  * every move that kept the turn above it. Assigning a MERC to a squad is free
  * and undoes itself, so it flipped MERCs between squads forever (#90). Picks
  * from the stash after an explore or a re-equip are free too, and a pick into
- * a full slot or a drop can be undone by the next pick, so a deeper search
- * swapped gear forever instead (#103).
+ * a full slot can be undone by the next pick, so a deeper search swapped gear
+ * forever instead (#103).
  */
 describe('bot rebel on the last day (#90, #103)', () => {
   it.each([100, 300])('spends its turn and hands it back at mcts(%i) instead of repeating free moves', { timeout: 600_000 }, async (iterations) => {

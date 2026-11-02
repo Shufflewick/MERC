@@ -108,18 +108,18 @@ const DEFAULT_PLAYOUT_WEIGHT = 2;
 
 /**
  * Whether the search may play this move. Free moves the search could repeat
- * forever keep the turn whenever ending it looks bad (#90), so every free move
- * it searches must be one no other free move can undo. It leaves out viewing a
+ * forever keep the turn whenever ending it looks bad (#90), so it searches a
+ * free move only if no other free move can undo it. It leaves out viewing a
  * stash, which changes nothing, and every squad reassignment but breaking a
  * MERC off into a new squad with others left behind: without the merges and
  * lone-squad relabels that could undo it, a split can only happen until all
- * squads are in use. Between a MERC and the stash at its feet it searches only
- * the free picks into an empty slot, after an explore or a re-equip, and never
- * a drop or a pick that swaps out equipment, which the next pick could undo:
- * then each free pick fills a slot and they run out (#103).
+ * squads are in use. Of the free picks that follow an explore or a re-equip it
+ * searches only those into an empty slot, since the next pick could undo a
+ * swap; any other move ends the picking, so a drop cannot be taken back (#103).
+ * It leaves out Squidhead picking up a mine, which re-arming it would undo.
  */
 function searchable(game: MERCGame, seat: number, move: BotMove): boolean {
-  if (move.action === 'dropEquipment' || move.action === 'viewStash') return false;
+  if (move.action === 'squidheadDisarm' || move.action === 'viewStash') return false;
   if (move.action === 'collectEquipment' || move.action === 'reEquipContinue') {
     if (move.args.equipment === undefined) return true;
     const { combatantId } = followUpForSeat(game.getFlowState(), seat)!.args as { combatantId: number };
