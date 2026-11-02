@@ -797,6 +797,7 @@ export function createLockdownPlaceMilitiaAction(game: MERCGame): ActionDefiniti
       const placed = sector.addDictatorMilitia(amount);
       pending.remaining -= placed;
       game.message(`Lockdown: ${placed} militia placed at ${sector.sectorName} (${pending.remaining} remaining)`);
+      checkLandmineOnDictatorMilitiaEntry(game, sector, placed);
 
       // Check for combat
       for (const rebel of game.rebelPlayers) {
