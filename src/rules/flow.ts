@@ -13,7 +13,7 @@ import {
 import type { MERCGame, RebelPlayer, DictatorPlayer } from './game.js';
 import { TacticsCard, Sector, CombatantModel } from './elements.js';
 import { getDay1Summary, drawTacticsHand, hireDictatorMerc, autoPlaceExtraMilitia } from './day-one.js';
-import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot } from './dictator-abilities.js';
+import { applyDictatorTurnAbilities, applyHusseinBonusTactics, applyPinochetDamageSpread, processGaddafiLoot, gaddafiLootRecipients } from './dictator-abilities.js';
 import { applyConscriptsEffect, applyOilReservesEffect, requireArtilleryAllocator } from './tactics-effects.js';
 import { executeCombat, executeCombatRetreat, clearActiveCombat, hasEnemies, queuePendingCombat, canRetreat, resolveActiveCombatRebel } from './combat.js';
 import type { Combatant } from './combat-types.js';
@@ -101,6 +101,10 @@ function getCombatDecisionParticipants(game: MERCGame): Player[] {
   }
 
   return participants;
+}
+
+function isHumanGaddafi(game: MERCGame): boolean {
+  return game.dictatorPlayer?.dictator?.combatantId === 'gadafi' && game.dictatorPlayer?.isBot !== true;
 }
 
 function getPlayerBySeat(game: MERCGame, seat: string): Player | undefined {
@@ -412,13 +416,11 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
       }
     }),
 
-    // 9. Gaddafi: Human equipment loot choices after combat
+    // 9. Gaddafi: Human equipment loot choices after combat, while a dictator MERC can carry some of it
     loop({
       name: `${prefix}-gaddafi-loot`,
-      while: () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi' &&
-        game.dictatorPlayer?.isBot !== true &&
-        game._gaddafiLootableEquipment != null &&
-        game._gaddafiLootableEquipment.length > 0 &&
+      while: () => isHumanGaddafi(game) &&
+        (game._gaddafiLootableEquipment ?? []).some(item => gaddafiLootRecipients(game, item).length > 0) &&
         !game.isFinished(),
       maxIterations: 20,
       do: actionStep({
@@ -429,6 +431,10 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
           !game._gaddafiLootableEquipment ||
           game._gaddafiLootableEquipment.length === 0,
       }),
+    }),
+    // Loot no dictator MERC there can carry stays in the discard.
+    execute(() => {
+      if (isHumanGaddafi(game)) game._gaddafiLootableEquipment = null;
     }),
 
     // 10. Auto-clear in fully Bot games
@@ -831,18 +837,8 @@ export function createGameFlow(game: MERCGame): FlowDefinition {
                 do: sequence(
                   simultaneousActionStep({
                     name: 'coordinated-attack-commit',
-                    players: () => {
-                      const attack = game.coordinatedAttack;
-                      if (!attack) return [];
-                      return game.rebelPlayers.filter(p => {
-                        // Include declaring player only if they have a second eligible squad
-                        if (p.seat === attack.declaringPlayerSeat) {
-                          return game.getEligibleSquadsForCoordinatedAttack(p).length > 0;
-                        }
-                        return game.getEligibleSquadsForCoordinatedAttack(p).length > 0
-                          || !game.hasPlayerRespondedToCoordinatedAttack(p.seat);
-                      });
-                    },
+                    // A rebel with no squad able to join has nothing to decide, so is not asked.
+                    players: () => game.rebelPlayers.filter(p => game.getEligibleSquadsForCoordinatedAttack(p).length > 0),
                     actions: ['commitSquadToCoordinatedAttack', 'declineCoordinatedAttack'],
                     playerDone: (_ctx, player) => {
                       return game.hasPlayerRespondedToCoordinatedAttack(player.seat);

@@ -91,13 +91,16 @@ describe('dictator Day 1 setup taps', () => {
     return { name: only, manual: state.actionMetadata?.[only]?.manual };
   };
 
-  it('has the dictator place the initial militia and apply the setup ability with a deliberate tap', async () => {
+  it('has the dictator place the initial militia, apply the setup ability and draw tactics with a deliberate tap', async () => {
     const { session, act } = await tableAtDictatorSetup();
     expect(soleOffer(session)).toEqual({ name: 'dictatorPlaceInitialMilitia', manual: true });
 
     await act(DICTATOR, 'dictatorPlaceInitialMilitia');
     await act(DICTATOR, 'dictatorHireFirstMerc');
     expect(soleOffer(session)).toEqual({ name: 'dictatorSetupAbility', manual: true });
+
+    await act(DICTATOR, 'dictatorSetupAbility');
+    expect(soleOffer(session)).toEqual({ name: 'dictatorDrawTactics', manual: true });
   });
 
   it('has Kim reveal her base with a deliberate tap', async () => {

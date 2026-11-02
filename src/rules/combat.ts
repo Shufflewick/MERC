@@ -2248,10 +2248,12 @@ const { isHumanControlled, hasMercSource } = control;
       // The Surgeon heals with his own ability rather than an item, so he
       // never shows up in availableHealers. A human-controlled Surgeon still
       // needs this pause, or combatSurgeonHeal is never offered (issue #54).
+      // The pause asks the attacker's player, so only that player's own Surgeon counts.
       const surgeonCanHeal = alliedCombatants.some(ally => {
         if (ally.health <= 0) return false;
         const sourceElem = ally.sourceElement as CombatantModel | undefined;
         if (!sourceElem?.isMerc || sourceElem.combatantId !== 'surgeon') return false;
+        if (getControllingPlayer(game, ally) !== getControllingPlayer(game, attacker)) return false;
         // One die to sacrifice, one left to attack with.
         const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
         if (ally.combat - diceUsed < 2) return false;
@@ -3673,8 +3675,8 @@ export function executeCombat(
 
     // MERC-n1f: Check if retreat is possible and pause for player decision
     // Only pause for HUMAN players — Bot players decide automatically, and pausing
-    // for an Bot's retreat option causes an infinite loop when the human player
-    // can't retreat (ActionPanel auto-executes the sole combatContinue action).
+    // for a Bot's retreat option causes an infinite loop when the human player
+    // can't retreat.
     const humanRebels = game.rebelPlayers.filter(p => !p.isBot);
     const rebelsCanRetreat = humanRebels.some(p => canRetreatFromModule(game, sector, p));
     const dictatorPlayer = game.dictatorPlayer;

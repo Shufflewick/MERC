@@ -598,6 +598,7 @@ export function createDictatorSetupAbilityAction(game: MERCGame): ActionDefiniti
 export function createDictatorDrawTacticsAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('dictatorDrawTactics')
     .prompt('Draw tactics cards')
+    .manual()
     .condition({
       'is Day 1': () => game.currentDay === 1,
     })

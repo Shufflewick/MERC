@@ -26,6 +26,7 @@ const ALL_SQUADS = 'all';
 export function createCombatContinueAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('combatContinue')
     .prompt('Continue fighting')
+    .manual()
     .condition({
       'has active combat': () => game.activeCombat !== null,
       'no pending target selection': () => game.activeCombat?.pendingTargetSelection === undefined,
@@ -960,12 +961,7 @@ export function createCombatBeforeAttackHealAction(game: MERCGame): ActionDefini
         game.message(`${healerMerc.combatantName} uses ${healingItem.equipmentName} to heal ${targetMerc.combatantName} for ${healAmount} (${healingItem.usesRemaining} uses left)`);
       }
 
-      // Mark this attacker's healing phase as processed and clear the pending state
-      if (!game.activeCombat.beforeAttackHealingProcessed) {
-        game.activeCombat.beforeAttackHealingProcessed = new Set();
-      }
-      game.activeCombat.beforeAttackHealingProcessed.add(pending.attackerId);
-      game.activeCombat.pendingBeforeAttackHealing = undefined;
+      endBeforeAttackHealing(game);
 
       return {
         success: true,
@@ -1001,12 +997,7 @@ export function createCombatSkipBeforeAttackHealAction(game: MERCGame): ActionDe
 
       const pending = game.activeCombat.pendingBeforeAttackHealing;
 
-      // Mark this attacker's healing phase as processed and clear the pending state
-      if (!game.activeCombat.beforeAttackHealingProcessed) {
-        game.activeCombat.beforeAttackHealingProcessed = new Set();
-      }
-      game.activeCombat.beforeAttackHealingProcessed.add(pending.attackerId);
-      game.activeCombat.pendingBeforeAttackHealing = undefined;
+      endBeforeAttackHealing(game);
 
       return {
         success: true,
@@ -1055,6 +1046,19 @@ function getSurgeonHealTargets(surgeon: Combatant, allies: Combatant[]): Combata
   );
 }
 
+/** The Surgeon needs a die to sacrifice and one left to attack with, and a wounded ally. */
+function surgeonCanHeal(game: MERCGame, surgeon: Combatant, allies: Combatant[]): boolean {
+  const diceUsed = game.activeCombat?.healingDiceUsed?.get(surgeon.id) ?? 0;
+  return surgeon.combat - diceUsed >= 2 && getSurgeonHealTargets(surgeon, allies).length > 0;
+}
+
+/** Close the before-attack healing pause, so this attacker is not asked again. */
+function endBeforeAttackHealing(game: MERCGame): void {
+  const combat = game.activeCombat!;
+  (combat.beforeAttackHealingProcessed ??= new Set()).add(combat.pendingBeforeAttackHealing!.attackerId);
+  combat.pendingBeforeAttackHealing = undefined;
+}
+
 /**
  * Surgeon's ability: Sacrifice 1 combat die to heal 1 damage to a squad mate.
  * For human-controlled Surgeon only - Bot Surgeon auto-heals in combat.ts.
@@ -1073,13 +1077,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
         const rebelCombatants = game.activeCombat.rebelCombatants as Combatant[];
         const rebelSurgeon = findSurgeonInCombat(rebelCombatants, game);
         if (rebelSurgeon && isCombatDecisionPlayer(game, ctx.player, rebelSurgeon.combatant.id)) {
-          const { combatant } = rebelSurgeon;
-          // Surgeon needs at least 2 dice (1 to sacrifice, 1 to still attack)
-          const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
-          if (combatant.combat - diceUsed >= 2) {
-            const damagedAllies = getSurgeonHealTargets(combatant, rebelCombatants);
-            if (damagedAllies.length > 0) return true;
-          }
+          if (surgeonCanHeal(game, rebelSurgeon.combatant, rebelCombatants)) return true;
         }
 
         // Check dictator side for human Surgeon (human dictator mode)
@@ -1087,12 +1085,7 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
           const dictatorCombatants = game.activeCombat.dictatorCombatants as Combatant[];
           const dictatorSurgeon = findSurgeonInCombat(dictatorCombatants, game);
           if (dictatorSurgeon && isCombatDecisionPlayer(game, ctx.player, dictatorSurgeon.combatant.id)) {
-            const { combatant } = dictatorSurgeon;
-            const diceUsed = game.activeCombat.healingDiceUsed?.get(combatant.id) ?? 0;
-            if (combatant.combat - diceUsed >= 2) {
-              const damagedAllies = getSurgeonHealTargets(combatant, dictatorCombatants);
-              if (damagedAllies.length > 0) return true;
-            }
+            if (surgeonCanHeal(game, dictatorSurgeon.combatant, dictatorCombatants)) return true;
           }
         }
 
@@ -1220,6 +1213,11 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
       targetMerc.heal(healAmount);
 
       game.message(`${surgeonMerc.combatantName} sacrifices a combat die to heal ${targetMerc.combatantName} for ${healAmount}`);
+
+      // With no healing item to offer and nothing more for the Surgeon to heal, only skipping is left, so the pause ends here.
+      if (game.activeCombat.pendingBeforeAttackHealing?.availableHealers.length === 0 && !surgeonCanHeal(game, surgeonCombatant, combatants)) {
+        endBeforeAttackHealing(game);
+      }
 
       return {
         success: true,
@@ -1469,6 +1467,8 @@ export function createCombatDeclineEpinephrineAction(game: MERCGame): ActionDefi
 export function createClearCombatAnimationsAction(game: MERCGame): ActionDefinition {
   return Action.create<MERCGame>('clearCombatAnimations')
     .prompt('Clear combat animations')
+    // CombatPanel fires this once the combat-end animation has played, so the shell must not.
+    .manual()
     .condition({
       'has completed combat': () => game.activeCombat !== null && game.activeCombat.combatComplete === true,
     })
