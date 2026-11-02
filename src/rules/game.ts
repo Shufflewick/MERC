@@ -420,9 +420,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Static storage for playerCount during construction (workaround for super() timing)
   private static _pendingPlayerCount: number = 2;
-  // MERC-pbx4: Static storage for dictator position during construction
-  // -1 means "use default" (last player)
-  private static _pendingDictatorPosition: number = -1;
   // Player configurations from lobby (colors, Bot settings)
   private static _pendingPlayerConfigs: PlayerConfig[] = [];
 
@@ -868,19 +865,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Store player configs from lobby
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
-    // The host's lobby or preset names the dictator's seat (1-indexed); -1 means last player (resolved below)
-    const dictatorSeat = options.exclusiveSeats?.role ?? -1;
+    // The host's lobby or preset names the dictator's seat (1-indexed); with none, it is the last seat
+    const dictatorSeat = options.exclusiveSeats?.role ?? MERCGame._pendingPlayerCount;
 
-    // Validate seat if explicitly set (seat is 1-indexed)
-    if (dictatorSeat > 0 && dictatorSeat > MERCGame._pendingPlayerCount) {
+    if (dictatorSeat > MERCGame._pendingPlayerCount) {
       throw new Error(
         `Invalid dictator seat: ${dictatorSeat}. ` +
         `Must be <= playerCount (${MERCGame._pendingPlayerCount}).`
       );
     }
-    // Store as 1-indexed seat (or -1 for default/last player)
-    MERCGame._pendingDictatorPosition = dictatorSeat;
-
     super(options);
 
     // Register all element classes for serialization. registerElements routes
@@ -905,12 +898,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // BoardSmith v0.6: BoardSmith creates MERCPlayer instances in super() via static PlayerClass
     // Now configure each player as rebel or dictator based on position
     const playerCount = MERCGame._pendingPlayerCount;
-    const dictatorPosition = MERCGame._pendingDictatorPosition > 0
-      ? MERCGame._pendingDictatorPosition  // Already 1-indexed seat
-      : playerCount;  // Default: last player
-
     for (const player of this.players) {
-      if (player.seat === dictatorPosition) {
+      if (player.seat === dictatorSeat) {
         this.configureAsDictator(player);
       } else {
         this.configureAsRebel(player);
