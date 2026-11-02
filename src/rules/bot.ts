@@ -9,7 +9,7 @@
  */
 
 import type { BotStrategy, BotMove, DeterminizeSampler, Objective } from 'boardsmith/bot';
-import type { Game, GameElement } from 'boardsmith';
+import { followUpForSeat, type Game, type GameElement } from 'boardsmith';
 import { MERCGame, type MERCPlayer } from './game.js';
 import { CombatantModel, Equipment, EquipmentDeck, TacticsCard } from './elements.js';
 import { tacticsCardAttributes } from './setup.js';
@@ -112,9 +112,16 @@ const DEFAULT_PLAYOUT_WEIGHT = 2;
  * viewing a stash, which changes nothing, and every squad reassignment but
  * breaking a MERC off into a new squad with others left behind: without the
  * merges and lone-squad relabels that could undo it, a split can only happen
- * until all squads are in use.
+ * until all squads are in use. It also leaves out stash picks after an explore
+ * that swap out equipment, which the next pick could swap back (#103).
  */
 function searchable(game: MERCGame, seat: number, move: BotMove): boolean {
+  if (move.action === 'collectEquipment') {
+    if (move.args.equipment === undefined) return true;
+    const { combatantId } = followUpForSeat(game.getFlowState(), seat)!.args as { combatantId: number };
+    const unit = game.getElementById(combatantId) as CombatantModel;
+    return unit.canEquip(game.getElementById(move.args.equipment as number) as Equipment);
+  }
   if (move.action !== 'assignToSquad') return move.action !== 'viewStash';
   const { combatantName, targetSquad } = move.args as { combatantName: string; targetSquad: string };
   if (!targetSquad.startsWith('Create')) return false;
