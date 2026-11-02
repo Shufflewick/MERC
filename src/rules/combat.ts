@@ -3189,8 +3189,10 @@ function syncMilitiaCasualties(
  *   which also clears any other pending decision left on it. The two pauses
  *   that carry their own pending payload do this; the ones whose payload the
  *   round already wrote onto activeCombat must spread, or they would erase it.
- * - `keepRoundProgress` saves the partial round. Golem strikes before the round
- *   is set up, so it has no progress to keep and resumes the round from the top.
+ * - `keepRoundProgress` saves the partial round, including who has already
+ *   answered the before-attack healing prompt and the dice spent on it. Golem
+ *   strikes before the round is set up, so it has no progress to keep and
+ *   resumes the round from the top.
  * - `saveDogTargets` carries the dog choices already made this round.
  * - `syncCasualties` pushes militia kills to the sector so the map matches the
  *   combat panel. Golem skips it because nothing has died yet.
@@ -3208,6 +3210,12 @@ const PAUSE_SAVE: Record<CombatPause['kind'], {
   epinephrine:         { fromScratch: false, keepRoundProgress: true,  saveDogTargets: true,  syncCasualties: true },
   golemAttack:         { fromScratch: false, keepRoundProgress: false, saveDogTargets: true,  syncCasualties: false },
 };
+
+/** Choices made once per combat, which every rebuild of activeCombat must carry. */
+function perCombatChoices(game: MERCGame) {
+  const { golemResolved, adelheidKillsInstead } = game.activeCombat ?? {};
+  return { golemResolved, adelheidKillsInstead };
+}
 
 /** The shape a paused combat hands the UI for its target lists. */
 function toTargetSummaries(targets: Combatant[]): Combatant[] {
@@ -3272,6 +3280,7 @@ function pauseCombat(
   const save = PAUSE_SAVE[pause.kind];
 
   const base = {
+    ...perCombatChoices(game),
     sectorId: sector.sectorId,
     attackingPlayerId,
     attackingPlayerIsRebel,
@@ -3291,6 +3300,8 @@ function pauseCombat(
       roundResults: roundResult.round.results,
       roundCasualties: roundResult.round.casualties,
       roundInitiativeOrder: roundResult.initiativeOrder,
+      healingDiceUsed: game.activeCombat?.healingDiceUsed,
+      beforeAttackHealingProcessed: game.activeCombat?.beforeAttackHealingProcessed,
     } : {}),
     ...(pause.kind === 'targetSelection' ? {
       pendingTargetSelection: {
@@ -3696,6 +3707,7 @@ export function executeCombat(
 
       // Save combat state and pause for player decision
       game.activeCombat = {
+        ...perCombatChoices(game),
         sectorId: sector.sectorId,
         attackingPlayerId,
         attackingPlayerIsRebel,
@@ -3836,6 +3848,7 @@ export function executeCombatRetreat(
 
     // Update activeCombat with only the combatants still in the sector
     game.activeCombat = {
+      ...perCombatChoices(game),
       sectorId: game.activeCombat.sectorId,
       attackingPlayerId: game.activeCombat.attackingPlayerId,
       attackingPlayerIsRebel: game.activeCombat.attackingPlayerIsRebel,
@@ -3846,6 +3859,7 @@ export function executeCombatRetreat(
       dictatorCasualties,
       dogAssignments: game.activeCombat.dogAssignments,
       dogs: game.activeCombat.dogs,
+      stalemateRounds: game.activeCombat.stalemateRounds,
     };
     game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
