@@ -465,7 +465,7 @@ function rebelTurnIsOver(game: MERCGame, rebel: RebelPlayer): boolean {
   if (rebel.mercOffer.count(CombatantModel) > 0) return false;
   if (pendingHagnessStep(game, rebel)) return false;
   if (rebel.teamSize === 0) {
-    return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0;
+    return game.currentDay <= 1 || game.mercDeck.count(CombatantModel) === 0 || game.getRebelControlledSectors().length === 0;
   }
   return !rebel.team.some(m => m.actionsRemaining > 0);
 }

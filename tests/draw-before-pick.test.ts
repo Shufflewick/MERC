@@ -301,6 +301,7 @@ describe('asking for a rebel hire\'s moves changes nothing (#80)', () => {
   it('rehireMerc', () => {
     const game = startGame('castro', 'ask-changes-nothing-rehireMerc');
     game.currentDay = 2;
+    game.gameMap.getAllSectors()[0].addRebelMilitia(`${game.rebelPlayers[0].seat}`, 5);
     expectAskingChangesNothing(game, game.rebelPlayers[0], 'rehireMerc');
   });
 });
@@ -423,11 +424,12 @@ describe('a rebel hire picks from the MERCs drawn before the pick (#80)', () => 
     const game = startGame('castro', 'rehire-from-offer');
     game.currentDay = 2;
     const rebel = game.rebelPlayers[0];
-    rebel.primarySquad.sectorId = game.gameMap.getAllSectors()[0].sectorId;
+    const friendly = game.gameMap.getAllSectors()[0];
+    friendly.addRebelMilitia(`${rebel.seat}`, 5);
     game.discardMercOffer(rebel.mercOffer);
     const executor = game.getActionExecutor();
 
-    const drew = executor.executeAction(game.getAction('rehireMerc')!, rebel, {});
+    const drew = executor.executeAction(game.getAction('rehireMerc')!, rebel, { sector: friendly });
 
     expect(drew.success).toBe(true);
     expect(drew.followUp?.action).toBe('rehireMercFromOffer');
