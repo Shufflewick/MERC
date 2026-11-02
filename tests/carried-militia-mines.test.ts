@@ -64,7 +64,7 @@ describe('militia carried into an empty mined sector set off the mine', () => {
 
     const result = run(game, game.dictatorPlayer, 'vehicleMove', { vehicle, destination, militiaCount: 2 });
 
-    expect(result.success).toBe(true);
+    expect(result).toMatchObject({ success: true });
     expect(hasMine(destination)).toBe(false);
     expect(destination.dictatorMilitia).toBe(0);
   });
@@ -79,7 +79,7 @@ describe('militia carried into an empty mined sector set off the mine', () => {
 
     const result = run(game, rebel, 'vehicleMove', { vehicle, destination, militiaCount: 2 });
 
-    expect(result.success).toBe(true);
+    expect(result).toMatchObject({ success: true });
     expect(hasMine(destination)).toBe(false);
     expect(destination.getRebelMilitia(rebelId)).toBe(0);
   });
@@ -93,7 +93,7 @@ describe('militia carried into an empty mined sector set off the mine', () => {
 
     const result = run(game, rebel, 'move', { squad: rebel.primarySquad, destination, militiaCount: 2 });
 
-    expect(result.success).toBe(true);
+    expect(result).toMatchObject({ success: true });
     expect(hasMine(destination)).toBe(false);
     expect(destination.getRebelMilitia(rebelId)).toBe(0);
   });
