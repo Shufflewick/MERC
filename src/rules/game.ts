@@ -66,10 +66,6 @@ export interface MERCOptions extends GameOptions {
   dictatorChoice?: string;  // Which dictator character to use
   expansionModes?: string[]; // 'A' for vehicles
   dictatorIsBot?: boolean;  // MERC-exaf: Explicitly set if dictator is Bot-controlled
-  // MERC-pbx4: Role selection - which player seat is the dictator
-  // Default: last player (seat = playerCount - 1)
-  // Set to 0 for first player, 1 for second player, etc.
-  dictatorPlayerSeat?: number;
   // Player configurations from lobby (colors, Bot settings)
   playerConfigs?: PlayerConfig[];
   /** The Dictator Character game option from boardsmith.json: 'random' or a dictator id. */
@@ -424,9 +420,6 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
 
   // Static storage for playerCount during construction (workaround for super() timing)
   private static _pendingPlayerCount: number = 2;
-  // MERC-pbx4: Static storage for dictator position during construction
-  // -1 means "use default" (last player)
-  private static _pendingDictatorPosition: number = -1;
   // Player configurations from lobby (colors, Bot settings)
   private static _pendingPlayerConfigs: PlayerConfig[] = [];
 
@@ -872,45 +865,15 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // Store player configs from lobby
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
-    // Find dictator seat (1-indexed) from:
-    // 1. exclusiveSeats.role (platform lobby — seat number directly)
-    // 2. playerConfigs with role:true (BoardSmith exclusive option)
-    // 3. dictatorPlayerSeat (legacy, 0-indexed)
-    // 4. Default to last player
-    let dictatorSeat = -1;  // -1 means last player (resolved below)
+    // The host's lobby or preset names the dictator's seat (1-indexed); with none, it is the last seat
+    const dictatorSeat = options.exclusiveSeats?.role ?? MERCGame._pendingPlayerCount;
 
-    // Platform lobby: exclusiveSeats provides the seat number directly (1-indexed)
-    const exclusiveSeats = options.exclusiveSeats;
-    if (exclusiveSeats?.role != null) {
-      dictatorSeat = exclusiveSeats.role;
-    }
-
-    // Fallback: playerConfigs (from BoardSmith dev lobby or legacy)
-    if (dictatorSeat < 0) {
-      const playerConfigs = options.playerConfigs || [];
-      // Exclusive options pass true/false booleans, keyed by the boardsmith.json option id
-      const dictatorConfigIndex = playerConfigs.findIndex(
-        (config: any) => config.role === true
-      );
-      if (dictatorConfigIndex >= 0) {
-        // playerConfigs is 0-indexed, convert to 1-indexed seat
-        dictatorSeat = dictatorConfigIndex + 1;
-      } else if (options.dictatorPlayerSeat !== undefined) {
-        // Legacy: 0-indexed seat, convert
-        dictatorSeat = options.dictatorPlayerSeat + 1;
-      }
-    }
-
-    // Validate seat if explicitly set (seat is 1-indexed)
-    if (dictatorSeat > 0 && dictatorSeat > MERCGame._pendingPlayerCount) {
+    if (dictatorSeat > MERCGame._pendingPlayerCount) {
       throw new Error(
         `Invalid dictator seat: ${dictatorSeat}. ` +
         `Must be <= playerCount (${MERCGame._pendingPlayerCount}).`
       );
     }
-    // Store as 1-indexed seat (or -1 for default/last player)
-    MERCGame._pendingDictatorPosition = dictatorSeat;
-
     super(options);
 
     // Register all element classes for serialization. registerElements routes
@@ -935,12 +898,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     // BoardSmith v0.6: BoardSmith creates MERCPlayer instances in super() via static PlayerClass
     // Now configure each player as rebel or dictator based on position
     const playerCount = MERCGame._pendingPlayerCount;
-    const dictatorPosition = MERCGame._pendingDictatorPosition > 0
-      ? MERCGame._pendingDictatorPosition  // Already 1-indexed seat
-      : playerCount;  // Default: last player
-
     for (const player of this.players) {
-      if (player.seat === dictatorPosition) {
+      if (player.seat === dictatorSeat) {
         this.configureAsDictator(player);
       } else {
         this.configureAsRebel(player);

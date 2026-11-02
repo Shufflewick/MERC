@@ -30,7 +30,7 @@ function runnerWithHumanDictator(seed: string): GameRunner<MERCGame> {
       seed,
       playerConfigs: [
         { color: '#e74c3c', isBot: false },
-        { color: '#95a5a6', role: true, isBot: false },
+        { color: '#95a5a6', isBot: false },
       ],
     } as never,
   });
@@ -47,7 +47,7 @@ function runnerWithTwoRebels(seed: string): GameRunner<MERCGame> {
       playerConfigs: [
         { color: '#e74c3c', isBot: false },
         { color: '#3498db', isBot: false },
-        { color: '#95a5a6', role: true, isBot: false },
+        { color: '#95a5a6', isBot: false },
       ],
     } as never,
   });

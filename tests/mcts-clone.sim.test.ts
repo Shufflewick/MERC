@@ -395,7 +395,7 @@ describe('MCTS Clone Divergence', () => {
         seed,
         playerConfigs: [
           { color: '#e74c3c', isBot: false },
-          { color: '#95a5a6', role: true, isBot: true, botLevel: 'medium' },
+          { color: '#95a5a6', isBot: true, botLevel: 'medium' },
         ],
       } as any,
     });
@@ -436,7 +436,7 @@ describe('MCTS Clone Divergence', () => {
     expect(Array.isArray(opts.playerConfigs)).toBe(true);
 
     const configs = opts.playerConfigs as any[];
-    const dictatorConfig = configs.find((c: any) => c.role);
+    const dictatorConfig = configs[game.dictatorPlayer.seat - 1];
     expect(dictatorConfig).toBeDefined();
     expect(dictatorConfig.isBot).toBe(true);
 

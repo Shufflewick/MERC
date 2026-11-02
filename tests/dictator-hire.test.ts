@@ -15,7 +15,7 @@ function playToHumanDictatorFirstHire(seed: string): GameRunner<MERCGame> {
       playerNames: ['Rebel', 'Dictator'],
       seed,
       dictatorIsBot: false,
-      playerConfigs: [{ color: '#e74c3c' }, { color: '#95a5a6', role: true, isBot: false }],
+      playerConfigs: [{ color: '#e74c3c' }, { color: '#95a5a6', isBot: false }],
     } as never,
   });
   runner.start();
@@ -168,7 +168,7 @@ describe('Dictator Day 1 Hire', () => {
         playerNames: ['Rebel1', 'Rebel2', 'Dictator'],
         seed: 'bot-dictator-day-one',
         dictatorIsBot: true,
-        playerConfigs: [{ color: '#e74c3c' }, { color: '#3498db' }, { color: '#95a5a6', role: true, isBot: true }],
+        playerConfigs: [{ color: '#e74c3c' }, { color: '#3498db' }, { color: '#95a5a6', isBot: true }],
       } as never,
     });
     runner.start();

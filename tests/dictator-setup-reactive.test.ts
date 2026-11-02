@@ -37,7 +37,7 @@ function createDictatorGame(dictatorId: string, seed: string, dictatorIsBot = tr
       dictatorChoice: dictatorId,
       playerConfigs: [
         { color: '#e74c3c', isBot: true },
-        { color: '#95a5a6', role: true, isBot: dictatorIsBot, botLevel: 'medium' },
+        { color: '#95a5a6', isBot: dictatorIsBot, botLevel: 'medium' },
       ],
     } as any,
   });

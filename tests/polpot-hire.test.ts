@@ -23,7 +23,7 @@ function polpotGame(isBot: boolean): GameRunner<MERCGame> {
       playerNames: ['Rebel', 'Dictator'],
       seed: 'i131-polpot-mine',
       dictatorChoice: 'polpot',
-      playerConfigs: [{ isBot: false }, { role: true, isBot }],
+      playerConfigs: [{ isBot: false }, { isBot }],
     } as never,
   });
   runner.start();

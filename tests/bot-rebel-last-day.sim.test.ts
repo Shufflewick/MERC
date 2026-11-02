@@ -21,7 +21,8 @@ describe('bot rebel on the last day (#90)', () => {
         playerNames: ['Dictator', 'Rebel'],
         seed: 'probe-1',
         dictatorChoice: 'castro',
-        playerConfigs: [{ role: true, isBot: false }, { isBot: true }],
+        exclusiveSeats: { role: 1 },
+        playerConfigs: [{ isBot: false }, { isBot: true }],
       } as never,
     });
     runner.start();
