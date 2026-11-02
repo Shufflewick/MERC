@@ -3,7 +3,7 @@ import { GameRunner } from 'boardsmith/runtime';
 import { gameDefinition } from '../src/rules/index';
 import { MERCGame } from '../src/rules/game.js';
 import { CombatantModel } from '../src/rules/elements.js';
-import { executeCombat } from '../src/rules/combat.js';
+import { executeCombat, executeCombatRetreat } from '../src/rules/combat.js';
 
 /**
  * Issue #113: Golem "may attack any 1 target before the first round of combat",
@@ -63,5 +63,50 @@ describe('Golem pre-combat strike (#113)', () => {
     expect(rounds, 'combat ended before round 2, so the test proves nothing').toBeGreaterThanOrEqual(2);
     expect(offers).toBe(1);
     expect(resolutions).toBe(1);
+  });
+
+  it('stays resolved, with the stalemate count, when dictator MERCs retreat and militia hold the line', () => {
+    const runner = new GameRunner({
+      GameClass: gameDefinition.gameClass,
+      gameType: gameDefinition.gameType,
+      gameOptions: {
+        playerCount: 2,
+        playerNames: ['Rebel1', 'Dictator'],
+        seed: 'golem-militia-hold',
+        playerIsBot: [false, true],
+      },
+    }) as GameRunner<MERCGame>;
+    runner.start();
+    const game = runner.game;
+    const rebel = game.rebelPlayers[0];
+    const dictator = game.dictatorPlayer;
+    const sector = game.gameMap.getAllSectors()[0];
+
+    const golem = game.first(CombatantModel, m => m.isMerc && m.combatantId === 'golem')!;
+    golem.damage = 0;
+    golem.putInto(rebel.primarySquad);
+    rebel.primarySquad.sectorId = sector.sectorId;
+    const enemy = game.first(CombatantModel, m => m.isMerc && m.combatantId !== 'golem' && !m.isDead)!;
+    enemy.damage = 0;
+    enemy.putInto(dictator.primarySquad);
+    dictator.primarySquad.sectorId = sector.sectorId;
+    sector.dictatorMilitia = 5;
+
+    executeCombat(game, sector, rebel, { attackingPlayerIsRebel: true });
+    const combat = game.activeCombat!;
+    const golemId = combat.pendingGolemAttack?.golemId;
+    expect(golemId, 'Golem should be offered his strike first').toBeDefined();
+    combat.selectedTargets ??= new Map();
+    combat.selectedTargets.set(`golem:${golemId}`, ['']);
+    combat.pendingGolemAttack = undefined;
+    executeCombat(game, sector, rebel);
+    expect(game.activeCombat!.golemResolved).toContain(golemId);
+    game.activeCombat!.stalemateRounds = 2;
+
+    executeCombatRetreat(game, game.getAdjacentSectors(sector)[0], dictator);
+
+    expect(game.messages.some(m => m.text.includes('militia hold the line'))).toBe(true);
+    expect(game.activeCombat!.golemResolved).toContain(golemId);
+    expect(game.activeCombat!.stalemateRounds).toBe(2);
   });
 });

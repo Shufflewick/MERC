@@ -3189,8 +3189,10 @@ function syncMilitiaCasualties(
  *   which also clears any other pending decision left on it. The two pauses
  *   that carry their own pending payload do this; the ones whose payload the
  *   round already wrote onto activeCombat must spread, or they would erase it.
- * - `keepRoundProgress` saves the partial round. Golem strikes before the round
- *   is set up, so it has no progress to keep and resumes the round from the top.
+ * - `keepRoundProgress` saves the partial round, including who has already
+ *   answered the before-attack healing prompt and the dice spent on it. Golem
+ *   strikes before the round is set up, so it has no progress to keep and
+ *   resumes the round from the top.
  * - `saveDogTargets` carries the dog choices already made this round.
  * - `syncCasualties` pushes militia kills to the sector so the map matches the
  *   combat panel. Golem skips it because nothing has died yet.
@@ -3298,6 +3300,8 @@ function pauseCombat(
       roundResults: roundResult.round.results,
       roundCasualties: roundResult.round.casualties,
       roundInitiativeOrder: roundResult.initiativeOrder,
+      healingDiceUsed: game.activeCombat?.healingDiceUsed,
+      beforeAttackHealingProcessed: game.activeCombat?.beforeAttackHealingProcessed,
     } : {}),
     ...(pause.kind === 'targetSelection' ? {
       pendingTargetSelection: {
@@ -3855,6 +3859,7 @@ export function executeCombatRetreat(
       dictatorCasualties,
       dogAssignments: game.activeCombat.dogAssignments,
       dogs: game.activeCombat.dogs,
+      stalemateRounds: game.activeCombat.stalemateRounds,
     };
     game.animate('combat-panel', buildCombatPanelSnapshot(game));
 
