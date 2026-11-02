@@ -722,7 +722,7 @@ if (animationEvents) {
     combatBarrierActive.value = true;
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 2000);
-      signal.addEventListener('abort', () => resolve(), { once: true });
+      signal.addEventListener('abort', () => resolve());
     });
     const closed = new Promise<void>((resolve) => (combatBarrierClosed = resolve));
     combatBarrierActive.value = false;
