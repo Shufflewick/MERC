@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestGame } from 'boardsmith/testing';
 import { MERCGame } from '../src/rules/game.js';
-import { CombatantModel } from '../src/rules/elements.js';
+import { CombatantModel, Equipment } from '../src/rules/elements.js';
 import { executeCombat } from '../src/rules/combat.js';
 
 /**
@@ -69,4 +69,57 @@ describe('Surgeon before-attack healing pause', () => {
 
     expect(game.activeCombat?.pendingBeforeAttackHealing ?? null).toBeNull();
   });
+
+  it('lets a 3-dice Surgeon heal twice, keeping one die to attack with', () => {
+    const { game, rebel, sector } = setup('surgeon-twice');
+    const surgeon = findMerc(game, 'surgeon');
+    surgeon.putInto(rebel.primarySquad);
+    surgeon.baseInitiative = 6;
+    surgeon.baseCombat = 3;
+    surgeon.weaponSlot?.putInto(game.weaponsDiscard);
+    const [first, second] = game.all(CombatantModel)
+      .filter(m => m.isMerc && m.combatantId !== 'surgeon' && !m.isDead).slice(0, 2);
+    for (const ally of [first, second]) {
+      ally.putInto(rebel.primarySquad);
+      ally.damage = 1;
+    }
+    game.updateSquadBonuses(rebel.primarySquad);
+    expect(surgeon.combat).toBe(3);
+    sector.addDictatorMilitia(3);
+    executeCombat(game, sector, rebel, { interactive: true });
+
+    const heal = (ally: CombatantModel) => game.performAction('combatSurgeonHeal', rebel, { target: `${capitalized(ally)} (1 damage)` });
+    expect(heal(first).error).toBeUndefined();
+
+    expect(game.getAvailableActions(rebel).map(a => a.name)).toContain('combatSurgeonHeal');
+    expect(heal(second).error).toBeUndefined();
+  });
+
+  it("does not pause one rebel's attack for another rebel's healing item", () => {
+    const game = createTestGame(MERCGame, { playerCount: 3, playerNames: ['Rebel1', 'Rebel2', 'Dictator'], seed: 'heal-other-rebel' }).game;
+    const [a, b] = game.rebelPlayers;
+    const sector = game.gameMap.getAllSectors()[0];
+    a.primarySquad.sectorId = sector.sectorId;
+    b.primarySquad.sectorId = sector.sectorId;
+    const [attacker, medic] = game.all(CombatantModel)
+      .filter(m => m.isMerc && !['surgeon', 'doc'].includes(m.combatantId) && !m.isDead).slice(0, 2);
+    attacker.putInto(a.primarySquad);
+    attacker.baseInitiative = 9;
+    attacker.damage = 1;
+    medic.putInto(b.primarySquad);
+    medic.baseInitiative = 1;
+    medic.accessorySlot?.putInto(game.accessoriesDiscard);
+    medic.equip(game.first(Equipment, e => e.equipmentId === 'first-aid-kit')!);
+    game.updateSquadBonuses(a.primarySquad);
+    game.updateSquadBonuses(b.primarySquad);
+    sector.addDictatorMilitia(3);
+
+    executeCombat(game, sector, a, { interactive: true });
+
+    expect(game.activeCombat?.pendingBeforeAttackHealing?.attackerName ?? null).not.toBe(capitalized(attacker));
+  });
 });
+
+function capitalized(merc: CombatantModel): string {
+  return merc.combatantName.charAt(0).toUpperCase() + merc.combatantName.slice(1);
+}

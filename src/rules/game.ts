@@ -1592,10 +1592,8 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
    */
   hasPlayerRespondedToCoordinatedAttack(playerSeat: number): boolean {
     if (!this.coordinatedAttack) return true;
-    if (this.coordinatedAttack.declinedPlayers.includes(playerSeat)) return true;
-    // Check if all eligible squads for this player are committed or if they committed at least one
-    // A player is "done" if they committed a squad or declined
-    return this.coordinatedAttack.committedSquads.some(s => s.playerSeat === playerSeat)
+    // A player is "done" once they commit a squad or decline; the declarer's own first squad is the attack, not an answer to it.
+    return this.coordinatedAttack.committedSquads.slice(1).some(s => s.playerSeat === playerSeat)
       || this.coordinatedAttack.declinedPlayers.includes(playerSeat);
   }
 

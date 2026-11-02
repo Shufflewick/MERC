@@ -78,6 +78,8 @@ import {
  */
 export function clearActiveCombat(game: MERCGame): void {
   game.activeCombat = null;
+  // Loot from this combat that no dictator MERC took stays in the discard.
+  game._gaddafiLootableEquipment = null;
 }
 
 function emitMapCombatantDeathForTarget(game: MERCGame, target: Combatant): void {
@@ -2167,11 +2169,15 @@ const { isHumanControlled, hasMercSource } = control;
         combatant: Combatant;
       }> = [];
 
+      // The pause asks the attacker's player, so only that player's own healers count.
+      const decider = getControllingPlayer(game, attacker);
+
       for (const ally of alliedCombatants) {
         if (ally.health <= 0) continue;
         if (!ally.sourceElement) continue;
         const sourceElem = ally.sourceElement as CombatantModel;
         if (!sourceElem.isMerc) continue;
+        if (getControllingPlayer(game, ally) !== decider) continue;
 
         // Check dice available for this healer
         const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
@@ -2248,12 +2254,11 @@ const { isHumanControlled, hasMercSource } = control;
       // The Surgeon heals with his own ability rather than an item, so he
       // never shows up in availableHealers. A human-controlled Surgeon still
       // needs this pause, or combatSurgeonHeal is never offered (issue #54).
-      // The pause asks the attacker's player, so only that player's own Surgeon counts.
       const surgeonCanHeal = alliedCombatants.some(ally => {
         if (ally.health <= 0) return false;
         const sourceElem = ally.sourceElement as CombatantModel | undefined;
         if (!sourceElem?.isMerc || sourceElem.combatantId !== 'surgeon') return false;
-        if (getControllingPlayer(game, ally) !== getControllingPlayer(game, attacker)) return false;
+        if (getControllingPlayer(game, ally) !== decider) return false;
         // One die to sacrifice, one left to attack with.
         const diceUsed = game.activeCombat?.healingDiceUsed?.get(ally.id) ?? 0;
         if (ally.combat - diceUsed < 2) return false;

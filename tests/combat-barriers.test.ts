@@ -362,6 +362,26 @@ describe('Combat Barriers', () => {
     });
   });
 
+  it('asks the declaring rebel whether to commit a second squad next to the target (#110)', () => {
+    const runner = create3PlayerRunner('barrier-coord-1');
+    runner.start();
+    const game = runner.game;
+    expect(playUntilRebelActions(runner, 500).reached).toBe(true);
+    const [rebel1, rebel2] = game.rebelPlayers;
+    const [, second] = rebel1.primarySquad.getLivingMercs();
+    expect(second, 'rebel 1 needs two MERCs to split').toBeDefined();
+    second.putInto(rebel1.secondarySquad);
+    rebel1.secondarySquad.sectorId = rebel1.primarySquad.sectorId;
+    for (const merc of rebel1.team) merc.resetActions();
+    const target = game.getAdjacentSectors(game.getSector(rebel1.primarySquad.sectorId!)!)[0];
+    game.initCoordinatedAttack(target.sectorId, rebel1.seat, 'primary');
+    expect(game.getEligibleSquadsForCoordinatedAttack(rebel1)).toEqual(['secondary']);
+
+    runner.performAction('endTurn', rebel2.seat, autoResolveArgs(game, 'endTurn', rebel2.seat)!);
+
+    expect(getPlayerAction(game.getFlowState(), rebel1.seat)?.available).toContain('commitSquadToCoordinatedAttack');
+  });
+
   /**
    * Test Group 3: Done Before Barrier Preservation
    *

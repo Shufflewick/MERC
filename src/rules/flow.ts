@@ -103,10 +103,6 @@ function getCombatDecisionParticipants(game: MERCGame): Player[] {
   return participants;
 }
 
-function isHumanGaddafi(game: MERCGame): boolean {
-  return game.dictatorPlayer?.dictator?.combatantId === 'gadafi' && game.dictatorPlayer?.isBot !== true;
-}
-
 function getPlayerBySeat(game: MERCGame, seat: string): Player | undefined {
   const rebel = game.rebelPlayers.find(p => `${p.seat}` === seat);
   if (rebel) return rebel;
@@ -419,7 +415,8 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
     // 9. Gaddafi: Human equipment loot choices after combat, while a dictator MERC can carry some of it
     loop({
       name: `${prefix}-gaddafi-loot`,
-      while: () => isHumanGaddafi(game) &&
+      while: () => game.dictatorPlayer?.dictator?.combatantId === 'gadafi' &&
+        game.dictatorPlayer?.isBot !== true &&
         (game._gaddafiLootableEquipment ?? []).some(item => gaddafiLootRecipients(game, item).length > 0) &&
         !game.isFinished(),
       maxIterations: 20,
@@ -431,10 +428,6 @@ function combatResolutionFlow(game: MERCGame, prefix: string) {
           !game._gaddafiLootableEquipment ||
           game._gaddafiLootableEquipment.length === 0,
       }),
-    }),
-    // Loot no dictator MERC there can carry stays in the discard.
-    execute(() => {
-      if (isHumanGaddafi(game)) game._gaddafiLootableEquipment = null;
     }),
 
     // 10. Auto-clear in fully Bot games

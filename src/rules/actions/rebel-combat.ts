@@ -1205,9 +1205,6 @@ export function createCombatSurgeonHealAction(game: MERCGame): ActionDefinition 
       // Track dice sacrificed (1 die for 1 heal)
       game.activeCombat!.healingDiceUsed.set(surgeonCombatant.id, diceUsedAlready + 1);
 
-      // Also reduce the combatant's combat stat for this round
-      surgeonCombatant.combat--;
-
       // Heal the target (both combatant and source merc)
       targetCombatant.health = Math.min(targetCombatant.health + healAmount, targetCombatant.maxHealth);
       targetMerc.heal(healAmount);

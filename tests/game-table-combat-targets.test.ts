@@ -90,3 +90,40 @@ describe('GameTable sending Golem and Epinephrine choices from the combat panel 
     table.stop();
   });
 });
+
+describe('GameTable clearing a finished combat (#110)', () => {
+  async function tableAtCombatEnd(events: { id: number; type: string; data: Record<string, unknown> }[]) {
+    const testGame = createTestGame(MERCGame, { playerCount: 2, playerNames: ['Rebel1', 'Dictator'], seed: 'table-clear' });
+    const shell = await tableShellContext(testGame, 1, {
+      provide: { [ANIMATION_EVENTS_KEY as symbol]: createAnimationEvents({ events: () => events as never }) },
+    });
+    const sent: string[] = [];
+    const actionController: UseActionControllerReturn = {
+      ...shell.actionController,
+      execute: async (action) => { sent.push(action); return { success: true }; },
+    };
+    const wrapper = mount(GameTable, {
+      props: { gameView: testGame.getPlayerView(1), playerSeat: 1, isMyTurn: true, availableActions: ['clearCombatAnimations'], actionController, setBoardPrompt: () => {} },
+      global: { provide: shell.provide },
+      shallow: true,
+    });
+    await flushPromises();
+    return { wrapper, sent, stop: () => { wrapper.unmount(); shell.stop(); } };
+  }
+
+  it('clears it at once when no combat panel is open, as after a reload', async () => {
+    const table = await tableAtCombatEnd([]);
+    expect(table.sent).toEqual(['clearCombatAnimations']);
+    table.stop();
+  });
+
+  it('leaves it to the combat panel while the panel is open', async () => {
+    const table = await tableAtCombatEnd([{ id: 1, type: 'combat-panel', data: {} }]);
+    expect(table.sent).toEqual([]);
+
+    table.wrapper.findComponent({ name: 'CombatPanel' }).vm.$emit('combat-finished');
+    await flushPromises();
+    expect(table.sent).toEqual(['clearCombatAnimations']);
+    table.stop();
+  });
+});
