@@ -108,21 +108,25 @@ const DEFAULT_PLAYOUT_WEIGHT = 2;
 
 /**
  * Whether the search may play this move. Free moves the search could repeat
- * forever keep the turn whenever ending it looks bad (#90), so it leaves out
- * viewing a stash, which changes nothing, and every squad reassignment but
- * breaking a MERC off into a new squad with others left behind: without the
- * merges and lone-squad relabels that could undo it, a split can only happen
- * until all squads are in use. It also leaves out stash picks after an explore
- * that swap out equipment, which the next pick could swap back (#103).
+ * forever keep the turn whenever ending it looks bad (#90), so every free move
+ * it searches must be one no other free move can undo. It leaves out viewing a
+ * stash, which changes nothing, and every squad reassignment but breaking a
+ * MERC off into a new squad with others left behind: without the merges and
+ * lone-squad relabels that could undo it, a split can only happen until all
+ * squads are in use. Between a MERC and the stash at its feet it searches only
+ * the free picks into an empty slot, after an explore or a re-equip, and never
+ * a drop or a pick that swaps out equipment, which the next pick could undo:
+ * then each free pick fills a slot and they run out (#103).
  */
 function searchable(game: MERCGame, seat: number, move: BotMove): boolean {
-  if (move.action === 'collectEquipment') {
+  if (move.action === 'dropEquipment' || move.action === 'viewStash') return false;
+  if (move.action === 'collectEquipment' || move.action === 'reEquipContinue') {
     if (move.args.equipment === undefined) return true;
     const { combatantId } = followUpForSeat(game.getFlowState(), seat)!.args as { combatantId: number };
     const unit = game.getElementById(combatantId) as CombatantModel;
     return unit.canEquip(game.getElementById(move.args.equipment as number) as Equipment);
   }
-  if (move.action !== 'assignToSquad') return move.action !== 'viewStash';
+  if (move.action !== 'assignToSquad') return true;
   const { combatantName, targetSquad } = move.args as { combatantName: string; targetSquad: string };
   if (!targetSquad.startsWith('Create')) return false;
   const source = (game.getPlayer(seat) as MERCPlayer).squads.find((squad) =>
