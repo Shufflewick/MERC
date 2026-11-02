@@ -226,8 +226,8 @@ describe('artillery allocation flow', () => {
 
     const result = runner.performAction('artilleryAllocateHits', dictatorSeat, {
       allocations: [
-        `militia-${first.seat}-${sector.sectorId}::0`,
-        `militia-${second.seat}-${sector.sectorId}::0`,
+        `militia-${first.seat}-${sector.sectorId}`,
+        `militia-${second.seat}-${sector.sectorId}`,
       ],
     });
 
@@ -289,13 +289,35 @@ describe('artillery allocation flow', () => {
 
     const result = runner.performAction('artilleryAllocateHits', dictatorSeat, {
       allocations: [
-        ...Array.from({ length: left }, (_, i) => `${merc.combatantId}::${i}`),
-        `militia-${second.seat}-${sector.sectorId}::0`,
+        ...Array<string>(left).fill(merc.combatantId),
+        `militia-${second.seat}-${sector.sectorId}`,
       ],
     });
 
     expect(result.success, result.error).toBe(true);
     expect(first.team, 'a MERC killed by artillery stayed on the team').not.toContain(merc);
     expect(merc.parent, 'a MERC killed by artillery was not discarded').toBe(game.mercDiscard);
+  });
+
+  it('lists each way to split a big roll among the targets once (#125)', () => {
+    const runner = runnerWithHumanDictator('artillery-flow-big-roll');
+    runner.start();
+    const game = runner.game;
+    const rebel = game.rebelPlayers[0];
+
+    const { seat: dictatorSeat } = reachArtilleryPlay(runner);
+    garrisonAdjacentSector(game, 1);
+    const pending = shell(runner, dictatorSeat, 6);
+    const owner = `${rebel.seat}`;
+    pending.validTargets = [
+      { id: 'militia', name: 'militia', type: 'militia', ownerId: owner, currentHealth: 10, maxHealth: 10 },
+      ...['a', 'b', 'c', 'd'].map(id => (
+        { id, name: id, type: 'merc' as const, ownerId: owner, currentHealth: 3, maxHealth: 3 })),
+    ];
+
+    const moves = enumerateLegalMoves(game, rebel.seat).filter(m => m.action === 'artilleryAllocateHits');
+    // The four MERCs take 0 to 3 hits each, at most 6 in all, and the militia take the rest:
+    // 1 + 4 + 10 + 20 + 31 + 40 + 44 splits by the MERCs' total.
+    expect(moves.length).toBe(150);
   });
 });
