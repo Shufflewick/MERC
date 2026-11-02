@@ -591,6 +591,7 @@ function handleEquipFlyComplete() {
 
 // COMBAT BARRIER OVERLAY - shown when simultaneous actions pause for combat
 const combatBarrierActive = ref(false);
+let combatBarrierClosed = () => {};
 
 // TACTICS CARD ANIMATIONS - driven by animation events
 const activeTacticEvent = ref<{
@@ -717,12 +718,10 @@ if (animationEvents) {
 
   animationEvents.registerHandler('combat-barrier', async () => {
     combatBarrierActive.value = true;
-    await new Promise<void>((resolve) => {
-      setTimeout(() => {
-        combatBarrierActive.value = false;
-        resolve();
-      }, 2000);
-    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+    const closed = new Promise<void>((resolve) => (combatBarrierClosed = resolve));
+    combatBarrierActive.value = false;
+    await closed;
   }, { skip: 'drop' });
 
   // Register handlers for all 8 sector-targeted tactics events
@@ -1475,7 +1474,7 @@ const clickableSectors = computed(() => {
     </GameOverlay>
 
     <!-- Combat Barrier Banner - shown when simultaneous actions pause for combat -->
-    <GameOverlay :active="combatBarrierActive" :backdrop-opacity="0.5">
+    <GameOverlay :active="combatBarrierActive" :backdrop-opacity="0.5" @closed="combatBarrierClosed()">
       <div class="combat-barrier-content" @click.stop>
         <div class="combat-barrier-label">Combat Detected</div>
         <div class="combat-barrier-description">Simultaneous actions paused while combat resolves</div>
