@@ -43,7 +43,7 @@ function create3PlayerAllBot(seed: string): GameRunner<MERCGame> {
       playerConfigs: [
         { color: '#e74c3c', isBot: true },
         { color: '#3498db', isBot: true },
-        { color: '#95a5a6', role: true, isBot: true, botLevel: 'medium' },
+        { color: '#95a5a6', isBot: true, botLevel: 'medium' },
       ],
     } as any,
   });
@@ -64,7 +64,7 @@ function create3PlayerMixedRebels(seed: string): GameRunner<MERCGame> {
       playerConfigs: [
         { color: '#e74c3c', isBot: false },
         { color: '#3498db', isBot: true },
-        { color: '#95a5a6', role: true, isBot: true, botLevel: 'medium' },
+        { color: '#95a5a6', isBot: true, botLevel: 'medium' },
       ],
     } as any,
   });

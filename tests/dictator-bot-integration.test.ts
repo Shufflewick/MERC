@@ -23,7 +23,7 @@ function createBotDictatorGame(dictator: string, seed: string): GameRunner<MERCG
       dictatorChoice: dictator,
       playerConfigs: [
         { color: '#e74c3c', isBot: true },
-        { color: '#95a5a6', role: true, isBot: true, botLevel: 'medium' },
+        { color: '#95a5a6', isBot: true, botLevel: 'medium' },
       ],
     } as any,
   });

@@ -873,32 +873,17 @@ export class MERCGame extends Game<MERCGame, MERCPlayer> {
     MERCGame._pendingPlayerConfigs = options.playerConfigs || [];
 
     // Find dictator seat (1-indexed) from:
-    // 1. exclusiveSeats.role (platform lobby — seat number directly)
-    // 2. playerConfigs with role:true (BoardSmith exclusive option)
-    // 3. dictatorPlayerSeat (legacy, 0-indexed)
-    // 4. Default to last player
+    // 1. exclusiveSeats.role (the host's lobby or preset, seat number directly)
+    // 2. dictatorPlayerSeat (legacy, 0-indexed)
+    // 3. Default to last player
     let dictatorSeat = -1;  // -1 means last player (resolved below)
 
-    // Platform lobby: exclusiveSeats provides the seat number directly (1-indexed)
     const exclusiveSeats = options.exclusiveSeats;
     if (exclusiveSeats?.role != null) {
       dictatorSeat = exclusiveSeats.role;
-    }
-
-    // Fallback: playerConfigs (from BoardSmith dev lobby or legacy)
-    if (dictatorSeat < 0) {
-      const playerConfigs = options.playerConfigs || [];
-      // Exclusive options pass true/false booleans, keyed by the boardsmith.json option id
-      const dictatorConfigIndex = playerConfigs.findIndex(
-        (config: any) => config.role === true
-      );
-      if (dictatorConfigIndex >= 0) {
-        // playerConfigs is 0-indexed, convert to 1-indexed seat
-        dictatorSeat = dictatorConfigIndex + 1;
-      } else if (options.dictatorPlayerSeat !== undefined) {
-        // Legacy: 0-indexed seat, convert
-        dictatorSeat = options.dictatorPlayerSeat + 1;
-      }
+    } else if (options.dictatorPlayerSeat !== undefined) {
+      // Legacy: 0-indexed seat, convert
+      dictatorSeat = options.dictatorPlayerSeat + 1;
     }
 
     // Validate seat if explicitly set (seat is 1-indexed)

@@ -9,8 +9,6 @@ import { autoResolveArgs, getCurrentAction } from './auto-play.js';
 
 /** Seat 1 or 2 holds the dictator; the other seat is the rebel. The dictator's seat is marked a bot when it is seat 2, the rebel's when it is. */
 export function castroGameAtDayTwo(dictatorSeat: 1 | 2, seat: number): GameRunner<MERCGame> {
-  const dictator = { role: true, isBot: dictatorSeat === 2 };
-  const rebel = { isBot: dictatorSeat === 1 };
   const runner = new GameRunner<MERCGame>({
     GameClass: MERCGame,
     gameType: 'merc',
@@ -19,7 +17,8 @@ export function castroGameAtDayTwo(dictatorSeat: 1 | 2, seat: number): GameRunne
       playerNames: ['One', 'Two'],
       seed: 'i82-determinize',
       dictatorChoice: 'castro',
-      playerConfigs: dictatorSeat === 1 ? [dictator, rebel] : [rebel, dictator],
+      exclusiveSeats: { role: dictatorSeat },
+      playerConfigs: [{ isBot: dictatorSeat === 2 }, { isBot: dictatorSeat === 1 }],
     } as never,
   });
   runner.start();
