@@ -13,11 +13,9 @@
   },
   "dependencies": {
     "boardsmith": "file:../../../../BoardSmith",
-    "three": "^0.182.0",
     "vue": "^3.4.0"
   },
   "devDependencies": {
-    "@types/three": "^0.182.0",
     "@typescript-eslint/parser": "^8.68.0",
     "@vitejs/plugin-vue": "^5.0.0",
     "@vue/test-utils": "^2.5.1",
